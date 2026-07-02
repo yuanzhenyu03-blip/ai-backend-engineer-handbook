@@ -1,35 +1,79 @@
-# AI Backend Engineer Handbook
+# AI-Backend-Handbook
 
-> Build real engineering capability for overseas AI Backend / AI Automation remote jobs.
+## 🎯 Mission
 
-## 🎯 Goal
-Become an AI Backend Engineer capable of passing overseas startup interviews.
+Build the skills required to become an AI Backend Engineer capable of working for overseas AI startups.
 
-## 📚 Learning Roadmap
-1. Python Design
-2. FastAPI
-3. Playwright
-4. Docker
-5. Redis
-6. PostgreSQL
-7. n8n
-8. AI Agent
-9. System Design
-10. Mock Interview
+The goal is not to learn frameworks one by one.
 
-## 📂 Repository Structure
-- `01-Python-Design/`
-- `02-FastAPI/`
-- `03-Playwright/`
-- `04-Docker/`
-- `05-Redis/`
-- `06-PostgreSQL/`
-- `07-n8n/`
-- `08-AI-Agent/`
-- `09-System-Design/`
-- `Interview-Bank/`
-- `Cheat-Sheets/`
-- `Enterprise-Projects/`
+The goal is to build engineering thinking.
 
-## Core Principle
-> Don't chase tools. Build engineering capability.
+---
+
+# Learning Roadmap
+
+Phase 1 - Python Design
+
+* Object Model
+* Reference
+* Mutable vs Immutable
+* Generator
+* Decorator
+* Context Manager
+* Async/Await
+
+Phase 2 - FastAPI
+
+* Routing
+* Dependency Injection
+* Pydantic
+* SQLAlchemy
+* JWT Authentication
+* Testing
+
+Phase 3 - Playwright
+
+* Browser
+* Context
+* Locator
+* Async API
+* Anti-bot
+* Scraping
+
+Phase 4 - Infrastructure
+
+* Docker
+* PostgreSQL
+* Redis
+* Celery
+
+Phase 5 - AI
+
+* OpenAI API
+* Tool Calling
+* MCP
+* RAG
+* LangGraph
+* n8n
+
+Phase 6 - System Design
+
+Phase 7 - Mock Interview
+
+---
+
+## Learning Principles
+
+* Build engineering capability instead of chasing tools.
+* Always understand why a design exists.
+* Prefer enterprise practices over demo code.
+* Every lesson must connect theory, engineering, interview questions, and projects.
+
+---
+
+## Final Goal
+
+* Enterprise GitHub Portfolio
+* Overseas Resume
+* Mock Interview Ready
+* Remote AI Backend Offer
