@@ -66,35 +66,47 @@ Career and learning path from Python to overseas AI Backend work.
 
 Technical vocabulary and English interview terms.
 
+### `REPOSITORY_GUIDE.md`
+
+Practical guide for new AI assistants and developers working in the repository.
+
+### `CONTRIBUTING.md`
+
+Contribution rules for branches, commits, Markdown, lessons, projects, and reviews.
+
 ---
 
 ## Directories
 
 ### `docs/`
 
-Final lesson documents.
+Canonical final lesson documents.
+
+Lessons are organized by topic.
 
 Example:
 
 ```text
-docs/day01-python-object-model.md
+docs/python/day01-object-model.md
 ```
+
+Do not create duplicate course folders outside `docs/`.
 
 ### `projects/`
 
-Production-style coding projects.
+Production-style coding projects. Every project directory must contain its own `README.md`.
 
 ### `interview/`
 
-Interview question banks and model answers.
+Interview question banks and model answers. `interview/python.md` is the template for future interview documents.
 
 ### `cheat_sheets/`
 
-One-page review notes.
+One-page review notes for interview preparation.
 
 ### `prompts/`
 
-Reusable prompts for Codex, ChatGPT, and other AI assistants.
+Reusable prompts for Codex, ChatGPT, interview generation, project generation, and review workflows.
 
 ### `progress/`
 
@@ -102,7 +114,16 @@ Weekly and monthly learning progress logs.
 
 ### `assets/`
 
-Diagrams, images, architecture sketches, and screenshots.
+Images, diagrams, architecture sketches, and memory model visuals.
+
+Recommended structure:
+
+```text
+assets/images/
+assets/diagrams/
+assets/architecture/
+assets/memory-model/
+```
 
 ### `templates/`
 
@@ -118,11 +139,12 @@ Automation scripts for the repository.
 
 1. Learn through conversation.
 2. Convert discussion into a final Markdown lesson.
-3. Store the lesson under `docs/`.
+3. Store the lesson under `docs/<topic>/`.
 4. Update `PROJECT_STATUS.md`.
 5. Update `TASKS.md`.
 6. Update `CHANGELOG.md`.
 7. Use Codex to implement projects under `projects/`.
+8. Convert projects into interview stories under `interview/` and quick review notes under `cheat_sheets/`.
 
 ---
 
@@ -137,5 +159,8 @@ Any AI assistant should read files in this order:
 5. `TASKS.md`
 6. `CODING_STANDARD.md`
 7. `CURRICULUM.md`
+8. `LESSON_TEMPLATE.md`
+9. `DECISIONS.md`
+10. `REPOSITORY_GUIDE.md`
 
 Only after reading these files should the assistant begin coding or writing lessons.
