@@ -1,5 +1,37 @@
-# projects
+# Projects
 
-Production-style portfolio projects live here.
+This directory contains production-style projects.
 
-Each project should follow `CODING_STANDARD.md`.
+Every project should simulate real engineering work.
+
+---
+
+Each project should contain:
+
+README.md
+
+requirements.txt
+
+Dockerfile
+
+tests/
+
+docs/
+
+src/
+
+---
+
+Every project should explain:
+
+Problem
+
+Architecture
+
+Implementation
+
+Testing
+
+Deployment
+
+Future Improvements
