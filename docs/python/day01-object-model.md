@@ -50,6 +50,37 @@ If you understand that variables are names bound to objects, functions are first
 
 That is why this lesson starts with the object model. It is the foundation under the rest of the roadmap.
 
+# Lesson Map
+
+Today's Lesson
+
+1. Why Python
+2. Python Design Philosophy
+3. Everything Is an Object
+4. Function Objects
+5. Callable Objects
+6. References
+7. Identity
+8. `==` vs `is`
+9. Mutable vs Immutable Preview
+10. Mutable Default Arguments
+11. FastAPI Connections
+12. Playwright Connections
+13. Interview Review
+14. Today's Takeaway
+
+## Estimated Study Time
+
+Reading: 90-120 minutes
+
+Exercises: 60-90 minutes
+
+Coding: 45-60 minutes
+
+Review: 30-45 minutes
+
+Total: 4-5 hours
+
 ## Roadmap Position
 
 Day 1 is not only a Python lesson. It is the base layer for the entire roadmap.
@@ -3383,6 +3414,23 @@ This matters because:
 If Day 1 is about "what does this name point to?", Day 2 is about "can the thing it points to change?"
 
 That is the next layer of engineering thinking.
+
+# Before Day02
+
+Students should confirm they can answer the following questions without looking at the notes.
+
+- [ ] What is an object?
+- [ ] Why do variables store references instead of values?
+- [ ] Why are functions first-class objects?
+- [ ] What is the difference between `hello` and `hello()`?
+- [ ] What happens when a function is assigned to another variable?
+- [ ] What does `del name` actually delete?
+- [ ] What is object identity?
+- [ ] What is the difference between `==` and `is`?
+- [ ] Why are mutable default arguments dangerous?
+- [ ] Why does FastAPI rely heavily on callables?
+- [ ] Why should Playwright jobs avoid shared page objects?
+- [ ] How do function objects prepare us for AI Agent tool calling?
 
 ---
 
