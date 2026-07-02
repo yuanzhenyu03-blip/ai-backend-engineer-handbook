@@ -8,15 +8,12 @@ This file tracks what we are doing now, what comes next, and what has already be
 
 ## Now
 
-- [ ] Create the repository management files.
-- [ ] Create the directory skeleton.
-- [ ] Write `docs/day01-python-object-model.md` as the first final lesson.
+- [ ] Start Day 2: Mutable vs Immutable.
 
 ---
 
 ## Next
 
-- [ ] Start Day 2: Mutable vs Immutable.
 - [ ] Update `PROJECT_STATUS.md` after Day 2.
 - [ ] Add Python interview questions to `interview/python.md`.
 - [ ] Add Python cheat sheet to `cheat_sheets/python.md`.
@@ -32,17 +29,20 @@ This file tracks what we are doing now, what comes next, and what has already be
 - [x] Add `CURRICULUM.md`.
 - [x] Add `CODING_STANDARD.md`.
 - [x] Add `LESSON_TEMPLATE.md`.
+- [x] Create the repository management files.
+- [x] Create the directory skeleton.
+- [x] Write `docs/day01-python-object-model.md` as the first final lesson.
 
 ---
 
 ## Current Priority
 
-The highest priority is to convert Day 1 from chat notes into a polished lesson document.
+The highest priority is to start Day 2: Mutable vs Immutable.
 
 Target file:
 
 ```text
-docs/day01-python-object-model.md
+docs/day02-mutable-vs-immutable.md
 ```
 
 ---
