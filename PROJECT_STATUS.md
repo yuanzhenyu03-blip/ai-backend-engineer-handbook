@@ -6,11 +6,11 @@ Phase 1 — Python Design
 
 Current Lesson:
 
-Day 1
+Day 2 — Mutable vs Immutable
 
 Status:
 
-Completed
+Ready to start
 
 ## Knowledge Mastered
 
@@ -21,6 +21,14 @@ Completed
 * == compares values.
 * is compares object identity.
 * Mutable default arguments are dangerous.
+
+## Repository Progress
+
+* Canonical lesson location is `docs/<topic>/`.
+* Day 1 final lesson lives at `docs/python/day01-object-model.md`.
+* Project directories have their own README files.
+* Python interview handbook and cheat sheet are available.
+* Repository guide and contributing guide are available.
 
 ## Pending Topics
 
