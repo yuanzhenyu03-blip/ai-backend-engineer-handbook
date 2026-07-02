@@ -1,6 +1,6 @@
 # Codex Working Guide
 
-Version: v1.0
+Version: v1.1
 
 ---
 
@@ -45,6 +45,7 @@ Always read these files first:
 7. CURRICULUM.md
 8. LESSON_TEMPLATE.md
 9. DECISIONS.md
+10. REPOSITORY_GUIDE.md
 
 Do not start working before understanding the project.
 
@@ -94,6 +95,18 @@ Every lesson must include:
 Lessons should explain WHY before HOW.
 
 Lessons should be suitable for publication.
+
+Final lessons belong under:
+
+```text
+docs/<topic>/dayXX-<topic-name>.md
+```
+
+Example:
+
+```text
+docs/python/day01-object-model.md
+```
 
 ---
 
@@ -166,7 +179,9 @@ If a lesson is completed:
 
 Generate:
 
-docs/dayXX-<topic>.md
+```text
+docs/<topic>/dayXX-<topic-name>.md
+```
 
 If a project is completed:
 
