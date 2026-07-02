@@ -1396,6 +1396,55 @@ Expected student answer:
 
 No. That calls the function immediately. We should pass `get_current_user`, the function object.
 
+### Realistic FastAPI Example: Request-Scoped Dependency
+
+In a real backend service, a dependency is rarely just a toy function. It often reads headers, validates tokens, opens a database session, or returns the current user.
+
+```python
+from typing import Annotated
+
+from fastapi import Depends, Header, HTTPException
+
+
+class CurrentUser:
+    def __init__(self, user_id: str, role: str) -> None:
+        self.user_id = user_id
+        self.role = role
+
+
+def get_current_user(authorization: Annotated[str, Header()]) -> CurrentUser:
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    return CurrentUser(user_id="user-123", role="admin")
+```
+
+Then FastAPI receives the function object:
+
+```python
+@app.get("/admin/profile")
+def read_admin_profile(
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, str]:
+    return {"user_id": current_user.user_id, "role": current_user.role}
+```
+
+Classroom question:
+
+Why does FastAPI need `get_current_user` instead of `get_current_user()`?
+
+Expected student answer:
+
+Because FastAPI must call the dependency later for each request. If we call it immediately, there is no request header yet.
+
+Tech Lead follow-up:
+
+If `get_current_user` returned a mutable global user object, what production bug could happen?
+
+Expected student answer:
+
+Different requests could accidentally share user state. Authentication data must be request-scoped, not global mutable state.
+
 ## Playwright Connections
 
 Playwright is also object-model heavy.
@@ -1453,6 +1502,59 @@ Expected student answer:
 Engineering lesson:
 
 For independent jobs, create independent browser contexts. Do not accidentally share live browser state.
+
+### Realistic Playwright Example: Isolated Login Job
+
+In production automation, you usually want each job to get an isolated browser context.
+
+```python
+from playwright.sync_api import Browser
+
+
+def run_login_check(browser: Browser, email: str, password: str) -> str:
+    context = browser.new_context()
+    page = context.new_page()
+
+    try:
+        page.goto("https://example.com/login")
+        page.get_by_label("Email").fill(email)
+        page.get_by_label("Password").fill(password)
+        page.get_by_role("button", name="Sign in").click()
+        return page.title()
+    finally:
+        context.close()
+```
+
+Object diagram:
+
+```text
+browser
+  |
+  v
+new context for this job
+  |
+  v
+page for this login flow
+  |
+  v
+locators for stable actions
+```
+
+Classroom question:
+
+Why not reuse one global `page` object for every login job?
+
+Expected student answer:
+
+Because page state can leak between jobs: cookies, URL, DOM state, form values, and navigation history.
+
+Tech Lead follow-up:
+
+If two scheduled scraping jobs share the same `page` reference, what bug would be hard to debug?
+
+Expected student answer:
+
+One job may navigate the page while another job is reading from it, causing flaky failures and incorrect data extraction.
 
 ## AI Agent Connections
 
@@ -2653,6 +2755,66 @@ Why this is better:
 * It gives the behavior a name.
 * It is clearer during code review.
 
+## Tech Lead Follow-up Questions
+
+These are the questions a senior engineer may ask after the first answer is already correct.
+
+### Follow-up 1: Ownership
+
+Question:
+
+Who owns this object?
+
+Why it matters:
+
+Many Python bugs come from unclear ownership. If a function receives a list or dictionary, the caller and callee must have the same expectation: mutate it or return a new object.
+
+Expected student answer:
+
+If mutation is intended, the function name and return type should make that clear. If mutation is not intended, the function should return a new object.
+
+### Follow-up 2: Lifecycle
+
+Question:
+
+Who closes this object?
+
+Why it matters:
+
+For normal Python objects, garbage collection may eventually clean up memory. For external resources such as browser contexts, database sessions, files, or network connections, cleanup must be explicit.
+
+Expected student answer:
+
+The code that creates the external resource should usually define the cleanup boundary, often with `try/finally` or a context manager.
+
+### Follow-up 3: Framework Timing
+
+Question:
+
+Should this function be called now, or should the framework call it later?
+
+Why it matters:
+
+This is the core of `hello` vs `hello()`. FastAPI dependencies, callbacks, and AI tools often need the function object now so the framework can call it later.
+
+Expected student answer:
+
+If the framework needs reusable behavior, pass the function object. If application code needs the result immediately, call the function.
+
+### Follow-up 4: Shared State
+
+Question:
+
+Can two requests or jobs accidentally share this object?
+
+Why it matters:
+
+Shared mutable state is one of the fastest ways to create production bugs in web APIs, browser automation, and AI agent systems.
+
+Expected student answer:
+
+Request-specific state should be created per request or per job. Shared state should be explicit, thread-safe if needed, and usually stored in external systems like Redis or PostgreSQL.
+
 ---
 
 # CTO Thinking
@@ -3129,6 +3291,98 @@ AI Agent:
 * Tools can be represented as function objects.
 * Tool registries often map names to callables.
 * Callable objects can store configuration for tool behavior.
+
+---
+
+# Classroom Discussion
+
+The important classroom discussion today was not "what is the syntax?"
+
+The real discussion was:
+
+```text
+When I write a name in Python, what does that name point to?
+```
+
+That question explains almost everything in this lesson.
+
+When we wrote:
+
+```python
+handler = hello
+```
+
+we were not copying code. We were binding another name to the same function object.
+
+When we wrote:
+
+```python
+message = hello()
+```
+
+we were calling the function and binding the name to the return value.
+
+When we wrote:
+
+```python
+b = a
+```
+
+we were not copying the object. We were copying the reference.
+
+When we wrote:
+
+```python
+del a
+```
+
+we were deleting a name, not necessarily destroying the object.
+
+The engineering discussion is this:
+
+```text
+Names are cheap.
+Objects have identity.
+Mutable objects can be shared.
+Frameworks can receive function objects and call them later.
+```
+
+This is why a backend engineer must think beyond syntax. The same mental model will appear in dependency injection, browser automation, tool calling, context managers, async tasks, and production debugging.
+
+## From Today's Lesson to Tomorrow
+
+Today we learned that variables are names bound to object references.
+
+Tomorrow we ask the next question:
+
+```text
+What kind of object is safe to share?
+```
+
+That is the bridge to Day 2: Mutable vs Immutable.
+
+Day 1 gives us the model:
+
+```text
+name -> reference -> object
+```
+
+Day 2 will ask:
+
+```text
+Can this object change after it is created?
+```
+
+This matters because:
+
+* FastAPI request data should not accidentally leak between requests.
+* Playwright browser state should not accidentally leak between jobs.
+* AI Agent tool inputs and outputs should be predictable.
+* Redis and PostgreSQL boundaries require clear serialization and ownership.
+
+If Day 1 is about "what does this name point to?", Day 2 is about "can the thing it points to change?"
+
+That is the next layer of engineering thinking.
 
 ---
 
