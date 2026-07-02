@@ -50,6 +50,71 @@ If you understand that variables are names bound to objects, functions are first
 
 That is why this lesson starts with the object model. It is the foundation under the rest of the roadmap.
 
+## Roadmap Position
+
+Day 1 is not only a Python lesson. It is the base layer for the entire roadmap.
+
+If you do not understand Python objects and references, later frameworks will look like magic:
+
+```text
+Python Object Model
+        |
+        v
+FastAPI Dependency Injection
+        |
+        v
+Playwright Browser Objects
+        |
+        v
+AI Agent Tool Calling
+```
+
+The goal today is not to memorize definitions. The goal is to build a mental model that you can reuse again and again:
+
+```text
+Name
+  |
+  v
+Reference
+  |
+  v
+Object
+  |
+  +--> can have attributes
+  +--> can have methods
+  +--> can be passed around
+  +--> can sometimes be called
+```
+
+When we later write FastAPI code like this:
+
+```python
+def get_current_user() -> str:
+    return "user-123"
+```
+
+FastAPI does not see "some text in a file." It receives a function object.
+
+When we later write Playwright code like this:
+
+```python
+page.get_by_role("button", name="Login").click()
+```
+
+`page` is not just a variable. It is a name referring to a live browser page object.
+
+When we later build AI agents, tools are often registered as function objects:
+
+```python
+tools = {"search_user": search_user}
+```
+
+So Day 1 answers a deeper engineering question:
+
+```text
+How does Python let frameworks treat our code as data?
+```
+
 ## Why Python Became Dominant for AI
 
 Python became dominant in AI for several engineering reasons, not because it is the fastest language.
@@ -96,6 +161,32 @@ Python favors explicitness over hidden magic. It also favors conventions that ma
 
 However, Python is not anti-abstraction. It supports powerful abstractions through objects, functions, decorators, context managers, iterators, and async protocols. The key is that good Python abstractions should make the code easier to understand, not more impressive.
 
+## Classroom Exercises: Design Philosophy
+
+Question:
+
+Why does Python prefer readability over cleverness?
+
+Think first.
+
+Do not answer "because Python is easy." That is too shallow for an engineering interview.
+
+Expected student answer:
+
+Python code is usually maintained by teams. Readable code reduces onboarding cost, review cost, debugging cost, and production incident risk.
+
+Explanation:
+
+In a startup, speed matters, but messy speed becomes expensive later. Python's design philosophy makes it possible to move quickly while still writing code teammates can understand.
+
+Follow-up question:
+
+If a clever one-line solution and a clear five-line solution both work, which one should you choose in production?
+
+Expected answer:
+
+Choose the clear version unless the clever version has a measurable benefit and is still understandable.
+
 ## Everything Is an Object
 
 In Python, everything is an object:
@@ -132,6 +223,46 @@ print(value)          # value
 
 The exact number returned by `id()` is implementation-specific. In CPython, it is related to the memory address of the object while it exists. For professional engineering, the important idea is not the exact number. The important idea is that every object has identity.
 
+## Classroom Exercises: Everything Is an Object
+
+Question:
+
+Look at this code:
+
+```python
+value = 10
+name = "Ada"
+items = [1, 2, 3]
+```
+
+Which of these are objects?
+
+Think first.
+
+Expected student answer:
+
+All of them. `10` is an integer object, `"Ada"` is a string object, and `[1, 2, 3]` is a list object.
+
+Explanation:
+
+This matters because Python gives a consistent model for all values. Later, when FastAPI inspects type hints or when Playwright returns a `Page` object, you are still working with the same core idea: names refer to objects.
+
+Diagram:
+
+```text
+value ----> int object: 10
+name  ----> str object: "Ada"
+items ----> list object: [1, 2, 3]
+```
+
+Follow-up question:
+
+Is a function also an object?
+
+Expected answer:
+
+Yes. A function definition creates a function object.
+
 ## Function Objects
 
 A function definition creates a function object and binds a name to it.
@@ -165,6 +296,72 @@ handler = greet
 
 print(handler("Ada"))  # Hello, Ada
 ```
+
+This is where many beginners get confused:
+
+```python
+hello
+hello()
+```
+
+These are not the same.
+
+`hello` means "the function object itself."
+
+`hello()` means "call the function object now and give me the return value."
+
+```python
+def hello() -> str:
+    return "Hello"
+
+function_object = hello
+return_value = hello()
+
+print(function_object)
+print(return_value)
+```
+
+Conceptually:
+
+```text
+hello
+  |
+  v
++------------------+
+| function object  |
+| code: return ... |
++------------------+
+
+hello()
+  |
+  v
+execute function object
+  |
+  v
+"Hello"
+```
+
+This distinction is not a small syntax detail. It explains why frameworks can receive your functions and call them later.
+
+FastAPI example:
+
+```python
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok"}
+```
+
+FastAPI needs the function object `health_check`. It should not call `health_check()` immediately when the file is imported. The framework registers the function and calls it later when an HTTP request arrives.
+
+AI Agent example:
+
+```python
+tools = {
+    "health_check": health_check,
+}
+```
+
+The dictionary stores the function object. The agent runtime can choose when to call it.
 
 You can pass functions as arguments:
 
@@ -200,6 +397,110 @@ print(add_user_prefix("123"))  # user:123
 ```
 
 This is the foundation for decorators, dependency injection, callbacks, tool calling, and many framework features.
+
+## Classroom Exercises: `hello` vs `hello()`
+
+Question 1:
+
+What is stored in `handler`?
+
+```python
+def hello() -> str:
+    return "Hello"
+
+handler = hello
+```
+
+Think first.
+
+Expected student answer:
+
+`handler` stores a reference to the same function object as `hello`.
+
+Explanation:
+
+No function call happens here. There are no parentheses. We are only binding another name to the function object.
+
+Diagram:
+
+```text
+hello   ----+
+           |
+           v
+handler --> function object
+```
+
+Question 2:
+
+What is stored in `message`?
+
+```python
+def hello() -> str:
+    return "Hello"
+
+message = hello()
+```
+
+Think first.
+
+Expected student answer:
+
+`message` stores the return value `"Hello"`.
+
+Explanation:
+
+The parentheses call the function. The name `message` does not refer to the function object. It refers to the returned string object.
+
+Diagram:
+
+```text
+hello ----> function object ---- call ----> "Hello"
+                                      |
+                                      v
+                                  message
+```
+
+Question 3:
+
+Which one should we pass to a framework if we want the framework to call it later?
+
+```python
+hello
+hello()
+```
+
+Expected student answer:
+
+Pass `hello`, not `hello()`.
+
+Explanation:
+
+`hello` gives the framework the callable object. `hello()` executes the function immediately and passes the result.
+
+Progressively harder question:
+
+What is wrong with this tool registry?
+
+```python
+def search_user() -> dict[str, str]:
+    return {"user_id": "123"}
+
+tools = {
+    "search_user": search_user(),
+}
+```
+
+Expected student answer:
+
+The function is called immediately. The dictionary stores the return value, not the function object.
+
+Correct version:
+
+```python
+tools = {
+    "search_user": search_user,
+}
+```
 
 ## Callable Objects
 
@@ -300,6 +601,119 @@ print(b)  # [1, 2, 3, 4]
 
 This is not a Python bug. It is Python's reference model working as designed.
 
+Variable names can also be deleted.
+
+```python
+items = [1, 2, 3]
+alias = items
+
+del items
+
+print(alias)  # [1, 2, 3]
+```
+
+`del items` deletes the name `items`. It does not necessarily destroy the list object immediately.
+
+Before `del`:
+
+```text
+items ----+
+         |
+         v
+alias --> list object: [1, 2, 3]
+```
+
+After `del items`:
+
+```text
+alias --> list object: [1, 2, 3]
+```
+
+The object is still alive because `alias` still refers to it.
+
+Why does this matter?
+
+In backend systems, many names can refer to the same object: a request object, a database session, a Playwright page, a configuration object, or an AI tool registry. Deleting one local name does not automatically destroy the underlying object if other references still exist.
+
+## Classroom Exercises: References and Variable Binding
+
+Question 1:
+
+What does `b` refer to?
+
+```python
+a = [1, 2]
+b = a
+```
+
+Think first.
+
+Expected student answer:
+
+`b` refers to the same list object as `a`.
+
+Diagram:
+
+```text
+a ----+
+     |
+     v
+b --> [1, 2]
+```
+
+Explanation:
+
+Assignment does not copy the list. It copies the reference.
+
+Question 2:
+
+What is printed?
+
+```python
+a = [1, 2]
+b = a
+b.append(3)
+print(a)
+```
+
+Expected student answer:
+
+```text
+[1, 2, 3]
+```
+
+Explanation:
+
+`a` and `b` point to the same mutable object.
+
+Question 3:
+
+What happens here?
+
+```python
+page = browser.new_page()
+current_page = page
+del page
+```
+
+Does the browser page object automatically disappear?
+
+Expected student answer:
+
+No. `current_page` still refers to the page object.
+
+Explanation:
+
+This is the same reference model. In Playwright, this matters because browser resources should be closed explicitly. Do not rely on deleting a variable name to clean up external resources.
+
+Question 4:
+
+What is the safer engineering habit for external resources?
+
+Expected student answer:
+
+Close them explicitly with APIs such as `context.close()`, `page.close()`, or context managers when available.
+
 ## Object Identity
 
 Object identity answers the question: "Are these two names referring to the exact same object?"
@@ -331,6 +745,57 @@ c ->+-----------+
 ```
 
 The lists have equal values, but `a` and `c` are different objects.
+
+## Classroom Exercises: Identity
+
+Question 1:
+
+What is the result?
+
+```python
+a = [1, 2, 3]
+b = a
+c = [1, 2, 3]
+
+print(a is b)
+print(a is c)
+```
+
+Think first.
+
+Expected student answer:
+
+```text
+True
+False
+```
+
+Explanation:
+
+`a` and `b` point to the same object. `c` points to a different object with the same value.
+
+Diagram:
+
+```text
+a ----+
+     |
+     v
+b --> object #1: [1, 2, 3]
+
+c --> object #2: [1, 2, 3]
+```
+
+Question 2:
+
+Why does identity matter in real backend systems?
+
+Expected student answer:
+
+Because two objects may represent the same value but still be different runtime objects. This matters for caching, database sessions, browser pages, dependency objects, and shared state.
+
+Explanation:
+
+In PostgreSQL, two Python objects may represent the same database row. In Playwright, two `Page` variables may or may not point to the same live browser tab. In FastAPI, a dependency can return a new object each request or reuse a shared object depending on how it is designed.
 
 ## `==` vs `is`
 
@@ -453,6 +918,132 @@ This rule is important enough to become a professional standard:
 Never use a mutable object as a default argument.
 Use None as the default, then create the mutable object inside the function.
 ```
+
+## Classroom Exercises: Mutable Default Arguments
+
+Question 1:
+
+What is printed?
+
+```python
+def add_item(item: str, items: list[str] = []) -> list[str]:
+    items.append(item)
+    return items
+
+print(add_item("a"))
+print(add_item("b"))
+print(add_item("c"))
+```
+
+Think first.
+
+Expected student answer:
+
+```text
+['a']
+['a', 'b']
+['a', 'b', 'c']
+```
+
+Explanation:
+
+The same default list is reused across calls.
+
+Diagram:
+
+```text
+add_item function object
++--------------------------------+
+| default items                  |
+|        |                       |
++--------|-----------------------+
+         v
+      shared list
+      []
+```
+
+After three calls:
+
+```text
+shared list
+["a", "b", "c"]
+```
+
+Question 2:
+
+Why is this dangerous in FastAPI?
+
+```python
+def collect_errors(error: str, errors: list[str] = []) -> list[str]:
+    errors.append(error)
+    return errors
+```
+
+Expected student answer:
+
+If this function is used during request handling, errors from one request can appear in another request because the default list is shared.
+
+Explanation:
+
+This is not only a Python interview trick. It can become a real production data leak.
+
+Request diagram:
+
+```text
+Request A ----+
+              |
+              v
+        shared default list
+              ^
+              |
+Request B ----+
+```
+
+Question 3:
+
+Fix the function.
+
+Expected student answer:
+
+```python
+def collect_errors(error: str, errors: list[str] | None = None) -> list[str]:
+    if errors is None:
+        errors = []
+
+    errors.append(error)
+    return errors
+```
+
+Question 4:
+
+Harder version: should this function mutate the input list?
+
+```python
+def add_role(role: str, roles: list[str] | None = None) -> list[str]:
+    if roles is None:
+        roles = []
+
+    roles.append(role)
+    return roles
+```
+
+Expected student answer:
+
+It depends on the API contract. If callers expect mutation, it is acceptable but should be clear. If callers expect a new list, return a new list instead.
+
+Safer version:
+
+```python
+def add_role(role: str, roles: list[str] | None = None) -> list[str]:
+    if roles is None:
+        roles = []
+
+    return [*roles, role]
+```
+
+Explanation:
+
+Senior engineers do not only ask "does this work?" They ask "who owns this object?" and "will this surprise the caller?"
 
 ---
 
@@ -722,6 +1313,197 @@ if user is None:
 ```
 
 The trade-off is that beginners may confuse the two. A senior engineer should know when identity is meaningful and when it is just an implementation detail.
+
+---
+
+# Engineering Connections
+
+Day 1 matters because modern Python frameworks are built on the object model.
+
+This section is the bridge between today's theory and the rest of the roadmap.
+
+## FastAPI Connections
+
+FastAPI is not magic. It uses function objects, callables, annotations, and dependency objects.
+
+### Route Handler
+
+```python
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok"}
+```
+
+What FastAPI receives:
+
+```text
+health_check
+      |
+      v
++------------------------+
+| function object        |
+| annotations            |
+| return type            |
+| callable behavior      |
++------------------------+
+      |
+      v
+FastAPI route table
+```
+
+Why Day 1 matters:
+
+If you understand function objects, decorators become less mysterious. `@app.get(...)` registers a function object. It does not simply decorate text.
+
+### `Depends()`
+
+```python
+def get_current_user() -> str:
+    return "user-123"
+
+@app.get("/me")
+def read_me(user_id: str = Depends(get_current_user)) -> dict[str, str]:
+    return {"user_id": user_id}
+```
+
+Key idea:
+
+```text
+Depends(get_current_user)
+          |
+          v
+   stores a callable
+          |
+          v
+FastAPI calls it later during request handling
+```
+
+Why this design exists:
+
+FastAPI wants dependencies to be reusable, testable, and replaceable. Passing callables makes that possible.
+
+Classroom question:
+
+Should we write this?
+
+```python
+Depends(get_current_user())
+```
+
+Think first.
+
+Expected student answer:
+
+No. That calls the function immediately. We should pass `get_current_user`, the function object.
+
+## Playwright Connections
+
+Playwright is also object-model heavy.
+
+```python
+browser = chromium.launch()
+context = browser.new_context()
+page = context.new_page()
+locator = page.get_by_role("button", name="Login")
+```
+
+Object relationship:
+
+```text
+Browser
+  |
+  v
+Context
+  |
+  v
+Page
+  |
+  v
+Locator
+```
+
+These are not just simple variables. They are names bound to objects that represent live browser state.
+
+Why Day 1 matters:
+
+If two names refer to the same `Page`, actions through either name affect the same browser tab.
+
+```python
+page = context.new_page()
+login_page = page
+```
+
+Diagram:
+
+```text
+page -------+
+            |
+            v
+login_page -> Playwright Page object
+```
+
+Classroom question:
+
+If `login_page.click(...)` navigates to another URL, what happens to `page`?
+
+Expected student answer:
+
+`page` sees the same navigation because both names refer to the same Page object.
+
+Engineering lesson:
+
+For independent jobs, create independent browser contexts. Do not accidentally share live browser state.
+
+## AI Agent Connections
+
+AI agents often use tool registration and callback systems.
+
+```python
+def search_user(user_id: str) -> dict[str, str]:
+    return {"user_id": user_id, "status": "active"}
+
+tools = {
+    "search_user": search_user,
+}
+```
+
+Diagram:
+
+```text
+tools
+  |
+  v
++--------------------------------+
+| "search_user" -> function obj  |
++--------------------------------+
+```
+
+Why Day 1 matters:
+
+The AI runtime can choose a tool by name, retrieve the function object, and call it later.
+
+```python
+tool = tools["search_user"]
+result = tool("user-123")
+```
+
+Classroom question:
+
+What is wrong here?
+
+```python
+tools = {
+    "search_user": search_user("user-123"),
+}
+```
+
+Expected student answer:
+
+It calls the function immediately and stores the result, not the function object.
+
+Engineering lesson:
+
+Tool calling, callbacks, dependency injection, and decorators all depend on the same foundation: functions are objects that can be passed around.
 
 ---
 
@@ -1417,6 +2199,180 @@ print(call_tool("get_order", {"order_id": "A100"}))
 
 This is Day 1 knowledge applied to AI backend design.
 
+## Classroom Exercises: Progressive Review
+
+These exercises are designed for active recall. Try to answer before reading the explanation.
+
+### Exercise 1: Function Name or Function Call
+
+Question:
+
+What is the difference?
+
+```python
+normalize_email
+normalize_email(" USER@EXAMPLE.COM ")
+```
+
+Expected student answer:
+
+`normalize_email` is the function object. `normalize_email(...)` calls the function and returns a result.
+
+Explanation:
+
+Frameworks need function objects when they want to call your logic later. Application code uses parentheses when it wants the result now.
+
+### Exercise 2: Multiple Names
+
+Question:
+
+What is printed?
+
+```python
+def hello() -> str:
+    return "hello"
+
+a = hello
+b = a
+
+print(b())
+```
+
+Expected student answer:
+
+```text
+hello
+```
+
+Explanation:
+
+`a`, `b`, and `hello` all refer to the same function object.
+
+Diagram:
+
+```text
+hello ----+
+         |
+         v
+a ------> function object
+         ^
+         |
+b -------+
+```
+
+### Exercise 3: Delete a Name
+
+Question:
+
+Does this still work?
+
+```python
+def hello() -> str:
+    return "hello"
+
+handler = hello
+del hello
+
+print(handler())
+```
+
+Expected student answer:
+
+Yes.
+
+Explanation:
+
+`del hello` removes the name `hello`, but `handler` still refers to the function object.
+
+Diagram:
+
+```text
+Before del:
+
+hello ----+
+         |
+         v
+handler -> function object
+
+After del:
+
+handler -> function object
+```
+
+Engineering connection:
+
+This explains why objects can outlive one local name. In real systems, request objects, browser pages, sessions, and tool functions can all have multiple references.
+
+### Exercise 4: Shared Mutable State
+
+Question:
+
+What is printed?
+
+```python
+settings = {"debug": False}
+runtime_settings = settings
+runtime_settings["debug"] = True
+
+print(settings)
+```
+
+Expected student answer:
+
+```text
+{"debug": True}
+```
+
+Explanation:
+
+Both names refer to the same dictionary object.
+
+Diagram:
+
+```text
+settings --------+
+                |
+                v
+runtime_settings -> {"debug": True}
+```
+
+Engineering connection:
+
+Shared mutable dictionaries are dangerous when used as global configuration, request context, or temporary storage. Prefer explicit ownership.
+
+### Exercise 5: Mutable Default in an API Helper
+
+Question:
+
+Why is this code dangerous?
+
+```python
+def add_audit_event(event: str, events: list[str] = []) -> list[str]:
+    events.append(event)
+    return events
+```
+
+Expected student answer:
+
+The default list is shared across calls, so one request or job can affect another.
+
+Fix:
+
+```python
+def add_audit_event(
+    event: str,
+    events: list[str] | None = None,
+) -> list[str]:
+    if events is None:
+        events = []
+
+    return [*events, event]
+```
+
+Explanation:
+
+The safer version avoids both the mutable default bug and unexpected mutation of the caller's list.
+
 ---
 
 # Interview Questions
@@ -1759,6 +2715,10 @@ Useful technical English.
 Key vocabulary.
 
 Example answers.
+
+This section is intentionally short. Use it to practice overseas interview expression after you already understand the engineering reasoning in Chinese.
+
+Do not memorize these sentences mechanically. Use them as patterns.
 
 ## Key Vocabulary
 
