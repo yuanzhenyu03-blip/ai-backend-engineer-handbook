@@ -1,37 +1,79 @@
-# ROADMAP.md
+# AI Backend Engineer Roadmap
 
-# AI Backend Engineer Career Roadmap
+## Goal
 
-This roadmap connects the training curriculum to the final career goal: overseas AI Backend remote work.
+Become an overseas AI Backend Engineer capable of building production-ready AI systems, passing technical interviews, and contributing to real-world backend projects.
+
+Estimated Duration: 100 Days
 
 ---
 
-## Stage 1 — Python Design
+# Phase 1 — Python Foundations (Day01–Day14)
 
-Goal:
-Build a deep understanding of Python's object model and engineering behavior.
+Objective:
+Build Python engineering thinking instead of memorizing syntax.
+
+| Day | Topic |
+|------|-------------------------------|
+| ✅ Day01 | Python Object Model |
+| ⏳ Day02 | Mutable vs Immutable |
+| Day03 | Functions & Parameter Passing |
+| Day04 | Scope & LEGB |
+| Day05 | Closures |
+| Day06 | Decorators |
+| Day07 | Iterators & Generators |
+| Day08 | Exception Handling |
+| Day09 | Modules & Packages |
+| Day10 | Type Hints |
+| Day11 | Object-Oriented Programming |
+| Day12 | Context Managers |
+| Day13 | Async Programming |
+| Day14 | Mini Project + Mock Interview |
+
+Deliverables:
+
+- Python Engineering Handbook
+- Cheat Sheets
+- Interview Notes
+- Mini Project
+
+---
+
+# Phase 2 — Engineering Foundations (Week 3)
 
 Topics:
 
-- Object Model
-- Reference
-- Mutable vs Immutable
-- Iterator
-- Generator
-- Decorator
-- Context Manager
-- Async/Await
+- Git
+- GitHub
+- Linux
+- Docker
+- Docker Compose
 
-Outcome:
+Deliverables:
 
-The student can explain Python design choices in interviews.
+- Git Workflow
+- Dockerized Applications
+- Linux Practice
 
 ---
 
-## Stage 2 — FastAPI Backend
+# Phase 3 — Backend Foundations
 
-Goal:
-Build production-style APIs for AI applications.
+Topics:
+
+- PostgreSQL
+- SQL
+- Redis
+- Database Design
+
+Deliverables:
+
+- Database Project
+- SQL Exercises
+
+---
+
+# Phase 4 — FastAPI
 
 Topics:
 
@@ -40,110 +82,82 @@ Topics:
 - Pydantic
 - Authentication
 - SQLAlchemy
+- Alembic
+- Background Tasks
 - Testing
-- Docker deployment
 
-Outcome:
+Deliverables:
 
-The student can build a backend service for an AI product.
+- Production-ready FastAPI Backend
 
 ---
 
-## Stage 3 — Playwright Automation
-
-Goal:
-Build browser automation systems for real business workflows.
+# Phase 5 — Playwright
 
 Topics:
 
-- Browser
-- Context
+- Browser Automation
+- Browser Context
 - Page
 - Locator
-- Storage State
-- Async Playwright
+- Async API
 - Scraping
-- Error recovery
+- Login Automation
 
-Outcome:
+Deliverables:
 
-The student can build automation tools for overseas clients and startups.
-
----
-
-## Stage 4 — Infrastructure
-
-Goal:
-Understand the deployment and runtime environment.
-
-Topics:
-
-- Docker
-- Docker Compose
-- PostgreSQL
-- Redis
-- Celery
-- Linux
-
-Outcome:
-
-The student can deploy and operate backend applications.
+- Automation Projects
 
 ---
 
-## Stage 5 — AI Backend
-
-Goal:
-Integrate LLMs into production workflows.
+# Phase 6 — n8n
 
 Topics:
 
-- OpenAI API
-- Tool Calling
+- Workflow Automation
+- FastAPI Integration
+- Playwright Integration
+- AI Workflow
+
+Deliverables:
+
+- AI Workflow Projects
+
+---
+
+# Phase 7 — AI Agent Engineering
+
+Topics:
+
 - MCP
+- Tool Calling
+- Function Calling
 - RAG
-- LangGraph
-- n8n
+- Memory
+- OpenAI SDK
 
-Outcome:
+Deliverables:
 
-The student can build AI automation and AI agent systems.
+- AI Agent Backend
 
 ---
 
-## Stage 6 — System Design
-
-Goal:
-Explain architecture decisions in interviews.
+# Phase 8 — Interview Preparation
 
 Topics:
 
-- API Design
-- Caching
-- Queues
-- Scalability
-- Reliability
-- Monitoring
+- Python
+- FastAPI
+- Playwright
+- Docker
+- Redis
+- PostgreSQL
+- System Design
+- Behavioral Interview
+- English Interview
 
-Outcome:
+Deliverables:
 
-The student can discuss backend architecture with overseas startup interviewers.
-
----
-
-## Stage 7 — Offer Preparation
-
-Goal:
-Prepare for overseas remote work.
-
-Tasks:
-
-- Build GitHub portfolio
-- Prepare English resume
-- Prepare LinkedIn profile
-- Practice mock interviews
-- Prepare behavioral answers
-
-Outcome:
-
-The student is ready to apply for overseas AI Backend roles.
+- Complete GitHub Portfolio
+- Mock Interviews
+- Resume
