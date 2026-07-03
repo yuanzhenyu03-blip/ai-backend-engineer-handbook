@@ -221,6 +221,112 @@ The tuple contains a list, and the list is unhashable.
 
 ---
 
+## Function Parameter Passing
+
+Python passes object references by value.
+
+This model is also called call by sharing.
+
+Core rule:
+
+```text
+Function parameters are local names.
+They point to the same objects passed by the caller.
+```
+
+Example:
+
+```python
+def add_item(items: list[int]) -> None:
+    items.append(3)
+
+
+values = [1, 2]
+add_item(values)
+
+print(values)  # [1, 2, 3]
+```
+
+Why:
+
+`items` and `values` point to the same list object.
+
+---
+
+## Mutation vs Rebinding
+
+Mutation changes the object.
+
+Rebinding changes what a local name points to.
+
+| Operation | Caller sees change? | Reason |
+|-----------|---------------------|--------|
+| `items.append(3)` | Yes | Mutates shared list |
+| `items += [3]` | Yes | Mutates shared list |
+| `items = items + [3]` | No | Rebinds local name |
+| `items = [1, 2, 3]` | No | Rebinds local name |
+
+Example:
+
+```python
+def add_with_plus(items: list[int]) -> None:
+    items = items + [3]
+
+
+values = [1, 2]
+add_with_plus(values)
+
+print(values)  # [1, 2]
+```
+
+If a function creates a new object, return it:
+
+```python
+def add_with_return(items: list[int]) -> list[int]:
+    return items + [3]
+```
+
+---
+
+## Mutable vs Immutable in Function Calls
+
+Mutable arguments can be changed in place:
+
+```python
+def add_role(user: dict[str, str]) -> None:
+    user["role"] = "admin"
+```
+
+Immutable arguments cannot be changed in place:
+
+```python
+def increment(value: int) -> None:
+    value = value + 1
+```
+
+The `increment()` function only rebinds the local name `value`.
+
+---
+
+## Common Mutable Methods
+
+These methods usually mutate in place:
+
+| Type | Methods |
+|------|---------|
+| `list` | `append`, `extend`, `insert`, `remove`, `pop`, `sort`, `reverse`, `clear` |
+| `dict` | `update`, `setdefault`, `pop`, `clear` |
+| `set` | `add`, `update`, `remove`, `discard`, `clear` |
+
+Interview warning:
+
+```text
+If a function calls one of these methods on a parameter,
+it may change caller-visible state.
+```
+
+---
+
 ## Function Objects
 
 ```python
@@ -278,4 +384,7 @@ Use callable objects when behavior needs configuration.
 - "A shallow copy copies the outer container, but nested objects may still be shared."
 - "A deep copy recursively copies the object tree."
 - "Dictionary keys must be hashable because their hash must remain stable."
+- "Python uses call by sharing for function arguments."
+- "Mutation changes the object; rebinding changes the local name."
+- "Rebinding a parameter does not rebind the caller's variable."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

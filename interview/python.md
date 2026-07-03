@@ -449,6 +449,172 @@ Store conversation history per user/session in a database or cache, not in one g
 
 ---
 
+## Day03 Questions: Functions & Parameter Passing
+
+### Beginner 1. How does Python pass function arguments?
+
+Question:
+
+How does Python pass parameters into a function?
+
+Answer:
+
+Python passes object references by value. A function parameter is a local name that points
+to the same object passed by the caller.
+
+Explanation:
+
+The function does not receive the caller's variable itself. It receives a reference to the
+object. Rebinding the parameter changes only the local name, but mutating a shared mutable
+object can be visible to the caller.
+
+Backend scenario:
+
+This explains why a helper function can accidentally mutate a request payload, Playwright
+page state, or AI message history.
+
+### Beginner 2. What is the difference between `append()` and `+`?
+
+Question:
+
+What is the difference between `append()` and `+` for a list parameter?
+
+Answer:
+
+`append()` mutates the existing list in place. `+` creates a new list.
+
+Explanation:
+
+If a function calls `items.append(value)`, the caller can see the change because the list
+object is shared. If a function does `items = items + [value]`, only the local name is
+rebound to a new list.
+
+Example:
+
+```python
+def mutate(items: list[int]) -> None:
+    items.append(3)
+
+
+def rebind(items: list[int]) -> None:
+    items = items + [3]
+```
+
+Backend scenario:
+
+This distinction matters when deciding whether a function should mutate caller-owned state
+or return a new object.
+
+### Intermediate 1. Why can a list be modified inside a function but an int cannot?
+
+Question:
+
+Why can a function modify a list argument but not modify an integer argument in place?
+
+Answer:
+
+A list is mutable, so methods such as `append()` can change the list object in place.
+An integer is immutable, so operations such as `value + 1` create a new integer object.
+
+Explanation:
+
+Both arguments are passed as object references. The difference is the object's mutability.
+The list can change internally. The integer cannot.
+
+Backend scenario:
+
+Mutable objects passed into service functions require clear ownership. Immutable values are
+safer to share because they cannot be changed in place.
+
+### Intermediate 2. What is the difference between mutation and rebinding?
+
+Question:
+
+Explain mutation vs rebinding in Python function calls.
+
+Answer:
+
+Mutation changes the object itself. Rebinding changes what a local name points to.
+
+Explanation:
+
+If a parameter points to a list and the function calls `append()`, the list object changes.
+If the function assigns `items = items + [3]`, the local name `items` points to a new list,
+but the caller's name still points to the original list.
+
+Backend scenario:
+
+Hidden mutation can create bugs across FastAPI requests, Playwright jobs, and AI sessions.
+Rebinding can create a different bug: the engineer expects the caller to change, but it does not.
+
+### Senior 1. Explain call by sharing.
+
+Question:
+
+Explain Python's parameter passing model using the term call by sharing.
+
+Answer:
+
+Call by sharing means the caller and the function share access to the same object.
+The function parameter is a local name bound to that object. The function cannot reassign
+the caller's variable, but it can mutate the shared object if the object is mutable.
+
+Explanation:
+
+This model is why Python does not behave like pure pass-by-value or pure pass-by-reference.
+Object identity is shared, but variable bindings are local.
+
+Backend scenario:
+
+Call by sharing explains why state ownership must be explicit in backend service layers.
+
+### Senior 2. Why doesn't rebinding affect the caller?
+
+Question:
+
+Why does rebinding a parameter inside a function not affect the caller's variable?
+
+Answer:
+
+Because the parameter is a local name inside the function. Rebinding changes that local name.
+It does not change the caller's separate name.
+
+Explanation:
+
+At the beginning of the call, both names may point to the same object. After rebinding,
+the function parameter points to a new object while the caller's name still points to the
+original object.
+
+Backend scenario:
+
+If a function builds a new list, dictionary, or message history, it must return the new
+object if the caller should use it.
+
+### Senior 3. How does Python's parameter passing model affect FastAPI, Playwright, and AI Backend?
+
+Question:
+
+How does Python's parameter passing model affect FastAPI, Playwright, and AI backend systems?
+
+Answer:
+
+Python functions receive local names pointing to objects. If those objects are mutable,
+the function may change caller-visible state. In FastAPI, this can leak request data.
+In Playwright, this can mutate page or context state. In AI backends, this can pollute
+shared `messages`, `history`, or session state.
+
+Explanation:
+
+The engineering issue is ownership. A function boundary should make it clear whether the
+function reads an object, mutates it, or returns a new object.
+
+Backend scenario:
+
+Production code should avoid hidden mutation, isolate request/job/session state, and return
+new objects when creating new state.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
@@ -513,6 +679,18 @@ Python is popular in AI backend systems because it is readable, productive, and 
 ecosystem for AI, data, APIs, and automation. It is often used as the orchestration layer
 that connects models, databases, queues, and external services.
 
+### Explain Python's parameter passing model.
+
+Python uses call by sharing. A function parameter is a local name that points to the same
+object passed by the caller. If the function mutates a shared mutable object, the caller
+can observe the change. If the function rebinds the parameter, only the local name changes.
+
+### Explain mutation vs rebinding.
+
+Mutation changes the object itself. Rebinding changes which object a name points to.
+In function calls, mutation can affect caller-visible state, but rebinding a parameter
+does not rebind the caller's variable.
+
 ---
 
 ## Common Mistakes
@@ -525,6 +703,8 @@ that connects models, databases, queues, and external services.
 - Confusing database identity with Python object identity.
 - Sharing Playwright browser state across unrelated jobs.
 - Hiding dependencies in global variables.
+- Expecting parameter rebinding to change the caller's variable.
+- Mutating function parameters without making ownership clear.
 
 ---
 
@@ -537,6 +717,9 @@ that connects models, databases, queues, and external services.
 - Callable objects implement `__call__`.
 - Variables are names bound to references.
 - Mutable defaults are shared across calls.
+- Python uses call by sharing.
+- `append()` mutates a list; `+` creates a new list.
+- Rebinding a parameter does not rebind the caller's variable.
 - Prefer explicit dependencies over global state.
 - Use type hints for public functions.
 - Production Python requires tests, logging, and clear structure.

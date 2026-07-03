@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day02 — Mutable vs Immutable
+Day03 — Functions & Parameter Passing
 
 Status:
 Completed
@@ -24,15 +24,15 @@ Completed
 Target lesson:
 
 ```text
-docs/python/day02-mutable-vs-immutable.md
+docs/python/day03-functions-parameter-passing.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day02 classroom learning.
-- [x] Generate Day02 handbook lesson.
+- [x] Complete Day03 classroom learning.
+- [x] Generate Day03 handbook lesson.
 - [x] Add classroom exercises.
 - [x] Add FastAPI connections.
 - [x] Add Playwright connections.
@@ -44,7 +44,7 @@ docs/python/day02-mutable-vs-immutable.md
 
 ## Repository Tasks
 
-- [x] Update `docs/python/day02-mutable-vs-immutable.md`.
+- [x] Update `docs/python/day03-functions-parameter-passing.md`.
 - [x] Update `cheat_sheets/python.md`.
 - [x] Update `interview/python.md`.
 - [x] Update `PROJECT_STATUS.md`.
@@ -57,21 +57,23 @@ docs/python/day02-mutable-vs-immutable.md
 
 ## Interview Tasks
 
-- [x] Add mutable vs immutable questions.
-- [x] Add reference assignment questions.
-- [x] Add shallow copy vs deep copy questions.
-- [x] Add hashable vs unhashable questions.
-- [x] Add backend engineering scenarios.
+- [x] Add Python parameter passing questions.
+- [x] Add `append()` vs `+` questions.
+- [x] Add mutation vs rebinding questions.
+- [x] Add call by sharing senior questions.
+- [x] Add FastAPI, Playwright, and AI backend scenarios.
 - [x] Add English interview answers.
 
 ---
 
 ## Homework
 
-- [x] Complete copy exercises.
-- [x] Run `id()` experiments.
-- [x] Draw memory diagrams.
-- [x] Implement or prepare a simple object inspector exercise.
+- [x] Complete output prediction exercises.
+- [x] Complete `id()` reasoning exercises.
+- [x] Complete `append()` vs `+` exercises.
+- [x] Complete FastAPI parameter sharing scenario.
+- [x] Complete Playwright Page lifecycle scenario.
+- [x] Complete AI Backend `messages` state scenario.
 
 ---
 
@@ -83,7 +85,7 @@ None.
 
 ## Next Lesson
 
-Day03 — Functions & Parameter Passing
+Day04 — Scope & LEGB
 
 Status:
 Not started
@@ -92,20 +94,21 @@ Not started
 
 ## Future Backlog
 
-### Day02 Review
+### Day03 Review
 
-- [ ] Re-run `append()` / `+=` / `a = a + [...]` experiments without notes.
-- [ ] Explain shallow copy vs deep copy out loud.
-- [ ] Write one FastAPI shared-state bug example from memory.
-- [ ] Write one Playwright shared-context bug example from memory.
-- [ ] Write one AI conversation history pollution example from memory.
+- [ ] Explain call by sharing without notes.
+- [ ] Predict output for mutation vs rebinding examples.
+- [ ] Explain why rebinding a parameter does not affect the caller.
+- [ ] Write one FastAPI parameter mutation bug from memory.
+- [ ] Write one AI `messages` state mutation bug from memory.
 
-### Day03 Preparation
+### Day04 Preparation
 
-- [ ] Review function definitions.
-- [ ] Review positional and keyword arguments.
-- [ ] Review default parameters.
-- [ ] Prepare questions about parameter passing.
+- [ ] Review local variables.
+- [ ] Review global variables.
+- [ ] Review nested functions.
+- [ ] Prepare questions about name lookup.
+- [ ] Prepare examples for LEGB.
 
 ### Future Knowledge Base TODO
 
@@ -147,5 +150,5 @@ Purpose:
 - [x] Add `CONTRIBUTING.md`.
 - [x] Release Day01 — Python Object Model.
 - [x] Mark Day01 as the Gold Standard lesson.
-- [x] Move active training status to Day02.
 - [x] Complete Day02 — Mutable vs Immutable.
+- [x] Complete Day03 — Functions & Parameter Passing.

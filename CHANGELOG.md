@@ -9,6 +9,31 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.5 — Day03 Functions and Parameter Passing Documentation
+
+Date: 2026-07-03
+
+### Added
+
+- Added `docs/python/day03-functions-parameter-passing.md`.
+- Added Day03 function parameter passing review material to `cheat_sheets/python.md`.
+- Added Day03 interview questions and English answers to `interview/python.md`.
+
+### Changed
+
+- Updated `PROJECT_STATUS.md` to mark Day03 as completed.
+- Updated `TASKS.md` with completed Day03 tasks and Day04 preparation tasks.
+
+### Notes
+
+- Did not modify `CURRICULUM.md`.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+- No `exercises/` directory exists, so Day03 exercises are included in the lesson document.
+
+---
+
 ## v0.1.4 — Day02 Mutable vs Immutable Documentation
 
 Date: 2026-07-03
