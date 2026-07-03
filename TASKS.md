@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day03 — Functions & Parameter Passing
+Day04 — Scope & LEGB
 
 Status:
 Completed
@@ -24,16 +24,19 @@ Completed
 Target lesson:
 
 ```text
-docs/python/day03-functions-parameter-passing.md
+docs/python/day04-scope-legb.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day03 classroom learning.
-- [x] Generate Day03 handbook lesson.
-- [x] Add classroom exercises.
+- [x] Complete Day04 classroom learning.
+- [x] Generate Day04 handbook lesson.
+- [x] Add LEGB explanations.
+- [x] Add lexical scope vs dynamic scope discussion.
+- [x] Add `global` and `nonlocal` examples.
+- [x] Add closure and late binding examples.
 - [x] Add FastAPI connections.
 - [x] Add Playwright connections.
 - [x] Add AI backend connections.
@@ -44,7 +47,7 @@ docs/python/day03-functions-parameter-passing.md
 
 ## Repository Tasks
 
-- [x] Update `docs/python/day03-functions-parameter-passing.md`.
+- [x] Update `docs/python/day04-scope-legb.md`.
 - [x] Update `cheat_sheets/python.md`.
 - [x] Update `interview/python.md`.
 - [x] Update `PROJECT_STATUS.md`.
@@ -57,10 +60,11 @@ docs/python/day03-functions-parameter-passing.md
 
 ## Interview Tasks
 
-- [x] Add Python parameter passing questions.
-- [x] Add `append()` vs `+` questions.
-- [x] Add mutation vs rebinding questions.
-- [x] Add call by sharing senior questions.
+- [x] Add LEGB questions.
+- [x] Add lexical scope questions.
+- [x] Add `global` and `nonlocal` questions.
+- [x] Add closure questions.
+- [x] Add late binding questions.
 - [x] Add FastAPI, Playwright, and AI backend scenarios.
 - [x] Add English interview answers.
 
@@ -68,12 +72,15 @@ docs/python/day03-functions-parameter-passing.md
 
 ## Homework
 
-- [x] Complete output prediction exercises.
-- [x] Complete `id()` reasoning exercises.
-- [x] Complete `append()` vs `+` exercises.
-- [x] Complete FastAPI parameter sharing scenario.
-- [x] Complete Playwright Page lifecycle scenario.
-- [x] Complete AI Backend `messages` state scenario.
+- [x] Complete LEGB output prediction exercises.
+- [x] Complete lexical scope exercises.
+- [x] Complete `UnboundLocalError` explanation exercises.
+- [x] Complete `global` and `nonlocal` exercises.
+- [x] Complete closure counter exercise.
+- [x] Complete late binding exercise.
+- [x] Complete FastAPI global request state scenario.
+- [x] Complete Playwright global page scenario.
+- [x] Complete AI prompt builder closure scenario.
 
 ---
 
@@ -85,7 +92,7 @@ None.
 
 ## Next Lesson
 
-Day04 — Scope & LEGB
+Day05 — Closures
 
 Status:
 Not started
@@ -94,21 +101,24 @@ Not started
 
 ## Future Backlog
 
-### Day03 Review
+### Day04 Review
 
-- [ ] Explain call by sharing without notes.
-- [ ] Predict output for mutation vs rebinding examples.
-- [ ] Explain why rebinding a parameter does not affect the caller.
-- [ ] Write one FastAPI parameter mutation bug from memory.
-- [ ] Write one AI `messages` state mutation bug from memory.
+- [ ] Explain LEGB without notes.
+- [ ] Explain lexical scope vs dynamic scope.
+- [ ] Explain `UnboundLocalError` using compile-time local variable determination.
+- [ ] Rebuild `make_counter()` from memory.
+- [ ] Explain late binding and the `i=i` fix.
+- [ ] Write one FastAPI global request state bug from memory.
+- [ ] Write one Playwright global page bug from memory.
+- [ ] Write one AI prompt builder closure from memory.
 
-### Day04 Preparation
+### Day05 Preparation
 
-- [ ] Review local variables.
-- [ ] Review global variables.
-- [ ] Review nested functions.
-- [ ] Prepare questions about name lookup.
-- [ ] Prepare examples for LEGB.
+- [ ] Review function objects.
+- [ ] Review enclosing scope.
+- [ ] Review captured environment.
+- [ ] Prepare questions about closure use cases.
+- [ ] Prepare examples for dependency factories and decorators.
 
 ### Future Knowledge Base TODO
 
@@ -152,3 +162,4 @@ Purpose:
 - [x] Mark Day01 as the Gold Standard lesson.
 - [x] Complete Day02 — Mutable vs Immutable.
 - [x] Complete Day03 — Functions & Parameter Passing.
+- [x] Complete Day04 — Scope & LEGB.

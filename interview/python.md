@@ -615,6 +615,208 @@ new objects when creating new state.
 
 ---
 
+## Day04 Questions: Scope & LEGB
+
+### Beginner 1. What is LEGB?
+
+Question:
+
+What does LEGB mean in Python?
+
+Answer:
+
+LEGB is Python's name lookup order: Local, Enclosing, Global, and Built-in.
+
+Explanation:
+
+When Python sees a name, it first checks the current local scope, then enclosing function
+scopes, then module global scope, then built-in names.
+
+Follow-up questions:
+
+- What is an enclosing scope?
+- Where does Python find `len`?
+
+### Beginner 2. What is lexical scope?
+
+Question:
+
+What does it mean that Python uses lexical scope?
+
+Answer:
+
+Lexical scope means a function resolves names based on where the function is defined,
+not where it is called.
+
+Explanation:
+
+The function's enclosing scope is determined by the code structure. A caller does not become
+the enclosing scope just because it calls the function.
+
+Follow-up questions:
+
+- How is lexical scope different from dynamic scope?
+- Why is lexical scope easier to reason about in production?
+
+### Intermediate 1. Why does `count = count + 1` raise `UnboundLocalError`?
+
+Question:
+
+Why does this code fail?
+
+```python
+count = 0
+
+
+def add():
+    count = count + 1
+```
+
+Answer:
+
+Python treats `count` as a local variable inside `add()` because there is an assignment
+to `count` in the function body. Then it tries to read the local `count` before it has
+a value.
+
+Explanation:
+
+Python determines local variables at compile time. Assignment inside a function makes the
+name local unless `global` or `nonlocal` is declared.
+
+Follow-up questions:
+
+- How does `global count` change the behavior?
+- Why should this be avoided for request state?
+
+### Intermediate 2. What is the difference between `global` and `nonlocal`?
+
+Question:
+
+Explain `global` vs `nonlocal`.
+
+Answer:
+
+`global` binds a name in module global scope. `nonlocal` binds a name in the nearest
+enclosing function scope.
+
+Explanation:
+
+Use `global` when rebinding a module-level name. Use `nonlocal` when rebinding a name from
+an outer function. Both should be used carefully because they can hide state changes.
+
+Follow-up questions:
+
+- Why does `nonlocal` not refer to global scope?
+- When is `nonlocal` useful?
+
+### Intermediate 3. Why does `append()` not require `global` or `nonlocal`?
+
+Question:
+
+Why does this work without `global`?
+
+```python
+items = []
+
+
+def add():
+    items.append(1)
+```
+
+Answer:
+
+Because `append()` mutates the list object. It does not rebind the name `items`.
+
+Explanation:
+
+Python only needs `global` or `nonlocal` when a function rebinds a name from another scope.
+Mutation changes the object, not the binding.
+
+Follow-up questions:
+
+- Why does `items = items + [1]` behave differently?
+- How can hidden mutation become a production bug?
+
+### Senior 1. Define closure in engineering terms.
+
+Question:
+
+What is a closure?
+
+Answer:
+
+A closure is a function object plus a captured environment.
+
+Explanation:
+
+The returned function preserves access to variables from the scope where it was defined,
+even after the outer function has returned.
+
+Example:
+
+```python
+def make_counter():
+    count = 0
+
+    def counter():
+        nonlocal count
+        count += 1
+        return count
+
+    return counter
+```
+
+Follow-up questions:
+
+- Why does `counter()` return `1`, then `2`, then `3`?
+- What are the risks of closures that capture mutable state?
+
+### Senior 2. Explain late binding.
+
+Question:
+
+Why do functions created in a loop often return the final loop value?
+
+Answer:
+
+Closures use late binding. They look up the captured variable when the function is called,
+not when the function is created.
+
+Explanation:
+
+If multiple functions capture the same loop variable, they all see its final value after
+the loop ends. The default argument pattern `def f(i=i): return i` captures the current
+value at function definition time.
+
+Follow-up questions:
+
+- Why does `def f(i=i)` fix the problem?
+- How can late binding affect callback generation?
+
+### Senior 3. How does scope affect FastAPI, Playwright, and AI Backend systems?
+
+Question:
+
+How do scope rules affect backend systems?
+
+Answer:
+
+Scope controls where state comes from. Hidden global state can leak request data in FastAPI,
+mix browser jobs in Playwright, and pollute AI conversation state.
+
+Explanation:
+
+Production systems should make state ownership explicit. Request state, page state, and
+conversation state should be scoped to the lifecycle that owns them.
+
+Follow-up questions:
+
+- Why should a FastAPI request user not be stored globally?
+- Why should a Playwright `Page` not be global?
+- How can closures help AI prompt builders?
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
@@ -691,6 +893,23 @@ Mutation changes the object itself. Rebinding changes which object a name points
 In function calls, mutation can affect caller-visible state, but rebinding a parameter
 does not rebind the caller's variable.
 
+### Explain Python's lexical scope.
+
+Python uses lexical scope, which means a function resolves names based on where it is
+defined, not where it is called. This makes code easier to reason about because a function's
+dependencies are determined by the code structure, not by the runtime caller.
+
+### Explain closure.
+
+A closure is a function object plus a captured environment. It allows a function to preserve
+access to variables from an outer scope even after the outer function has returned.
+
+### Explain late binding.
+
+Late binding means a closure looks up a captured variable when the function is called,
+not when the function is created. This is why functions created in a loop can all return
+the final loop value unless the current value is captured explicitly.
+
 ---
 
 ## Common Mistakes
@@ -705,6 +924,9 @@ does not rebind the caller's variable.
 - Hiding dependencies in global variables.
 - Expecting parameter rebinding to change the caller's variable.
 - Mutating function parameters without making ownership clear.
+- Storing request state in global variables.
+- Using `nonlocal` when simple mutation does not require rebinding.
+- Forgetting late binding when creating functions in loops.
 
 ---
 
@@ -720,6 +942,10 @@ does not rebind the caller's variable.
 - Python uses call by sharing.
 - `append()` mutates a list; `+` creates a new list.
 - Rebinding a parameter does not rebind the caller's variable.
+- LEGB means Local, Enclosing, Global, Built-in.
+- Python uses lexical scope.
+- Closure means function object plus captured environment.
+- Late binding means variables are looked up when the closure is called.
 - Prefer explicit dependencies over global state.
 - Use type hints for public functions.
 - Production Python requires tests, logging, and clear structure.

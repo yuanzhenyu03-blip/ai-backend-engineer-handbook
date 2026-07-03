@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.6 — Day04 Scope and LEGB Documentation
+
+Date: 2026-07-03
+
+### Added
+
+- Added `docs/python/day04-scope-legb.md`.
+- Added Day04 LEGB, scope, closure, and late binding review material to `cheat_sheets/python.md`.
+- Added Day04 interview questions and English answers to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day04 as completed and Day05 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day04 as completed.
+- Updated `TASKS.md` with completed Day04 tasks and Day05 preparation tasks.
+
+### Notes
+
+- Covered lexical scope, `global`, `nonlocal`, mutation vs rebinding, closure, and late binding.
+- Connected Day04 concepts to FastAPI, Playwright, and AI backend engineering.
+
+---
+
 ## v0.1.5 — Day03 Functions and Parameter Passing Documentation
 
 Date: 2026-07-03

@@ -159,7 +159,7 @@ Topic:
 Scope & LEGB
 
 Status:
-⏳ Current Lesson
+✅ Completed
 
 Difficulty:
 Foundation
@@ -200,7 +200,52 @@ Repository Updates:
 
 ---
 
-### Day05-Day14
+### Day05
+
+Topic:
+Closures
+
+Status:
+⏳ Current Lesson
+
+Difficulty:
+Foundation
+
+Estimated Study Time:
+4-5 hours
+
+Prerequisites:
+
+- Day01 — Python Object Model
+- Day03 — Functions & Parameter Passing
+- Day04 — Scope & LEGB
+
+Learning Objectives:
+
+- Understand closures as function objects with captured environments.
+- Explain closure use cases in production Python.
+- Connect closures to decorators, dependency factories, and AI backend prompt builders.
+
+Key Concepts:
+
+- Closure
+- Captured environment
+- Factory function
+- State preservation
+- Late binding review
+
+Repository Updates:
+
+- `docs/python/day05-closures.md`
+- `cheat_sheets/python.md`
+- `interview/python.md`
+- `PROJECT_STATUS.md`
+- `TASKS.md`
+- `CHANGELOG.md`
+
+---
+
+### Day06-Day14
 
 Status:
 Planned

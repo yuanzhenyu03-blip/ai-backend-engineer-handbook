@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day03 — Functions & Parameter Passing
+Day04 — Scope & LEGB
 
 Status:
 ✅ Completed
@@ -23,6 +23,7 @@ Completed Time:
 - ✅ Day01 — Python Object Model
 - ✅ Day02 — Mutable vs Immutable
 - ✅ Day03 — Functions & Parameter Passing
+- ✅ Day04 — Scope & LEGB
 
 ---
 
@@ -34,7 +35,7 @@ None.
 
 ## Next
 
-- Day04 — Scope & LEGB
+- Day05 — Closures
 
 Status:
 Not started
@@ -48,31 +49,37 @@ Completed Python Foundations:
 - Day01 — Object identity, references, function objects, callable objects
 - Day02 — Mutable vs immutable objects, copy behavior, hashability
 - Day03 — Function parameter passing, call by sharing, mutation vs rebinding
+- Day04 — Scope, LEGB, lexical scope, closure basics, late binding
 
 ---
 
 ## Core Abilities Mastered
 
-- Explain how Python passes function arguments.
-- Explain pass by object reference and call by sharing.
-- Explain why function parameters are local names.
-- Explain why `append()` can mutate caller-visible state.
-- Explain why `items = items + [...]` does not rebind the caller's variable.
-- Explain mutable vs immutable behavior inside function calls.
-- Use `id()` to reason about function argument identity.
-- Identify hidden mutation in function boundaries.
-- Connect parameter passing risks to FastAPI, Playwright, and AI backend systems.
+- Explain LEGB name lookup.
+- Explain lexical scope vs dynamic scope.
+- Explain why Python searches names based on where a function is defined.
+- Explain why `UnboundLocalError` happens with local rebinding.
+- Explain when `global` works and why global request state is dangerous.
+- Explain `nonlocal` and nearest enclosing scope.
+- Explain mutation vs rebinding in scope problems.
+- Define closure as function object plus captured environment.
+- Explain late binding and the `i=i` default argument fix.
+- Connect scope risks to FastAPI, Playwright, and AI backend systems.
 
 ---
 
 ## Mini Exercises Completed
 
-- Output prediction exercises
-- `id()` reasoning exercises
-- `append()` vs `+` exercises
-- FastAPI parameter sharing scenario
-- Playwright Page lifecycle scenario
-- AI Backend `messages` state scenario
+- LEGB output prediction exercises
+- Lexical scope reasoning exercises
+- `UnboundLocalError` explanation exercises
+- `global` and `nonlocal` exercises
+- Mutation vs rebinding exercises
+- Closure counter exercise
+- Late binding loop exercise
+- FastAPI global request state scenario
+- Playwright global page scenario
+- AI prompt builder closure scenario
 
 ---
 

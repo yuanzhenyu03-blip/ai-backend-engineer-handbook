@@ -327,6 +327,137 @@ it may change caller-visible state.
 
 ---
 
+## Scope & LEGB
+
+Python name lookup follows LEGB:
+
+```text
+Local -> Enclosing -> Global -> Built-in
+```
+
+Meaning:
+
+- Local: current function scope
+- Enclosing: outer function scopes
+- Global: module scope
+- Built-in: Python built-ins such as `len`, `print`, `dict`
+
+Python uses lexical scope:
+
+```text
+A function searches names based on where it is defined,
+not where it is called.
+```
+
+---
+
+## `global`
+
+`global` tells Python to bind a name in module global scope.
+
+```python
+count = 0
+
+
+def add() -> None:
+    global count
+    count += 1
+```
+
+Use rarely.
+
+Backend rule:
+
+```text
+Do not store request state in global variables.
+```
+
+---
+
+## `nonlocal`
+
+`nonlocal` tells Python to bind a name in the nearest enclosing function scope.
+
+```python
+def outer():
+    count = 0
+
+    def inner():
+        nonlocal count
+        count += 1
+        return count
+
+    return inner
+```
+
+Use when closure state must be rebound intentionally.
+
+---
+
+## Closure
+
+Engineering definition:
+
+```text
+Closure = Function Object + Captured Environment
+```
+
+Example:
+
+```python
+def make_counter():
+    count = 0
+
+    def counter():
+        nonlocal count
+        count += 1
+        return count
+
+    return counter
+```
+
+The returned function keeps access to `count` even after `make_counter()` returns.
+
+---
+
+## Late Binding
+
+Closures look up captured variables when called, not when created.
+
+Bug:
+
+```python
+def make_funcs():
+    funcs = []
+
+    for i in range(3):
+        def f():
+            return i
+
+        funcs.append(f)
+
+    return funcs
+```
+
+All functions return:
+
+```text
+2
+2
+2
+```
+
+Fix:
+
+```python
+def f(i=i):
+    return i
+```
+
+Now each function keeps its own default value.
+
+---
+
 ## Function Objects
 
 ```python
@@ -387,4 +518,8 @@ Use callable objects when behavior needs configuration.
 - "Python uses call by sharing for function arguments."
 - "Mutation changes the object; rebinding changes the local name."
 - "Rebinding a parameter does not rebind the caller's variable."
+- "Python uses lexical scope, not dynamic scope."
+- "LEGB means Local, Enclosing, Global, Built-in."
+- "A closure is a function object plus a captured environment."
+- "Late binding means a closure looks up a variable when the function is called."
 - "In production code, I prefer explicit dependencies and clear ownership of state."
