@@ -12,6 +12,126 @@ The goal is to create a publication-quality handbook chapter that teaches engine
 
 ---
 
+# Lesson Workflow
+
+Every lesson should reflect the real training workflow.
+
+The handbook is not standalone textbook writing.
+
+It is the written record of a classroom-style engineering process:
+
+```text
+Tech Lead teaches
+        |
+        v
+Student learns
+        |
+        v
+Student codes
+        |
+        v
+Codex generates documentation
+        |
+        v
+ChatGPT reviews
+        |
+        v
+Repository updates
+```
+
+The lesson should preserve the important classroom discussions, questions, mistakes, corrections, and engineering decisions that happened during learning.
+
+Do not write as if the topic appeared from nowhere.
+
+Write as if a senior engineer is guiding a junior engineer through the concept, checking understanding, connecting it to production systems, and preparing the student for interviews.
+
+---
+
+# Writing Principles
+
+Every lesson must follow these writing principles.
+
+* Explain WHY before HOW.
+* Teach engineering thinking, not only syntax.
+* Prefer production examples over toy examples.
+* Avoid textbook style.
+* Keep explanations conversational and precise.
+* Connect every lesson to FastAPI, Playwright, and AI systems.
+* Show trade-offs, not only correct answers.
+* Include common mistakes and why they happen.
+* Use diagrams when the mental model matters.
+* Make interview readiness part of the lesson, not a separate afterthought.
+
+The student should feel like they are learning from a tech lead, not reading disconnected notes.
+
+---
+
+# Definition of an Excellent Lesson
+
+An excellent lesson is complete only when the student can:
+
+* Explain the concept clearly.
+* Explain why the concept exists.
+* Apply the concept in code.
+* Explain production risks.
+* Connect the concept to frameworks.
+* Connect the concept to AI backend systems.
+* Pass beginner, intermediate, and senior interview questions.
+* Teach the concept to another engineer.
+
+If the student can only repeat definitions, the lesson is not finished.
+
+If the student can explain the design trade-offs and apply the idea in a real backend system, the lesson is working.
+
+---
+
+# AI Collaboration
+
+The repository is maintained through a clear collaboration model.
+
+## ChatGPT
+
+ChatGPT acts as the Tech Lead and teacher.
+
+Responsibilities:
+
+* Teach concepts interactively.
+* Ask follow-up questions.
+* Review student understanding.
+* Review generated documentation.
+* Preserve engineering depth.
+* Make sure lessons prepare the student for overseas interviews.
+
+## Codex
+
+Codex acts as the Junior AI Backend Engineer working inside the repository.
+
+Responsibilities:
+
+* Generate lesson documents.
+* Maintain repository structure.
+* Keep documentation consistent.
+* Create examples, exercises, interview material, and cheat sheets.
+* Update related repository files when lessons evolve.
+* Follow repository conventions instead of inventing a new structure.
+
+## GitHub
+
+GitHub is the single source of truth.
+
+Responsibilities:
+
+* Store lessons.
+* Store project work.
+* Store interview preparation material.
+* Store cheat sheets.
+* Preserve history through commits.
+* Make the portfolio visible and reviewable.
+
+The collaboration flow should always improve the repository, not create isolated notes outside the source of truth.
+
+---
+
 # Required Lesson Structure
 
 Every lesson must include these sections in this exact order:
@@ -485,6 +605,26 @@ Include:
 
 Homework should produce something reusable in the repository when possible.
 
+## Repository Task
+
+Every lesson should include a small repository synchronization task when relevant.
+
+Encourage the student to update or verify:
+
+* `docs`
+* `interview`
+* `cheat_sheets`
+* `projects`
+
+Examples:
+
+* Add the lesson summary to the matching cheat sheet.
+* Add new interview questions to the matching interview handbook.
+* Add a small exercise or example to the relevant project.
+* Update project documentation when the lesson creates reusable code.
+
+The goal is to keep learning, documentation, projects, and interview preparation connected.
+
 ---
 
 # Definition of Done
@@ -518,15 +658,3 @@ Future connections should mention relevant areas such as:
 * Redis
 * PostgreSQL
 * AI Agent
-
----
-
-# Notes
-
-Use this section only for:
-
-* Additional thoughts
-* Interesting discoveries
-* Future improvements
-
-Do not place required lesson content here.
