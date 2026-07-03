@@ -9,6 +9,30 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.4 — Day02 Mutable vs Immutable Documentation
+
+Date: 2026-07-03
+
+### Added
+
+- Added `docs/python/day02-mutable-vs-immutable.md`.
+- Added Day02 mutable vs immutable review material to `cheat_sheets/python.md`.
+- Added Day02 interview questions to `interview/python.md`.
+
+### Changed
+
+- Updated `PROJECT_STATUS.md` to mark Day02 as completed.
+- Updated `TASKS.md` with completed Day02 tasks, review tasks, and Day03 preparation tasks.
+
+### Notes
+
+- Did not modify Day01 technical content.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.3 — Release Candidate Workflow Stabilization
 
 Date: 2026-07-03

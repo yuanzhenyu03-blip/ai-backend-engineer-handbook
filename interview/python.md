@@ -164,6 +164,257 @@ Follow-up questions:
 
 ---
 
+## Day02 Questions: Mutable vs Immutable
+
+### 1. What is the difference between mutable and immutable objects?
+
+Question:
+
+What is the difference between mutable and immutable objects in Python?
+
+Answer:
+
+A mutable object can be changed after it is created. Examples include `list`, `dict`, and `set`. An immutable object cannot be changed after it is created. Examples include `int`, `str`, `bool`, and many tuples.
+
+Explanation:
+
+The important engineering distinction is whether the object itself can change. Reassigning a variable is not mutation. Reassignment binds a name to another object. Mutation changes the object that existing references already point to.
+
+Backend scenario:
+
+Shared mutable objects can leak state between FastAPI requests, Playwright jobs, or AI chat sessions.
+
+### 2. Does `b = a` copy a list?
+
+Question:
+
+If `a` is a list and we write `b = a`, do we copy the list?
+
+Answer:
+
+No. `b = a` copies the reference. Both names point to the same list object.
+
+Explanation:
+
+If either `a` or `b` mutates the list, the other name sees the change because there is only one list object.
+
+Example:
+
+```python
+a = [1, 2]
+b = a
+b.append(3)
+
+print(a)  # [1, 2, 3]
+```
+
+Backend scenario:
+
+If two requests or jobs share the same mutable list, one request can affect another request's data.
+
+### 3. What is `id()` used for?
+
+Question:
+
+How can `id()` help explain Python object identity?
+
+Answer:
+
+`id()` returns an object's identity during its lifetime. It can be used in learning experiments to check whether two names point to the same object.
+
+Explanation:
+
+If `id(a) == id(b)`, then `a` and `b` refer to the same object. In normal production code, we usually design clear ownership instead of relying on printed IDs.
+
+Backend scenario:
+
+Understanding identity helps debug shared state bugs in request handlers, automation workers, and AI session managers.
+
+### 4. What is the difference between `append()`, `a += [...]`, and `a = a + [...]` for lists?
+
+Question:
+
+Compare `append()`, `+=`, and `a = a + [...]` for Python lists.
+
+Answer:
+
+`append()` mutates the existing list in place. For lists, `+=` also mutates the existing list in place. `a = a + [...]` creates a new list and rebinds the name `a` to that new object.
+
+Explanation:
+
+The difference matters when another name points to the original list. In-place mutation is visible through all references. Rebinding is not.
+
+Example:
+
+```python
+a = [1, 2]
+b = a
+a = a + [3]
+
+print(a)  # [1, 2, 3]
+print(b)  # [1, 2]
+```
+
+```python
+a = [1, 2]
+b = a
+a += [3]
+
+print(a)  # [1, 2, 3]
+print(b)  # [1, 2, 3]
+```
+
+Backend scenario:
+
+A helper that mutates a shared list can unexpectedly change caller-owned state.
+
+### 5. What is shallow copy?
+
+Question:
+
+What does `copy.copy()` do?
+
+Answer:
+
+`copy.copy()` creates a shallow copy. It copies the first layer of the object, but nested mutable objects may still be shared.
+
+Explanation:
+
+If the object contains nested lists or dictionaries, the outer container may be new while the inner objects are still shared.
+
+Example:
+
+```python
+import copy
+
+original = [["python"]]
+cloned = copy.copy(original)
+cloned[0].append("fastapi")
+
+print(original)  # [['python', 'fastapi']]
+```
+
+Backend scenario:
+
+Shallow copying a request payload or configuration object can still share nested mutable state.
+
+### 6. What is deep copy?
+
+Question:
+
+What does `copy.deepcopy()` do?
+
+Answer:
+
+`copy.deepcopy()` recursively copies the object tree so nested objects are copied too.
+
+Explanation:
+
+Deep copy creates stronger isolation than shallow copy, but it can be more expensive in memory and time.
+
+Backend scenario:
+
+Deep copy can be useful when a job needs full isolation from the original data, but it should not be used blindly to hide unclear ownership.
+
+### 7. Why are lists, dictionaries, and sets unhashable?
+
+Question:
+
+Why can't `list`, `dict`, or `set` be used as dictionary keys?
+
+Answer:
+
+They are mutable and therefore unhashable. Dictionary keys need stable hash values. If a key could change after insertion, the dictionary could no longer reliably find the value.
+
+Explanation:
+
+Hashability requires stability. Mutable containers can change their contents, so Python prevents them from being used as dictionary keys.
+
+Backend scenario:
+
+Cache keys, deduplication keys, and dictionary indexes should use stable values such as strings, integers, or safe tuples.
+
+### 8. Can a tuple always be used as a dictionary key?
+
+Question:
+
+Can every tuple be used as a dictionary key?
+
+Answer:
+
+No. A tuple can be used as a dictionary key only if every value inside it is also hashable.
+
+Explanation:
+
+The tuple itself is immutable, but if it contains a list, the overall tuple is unhashable because the nested list is mutable.
+
+Example:
+
+```python
+valid_key = ("user", 1)
+invalid_key = ("user", [1, 2])
+```
+
+Backend scenario:
+
+When designing cache keys, use fully hashable structures. Do not put lists or dictionaries inside tuple keys.
+
+### 9. How does mutability affect FastAPI applications?
+
+Question:
+
+How can mutable objects cause bugs in FastAPI?
+
+Answer:
+
+Mutable global objects can be shared across requests. If request-specific data is stored in a global list or dictionary, one user's data can leak into another user's request.
+
+Explanation:
+
+FastAPI applications handle many requests over time. Shared mutable state must be explicit and carefully managed. Request-specific state should be scoped to the request or stored in a database with clear ownership.
+
+Backend scenario:
+
+Never store user-specific request data in a global list.
+
+### 10. How does mutability affect Playwright automation?
+
+Question:
+
+How can shared mutable objects break Playwright jobs?
+
+Answer:
+
+Sharing page, context, cookies, headers, or storage state across unrelated jobs can cause job state to mix. One job may overwrite another job's authentication or browser state.
+
+Explanation:
+
+Playwright objects represent live external state. Automation jobs should isolate browser contexts and avoid shared mutable configuration unless sharing is intentional.
+
+Backend scenario:
+
+Create isolated contexts for unrelated login or scraping jobs.
+
+### 11. How does mutability affect AI backend systems?
+
+Question:
+
+How can shared mutable state break an AI backend?
+
+Answer:
+
+If multiple users share the same `messages`, `history`, or `state` list, conversations can mix. This can cause prompt pollution, privacy issues, and incorrect model responses.
+
+Explanation:
+
+AI memory must be scoped by user and session. Mutable conversation history should not be global unless it is intentionally shared and protected.
+
+Backend scenario:
+
+Store conversation history per user/session in a database or cache, not in one global list.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak

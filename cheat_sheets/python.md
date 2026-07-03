@@ -67,6 +67,160 @@ Default arguments are evaluated once at function definition time.
 
 ---
 
+## Mutable vs Immutable
+
+Mutable objects can change after creation.
+
+Examples:
+
+- `list`
+- `dict`
+- `set`
+
+Immutable objects cannot change after creation.
+
+Examples:
+
+- `int`
+- `float`
+- `str`
+- `bool`
+- `tuple`, if all nested values are hashable
+
+Core rule:
+
+```text
+Assignment changes what a name points to.
+Mutation changes the object itself.
+```
+
+---
+
+## Reference Assignment
+
+```python
+a = [1, 2]
+b = a
+b.append(3)
+
+print(a)      # [1, 2, 3]
+print(a is b) # True
+```
+
+`b = a` does not copy the list.
+
+It binds `b` to the same list object.
+
+Use `id()` to verify identity during learning:
+
+```python
+print(id(a) == id(b))  # True
+```
+
+---
+
+## `append()` vs `+=` vs `a = a + [...]`
+
+| Operation | Behavior | `id(a)` changes? | Other references see change? |
+|-----------|----------|------------------|-------------------------------|
+| `a.append(3)` | Mutates list in place | No | Yes |
+| `a += [3]` | Mutates list in place | No | Yes |
+| `a = a + [3]` | Creates new list and rebinds `a` | Yes | No |
+
+Example:
+
+```python
+a = [1, 2]
+b = a
+a = a + [3]
+
+print(a)  # [1, 2, 3]
+print(b)  # [1, 2]
+```
+
+```python
+a = [1, 2]
+b = a
+a += [3]
+
+print(a)  # [1, 2, 3]
+print(b)  # [1, 2, 3]
+```
+
+---
+
+## Shallow Copy vs Deep Copy
+
+| Copy type | What is copied? | Nested objects shared? | Use when |
+|-----------|------------------|-------------------------|----------|
+| `copy.copy()` | First layer | Yes | Outer container isolation is enough |
+| `copy.deepcopy()` | Full object tree | No | Full isolation is required |
+
+Shallow copy example:
+
+```python
+import copy
+
+original = [["python"]]
+cloned = copy.copy(original)
+cloned[0].append("fastapi")
+
+print(original)  # [['python', 'fastapi']]
+```
+
+Deep copy example:
+
+```python
+import copy
+
+original = [["python"]]
+cloned = copy.deepcopy(original)
+cloned[0].append("fastapi")
+
+print(original)  # [['python']]
+```
+
+---
+
+## Hashable vs Unhashable
+
+Hashable objects can be dictionary keys.
+
+Unhashable objects cannot.
+
+| Object | Hashable? | Reason |
+|--------|-----------|--------|
+| `str` | Yes | Immutable |
+| `int` | Yes | Immutable |
+| `tuple` | Sometimes | Only if all nested values are hashable |
+| `list` | No | Mutable |
+| `dict` | No | Mutable |
+| `set` | No | Mutable |
+
+Valid:
+
+```python
+cache = {("user", 1): "active"}
+```
+
+Invalid:
+
+```python
+cache = {["user", 1]: "active"}
+```
+
+Also invalid:
+
+```python
+cache = {("user", [1, 2]): "active"}
+```
+
+Reason:
+
+The tuple contains a list, and the list is unhashable.
+
+---
+
 ## Function Objects
 
 ```python
@@ -120,4 +274,8 @@ Use callable objects when behavior needs configuration.
 - "`==` compares values, while `is` compares identity."
 - "Functions are first-class objects in Python."
 - "Mutable defaults can leak state across calls."
+- "Assignment copies references, not necessarily objects."
+- "A shallow copy copies the outer container, but nested objects may still be shared."
+- "A deep copy recursively copies the object tree."
+- "Dictionary keys must be hashable because their hash must remain stable."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

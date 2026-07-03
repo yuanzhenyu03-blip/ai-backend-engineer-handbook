@@ -18,6 +18,9 @@ Phase 1 — Python Foundations
 
 Day02 — Mutable vs Immutable
 
+Status:
+Completed
+
 Target lesson:
 
 ```text
@@ -28,44 +31,47 @@ docs/python/day02-mutable-vs-immutable.md
 
 ## Today's Tasks
 
-- [ ] Complete Day02 classroom learning.
-- [ ] Generate Day02 handbook lesson.
-- [ ] Add classroom exercises.
-- [ ] Add FastAPI connections.
-- [ ] Add Playwright connections.
-- [ ] Add interview questions.
-- [ ] Add homework.
+- [x] Complete Day02 classroom learning.
+- [x] Generate Day02 handbook lesson.
+- [x] Add classroom exercises.
+- [x] Add FastAPI connections.
+- [x] Add Playwright connections.
+- [x] Add AI backend connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
 
 ---
 
 ## Repository Tasks
 
-- [ ] Update `docs/python/day02-mutable-vs-immutable.md`.
-- [ ] Update `cheat_sheets/python.md`.
-- [ ] Update `interview/python.md`.
-- [ ] Update `PROJECT_STATUS.md`.
-- [ ] Update `TASKS.md`.
-- [ ] Update `CHANGELOG.md`.
-- [ ] Commit changes.
-- [ ] Push to GitHub.
+- [x] Update `docs/python/day02-mutable-vs-immutable.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Commit changes.
+- [x] Push to GitHub.
 
 ---
 
 ## Interview Tasks
 
-- [ ] Add mutable vs immutable beginner questions.
-- [ ] Add shallow copy vs deep copy questions.
-- [ ] Add production bug scenarios.
-- [ ] Add English interview answers.
+- [x] Add mutable vs immutable questions.
+- [x] Add reference assignment questions.
+- [x] Add shallow copy vs deep copy questions.
+- [x] Add hashable vs unhashable questions.
+- [x] Add backend engineering scenarios.
+- [x] Add English interview answers.
 
 ---
 
 ## Homework
 
-- [ ] Complete copy exercises.
-- [ ] Run `id()` experiments.
-- [ ] Draw memory diagrams.
-- [ ] Implement a simple object inspector.
+- [x] Complete copy exercises.
+- [x] Run `id()` experiments.
+- [x] Draw memory diagrams.
+- [x] Implement or prepare a simple object inspector exercise.
 
 ---
 
@@ -79,13 +85,27 @@ None.
 
 Day03 — Functions & Parameter Passing
 
+Status:
+Not started
+
 ---
 
 ## Future Backlog
 
-- [ ] Add executable examples under `projects/python-fundamentals/`.
-- [ ] Expand project exercises after Day02.
-- [ ] Prepare Day03 lesson outline.
+### Day02 Review
+
+- [ ] Re-run `append()` / `+=` / `a = a + [...]` experiments without notes.
+- [ ] Explain shallow copy vs deep copy out loud.
+- [ ] Write one FastAPI shared-state bug example from memory.
+- [ ] Write one Playwright shared-context bug example from memory.
+- [ ] Write one AI conversation history pollution example from memory.
+
+### Day03 Preparation
+
+- [ ] Review function definitions.
+- [ ] Review positional and keyword arguments.
+- [ ] Review default parameters.
+- [ ] Prepare questions about parameter passing.
 
 ### Future Knowledge Base TODO
 
@@ -128,3 +148,4 @@ Purpose:
 - [x] Release Day01 — Python Object Model.
 - [x] Mark Day01 as the Gold Standard lesson.
 - [x] Move active training status to Day02.
+- [x] Complete Day02 — Mutable vs Immutable.
