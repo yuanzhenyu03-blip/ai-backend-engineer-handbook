@@ -9,6 +9,31 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.3 — Release Candidate Workflow Stabilization
+
+Date: 2026-07-03
+
+### Added
+
+- Added `TRAINING_WORKFLOW.md` as the official training operating manual.
+- Added daily learning workflow to `README.md`.
+- Added repository lifecycle guidance to `REPOSITORY_GUIDE.md`.
+- Added Today's Goal and Definition of Done to `PROJECT_STATUS.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` into a reusable engineering curriculum format.
+- Redesigned `TASKS.md` as the daily execution sprint board.
+- Updated repository guidance so future lessons follow one stable workflow.
+
+### Notes
+
+- Day01 technical content was not changed.
+- Folder structure was not changed.
+- Lesson template was not changed.
+
+---
+
 ## v0.1.2 — Repository Cleanup and Structure Alignment
 
 Date: 2026-07-02

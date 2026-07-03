@@ -1,16 +1,24 @@
-# TASKS.md
+# Current Sprint
 
-# AI Backend Engineer Handbook Task Board
+This file is the daily execution dashboard for the AI Backend Engineer Training Camp.
 
-This file tracks what we are doing now, what comes next, and what has already been completed.
+It should read like a real software team's sprint board.
+
+GitHub is the single source of truth.
 
 ---
 
-## Now
+## Current Phase
 
-- [ ] Start Day 2: Mutable vs Immutable.
+Phase 1 — Python Foundations
 
-Target file:
+---
+
+## Current Lesson
+
+Day02 — Mutable vs Immutable
+
+Target lesson:
 
 ```text
 docs/python/day02-mutable-vs-immutable.md
@@ -18,16 +26,68 @@ docs/python/day02-mutable-vs-immutable.md
 
 ---
 
-## Next
+## Today's Tasks
 
-- [ ] Update `PROJECT_STATUS.md` after Day 2.
-- [ ] Expand `interview/python.md` with Day 2 questions after the lesson is complete.
-- [ ] Update `cheat_sheets/python.md` with Day 2 review points.
-- [ ] Add first executable examples under `projects/python-fundamentals/`.
+- [ ] Complete Day02 classroom learning.
+- [ ] Generate Day02 handbook lesson.
+- [ ] Add classroom exercises.
+- [ ] Add FastAPI connections.
+- [ ] Add Playwright connections.
+- [ ] Add interview questions.
+- [ ] Add homework.
 
 ---
 
-## Future Knowledge Base TODO
+## Repository Tasks
+
+- [ ] Update `docs/python/day02-mutable-vs-immutable.md`.
+- [ ] Update `cheat_sheets/python.md`.
+- [ ] Update `interview/python.md`.
+- [ ] Update `PROJECT_STATUS.md`.
+- [ ] Update `TASKS.md`.
+- [ ] Update `CHANGELOG.md`.
+- [ ] Commit changes.
+- [ ] Push to GitHub.
+
+---
+
+## Interview Tasks
+
+- [ ] Add mutable vs immutable beginner questions.
+- [ ] Add shallow copy vs deep copy questions.
+- [ ] Add production bug scenarios.
+- [ ] Add English interview answers.
+
+---
+
+## Homework
+
+- [ ] Complete copy exercises.
+- [ ] Run `id()` experiments.
+- [ ] Draw memory diagrams.
+- [ ] Implement a simple object inspector.
+
+---
+
+## Blocked
+
+None.
+
+---
+
+## Next Lesson
+
+Day03 — Functions & Parameter Passing
+
+---
+
+## Future Backlog
+
+- [ ] Add executable examples under `projects/python-fundamentals/`.
+- [ ] Expand project exercises after Day02.
+- [ ] Prepare Day03 lesson outline.
+
+### Future Knowledge Base TODO
 
 Do not create this structure yet.
 
@@ -55,36 +115,16 @@ Purpose:
 ## Completed
 
 - [x] Create repository.
-- [x] Add `README.md`.
-- [x] Add `AGENTS.md`.
-- [x] Add `PROJECT_STATUS.md`.
-- [x] Add `CURRICULUM.md`.
-- [x] Add `CODING_STANDARD.md`.
-- [x] Add `LESSON_TEMPLATE.md`.
-- [x] Create the repository management files.
-- [x] Create the directory skeleton.
-- [x] Write the first final lesson.
-- [x] Move Day 1 lesson to `docs/python/day01-object-model.md`.
+- [x] Add repository management files.
+- [x] Create directory skeleton.
 - [x] Remove duplicated course structure.
 - [x] Add README files for every project directory.
 - [x] Populate `interview/python.md` as the interview template.
 - [x] Add `cheat_sheets/python.md`.
-- [x] Add `prompts/interview.md` and `prompts/project.md`.
+- [x] Add reusable prompts.
 - [x] Improve assets folder structure.
 - [x] Add `REPOSITORY_GUIDE.md`.
 - [x] Add `CONTRIBUTING.md`.
-
----
-
-## Current Priority
-
-The highest priority is to start Day 2: Mutable vs Immutable.
-
----
-
-## Rules
-
-- Do not skip lessons.
-- Do not let chat history become the source of truth.
-- Always update this file when the active task changes.
-- GitHub is the single source of truth for Codex and other AI coding assistants.
+- [x] Release Day01 — Python Object Model.
+- [x] Mark Day01 as the Gold Standard lesson.
+- [x] Move active training status to Day02.

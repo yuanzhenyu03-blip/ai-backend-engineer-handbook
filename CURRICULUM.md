@@ -2,6 +2,10 @@
 
 This file defines the official curriculum for the AI Backend Engineer Training Camp.
 
+The curriculum is not a list of topics.
+
+It is an engineering training plan. Every lesson must connect concept understanding, production risk, framework usage, coding practice, interview readiness, and repository updates.
+
 ---
 
 ## Phase 1 — Python Foundations
@@ -14,6 +18,9 @@ Python Object Model
 Status:
 ✅ Completed
 
+Released Lesson:
+`docs/python/day01-object-model.md`
+
 ---
 
 ### Day02
@@ -21,23 +28,118 @@ Status:
 Topic:
 Mutable vs Immutable
 
-Objectives:
+Status:
+⏳ Current Lesson
+
+Difficulty:
+Foundation
+
+Estimated Study Time:
+4-5 hours
+
+Prerequisites:
+
+- Day01 — Python Object Model
+- Names, references, and object identity
+- `==` vs `is`
+- Mutable default argument bug
+
+Learning Objectives:
 
 - Understand mutable and immutable objects.
-- Learn object identity.
+- Learn how object identity connects to mutability.
 - Understand shallow copy vs deep copy.
 - Explain why mutable default arguments are dangerous.
 - Connect the concept to FastAPI and Playwright.
 
+Key Concepts:
+
+- Mutable objects
+- Immutable objects
+- Object identity
+- Shared references
+- Copy
+- Deep copy
+- Hashability
+
+Engineering Thinking:
+
+- Which objects are safe to share?
+- Which objects should be copied?
+- Which objects should be isolated per request or per job?
+- How can hidden mutation create production bugs?
+
+Deliverables:
+
+- Day02 lesson document
+- Python cheat sheet update
+- Python interview notes update
+- Coding exercises
+
 Homework:
 
 - Copy exercises
-- id() experiments
+- `id()` experiments
 - Memory diagrams
 
-Project:
+Mini Project:
 
 Implement a simple object inspector.
+
+Interview Focus:
+
+- Explain mutable vs immutable objects.
+- Explain shallow copy vs deep copy.
+- Explain why tuple can be hashable but list cannot.
+- Explain how shared mutable state causes backend bugs.
+
+Repository Updates:
+
+- `docs/python/day02-mutable-vs-immutable.md`
+- `cheat_sheets/python.md`
+- `interview/python.md`
+- `PROJECT_STATUS.md`
+- `TASKS.md`
+- `CHANGELOG.md`
+
+Related Lessons:
+
+- Previous: Day01 — Python Object Model
+- Next: Day03 — Functions & Parameter Passing
+
+---
+
+### Future Lesson Template
+
+Every future lesson should follow this structure.
+
+#### Day XX
+
+Topic:
+
+Difficulty:
+
+Estimated Study Time:
+
+Prerequisites:
+
+Learning Objectives:
+
+Key Concepts:
+
+Engineering Thinking:
+
+Deliverables:
+
+Homework:
+
+Mini Project:
+
+Interview Focus:
+
+Repository Updates:
+
+Related Lessons:
 
 ---
 
@@ -46,4 +148,18 @@ Implement a simple object inspector.
 Topic:
 Functions & Parameter Passing
 
-...
+Status:
+Planned
+
+Use the Future Lesson Template when this lesson starts.
+
+---
+
+### Day04-Day14
+
+Status:
+Planned
+
+Follow `ROADMAP.md` for the official learning order.
+
+Do not fully expand future days until they become the current lesson.

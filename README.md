@@ -12,53 +12,15 @@ The goal is to build engineering thinking.
 
 # Learning Roadmap
 
-Phase 1 - Python Design
+The official learning order lives in `ROADMAP.md`.
 
-* Object Model
-* Reference
-* Mutable vs Immutable
-* Generator
-* Decorator
-* Context Manager
-* Async/Await
+Current phase:
 
-Phase 2 - FastAPI
+* Phase 1 — Python Foundations
 
-* Routing
-* Dependency Injection
-* Pydantic
-* SQLAlchemy
-* JWT Authentication
-* Testing
+Current lesson:
 
-Phase 3 - Playwright
-
-* Browser
-* Context
-* Locator
-* Async API
-* Anti-bot
-* Scraping
-
-Phase 4 - Infrastructure
-
-* Docker
-* PostgreSQL
-* Redis
-* Celery
-
-Phase 5 - AI
-
-* OpenAI API
-* Tool Calling
-* MCP
-* RAG
-* LangGraph
-* n8n
-
-Phase 6 - System Design
-
-Phase 7 - Mock Interview
+* Day02 — Mutable vs Immutable
 
 ---
 
@@ -68,6 +30,34 @@ Phase 7 - Mock Interview
 * Always understand why a design exists.
 * Prefer enterprise practices over demo code.
 * Every lesson must connect theory, engineering, interview questions, and projects.
+
+---
+
+## Daily Learning Workflow
+
+```text
+ChatGPT Teaching
+        |
+        v
+Coding Practice
+        |
+        v
+Codex Documentation
+        |
+        v
+ChatGPT Review
+        |
+        v
+Git Commit
+        |
+        v
+GitHub Push
+        |
+        v
+Next Lesson
+```
+
+GitHub is the single source of truth for lessons, projects, interview notes, cheat sheets, and progress.
 
 ---
 

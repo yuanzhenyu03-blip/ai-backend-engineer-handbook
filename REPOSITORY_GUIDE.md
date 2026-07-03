@@ -20,6 +20,7 @@ Before making changes, read these files in order:
 8. `LESSON_TEMPLATE.md`
 9. `DECISIONS.md`
 10. `REPOSITORY_GUIDE.md`
+11. `TRAINING_WORKFLOW.md`
 
 This order gives the contributor the mission, architecture, current progress, active tasks, coding standards, and curriculum context.
 
@@ -99,6 +100,84 @@ Automation scripts for repository maintenance.
 4. Keep file names consistent and lowercase where possible.
 5. Update internal references when paths change.
 6. Update `PROJECT_STATUS.md`, `TASKS.md`, and `CHANGELOG.md` when work is completed.
+
+---
+
+## Repository Lifecycle
+
+Each important repository file answers a different operational question.
+
+### `ROADMAP.md`
+
+Question:
+Where are we going?
+
+Role:
+Defines the official long-term learning order from Python Foundations to Interview Preparation.
+
+### `CURRICULUM.md`
+
+Question:
+How should each lesson be structured?
+
+Role:
+Defines the engineering curriculum format for the current lesson and future lessons.
+
+### `PROJECT_STATUS.md`
+
+Question:
+Where are we right now?
+
+Role:
+Tracks the current phase, current lesson, today's goal, definition of done, and repository health.
+
+### `TASKS.md`
+
+Question:
+What should we execute today?
+
+Role:
+Acts as the daily sprint board for lesson work, repository tasks, interview tasks, homework, blockers, backlog, and completed work.
+
+### `CHANGELOG.md`
+
+Question:
+What changed over time?
+
+Role:
+Records meaningful repository updates so the training history remains visible.
+
+### `DECISIONS.md`
+
+Question:
+Why did we choose this direction?
+
+Role:
+Records architecture and workflow decisions that should not be rediscovered repeatedly.
+
+### `AGENTS.md`
+
+Question:
+How should AI coding assistants behave here?
+
+Role:
+Defines the operating rules for assistants working in this repository.
+
+### `LESSON_TEMPLATE.md`
+
+Question:
+What standard must every lesson follow?
+
+Role:
+Defines the permanent lesson specification based on the released Day01 Gold Standard.
+
+### `TRAINING_WORKFLOW.md`
+
+Question:
+How does a training day operate from teaching to GitHub push?
+
+Role:
+Defines the official daily workflow, weekly workflow, repository update order, and lesson release process.
 
 ---
 

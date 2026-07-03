@@ -30,6 +30,36 @@ Next
 
 ---
 
+Today's Goal
+
+- [ ] Complete Lesson
+- [ ] Complete Coding Exercises
+- [ ] Update Handbook
+- [ ] Update Cheat Sheet
+- [ ] Update Interview Notes
+- [ ] Commit
+- [ ] Push to GitHub
+
+---
+
+Definition of Done
+
+A training day is complete only if:
+
+✓ Lesson finished
+
+✓ Exercises completed
+
+✓ Repository updated
+
+✓ Git committed
+
+✓ Git pushed
+
+✓ Ready for next lesson
+
+---
+
 Repository Status
 
 Handbook:
