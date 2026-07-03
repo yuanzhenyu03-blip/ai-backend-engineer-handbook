@@ -1,12 +1,12 @@
 # Project Status
 
-Current Phase
+## Current Phase
 
 Phase 1 — Python Foundations
 
 ---
 
-Current Lesson
+## Current Lesson
 
 Day02 — Mutable vs Immutable
 
@@ -15,20 +15,20 @@ Status:
 
 ---
 
-Completed
+## Completed
 
 - ✅ Day01 — Python Object Model
 - ✅ Day02 — Mutable vs Immutable
 
 ---
 
-In Progress
+## In Progress
 
 None.
 
 ---
 
-Next
+## Next
 
 - Day03 — Functions & Parameter Passing
 
@@ -37,7 +37,7 @@ Not started
 
 ---
 
-Core Abilities Mastered
+## Core Abilities Mastered
 
 - Explain mutable vs immutable objects.
 - Explain why `b = a` shares the same object reference.
@@ -52,7 +52,7 @@ Core Abilities Mastered
 
 ---
 
-Today's Goal
+## Today's Goal
 
 - [x] Complete Lesson
 - [x] Complete Coding Exercises
@@ -64,7 +64,7 @@ Today's Goal
 
 ---
 
-Definition of Done
+## Definition of Done
 
 A training day is complete only if:
 
@@ -82,7 +82,7 @@ A training day is complete only if:
 
 ---
 
-Repository Status
+## Repository Status
 
 Handbook:
 🟢 Healthy

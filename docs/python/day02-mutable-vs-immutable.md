@@ -71,7 +71,9 @@ Database / Browser / AI Model
 Response
 ```
 
-If one layer accidentally mutates data owned by another layer, bugs become difficult to find. The code may look harmless, but one shared list, dictionary, browser context, cookie jar, or message history can leak state across users or jobs.
+If one layer accidentally mutates data owned by another layer, bugs become difficult to find.
+The code may look harmless, but one shared list, dictionary, browser context, cookie jar,
+or message history can leak state across users or jobs.
 
 This is why production engineers care about mutability:
 
@@ -977,15 +979,22 @@ Never let multiple users accidentally share mutable conversation state.
 
 ## Example Answer: Mutable vs Immutable
 
-In Python, a mutable object can be changed after it is created, while an immutable object cannot. Lists and dictionaries are mutable. Strings, integers, and tuples are usually immutable. This matters in backend systems because shared mutable objects can leak state between requests or jobs.
+In Python, a mutable object can be changed after it is created, while an immutable object cannot.
+Lists and dictionaries are mutable. Strings, integers, and tuples are usually immutable.
+This matters in backend systems because shared mutable objects can leak state between requests
+or jobs.
 
 ## Example Answer: Shallow Copy vs Deep Copy
 
-A shallow copy creates a new outer object, but nested objects may still be shared. A deep copy recursively copies the object tree. Deep copy gives stronger isolation, but it can be more expensive.
+A shallow copy creates a new outer object, but nested objects may still be shared.
+A deep copy recursively copies the object tree. Deep copy gives stronger isolation,
+but it can be more expensive.
 
 ## Example Answer: Hashable
 
-An object is hashable if it has a stable hash value and can be used as a dictionary key. Lists, dictionaries, and sets are not hashable because they are mutable. A tuple can be hashable only if all values inside it are also hashable.
+An object is hashable if it has a stable hash value and can be used as a dictionary key.
+Lists, dictionaries, and sets are not hashable because they are mutable.
+A tuple can be hashable only if all values inside it are also hashable.
 
 ---
 
