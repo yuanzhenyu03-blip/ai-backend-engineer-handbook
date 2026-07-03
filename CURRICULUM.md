@@ -29,7 +29,7 @@ Topic:
 Mutable vs Immutable
 
 Status:
-⏳ Current Lesson
+✅ Completed
 
 Difficulty:
 Foundation
@@ -149,13 +149,58 @@ Topic:
 Functions & Parameter Passing
 
 Status:
-Planned
-
-Use the Future Lesson Template when this lesson starts.
+✅ Completed
 
 ---
 
-### Day04-Day14
+### Day04
+
+Topic:
+Scope & LEGB
+
+Status:
+⏳ Current Lesson
+
+Difficulty:
+Foundation
+
+Estimated Study Time:
+4-5 hours
+
+Prerequisites:
+
+- Day01 — Python Object Model
+- Day02 — Mutable vs Immutable
+- Day03 — Functions & Parameter Passing
+
+Learning Objectives:
+
+- Understand Python name lookup.
+- Explain Local, Enclosing, Global, and Built-in scopes.
+- Explain why scope matters in function design.
+- Connect scope behavior to FastAPI, Playwright, and AI backend systems.
+
+Key Concepts:
+
+- Local scope
+- Enclosing scope
+- Global scope
+- Built-in scope
+- Name lookup
+- Shadowing
+
+Repository Updates:
+
+- `docs/python/day04-scope-legb.md`
+- `cheat_sheets/python.md`
+- `interview/python.md`
+- `PROJECT_STATUS.md`
+- `TASKS.md`
+- `CHANGELOG.md`
+
+---
+
+### Day05-Day14
 
 Status:
 Planned
