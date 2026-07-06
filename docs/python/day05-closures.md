@@ -150,7 +150,7 @@ Coding: 60-90 minutes
 
 Review: 30-45 minutes
 
-Total: 4.5-5.5 hours
+Total: 4-5 hours
 
 ---
 
@@ -1214,7 +1214,7 @@ Pass lifecycle objects explicitly.
 
 ---
 
-# AI Backend Connections
+## AI Backend Connections
 
 Closures are useful for AI prompt builders.
 

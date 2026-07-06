@@ -22,6 +22,8 @@ Date: 2026-07-06
 
 ### Changed
 
+- Updated `CURRICULUM.md` to mark Day05 as completed and Day06 as the current lesson.
+- Adjusted `docs/python/day05-closures.md` so required sections remain in the official template order.
 - Updated `PROJECT_STATUS.md` to mark Day05 as completed.
 - Updated `TASKS.md` with completed Day05 tasks and Day06 preparation tasks.
 
@@ -31,7 +33,6 @@ Date: 2026-07-06
 - Covered captured environment, state preservation, `nonlocal`, `UnboundLocalError`, factory functions, Closure vs Class, and Late Binding.
 - Connected Day05 concepts to FastAPI dependency factories, Playwright configuration factories, and AI prompt builders.
 - No `exercises/` directory exists, so Day05 exercises are included in the lesson document.
-- Did not modify `CURRICULUM.md`.
 - Did not modify `ROADMAP.md`.
 - Did not modify `TRAINING_WORKFLOW.md`.
 - Did not modify `LESSON_TEMPLATE.md`.

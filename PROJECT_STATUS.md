@@ -8,13 +8,13 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day05 — Closures
+Day06 — Decorators
 
 Status:
-✅ Completed
+Not started
 
 Completed Time:
-2026-07-06
+Not completed yet
 
 ---
 
@@ -36,7 +36,7 @@ None.
 
 ## Next
 
-- Day06 — Decorators
+- Day07 — Iterators & Generators
 
 Status:
 Not started
@@ -107,7 +107,7 @@ Completed Python Foundations:
 
 ---
 
-## Today's Goal
+## Last Completed Goal
 
 - [x] Complete Lesson
 - [x] Complete Coding Exercises

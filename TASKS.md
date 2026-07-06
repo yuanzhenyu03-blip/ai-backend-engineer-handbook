@@ -16,20 +16,29 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day05 — Closures
+Day06 — Decorators
 
 Status:
-Completed
+Not started
 
 Target lesson:
 
 ```text
-docs/python/day05-closures.md
+docs/python/day06-decorators.md
 ```
 
 ---
 
 ## Today's Tasks
+
+- [ ] Begin Day06 classroom learning.
+- [ ] Review Day05 closure concepts before decorators.
+- [ ] Prepare decorator examples from function objects and closures.
+- [ ] Connect decorators to FastAPI, Playwright, and AI backend systems.
+
+---
+
+## Completed Day05 Tasks
 
 - [x] Complete Day05 classroom learning.
 - [x] Generate Day05 handbook lesson.
@@ -47,7 +56,7 @@ docs/python/day05-closures.md
 
 ---
 
-## Repository Tasks
+## Completed Day05 Repository Tasks
 
 - [x] Update `docs/python/day05-closures.md`.
 - [x] Update `cheat_sheets/python.md`.
@@ -60,7 +69,7 @@ docs/python/day05-closures.md
 
 ---
 
-## Interview Tasks
+## Completed Day05 Interview Tasks
 
 - [x] Add closure definition questions.
 - [x] Add captured environment questions.
@@ -73,7 +82,7 @@ docs/python/day05-closures.md
 
 ---
 
-## Homework
+## Completed Day05 Homework
 
 - [x] Complete closure identification exercises.
 - [x] Complete closure memory model exercises.
@@ -94,15 +103,6 @@ docs/python/day05-closures.md
 ## Blocked
 
 None.
-
----
-
-## Next Lesson
-
-Day06 — Decorators
-
-Status:
-Not started
 
 ---
 

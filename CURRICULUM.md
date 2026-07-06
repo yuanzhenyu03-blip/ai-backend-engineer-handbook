@@ -206,7 +206,7 @@ Topic:
 Closures
 
 Status:
-⏳ Current Lesson
+✅ Completed
 
 Difficulty:
 Foundation
@@ -245,7 +245,17 @@ Repository Updates:
 
 ---
 
-### Day06-Day14
+### Day06
+
+Topic:
+Decorators
+
+Status:
+⏳ Current Lesson
+
+---
+
+### Day07-Day14
 
 Status:
 Planned
