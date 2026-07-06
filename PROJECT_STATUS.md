@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day06 — Decorators
+Day07 — Iterators & Generators
 
 Status:
 Not started
@@ -25,6 +25,7 @@ Not completed yet
 - ✅ Day03 — Functions & Parameter Passing
 - ✅ Day04 — Scope & LEGB
 - ✅ Day05 — Closures
+- ✅ Day06 — Decorators
 
 ---
 
@@ -36,7 +37,7 @@ None.
 
 ## Next
 
-- Day07 — Iterators & Generators
+- Day08 — Exception Handling
 
 Status:
 Not started
@@ -52,6 +53,7 @@ Completed Python Foundations:
 - Day03 — Function parameter passing, call by sharing, mutation vs rebinding
 - Day04 — Scope, LEGB, lexical scope, closure basics, late binding
 - Day05 — Closures, captured environment, factory functions, late binding fixes
+- Day06 — Decorators, wrappers, universal decorators, metadata preservation
 
 ---
 
@@ -75,6 +77,13 @@ Completed Python Foundations:
 - Compare closure vs class for backend design.
 - Build FastAPI dependency factories, Playwright configuration factories, and AI prompt builders.
 - Explain production risks caused by captured mutable state.
+- Explain why decorators exist for cross-cutting concerns.
+- Explain `@decorator` as `func = decorator(func)`.
+- Explain why the wrapper function is the callable that actually runs.
+- Build universal decorators with `*args` and `**kwargs`.
+- Explain why `functools.wraps` preserves metadata.
+- Explain how decorators support logging, timing, retry, authentication, cache, and AI tracing.
+- Review decorator production risks such as lost return values, broken metadata, and unsafe logging.
 
 ---
 
@@ -104,6 +113,18 @@ Completed Python Foundations:
 - Playwright timeout factory exercise
 - AI prompt builder factory exercise
 - Closure engineering thinking exercises
+- Decorator output prediction exercises
+- Decorator execution order exercises
+- Wrapper call flow exercises
+- Universal decorator implementation
+- Timer decorator exercise
+- Logging decorator exercise
+- `TypeError` analysis exercise
+- `functools.wraps` metadata comparison
+- FastAPI route decorator reasoning exercise
+- Playwright retry decorator exercise
+- AI token logger decorator exercise
+- Day06 code review exercises
 
 ---
 

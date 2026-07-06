@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day06 — Decorators
+Day07 — Iterators & Generators
 
 Status:
 Not started
@@ -24,17 +24,80 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day06-decorators.md
+docs/python/day07-iterators-generators.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day06 classroom learning.
-- [ ] Review Day05 closure concepts before decorators.
-- [ ] Prepare decorator examples from function objects and closures.
-- [ ] Connect decorators to FastAPI, Playwright, and AI backend systems.
+- [ ] Begin Day07 classroom learning.
+- [ ] Review function objects, closures, and decorators before iterators.
+- [ ] Prepare iterator and generator output prediction exercises.
+- [ ] Connect lazy evaluation to FastAPI streaming, Playwright pagination, and AI backend pipelines.
+
+---
+
+## Completed Day06 Tasks
+
+- [x] Complete Day06 classroom learning.
+- [x] Generate Day06 handbook lesson.
+- [x] Add why decorators matter.
+- [x] Add cross-cutting concerns discussion.
+- [x] Add decorator mental model.
+- [x] Add `@decorator` and `func = decorator(func)` equivalence.
+- [x] Add wrapper function call flow.
+- [x] Add universal decorator template.
+- [x] Add `*args` and `**kwargs` parameter forwarding.
+- [x] Add `functools.wraps` metadata preservation.
+- [x] Add production examples for logging, timing, retry, auth, cache, and AI tracing.
+- [x] Add FastAPI connections.
+- [x] Add Playwright connections.
+- [x] Add AI backend connections.
+- [x] Add code review discussion.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day06 Repository Tasks
+
+- [x] Update `docs/python/day06-decorators.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Commit changes.
+- [x] Push to GitHub.
+
+---
+
+## Completed Day06 Interview Tasks
+
+- [x] Add beginner decorator questions.
+- [x] Add intermediate decorator questions.
+- [x] Add senior decorator questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add overseas interview expressions.
+
+---
+
+## Completed Day06 Homework
+
+- [x] Complete decorator output prediction exercises.
+- [x] Complete decorator execution order exercises.
+- [x] Complete wrapper call flow exercises.
+- [x] Complete timer decorator exercise.
+- [x] Complete logging decorator exercise.
+- [x] Complete argument forwarding exercise.
+- [x] Complete return value forwarding exercise.
+- [x] Complete `TypeError` analysis exercise.
+- [x] Complete `functools.wraps` metadata comparison.
+- [x] Complete FastAPI route decorator reasoning exercise.
+- [x] Complete Playwright retry decorator exercise.
+- [x] Complete AI token logger decorator exercise.
 
 ---
 
@@ -133,6 +196,28 @@ None.
 - [ ] Prepare questions about wrapper functions.
 - [ ] Prepare examples for backend decorators.
 
+### Day06 Review
+
+- [ ] Explain why decorators exist.
+- [ ] Explain cross-cutting concerns.
+- [ ] Explain `@decorator` as `func = decorator(func)`.
+- [ ] Draw the wrapper call flow from memory.
+- [ ] Explain why `wrapper()` can raise `TypeError`.
+- [ ] Write a universal decorator from memory.
+- [ ] Explain why production decorators use `functools.wraps`.
+- [ ] Compare metadata with and without `wraps`.
+- [ ] Explain why FastAPI depends on metadata.
+- [ ] Write one Playwright retry decorator from memory.
+- [ ] Write one AI token logger decorator from memory.
+
+### Day07 Preparation
+
+- [ ] Review `for` loops.
+- [ ] Review function return values.
+- [ ] Review lazy evaluation motivation.
+- [ ] Prepare questions about iterator protocol.
+- [ ] Prepare examples for streaming data and pagination.
+
 ### Future Knowledge Base TODO
 
 Do not create this structure yet.
@@ -177,3 +262,4 @@ Purpose:
 - [x] Complete Day03 — Functions & Parameter Passing.
 - [x] Complete Day04 — Scope & LEGB.
 - [x] Complete Day05 — Closures.
+- [x] Complete Day06 — Decorators.

@@ -1262,6 +1262,301 @@ Follow-up questions:
 
 ---
 
+## Day06 Questions: Decorators
+
+### Beginner 1. What is a decorator?
+
+Question:
+
+What is a decorator in Python?
+
+中文解释:
+
+Decorator 是一个接收函数并返回函数的函数。它通常用于在不修改业务函数代码的情况下，为函数增加日志、
+计时、认证、缓存、重试等通用能力。
+
+English answer:
+
+A decorator is a function that takes another function and returns a new function, usually
+to add reusable behavior around the original function.
+
+Overseas interview answer:
+
+In backend systems, I use decorators for cross-cutting concerns such as logging, timing,
+authentication, retry, cache, and tracing, so the business function stays focused.
+
+### Beginner 2. How does `@decorator` work?
+
+Question:
+
+How does `@decorator` work internally?
+
+中文解释:
+
+`@decorator` 是语法糖。它等价于 `func = decorator(func)`。Python 先创建原始函数对象，
+然后把这个函数传给 decorator，再把函数名绑定到 decorator 返回的新函数。
+
+English answer:
+
+`@decorator` is equivalent to `func = decorator(func)`. Python passes the original function
+object to the decorator and rebinds the function name to the returned callable.
+
+Overseas interview answer:
+
+This mental model helps me debug decorators because I know the function name usually points
+to the wrapper after decoration.
+
+### Beginner 3. What is wrapper?
+
+Question:
+
+What is the wrapper function in a decorator?
+
+中文解释:
+
+wrapper 是 decorator 返回的函数。函数被装饰后，调用函数名时真正先执行的是 wrapper。wrapper 通常会
+在调用原始函数前后添加额外逻辑。
+
+English answer:
+
+The wrapper is the returned function that actually runs when the decorated function is
+called. It usually executes logic before and after calling the original function.
+
+Overseas interview answer:
+
+The wrapper is where I add infrastructure behavior such as logging, timing, retry, or
+request tracing while preserving the original business function.
+
+### Beginner 4. Why use decorators?
+
+Question:
+
+Why do we use decorators?
+
+中文解释:
+
+Decorator 用于抽离横切关注点，避免在每个业务函数里重复写相同的日志、计时、权限、缓存或 tracing 逻辑。
+
+English answer:
+
+We use decorators to avoid duplicated infrastructure code and to apply consistent behavior
+across many functions without modifying the business logic.
+
+Overseas interview answer:
+
+Decorators improve maintainability because one tested wrapper can enforce the same logging,
+timing, or authorization policy across many backend functions.
+
+### Intermediate 1. Why do decorators usually use `*args` and `**kwargs`?
+
+Question:
+
+Why do production decorators usually define `wrapper(*args, **kwargs)`?
+
+中文解释:
+
+因为不同函数的参数不同。`*args` 接收位置参数，`**kwargs` 接收关键字参数。这样 wrapper 可以把参数
+原样透传给原始函数。
+
+English answer:
+
+Decorators usually use `*args` and `**kwargs` so the wrapper can accept and forward any
+positional and keyword arguments to the original function.
+
+Overseas interview answer:
+
+This makes the decorator reusable across many function signatures. Without it, decorated
+functions can fail with `TypeError`.
+
+### Intermediate 2. What does `functools.wraps` do?
+
+Question:
+
+What does `functools.wraps` do?
+
+中文解释:
+
+`functools.wraps` 用来保留原始函数的元数据，例如 `__name__`、`__doc__`、`__annotations__`
+以及 signature 相关信息。
+
+English answer:
+
+`functools.wraps` preserves metadata from the original function, including the name,
+docstring, annotations, and signature-related information.
+
+Overseas interview answer:
+
+This matters in production because logs, debugging tools, documentation generators, and
+frameworks like FastAPI rely on accurate function metadata.
+
+### Intermediate 3. Why does `@decorator` equal `func = decorator(func)`?
+
+Question:
+
+Why is `@decorator` equivalent to `func = decorator(func)`?
+
+中文解释:
+
+因为 decorator 语法本质上就是函数对象重绑定。原始函数先被创建，然后传入 decorator，最后函数名绑定到
+decorator 返回的对象。
+
+English answer:
+
+Decorator syntax is syntactic sugar. Python creates the function object, passes it to the
+decorator, and assigns the returned callable back to the original function name.
+
+Overseas interview answer:
+
+This explains why the wrapper becomes the callable and why missing metadata preservation
+can make logs show `wrapper` instead of the original function name.
+
+### Intermediate 4. Why does wrapper become the callable function?
+
+Question:
+
+Why does the wrapper function become the callable function?
+
+中文解释:
+
+因为 decorator 返回的是 wrapper，并且函数名被重新绑定到 wrapper。所以后续调用函数名时，实际调用的是
+wrapper。
+
+English answer:
+
+The wrapper becomes the callable because the decorator returns it, and Python rebinds the
+original function name to that returned wrapper.
+
+Overseas interview answer:
+
+This is why wrapper design is important. If the wrapper forgets arguments, return values,
+metadata, or async behavior, the decorated function's production behavior changes.
+
+### Senior 1. Explain the implementation of Python decorators.
+
+Question:
+
+Explain how Python decorators are implemented.
+
+中文解释:
+
+Decorator 是高阶函数。它接收函数对象，在内部定义 wrapper，wrapper 通过闭包捕获原始函数，然后 decorator
+返回 wrapper。调用被装饰函数时，实际先调用 wrapper。
+
+English answer:
+
+Decorators are higher-order functions. They receive a function object, define an inner
+wrapper that captures the original function, and return that wrapper.
+
+Overseas interview answer:
+
+From an engineering perspective, decorators combine function objects and closures to add
+reusable behavior around business functions.
+
+### Senior 2. Explain metadata preservation.
+
+Question:
+
+What is metadata preservation and why does it matter?
+
+中文解释:
+
+Metadata preservation 指装饰后仍然保留原始函数的名称、文档、类型注解和签名信息。没有它，日志可能全部显示
+`wrapper`，框架也可能无法正确反射函数。
+
+English answer:
+
+Metadata preservation means keeping the original function's name, docstring, annotations,
+and signature information after decoration.
+
+Overseas interview answer:
+
+It matters because production debugging, API documentation, tracing, and framework
+reflection depend on accurate metadata.
+
+### Senior 3. Why does FastAPI rely heavily on decorators?
+
+Question:
+
+Why does FastAPI rely heavily on decorators?
+
+中文解释:
+
+FastAPI 使用 decorators 注册路由，并将 HTTP 方法、路径、函数签名、参数类型和文档信息连接起来。
+
+English answer:
+
+FastAPI uses decorators to register route handlers and keep route metadata close to the
+handler function. It also inspects annotations and signatures for validation and OpenAPI
+generation.
+
+Overseas interview answer:
+
+This is why custom decorators around FastAPI endpoints must preserve metadata with
+`functools.wraps` and handle async functions correctly.
+
+### Senior 4. How do decorators improve maintainability in backend systems?
+
+Question:
+
+How do decorators improve maintainability?
+
+中文解释:
+
+Decorators 把重复的横切关注点集中到一个地方，避免每个业务函数都重复实现日志、计时、认证、缓存和重试逻辑。
+
+English answer:
+
+Decorators improve maintainability by centralizing cross-cutting concerns and applying
+them consistently across many functions.
+
+Overseas interview answer:
+
+They reduce duplication, make code review easier, and allow teams to change infrastructure
+behavior in one place instead of editing every business function.
+
+### Senior 5. Explain real production use cases of decorators in AI Backend.
+
+Question:
+
+What are real decorator use cases in AI backend systems?
+
+中文解释:
+
+AI Backend 中 Decorator 可用于模型调用耗时统计、token 记录、request tracing、tool call tracing、
+cache、retry 和权限控制。
+
+English answer:
+
+In AI backends, decorators can track latency, token usage, model calls, tool calls, cache
+hits, retries, and request IDs.
+
+Overseas interview answer:
+
+I would use decorators for AI observability, but I would avoid logging raw prompts or user
+messages because they may contain sensitive data.
+
+### Senior 6. Why are cross-cutting concerns implemented using decorators?
+
+Question:
+
+Why are decorators a good fit for cross-cutting concerns?
+
+中文解释:
+
+横切关注点影响很多函数，但不是这些函数的核心业务逻辑。Decorator 可以在函数外层统一添加这些能力。
+
+English answer:
+
+Cross-cutting concerns affect many functions but are not the core business logic of those
+functions. Decorators let us apply those concerns consistently around the functions.
+
+Overseas interview answer:
+
+For example, logging and tracing should be consistent across the system, but they should
+not make every service function harder to read.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak

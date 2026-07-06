@@ -658,6 +658,153 @@ Use callable objects when behavior needs configuration.
 
 ---
 
+## Decorators
+
+Definition:
+
+```text
+Decorator = a function that receives a function and returns a function.
+```
+
+Core equivalence:
+
+```python
+@decorator
+def func():
+    ...
+```
+
+means:
+
+```python
+def func():
+    ...
+
+
+func = decorator(func)
+```
+
+Mental model:
+
+```text
+original function
+        |
+        v
+decorator(original function)
+        |
+        v
+wrapper function
+        |
+        v
+function name now points to wrapper
+```
+
+---
+
+## Wrapper Pattern
+
+```python
+def trace(func):
+    def wrapper(*args, **kwargs):
+        print("before")
+        result = func(*args, **kwargs)
+        print("after")
+        return result
+
+    return wrapper
+```
+
+The wrapper is the callable that runs after decoration.
+
+Rules:
+
+- Use `*args` to forward positional arguments.
+- Use `**kwargs` to forward keyword arguments.
+- Return the original result.
+- Avoid changing the business function contract.
+
+---
+
+## Universal Decorator Template
+
+```python
+from collections.abc import Callable
+from functools import wraps
+from typing import Any
+
+
+def my_decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        result = func(*args, **kwargs)
+        return result
+
+    return wrapper
+```
+
+Use this shape for most production decorators.
+
+---
+
+## `functools.wraps`
+
+`functools.wraps` preserves original function metadata.
+
+Important metadata:
+
+- `__name__`
+- `__doc__`
+- `__annotations__`
+- signature information used by `inspect.signature`
+- framework metadata used by tools such as FastAPI
+
+Without `wraps`, logs and debuggers may show:
+
+```text
+wrapper
+```
+
+instead of:
+
+```text
+create_user
+```
+
+Production rule:
+
+```text
+Decorator without functools.wraps is suspicious by default.
+```
+
+---
+
+## Common Decorator Patterns
+
+- Logging
+- Timing
+- Retry
+- Authentication
+- Authorization
+- Cache
+- Rate limiting
+- AI token tracking
+- AI request tracing
+- Tool-call tracing
+
+---
+
+## Common Decorator Bugs
+
+- Defining `wrapper()` without `*args` and `**kwargs`.
+- Forgetting to return `func(*args, **kwargs)`.
+- Forgetting `functools.wraps`.
+- Logging sensitive arguments or raw prompts.
+- Swallowing exceptions silently.
+- Retrying non-idempotent operations.
+- Wrapping async functions with sync wrappers.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -692,4 +839,10 @@ Use callable objects when behavior needs configuration.
 - "Use closures for small captured configuration and classes for complex state."
 - "Late binding means a closure looks up a variable when the function is called."
 - "The `i=i` pattern fixes late binding by storing the current value as a default argument."
+- "A decorator is a function that receives a function and returns a function."
+- "`@decorator` is equivalent to `func = decorator(func)`."
+- "The wrapper is the callable that actually runs after decoration."
+- "Production decorators usually forward `*args` and `**kwargs`."
+- "`functools.wraps` preserves function metadata for debugging and frameworks."
+- "Decorators are useful for cross-cutting concerns like logging, timing, retry, auth, cache, and tracing."
 - "In production code, I prefer explicit dependencies and clear ownership of state."
