@@ -1037,6 +1037,212 @@ AI Backend:
 
 ---
 
+## Exception Handling
+
+Engineering definition:
+
+```text
+Exception handling = how a backend detects, routes, translates, and explains failure.
+```
+
+Basic shape:
+
+```python
+try:
+    result = risky_operation()
+except SpecificError:
+    result = recover()
+```
+
+Use `try / except` for known failure paths.
+
+Do not use it to hide unexpected bugs.
+
+---
+
+## Specific Exception vs `except Exception`
+
+Prefer:
+
+```python
+try:
+    result = 10 / value
+except ZeroDivisionError:
+    result = 0
+```
+
+Avoid broad catching inside business logic:
+
+```python
+try:
+    result = do_work()
+except Exception:
+    result = None
+```
+
+Rule:
+
+```text
+Catch the exception you know how to handle.
+Let unknown failures propagate.
+```
+
+---
+
+## Exception Control Flow
+
+When an exception happens in a `try` block, later lines in that block do not run.
+
+```python
+try:
+    print("A")
+    print(10 / 0)
+    print("B")
+except ZeroDivisionError:
+    print("C")
+
+print("D")
+```
+
+Output:
+
+```text
+A
+C
+D
+```
+
+---
+
+## Exception Propagation
+
+If a function does not catch an exception, it moves up the call stack.
+
+```text
+low_level()
+    |
+    v
+service()
+    |
+    v
+api_handler()
+    |
+    v
+framework boundary
+```
+
+Use propagation when a higher layer has better context for logging, retry, or response
+translation.
+
+---
+
+## `raise`
+
+Use `raise` when normal execution cannot continue safely.
+
+```python
+def check_age(age: int) -> None:
+    if age < 0:
+        raise ValueError("age must not be negative")
+```
+
+Return `None` for expected absence.
+
+Raise for invalid operation, failed dependency, or broken invariant.
+
+---
+
+## Custom Exceptions
+
+Custom exceptions encode domain meaning.
+
+```python
+class InvalidPromptError(ValueError):
+    pass
+
+
+class LLMRequestError(RuntimeError):
+    pass
+
+
+class ToolExecutionError(RuntimeError):
+    pass
+```
+
+Why:
+
+- API layer can map errors to status codes.
+- Workers can decide retry vs fail.
+- AI agents can record tool failure state.
+- Logs become searchable by error type.
+
+---
+
+## Exception Chaining
+
+Use `raise ... from ...` to preserve root cause.
+
+```python
+try:
+    call_provider()
+except TimeoutError as error:
+    raise LLMRequestError("LLM request timed out") from error
+```
+
+Meaning:
+
+```text
+TimeoutError was the root cause.
+LLMRequestError is the domain-level error.
+```
+
+---
+
+## Traceback and Root Cause
+
+A traceback answers:
+
+- Which function failed?
+- Which line failed?
+- What exception type occurred?
+- What was the root cause?
+- Was the error translated correctly?
+
+Production rule:
+
+```text
+Logs should preserve root cause without leaking sensitive data.
+```
+
+---
+
+## Framework Error Patterns
+
+| Context | Pattern | Risk |
+|---------|---------|------|
+| FastAPI | Raise `HTTPException` at API boundary | Leaking internal traceback to users |
+| Service layer | Raise domain exception | Coupling business logic to HTTP |
+| Playwright | Capture screenshot, cleanup, re-raise | Swallowing automation failures |
+| AI Backend | Use `InvalidPromptError`, `LLMRequestError`, `ToolExecutionError`, `RateLimitError` | Collapsing all failures into `None` |
+
+FastAPI:
+
+- Convert validation/domain errors into HTTP responses.
+- Avoid raw internal errors in user-facing responses.
+
+Playwright:
+
+- Separate recoverable timeout from non-recoverable login failure.
+- Capture evidence before cleanup.
+
+AI Backend:
+
+- Prompt validation should raise clear errors.
+- LLM failures should preserve provider root cause.
+- Tool failures should update agent state explicitly.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -1084,4 +1290,12 @@ AI Backend:
 - "Lazy evaluation improves streaming and time-to-first-result, not only memory usage."
 - "`yield from` delegates yielding to another iterable."
 - "Use generators for streaming patterns such as FastAPI StreamingResponse, Playwright pipelines, and AI token streaming."
+- "Exception handling is production control flow, not just crash prevention."
+- "Catch specific exceptions when you know how to handle them."
+- "Exception propagation lets framework boundaries translate failures consistently."
+- "Use `raise` when normal execution cannot continue safely."
+- "Custom exceptions encode domain meaning in large backend systems."
+- "`raise ... from ...` preserves root cause while translating errors."
+- "FastAPI uses exceptions to turn backend failures into HTTP responses."
+- "AI backend errors should distinguish prompt validation, LLM request failure, tool failure, and rate limits."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

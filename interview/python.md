@@ -1982,6 +1982,220 @@ jobs need isolated browser contexts, and each LLM stream needs its own token str
 
 ---
 
+## Day08 Questions: Exception Handling
+
+### Beginner 1. What is exception handling in Python?
+
+Question:
+
+What is exception handling in Python?
+
+Standard Answer:
+
+Exception handling is Python's mechanism for responding to errors or exceptional conditions
+using `try`, `except`, and `raise`.
+
+Engineering Perspective:
+
+In backend systems, exception handling defines where failures are detected, logged,
+translated, retried, or returned to users.
+
+### Beginner 2. What is the difference between `try/except` and normal control flow?
+
+Question:
+
+What is the difference between `try/except` and normal control flow?
+
+Standard Answer:
+
+Normal control flow handles expected branches. `try/except` handles failures that interrupt
+normal execution.
+
+Engineering Perspective:
+
+Return values are good for expected outcomes. Exceptions are better for invalid operations,
+failed dependencies, and broken assumptions.
+
+### Beginner 3. Why should we catch specific exceptions instead of using `except Exception`?
+
+Question:
+
+Why should we catch specific exceptions instead of using `except Exception`?
+
+Standard Answer:
+
+Specific exceptions preserve error meaning and avoid hiding unexpected bugs.
+
+Engineering Perspective:
+
+In production, broad catches can turn real bugs into silent `None` values or misleading
+fallback behavior. Catch `Exception` only at clear boundaries where you can log, clean up,
+or translate the failure.
+
+### Intermediate 1. What is exception propagation?
+
+Question:
+
+What is exception propagation?
+
+Standard Answer:
+
+Exception propagation means an exception moves up the call stack until some caller handles
+it or the framework reports it.
+
+Engineering Perspective:
+
+Propagation lets low-level code detect failure while higher-level boundaries decide whether
+to retry, log, convert to HTTP, or fail the job.
+
+### Intermediate 2. What happens when an exception is raised inside a nested function call?
+
+Question:
+
+What happens when an exception is raised inside a nested function call?
+
+Standard Answer:
+
+If the nested function does not catch the exception, it propagates to its caller, then to
+the caller's caller, and continues upward.
+
+Engineering Perspective:
+
+This allows service code to stay focused while API or worker boundaries handle response
+translation and observability.
+
+### Intermediate 3. What is the difference between returning `None` and raising an exception?
+
+Question:
+
+What is the difference between returning `None` and raising an exception?
+
+Standard Answer:
+
+Returning `None` can represent expected absence. Raising an exception represents an invalid
+operation, failed dependency, or broken invariant.
+
+Engineering Perspective:
+
+If the caller can safely continue, `None` may be acceptable. If normal execution should
+stop, raise a clear exception.
+
+### Intermediate 4. Why should validation logic raise `ValueError` or custom exceptions?
+
+Question:
+
+Why should validation logic raise `ValueError` or custom exceptions?
+
+Standard Answer:
+
+Validation failures mean input violates required rules. Raising `ValueError` or a custom
+exception makes the failure explicit.
+
+Engineering Perspective:
+
+In AI backends, an `InvalidPromptError` can become a clean user-facing 400 response, while
+LLM provider failures can be handled differently.
+
+### Senior 1. How would you design exception handling in a production FastAPI service?
+
+Question:
+
+How would you design exception handling in a production FastAPI service?
+
+Standard Answer:
+
+I would raise domain-specific exceptions in service code, translate them into
+`HTTPException` or registered exception handlers at the API boundary, log root causes
+internally, and avoid exposing internal tracebacks to users.
+
+Engineering Perspective:
+
+This keeps business logic independent from HTTP while still giving clients correct status
+codes and useful error messages.
+
+### Senior 2. How does exception propagation support framework-level error handling?
+
+Question:
+
+How does exception propagation support framework-level error handling?
+
+Standard Answer:
+
+Propagation lets exceptions travel from lower-level code to framework boundaries, where
+they can be converted into standardized HTTP responses, task failures, or logs.
+
+Engineering Perspective:
+
+This avoids duplicating error conversion logic in every function and keeps error handling
+consistent across the service.
+
+### Senior 3. Why are custom exceptions useful in large backend systems?
+
+Question:
+
+Why are custom exceptions useful in large backend systems?
+
+Standard Answer:
+
+Custom exceptions encode domain meaning and allow different failure categories to be
+handled differently.
+
+Engineering Perspective:
+
+`InvalidPromptError`, `LLMRequestError`, `ToolExecutionError`, and `RateLimitError` should
+not all have the same retry, logging, or user-response behavior.
+
+### Senior 4. What problem does `raise ... from ...` solve?
+
+Question:
+
+What problem does `raise ... from ...` solve?
+
+Standard Answer:
+
+It preserves the original exception as the cause when translating a low-level error into a
+higher-level domain exception.
+
+Engineering Perspective:
+
+It supports root cause analysis. The application can expose a domain error while logs and
+tracebacks still show the original provider timeout, parsing error, or tool failure.
+
+### Senior 5. How would you handle LLM API failures in an AI Backend system?
+
+Question:
+
+How would you handle LLM API failures in an AI Backend system?
+
+Standard Answer:
+
+I would classify failures such as prompt validation errors, rate limits, timeouts, provider
+errors, and tool execution failures. I would retry safe transient failures, preserve root
+cause, log structured context, and return appropriate user-facing responses.
+
+Engineering Perspective:
+
+Do not collapse all LLM failures into `None` or generic 500 errors. The error type should
+guide retry policy, user messaging, alerting, and agent state updates.
+
+### Senior 6. How should Playwright automation workers handle recoverable vs non-recoverable errors?
+
+Question:
+
+How should Playwright automation workers handle recoverable vs non-recoverable errors?
+
+Standard Answer:
+
+Recoverable errors such as temporary timeouts can be retried with limits. Non-recoverable
+errors such as invalid credentials or missing required state should fail the job clearly.
+
+Engineering Perspective:
+
+Workers should capture evidence such as screenshots, clean up browser contexts, preserve
+root cause, and avoid infinite retries or silent `pass` blocks.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak

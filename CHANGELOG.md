@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.11 — Day08 Exception Handling Documentation
+
+Date: 2026-07-06
+
+### Added
+
+- Added `docs/python/day08-exception-handling.md`.
+- Added Day08 exception handling review material to `cheat_sheets/python.md`.
+- Added Day08 interview questions with overseas AI Backend engineering answers to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day08 as completed and Day09 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day08 as completed and prepare Day09.
+- Updated `TASKS.md` with completed Day08 tasks and Day09 preparation tasks.
+- Updated `CHANGELOG.md` with the Day08 repository update.
+
+### Notes
+
+- Covered `try / except`, precise exception handling, `ZeroDivisionError`, exception control flow, exception propagation, `raise`, custom exceptions, and exception chaining.
+- Added `InvalidPromptError`, `LLMRequestError`, `ToolExecutionError`, and `RateLimitError` error-design examples.
+- Connected Day08 concepts to FastAPI `HTTPException`, Playwright timeout recovery, and AI backend failure handling.
+- No `exercises/` directory exists, so Day08 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.10 — Day07 Classroom Polish
 
 Date: 2026-07-06

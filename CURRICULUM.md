@@ -271,11 +271,21 @@ Topic:
 Exception Handling
 
 Status:
+✅ Completed
+
+---
+
+### Day09
+
+Topic:
+Modules & Packages
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day09-Day14
+### Day10-Day14
 
 Status:
 Planned

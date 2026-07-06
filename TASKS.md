@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day08 — Exception Handling
+Day09 — Modules & Packages
 
 Status:
 Not started
@@ -24,17 +24,78 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day08-exception-handling.md
+docs/python/day09-modules-packages.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day08 classroom learning.
-- [ ] Review `StopIteration` as protocol control flow.
-- [ ] Prepare exception output prediction exercises.
-- [ ] Connect exception handling to FastAPI errors, Playwright recovery, and AI backend failures.
+- [ ] Begin Day09 classroom learning.
+- [ ] Review imports and module boundaries.
+- [ ] Prepare package structure exercises.
+- [ ] Connect modules and packages to FastAPI project organization and AI backend codebases.
+
+---
+
+## Completed Day08 Tasks
+
+- [x] Complete Day08 classroom learning.
+- [x] Generate Day08 handbook lesson.
+- [x] Add `try / except` basics.
+- [x] Add precise `ZeroDivisionError` handling.
+- [x] Add exception control flow discussion.
+- [x] Add exception propagation call stack reasoning.
+- [x] Add `raise` for business rules.
+- [x] Add return `None` vs raise discussion.
+- [x] Add custom exception examples.
+- [x] Add `InvalidPromptError`.
+- [x] Add exception chaining with `raise ... from ...`.
+- [x] Add traceback and root cause discussion.
+- [x] Add FastAPI `HTTPException` connections.
+- [x] Add Playwright automation failure handling.
+- [x] Add AI backend exception design.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day08 Repository Tasks
+
+- [x] Update `docs/python/day08-exception-handling.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+- [x] Commit changes.
+- [x] Push to GitHub.
+
+---
+
+## Completed Day08 Interview Tasks
+
+- [x] Add beginner exception questions.
+- [x] Add intermediate exception questions.
+- [x] Add senior exception questions.
+- [x] Add English standard answers.
+- [x] Add overseas AI Backend engineering perspectives.
+
+---
+
+## Completed Day08 Homework
+
+- [x] Complete `try / except` output prediction.
+- [x] Complete `ZeroDivisionError` precise catch exercise.
+- [x] Complete exception propagation call stack exercise.
+- [x] Complete `raise` exercise.
+- [x] Complete `check_age(age)` exercise.
+- [x] Complete `InvalidPromptError` custom exception exercise.
+- [x] Complete `raise ... from ...` exception chain exercise.
+- [x] Complete FastAPI `HTTPException` scenario.
+- [x] Complete Playwright timeout screenshot and cleanup scenario.
+- [x] Complete AI backend prompt validator and tool error scenario.
 
 ---
 
@@ -306,6 +367,28 @@ None.
 - [ ] Prepare examples for FastAPI error handling.
 - [ ] Prepare examples for Playwright retry and recovery.
 
+### Day08 Review
+
+- [ ] Explain `try / except` control flow.
+- [ ] Explain why `except Exception` is risky.
+- [ ] Explain exception propagation.
+- [ ] Explain return `None` vs raise.
+- [ ] Implement `check_age(age)`.
+- [ ] Implement `InvalidPromptError`.
+- [ ] Explain `raise ... from ...`.
+- [ ] Read a traceback for root cause.
+- [ ] Explain FastAPI `HTTPException`.
+- [ ] Explain Playwright recoverable vs non-recoverable errors.
+- [ ] Explain AI backend `LLMRequestError` and `ToolExecutionError`.
+
+### Day09 Preparation
+
+- [ ] Review Python file imports.
+- [ ] Review `__init__.py`.
+- [ ] Prepare questions about package boundaries.
+- [ ] Prepare examples for FastAPI app structure.
+- [ ] Prepare examples for AI backend module organization.
+
 ### Future Knowledge Base TODO
 
 Do not create this structure yet.
@@ -352,3 +435,4 @@ Purpose:
 - [x] Complete Day05 — Closures.
 - [x] Complete Day06 — Decorators.
 - [x] Complete Day07 — Iterators & Generators.
+- [x] Complete Day08 — Exception Handling.

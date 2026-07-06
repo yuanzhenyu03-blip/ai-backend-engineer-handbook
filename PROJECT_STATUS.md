@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day08 — Exception Handling
+Day09 — Modules & Packages
 
 Status:
 Not started
@@ -27,6 +27,7 @@ Not completed yet
 - ✅ Day05 — Closures
 - ✅ Day06 — Decorators
 - ✅ Day07 — Iterators & Generators
+- ✅ Day08 — Exception Handling
 
 ---
 
@@ -38,7 +39,7 @@ None.
 
 ## Next
 
-- Day09 — Modules & Packages
+- Day10 — Type Hints
 
 Status:
 Not started
@@ -56,6 +57,7 @@ Completed Python Foundations:
 - Day05 — Closures, captured environment, factory functions, late binding fixes
 - Day06 — Decorators, wrappers, universal decorators, metadata preservation
 - Day07 — Iterables, iterators, generators, lazy evaluation, streaming pipelines
+- Day08 — Exception handling, propagation, custom exceptions, exception chaining, root cause analysis
 
 ---
 
@@ -94,6 +96,14 @@ Completed Python Foundations:
 - Compare list comprehension and generator expression.
 - Explain `yield from`.
 - Connect generators to FastAPI `StreamingResponse`, Playwright pipelines, and AI token streaming.
+- Explain `try / except` control flow.
+- Catch specific exceptions such as `ZeroDivisionError`.
+- Explain why broad `except Exception` can hide bugs.
+- Explain exception propagation through the call stack.
+- Use `raise` for invalid business rules.
+- Design custom exceptions such as `InvalidPromptError`.
+- Preserve root cause with `raise ... from ...`.
+- Connect exceptions to FastAPI `HTTPException`, Playwright recovery, and AI backend error design.
 
 ---
 
@@ -146,6 +156,15 @@ Completed Python Foundations:
 - Playwright pipeline exercise
 - AI token streaming exercise
 - Pipeline vs batch exercise
+- `try / except` output prediction exercises
+- `ZeroDivisionError` precise catch exercise
+- Exception propagation call stack exercise
+- `raise` and `check_age(age)` exercise
+- `InvalidPromptError` custom exception exercise
+- Exception chaining exercise
+- FastAPI `HTTPException` scenario
+- Playwright timeout screenshot and cleanup scenario
+- AI backend prompt validation and tool error scenario
 
 ---
 
