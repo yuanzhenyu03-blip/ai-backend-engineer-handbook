@@ -9,6 +9,28 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.10 — Day07 Classroom Polish
+
+Date: 2026-07-06
+
+### Changed
+
+- Enhanced `docs/python/day07-iterators-generators.md` with additional classroom reasoning, Tech Lead questions, and production bug examples.
+- Enhanced `cheat_sheets/python.md` with a Day07 production risk table.
+- Enhanced `interview/python.md` with senior-level Day07 questions about accidental generator consumption and shared state.
+
+### Notes
+
+- Added the principle: Data can be shared, state should not be shared.
+- Added production bug examples for `list(generator)`, `sum(generator)`, and LLM stream debugging.
+- Strengthened Pipeline vs Batch and AI token streaming explanations.
+- Confirmed Day07 remains completed and Day08 remains the current lesson.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.9 — Day07 Iterators and Generators Documentation
 
 Date: 2026-07-06

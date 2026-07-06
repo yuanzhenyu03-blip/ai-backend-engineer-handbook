@@ -260,6 +260,60 @@ The list stores data.
 
 The iterator stores traversal state.
 
+Tech Lead Question:
+
+Why is a list iterable, but not an iterator?
+
+Think first.
+
+Common wrong answer:
+
+Because Python decided lists are not iterators.
+
+Expected student answer:
+
+A list stores data. An iterator stores traversal state. If the list itself stored the
+current position, two loops over the same list could interfere with each other.
+
+Tech Lead explanation:
+
+Imagine this design:
+
+```text
+list object
+  |
+  +-- data: [1, 2, 3]
+  |
+  +-- current_index: 0
+```
+
+Now two consumers use the same list:
+
+```python
+values = [1, 2, 3]
+
+first = iter(values)
+second = iter(values)
+```
+
+If the list itself owned `current_index`, `first` and `second` would fight over one shared
+position.
+
+That would make this impossible:
+
+```python
+print(next(first))   # 1
+print(next(first))   # 2
+print(next(second))  # should be 1
+```
+
+The design principle is:
+
+```text
+Data can be shared.
+Traversal state should be independent.
+```
+
 ## 2. Iterator
 
 An iterator is the object that knows where it is during iteration.
@@ -610,6 +664,76 @@ After a generator is exhausted, it is done.
 
 It does not restart.
 
+Detailed lifecycle:
+
+```text
+Generator Function Call
+        |
+        v
+Generator Object Created
+        |
+        v
+next()
+        |
+        v
+Running
+        |
+        v
+yield value
+        |
+        v
+Paused
+        |
+        v
+next()
+        |
+        v
+Resume
+        |
+        v
+StopIteration / Completed
+```
+
+Tech Lead Question:
+
+Why does calling a generator function not execute the function body immediately?
+
+Think first.
+
+Common wrong answer:
+
+Because Python is lazy and waits for performance reasons.
+
+Expected student answer:
+
+Calling a generator function creates a generator object. The first `next()` starts
+execution. Each `yield` pauses the function and preserves its local state.
+
+Tech Lead explanation:
+
+The point is not just performance. The point is control over execution.
+
+```python
+def demo():
+    print("body starts")
+    yield 1
+
+
+gen = demo()
+print("created")
+print(next(gen))
+```
+
+Output:
+
+```text
+created
+body starts
+1
+```
+
+The function body starts only when the consumer requests data.
+
 ## 10. Generator Can Only Be Consumed Once
 
 This is a major classroom point.
@@ -656,6 +780,64 @@ for row in rows:
 Tech Lead review:
 
 If a value is a generator, be careful before converting it to a list for debugging.
+
+Tech Lead Question:
+
+Why can a generator only be consumed once?
+
+Think first.
+
+Common wrong answer:
+
+Because Python deletes the values after use.
+
+Expected student answer:
+
+A generator is its own iterator. It owns its execution position. Once it reaches the end,
+the execution state is exhausted.
+
+Tech Lead explanation:
+
+A generator is not a saved collection.
+
+It is a running computation that can pause and resume.
+
+When it finishes, there is no rewind button.
+
+This matters in production because many functions consume generators:
+
+```python
+def get_tokens():
+    for i in range(3):
+        yield i
+
+
+tokens = get_tokens()
+
+print(sum(tokens))  # 3
+print(sum(tokens))  # 0
+```
+
+The first `sum(tokens)` consumes the stream.
+
+The second `sum(tokens)` sees an exhausted generator.
+
+LLM streaming debug bug:
+
+```python
+stream = llm.stream(prompt)
+
+print(list(stream))  # consumes stream
+
+for token in stream:
+    send(token)      # sends nothing
+```
+
+This is a real AI backend class of bug.
+
+The developer thinks they only printed debug output.
+
+In reality, they consumed the token stream before the response sender could use it.
 
 ## 11. Lazy Evaluation
 
@@ -812,6 +994,13 @@ Engineering comparison:
 | Batch | Simple, reusable list | High memory, slower first output |
 | Pipeline | Streaming, lower memory, faster first output | One-time consumption, harder debugging |
 
+Expanded comparison:
+
+| Design | How It Works | Strengths | Weaknesses |
+|--------|--------------|-----------|------------|
+| Batch | Collect all data, then process | Simple, easy to sort, easy to aggregate, easy to replay | Higher memory, higher latency, worse failure recovery |
+| Pipeline | Produce one item, process one item, write one item | Low memory, low latency, streaming-friendly | Harder debugging, state management matters more |
+
 Backend systems often choose pipeline design when:
 
 * input is large
@@ -819,6 +1008,34 @@ Backend systems often choose pipeline design when:
 * latency matters
 * data source is paginated
 * downstream system can process incrementally
+
+Concrete backend scenarios:
+
+```text
+FastAPI:
+yield one response chunk -> send one response chunk
+
+Playwright:
+scrape one page -> parse one page -> save one page
+
+AI Backend:
+generate one token -> send one token -> continue generation
+```
+
+Tech Lead explanation:
+
+Batch is often easier to reason about.
+
+Pipeline is often better for long-running, streaming, or large-volume work.
+
+The senior-engineer question is not "Which one is better?"
+
+The real question is:
+
+```text
+Does the business workflow need all data first,
+or can it safely process one item at a time?
+```
 
 ---
 
@@ -843,6 +1060,68 @@ Ask me for the next value when you are ready.
 ```
 
 This is a major backend design difference.
+
+## Engineering Principle: Data Can Be Shared, State Should Not Be Shared
+
+This is the core Day07 engineering principle.
+
+```text
+Iterable saves data.
+Iterator saves traversal state.
+```
+
+Multiple iterators can share the same iterable's data:
+
+```python
+values = [1, 2, 3]
+
+first = iter(values)
+second = iter(values)
+```
+
+But each iterator must own its own state:
+
+```text
+values
+  |
+  +-- data: [1, 2, 3]
+
+first iterator
+  |
+  +-- current position: index 0 -> index 1 -> index 2
+
+second iterator
+  |
+  +-- current position: index 0 -> index 1 -> index 2
+```
+
+If traversal state is shared accidentally, consumers steal data from each other.
+
+FastAPI connection:
+
+* Each request should have its own request state.
+* Each database session should belong to a clear request or task lifecycle.
+* A database session should not be shared casually across requests.
+
+Playwright connection:
+
+* Each job or worker should have an isolated `BrowserContext`.
+* Multiple automation jobs should not accidentally share login state, cookies, or
+  `LocalStorage`.
+* Shared browser state can make jobs affect each other.
+
+AI Backend connection:
+
+* Each LLM stream should have its own token stream state.
+* Do not give the same generator to multiple consumers.
+* One consumer may exhaust the stream before another consumer sends anything.
+
+Tech Lead summary:
+
+```text
+Share stable data when it is safe.
+Do not share mutable traversal or session state unless ownership is explicit.
+```
 
 ## Why Iterable and Iterator Are Separated
 
@@ -1077,7 +1356,113 @@ Follow-up Question:
 
 How do you get the values again?
 
-## Exercise 6: Generator Expression
+## Exercise 6: `sum(generator)` Twice
+
+Starter Code:
+
+```python
+def get_tokens():
+    for i in range(3):
+        yield i
+
+
+tokens = get_tokens()
+
+print(sum(tokens))
+print(sum(tokens))
+```
+
+Think First:
+
+Does `sum()` only inspect the generator, or does it consume it?
+
+Expected Output:
+
+```text
+3
+0
+```
+
+Explanation:
+
+`sum(tokens)` consumes the generator by repeatedly calling `next()`.
+
+The first call consumes `0`, `1`, and `2`.
+
+The second call sees an exhausted generator.
+
+Follow-up Question:
+
+What other functions consume generators?
+
+## Exercise 7: Debugging A Stream
+
+Starter Code:
+
+```python
+stream = get_tokens()
+
+print(list(stream))
+
+for token in stream:
+    print("send", token)
+```
+
+Think First:
+
+Why does the `for` loop send nothing?
+
+Expected Output:
+
+```text
+[0, 1, 2]
+```
+
+Explanation:
+
+`list(stream)` consumed the generator before the `for` loop started.
+
+Follow-up Question:
+
+Why is this dangerous in FastAPI `StreamingResponse` or LLM token streaming?
+
+## Exercise 8: Data Can Be Shared, State Should Not Be Shared
+
+Starter Code:
+
+```python
+values = [1, 2, 3]
+
+first = iter(values)
+second = iter(values)
+
+print(next(first))
+print(next(first))
+print(next(second))
+```
+
+Think First:
+
+Why does `second` still start at `1`?
+
+Expected Output:
+
+```text
+1
+2
+1
+```
+
+Explanation:
+
+Both iterators share the list data, but each iterator has independent traversal state.
+
+Follow-up Question:
+
+How does this principle connect to FastAPI request state, Playwright `BrowserContext`,
+and AI token streams?
+
+## Exercise 9: Generator Expression
 
 Starter Code:
 
@@ -1107,7 +1492,7 @@ Follow-up Question:
 
 When would a list comprehension be better?
 
-## Exercise 7: `yield from`
+## Exercise 10: `yield from`
 
 Starter Code:
 
@@ -1143,7 +1528,7 @@ Follow-up Question:
 
 How would you write the same logic with a `for` loop?
 
-## Exercise 8: FastAPI StreamingResponse Thinking
+## Exercise 11: FastAPI StreamingResponse Thinking
 
 Starter Code:
 
@@ -1169,7 +1554,7 @@ Follow-up Question:
 
 What production risks exist in streaming responses?
 
-## Exercise 9: Playwright Data Pipeline
+## Exercise 12: Playwright Data Pipeline
 
 Starter Code:
 
@@ -1195,7 +1580,7 @@ Follow-up Question:
 
 Why might this be better than collecting all pages first?
 
-## Exercise 10: AI Token Streaming
+## Exercise 13: AI Token Streaming
 
 Starter Code:
 
@@ -1281,6 +1666,42 @@ Production risks:
 AI Backend connection:
 
 FastAPI can stream LLM token chunks to the frontend using the same mental model.
+
+System model:
+
+```text
+User Browser
+     |
+     v
+FastAPI StreamingResponse
+     |
+     v
+Generator
+     |
+     v
+LLM token stream
+```
+
+Why not `return result`?
+
+`return result` waits until the full model answer is complete.
+
+Why `yield token`?
+
+`yield token` lets the backend send each chunk as soon as it is produced.
+
+This improves:
+
+* perceived latency
+* memory usage for long responses
+* user experience during long Agent tasks
+* RAG streaming over long contexts
+* progress visibility during tool-using workflows
+
+This is why ChatGPT appears to answer in real time.
+
+The model does not need to wait for the full final answer before the interface can show
+the first token chunk.
 
 ---
 
@@ -1763,11 +2184,44 @@ logger.info("rows=%s", list(rows))
 
 This consumes the generator.
 
-## Bug 4: Choosing Generator When Caller Needs Reuse
+The same bug appears with LLM streaming:
+
+```python
+stream = llm.stream(prompt)
+
+print(list(stream))  # consumes stream
+
+for token in stream:
+    send(token)      # sends nothing
+```
+
+The debug line looked harmless.
+
+But it consumed the stream before the response sender could use it.
+
+## Bug 4: Aggregation Consumes The Generator
+
+```python
+def get_tokens():
+    for i in range(3):
+        yield i
+
+
+tokens = get_tokens()
+
+print(sum(tokens))  # 3
+print(sum(tokens))  # 0
+```
+
+The first `sum(tokens)` consumes the generator.
+
+The second `sum(tokens)` sees no remaining values.
+
+## Bug 5: Choosing Generator When Caller Needs Reuse
 
 If the caller needs length, indexing, or repeated loops, a list may be a better contract.
 
-## Bug 5: Forgetting Streaming Failures
+## Bug 6: Forgetting Streaming Failures
 
 A streaming response can fail after the client has already received partial data.
 

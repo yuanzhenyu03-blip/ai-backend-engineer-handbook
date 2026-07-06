@@ -1922,6 +1922,64 @@ Engineering Perspective:
 The deeper scalability benefit is controlled data flow: the system can process one item or
 chunk at a time.
 
+### Senior 7. What production bugs can happen when a generator is accidentally consumed?
+
+Question:
+
+What production bugs can happen when a generator is accidentally consumed?
+
+Standard Answer:
+
+A generator is one-pass. If code converts it to a list, sums it, logs it, or iterates over
+it for debugging, the generator may be exhausted before the real consumer uses it.
+
+Follow-up Questions:
+
+- Why does `list(generator)` consume the generator?
+- Why can `sum(generator)` return a value the first time and `0` the second time?
+- How can this break FastAPI `StreamingResponse`?
+- How can this break LLM token streaming?
+
+Engineering Perspective:
+
+This is a production ownership bug. A stream should have one clear consumer. Debugging code
+should not steal values from the real response sender, pipeline writer, or token streamer.
+
+Example:
+
+```python
+stream = llm.stream(prompt)
+
+print(list(stream))  # consumes stream
+
+for token in stream:
+    send(token)      # sends nothing
+```
+
+### Senior 8. Explain "data can be shared, state should not be shared."
+
+Question:
+
+Explain the engineering principle "data can be shared, state should not be shared."
+
+Standard Answer:
+
+An iterable can safely hold shared data, while each iterator should own independent
+traversal state. Sharing traversal state causes consumers to affect each other.
+
+Follow-up Questions:
+
+- Why is a list iterable but not an iterator?
+- What would happen if the list stored `current_index` itself?
+- How does this connect to FastAPI request state?
+- How does this connect to Playwright `BrowserContext` isolation?
+- How does this connect to AI token streams?
+
+Engineering Perspective:
+
+The same principle appears across backend systems: requests need isolated state, Playwright
+jobs need isolated browser contexts, and each LLM stream needs its own token stream state.
+
 ---
 
 ## Enterprise Scenarios

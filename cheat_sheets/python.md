@@ -998,6 +998,45 @@ Production warnings:
 
 ---
 
+## Day07 Production Risk Table
+
+| Concept | Key Point | Production Risk |
+|---------|-----------|-----------------|
+| Iterable | Can create iterator | Confusing shared data with traversal state |
+| Iterator | Maintains traversal state | Shared iterator causes missing data |
+| Generator | Pausable function and iterator | Can be consumed only once |
+| `yield` | Produces value and pauses | Function body does not run at call time |
+| `yield from` | Delegates iteration | Accidentally iterating strings character by character |
+| `StopIteration` | End signal | Misunderstanding it as a crash |
+| Generator Expression | Lazy evaluation | Debugging or aggregation can consume it |
+| `list(generator)` | Converts by consuming | Later streaming sends nothing |
+| `sum(generator)` | Aggregates by consuming | Second aggregation may return `0` |
+| StreamingResponse | Sends chunks incrementally | Generator failure can happen after partial response |
+
+Engineering principle:
+
+```text
+Data can be shared.
+State should not be shared.
+```
+
+FastAPI:
+
+- Request state should be request-scoped.
+- Database sessions should not be casually shared across requests.
+
+Playwright:
+
+- Each job should use an isolated `BrowserContext`.
+- Cookies, login state, and `LocalStorage` should not leak between workers.
+
+AI Backend:
+
+- Each LLM stream should own its token stream state.
+- Do not pass the same generator to multiple consumers.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
