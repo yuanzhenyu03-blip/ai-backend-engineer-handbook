@@ -251,11 +251,21 @@ Topic:
 Decorators
 
 Status:
+✅ Completed
+
+---
+
+### Day07
+
+Topic:
+Iterators & Generators
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day07-Day14
+### Day08-Day14
 
 Status:
 Planned

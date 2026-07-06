@@ -21,6 +21,7 @@ Date: 2026-07-06
 
 ### Changed
 
+- Updated `CURRICULUM.md` to mark Day06 as completed and Day07 as the current lesson.
 - Updated `PROJECT_STATUS.md` to mark Day06 as completed and prepare Day07.
 - Updated `TASKS.md` with completed Day06 tasks and Day07 preparation tasks.
 - Updated `CHANGELOG.md` with the Day06 repository update.
@@ -32,7 +33,6 @@ Date: 2026-07-06
 - Added production examples for logging, timing, retry, authentication, cache, token tracking, and AI request tracing.
 - Connected Day06 concepts to FastAPI route decorators, Playwright retry decorators, and AI backend observability.
 - No `exercises/` directory exists, so Day06 exercises are included in the lesson document.
-- Did not modify `CURRICULUM.md`.
 - Did not modify `ROADMAP.md`.
 - Did not modify `TRAINING_WORKFLOW.md`.
 - Did not modify `LESSON_TEMPLATE.md`.
