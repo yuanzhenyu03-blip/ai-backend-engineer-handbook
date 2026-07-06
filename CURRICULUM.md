@@ -261,11 +261,21 @@ Topic:
 Iterators & Generators
 
 Status:
+✅ Completed
+
+---
+
+### Day08
+
+Topic:
+Exception Handling
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day08-Day14
+### Day09-Day14
 
 Status:
 Planned

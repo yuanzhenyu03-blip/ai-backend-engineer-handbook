@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.9 — Day07 Iterators and Generators Documentation
+
+Date: 2026-07-06
+
+### Added
+
+- Added `docs/python/day07-iterators-generators.md`.
+- Added Day07 iterator, generator, lazy evaluation, and streaming review material to `cheat_sheets/python.md`.
+- Added Day07 interview questions with standard answers, follow-up questions, and engineering perspectives to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day07 as completed and Day08 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day07 as completed and prepare Day08.
+- Updated `TASKS.md` with completed Day07 tasks and Day08 preparation tasks.
+- Updated `CHANGELOG.md` with the Day07 repository update.
+
+### Notes
+
+- Covered Iterable, Iterator, `iter()`, `next()`, `StopIteration`, Generator, `yield`, generator lifecycle, lazy evaluation, generator expression, and `yield from`.
+- Covered why `StopIteration` does not return `None`, why iterable and iterator are separated, and why generators are pausable and resumable data-flow models.
+- Added streaming connections for FastAPI `StreamingResponse`, Playwright data pipelines, and AI backend token streaming.
+- No `exercises/` directory exists, so Day07 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.8 — Day06 Decorators Documentation
 
 Date: 2026-07-06

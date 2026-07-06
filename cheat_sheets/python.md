@@ -805,6 +805,199 @@ Decorator without functools.wraps is suspicious by default.
 
 ---
 
+## Iterable vs Iterator
+
+Engineering definition:
+
+```text
+Iterable = object that can produce an iterator.
+Iterator = object that produces values one by one and remembers position.
+```
+
+```python
+values = [1, 2, 3]
+iterator = iter(values)
+
+print(next(iterator))  # 1
+```
+
+Why they are separated:
+
+- Containers can be reused.
+- Traversal state lives in the iterator.
+- Multiple independent iterators can exist for one iterable.
+- One-pass streams can still fit the same protocol.
+
+---
+
+## `iter()` and `next()`
+
+`iter()` asks for an iterator.
+
+`next()` asks an iterator for one more value.
+
+```python
+iterator = iter(["a", "b"])
+
+print(next(iterator))  # a
+print(next(iterator))  # b
+```
+
+When there are no more values, Python raises `StopIteration`.
+
+Why not `None`?
+
+```text
+None can be real data.
+StopIteration is an unambiguous end-of-stream signal.
+```
+
+---
+
+## Generator
+
+A generator is an iterator created by a function that uses `yield`.
+
+```python
+def numbers():
+    yield 1
+    yield 2
+```
+
+Calling `numbers()` creates a generator object.
+
+The body runs when values are requested.
+
+```text
+generator function
+        |
+        v
+generator object
+        |
+        v
+next() -> run until yield -> pause
+```
+
+---
+
+## `yield` vs `return`
+
+| Keyword | Meaning |
+|---------|---------|
+| `return` | End the function and send back one result |
+| `yield` | Produce one value, pause, and resume later |
+
+Generator value:
+
+```text
+Not only memory saving.
+The deeper value is pausable and resumable data flow.
+```
+
+---
+
+## Generator Lifecycle
+
+```text
+Created
+  |
+  v
+Running
+  |
+  v
+Paused at yield
+  |
+  v
+Running again
+  |
+  v
+Exhausted
+```
+
+After exhaustion, the same generator does not restart.
+
+```python
+gen = (x for x in range(2))
+
+print(list(gen))  # [0, 1]
+print(list(gen))  # []
+```
+
+---
+
+## List Comprehension vs Generator Expression
+
+List comprehension:
+
+```python
+values = [x * 2 for x in range(3)]
+```
+
+Generator expression:
+
+```python
+values = (x * 2 for x in range(3))
+```
+
+| Use List | Use Generator |
+|----------|---------------|
+| Need indexing | Need streaming |
+| Need length | Need one-pass processing |
+| Need repeated iteration | Data is large or delayed |
+| Need all results now | Need lazy evaluation |
+
+---
+
+## `yield from`
+
+`yield from` delegates yielding to another iterable.
+
+```python
+def child():
+    yield "a"
+    yield "b"
+
+
+def parent():
+    yield from child()
+    yield "c"
+```
+
+It is useful for composing generator pipelines.
+
+---
+
+## Streaming Patterns
+
+Generator-based systems are useful for:
+
+- FastAPI `StreamingResponse`
+- LLM token streaming
+- Playwright page-by-page scraping
+- file processing
+- log processing
+- data pipelines
+
+Pipeline vs batch:
+
+```text
+Batch:
+load all -> process all -> return all
+
+Pipeline:
+load one -> process one -> return one
+```
+
+Production warnings:
+
+- A generator can be consumed only once.
+- Debugging with `list(generator)` consumes it.
+- Streaming failures may happen after partial output.
+- Resource cleanup must be explicit.
+- Use lists when callers need reuse.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -845,4 +1038,11 @@ Decorator without functools.wraps is suspicious by default.
 - "Production decorators usually forward `*args` and `**kwargs`."
 - "`functools.wraps` preserves function metadata for debugging and frameworks."
 - "Decorators are useful for cross-cutting concerns like logging, timing, retry, auth, cache, and tracing."
+- "An iterable can produce an iterator; an iterator produces values one by one."
+- "`StopIteration` separates end-of-stream control flow from real data values like `None`."
+- "A generator is a pausable and resumable iterator created with `yield`."
+- "Generators are one-pass streams and can be consumed only once."
+- "Lazy evaluation improves streaming and time-to-first-result, not only memory usage."
+- "`yield from` delegates yielding to another iterable."
+- "Use generators for streaming patterns such as FastAPI StreamingResponse, Playwright pipelines, and AI token streaming."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

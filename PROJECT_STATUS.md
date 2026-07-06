@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day07 — Iterators & Generators
+Day08 — Exception Handling
 
 Status:
 Not started
@@ -26,6 +26,7 @@ Not completed yet
 - ✅ Day04 — Scope & LEGB
 - ✅ Day05 — Closures
 - ✅ Day06 — Decorators
+- ✅ Day07 — Iterators & Generators
 
 ---
 
@@ -37,7 +38,7 @@ None.
 
 ## Next
 
-- Day08 — Exception Handling
+- Day09 — Modules & Packages
 
 Status:
 Not started
@@ -54,6 +55,7 @@ Completed Python Foundations:
 - Day04 — Scope, LEGB, lexical scope, closure basics, late binding
 - Day05 — Closures, captured environment, factory functions, late binding fixes
 - Day06 — Decorators, wrappers, universal decorators, metadata preservation
+- Day07 — Iterables, iterators, generators, lazy evaluation, streaming pipelines
 
 ---
 
@@ -84,6 +86,14 @@ Completed Python Foundations:
 - Explain why `functools.wraps` preserves metadata.
 - Explain how decorators support logging, timing, retry, authentication, cache, and AI tracing.
 - Review decorator production risks such as lost return values, broken metadata, and unsafe logging.
+- Explain iterable vs iterator.
+- Explain `iter()`, `next()`, and `StopIteration`.
+- Explain why `StopIteration` is not replaced by `None`.
+- Explain generator lifecycle and one-time consumption.
+- Explain why `yield` creates pausable and resumable data flow.
+- Compare list comprehension and generator expression.
+- Explain `yield from`.
+- Connect generators to FastAPI `StreamingResponse`, Playwright pipelines, and AI token streaming.
 
 ---
 
@@ -125,6 +135,17 @@ Completed Python Foundations:
 - Playwright retry decorator exercise
 - AI token logger decorator exercise
 - Day06 code review exercises
+- Iterable vs iterator classification exercises
+- `iter()` and `next()` output prediction exercises
+- `StopIteration` reasoning exercises
+- Generator lifecycle exercises
+- Generator expression exercises
+- One-time consumption exercises
+- `yield from` exercises
+- FastAPI `StreamingResponse` thinking exercise
+- Playwright pipeline exercise
+- AI token streaming exercise
+- Pipeline vs batch exercise
 
 ---
 

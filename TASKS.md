@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day07 — Iterators & Generators
+Day08 — Exception Handling
 
 Status:
 Not started
@@ -24,17 +24,83 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day07-iterators-generators.md
+docs/python/day08-exception-handling.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day07 classroom learning.
-- [ ] Review function objects, closures, and decorators before iterators.
-- [ ] Prepare iterator and generator output prediction exercises.
-- [ ] Connect lazy evaluation to FastAPI streaming, Playwright pagination, and AI backend pipelines.
+- [ ] Begin Day08 classroom learning.
+- [ ] Review `StopIteration` as protocol control flow.
+- [ ] Prepare exception output prediction exercises.
+- [ ] Connect exception handling to FastAPI errors, Playwright recovery, and AI backend failures.
+
+---
+
+## Completed Day07 Tasks
+
+- [x] Complete Day07 classroom learning.
+- [x] Generate Day07 handbook lesson.
+- [x] Add Iterable and Iterator explanations.
+- [x] Add `iter()` and `next()` protocol discussion.
+- [x] Add `StopIteration` reasoning.
+- [x] Add Generator and `yield` mental model.
+- [x] Add `yield` vs `return`.
+- [x] Add Generator Lifecycle.
+- [x] Add Lazy Evaluation.
+- [x] Add Generator Expression.
+- [x] Add List Comprehension vs Generator Expression.
+- [x] Add one-time generator consumption discussion.
+- [x] Add `yield from`.
+- [x] Add Pipeline vs Batch discussion.
+- [x] Add FastAPI `StreamingResponse` connections.
+- [x] Add Playwright data pipeline connections.
+- [x] Add AI backend token streaming connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day07 Repository Tasks
+
+- [x] Update `docs/python/day07-iterators-generators.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+- [x] Commit changes.
+- [x] Push to GitHub.
+
+---
+
+## Completed Day07 Interview Tasks
+
+- [x] Add beginner iterator/generator questions.
+- [x] Add intermediate iterator/generator questions.
+- [x] Add senior iterator/generator questions.
+- [x] Add standard answers.
+- [x] Add follow-up questions.
+- [x] Add engineering perspectives.
+
+---
+
+## Completed Day07 Homework
+
+- [x] Complete Iterable vs Iterator classification exercises.
+- [x] Complete output prediction exercises.
+- [x] Complete `iter()` and `next()` exercises.
+- [x] Complete `StopIteration` reasoning exercises.
+- [x] Complete Generator lifecycle exercises.
+- [x] Complete Generator Expression exercises.
+- [x] Complete one-time consumption exercises.
+- [x] Complete `yield from` exercises.
+- [x] Complete FastAPI `StreamingResponse` thinking exercise.
+- [x] Complete Playwright pipeline exercise.
+- [x] Complete AI token streaming exercise.
+- [x] Complete Pipeline vs Batch exercise.
 
 ---
 
@@ -218,6 +284,28 @@ None.
 - [ ] Prepare questions about iterator protocol.
 - [ ] Prepare examples for streaming data and pagination.
 
+### Day07 Review
+
+- [ ] Explain iterable vs iterator.
+- [ ] Explain `iter()` and `next()`.
+- [ ] Explain why Python uses `StopIteration`.
+- [ ] Explain why iterable and iterator are separated.
+- [ ] Draw generator lifecycle from memory.
+- [ ] Explain why generators can only be consumed once.
+- [ ] Compare list comprehension and generator expression.
+- [ ] Explain `yield from`.
+- [ ] Explain Pipeline vs Batch.
+- [ ] Explain FastAPI `StreamingResponse` with generator language.
+- [ ] Explain AI token streaming with generator language.
+
+### Day08 Preparation
+
+- [ ] Review `StopIteration`.
+- [ ] Review `TypeError` and `UnboundLocalError` from previous lessons.
+- [ ] Prepare questions about expected vs unexpected exceptions.
+- [ ] Prepare examples for FastAPI error handling.
+- [ ] Prepare examples for Playwright retry and recovery.
+
 ### Future Knowledge Base TODO
 
 Do not create this structure yet.
@@ -263,3 +351,4 @@ Purpose:
 - [x] Complete Day04 — Scope & LEGB.
 - [x] Complete Day05 — Closures.
 - [x] Complete Day06 — Decorators.
+- [x] Complete Day07 — Iterators & Generators.

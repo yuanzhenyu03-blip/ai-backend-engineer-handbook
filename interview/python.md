@@ -1557,6 +1557,373 @@ not make every service function harder to read.
 
 ---
 
+## Day07 Questions: Iterators & Generators
+
+### Beginner 1. What is an iterable?
+
+Question:
+
+What is an iterable in Python?
+
+Standard Answer:
+
+An iterable is an object that can produce an iterator, usually by being passed to `iter()`.
+
+Follow-up Questions:
+
+- Is a list iterable?
+- Can an iterable create more than one iterator?
+
+Engineering Perspective:
+
+An iterable represents a data source that can be traversed. In backend systems, that data
+source may be rows, files, API pages, browser results, or stream chunks.
+
+### Beginner 2. What is an iterator?
+
+Question:
+
+What is an iterator?
+
+Standard Answer:
+
+An iterator is an object that returns values one at a time with `next()` and remembers its
+current position.
+
+Follow-up Questions:
+
+- What happens when an iterator is exhausted?
+- Why can sharing one iterator be risky?
+
+Engineering Perspective:
+
+Iterators carry traversal state. If two parts of a system consume the same iterator, they
+can affect each other.
+
+### Beginner 3. What does `iter()` do?
+
+Question:
+
+What does `iter()` do?
+
+Standard Answer:
+
+`iter()` asks an iterable for an iterator.
+
+Follow-up Questions:
+
+- What does a `for` loop do internally?
+- What happens if an object is not iterable?
+
+Engineering Perspective:
+
+`iter()` is the entry point into Python's iteration protocol.
+
+### Beginner 4. What does `next()` do?
+
+Question:
+
+What does `next()` do?
+
+Standard Answer:
+
+`next()` asks an iterator for the next value.
+
+Follow-up Questions:
+
+- What happens when there are no more values?
+- Why does Python not return `None`?
+
+Engineering Perspective:
+
+`next()` is pull-based data flow. The consumer asks for one more item when it is ready.
+
+### Beginner 5. What is `StopIteration`?
+
+Question:
+
+What is `StopIteration`?
+
+Standard Answer:
+
+`StopIteration` is the signal that an iterator has no more values.
+
+Follow-up Questions:
+
+- Is `StopIteration` always a bug?
+- Who catches it in a `for` loop?
+
+Engineering Perspective:
+
+In the iterator protocol, `StopIteration` is normal control flow, not a production crash.
+
+### Beginner 6. What is a generator?
+
+Question:
+
+What is a generator?
+
+Standard Answer:
+
+A generator is an iterator created by a function that uses `yield`.
+
+Follow-up Questions:
+
+- Does calling a generator function run the body immediately?
+- What does `yield` do?
+
+Engineering Perspective:
+
+Generators are useful because they model pausable and resumable data flow.
+
+### Beginner 7. What is the difference between `yield` and `return`?
+
+Question:
+
+What is the difference between `yield` and `return`?
+
+Standard Answer:
+
+`return` ends a function. `yield` produces a value and pauses the function so it can resume
+later.
+
+Follow-up Questions:
+
+- Can a generator yield multiple values?
+- What happens when a generator reaches the end?
+
+Engineering Perspective:
+
+`yield` supports incremental output, which is essential for streaming and pipeline systems.
+
+### Intermediate 1. Why are iterable and iterator separated?
+
+Question:
+
+Why does Python separate iterable and iterator?
+
+Standard Answer:
+
+Python separates them so reusable data containers can produce independent iterator objects
+while each iterator owns its traversal state.
+
+Follow-up Questions:
+
+- Why can a list be looped over multiple times?
+- Why is a generator usually one-time use?
+
+Engineering Perspective:
+
+This design prevents reusable containers from mixing data ownership with traversal state.
+
+### Intermediate 2. Why does Python not return `None` instead of `StopIteration`?
+
+Question:
+
+Why does Python raise `StopIteration` instead of returning `None`?
+
+Standard Answer:
+
+Because `None` can be a valid value. `StopIteration` separates end-of-iteration control
+flow from real data.
+
+Follow-up Questions:
+
+- Can an iterator yield `None`?
+- What ambiguity would `None` create?
+
+Engineering Perspective:
+
+The protocol avoids ambiguous sentinel values and keeps streaming data safe.
+
+### Intermediate 3. Why can a generator only be consumed once?
+
+Question:
+
+Why can a generator only be consumed once?
+
+Standard Answer:
+
+A generator is its own iterator. It stores its execution state, and after it reaches the
+end, it is exhausted.
+
+Follow-up Questions:
+
+- How do you iterate again?
+- How can logging accidentally consume a generator?
+
+Engineering Perspective:
+
+Treat generators as one-pass streams. If the caller needs reuse, return a list or create a
+new generator.
+
+### Intermediate 4. Generator Expression vs List Comprehension
+
+Question:
+
+What is the difference between a generator expression and a list comprehension?
+
+Standard Answer:
+
+A list comprehension builds all values immediately. A generator expression produces values
+lazily when requested.
+
+Follow-up Questions:
+
+- Which supports indexing?
+- Which is better for streaming?
+
+Engineering Perspective:
+
+Use lists for reusable in-memory results. Use generator expressions for one-pass lazy
+processing.
+
+### Intermediate 5. What is lazy evaluation?
+
+Question:
+
+What is lazy evaluation?
+
+Standard Answer:
+
+Lazy evaluation means computation happens only when a value is requested.
+
+Follow-up Questions:
+
+- How does lazy evaluation affect memory?
+- How does it affect time-to-first-result?
+
+Engineering Perspective:
+
+Lazy evaluation improves streaming behavior and pipeline design, not only memory usage.
+
+### Senior 1. Explain Python Generator Protocol.
+
+Question:
+
+Explain Python generator protocol.
+
+Standard Answer:
+
+A generator follows the iterator protocol. It produces values with `yield`, resumes on
+`next()`, and signals completion with `StopIteration`.
+
+Follow-up Questions:
+
+- What state does a generator preserve?
+- How does a `for` loop consume a generator?
+
+Engineering Perspective:
+
+The protocol gives Python one model for lists, files, streams, generated values, and
+pipeline outputs.
+
+### Senior 2. Explain Generator Lifecycle.
+
+Question:
+
+Explain the lifecycle of a generator.
+
+Standard Answer:
+
+A generator is created, starts running when consumed, pauses at each `yield`, resumes on
+the next request, and eventually becomes exhausted.
+
+Follow-up Questions:
+
+- Does calling the generator function execute the body?
+- What happens after exhaustion?
+
+Engineering Perspective:
+
+Generator lifecycle matters for resource cleanup, streaming errors, and one-time data
+ownership.
+
+### Senior 3. Why does FastAPI `StreamingResponse` use generators?
+
+Question:
+
+Why does FastAPI `StreamingResponse` use generators?
+
+Standard Answer:
+
+`StreamingResponse` can consume a generator and send chunks as they are produced instead
+of building the entire response first.
+
+Follow-up Questions:
+
+- What happens if the generator fails midway?
+- Why does this improve time-to-first-byte?
+
+Engineering Perspective:
+
+Generators support HTTP streaming, large responses, and real-time output.
+
+### Senior 4. Explain generator-based streaming in AI Backend.
+
+Question:
+
+How do generators connect to AI backend streaming?
+
+Standard Answer:
+
+An AI backend can yield token chunks as the model produces them, letting the frontend show
+output incrementally.
+
+Follow-up Questions:
+
+- Why does ChatGPT appear to type in real time?
+- What should be tracked during token streaming?
+
+Engineering Perspective:
+
+Token streaming is a pausable data-flow model that improves perceived latency and user
+experience.
+
+### Senior 5. Explain Pipeline vs Batch processing.
+
+Question:
+
+Explain pipeline vs batch processing.
+
+Standard Answer:
+
+Batch processing collects all data before processing or returning it. Pipeline processing
+passes items through stages as soon as they become available.
+
+Follow-up Questions:
+
+- Which design has faster first output?
+- Which design is easier to replay?
+
+Engineering Perspective:
+
+Pipeline design scales better for large or streaming data, but it requires careful handling
+of one-time consumption and partial failures.
+
+### Senior 6. How does generator design improve scalability?
+
+Question:
+
+How does generator design improve scalability?
+
+Standard Answer:
+
+Generators improve scalability by producing data incrementally, reducing peak memory,
+supporting streaming output, and enabling pipeline processing.
+
+Follow-up Questions:
+
+- Is memory saving the only benefit?
+- What risks come with generator-based design?
+
+Engineering Perspective:
+
+The deeper scalability benefit is controlled data flow: the system can process one item or
+chunk at a time.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
