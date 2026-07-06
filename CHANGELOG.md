@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.7 — Day05 Closures Documentation
+
+Date: 2026-07-06
+
+### Added
+
+- Added `docs/python/day05-closures.md`.
+- Added Day05 Closure Engineering Notes to `cheat_sheets/python.md`.
+- Added Factory Function, Closure vs Class, and Late Binding review material to `cheat_sheets/python.md`.
+- Added Day05 interview questions, Chinese explanations, English answers, overseas backend answers, and follow-up questions to `interview/python.md`.
+
+### Changed
+
+- Updated `PROJECT_STATUS.md` to mark Day05 as completed.
+- Updated `TASKS.md` with completed Day05 tasks and Day06 preparation tasks.
+
+### Notes
+
+- Covered Closure as Function Object plus Captured Environment.
+- Covered captured environment, state preservation, `nonlocal`, `UnboundLocalError`, factory functions, Closure vs Class, and Late Binding.
+- Connected Day05 concepts to FastAPI dependency factories, Playwright configuration factories, and AI prompt builders.
+- No `exercises/` directory exists, so Day05 exercises are included in the lesson document.
+- Did not modify `CURRICULUM.md`.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.6 — Day04 Scope and LEGB Documentation
 
 Date: 2026-07-03

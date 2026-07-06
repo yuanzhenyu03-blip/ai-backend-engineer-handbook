@@ -8,13 +8,13 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day04 — Scope & LEGB
+Day05 — Closures
 
 Status:
 ✅ Completed
 
 Completed Time:
-2026-07-03
+2026-07-06
 
 ---
 
@@ -24,6 +24,7 @@ Completed Time:
 - ✅ Day02 — Mutable vs Immutable
 - ✅ Day03 — Functions & Parameter Passing
 - ✅ Day04 — Scope & LEGB
+- ✅ Day05 — Closures
 
 ---
 
@@ -35,7 +36,7 @@ None.
 
 ## Next
 
-- Day05 — Closures
+- Day06 — Decorators
 
 Status:
 Not started
@@ -50,6 +51,7 @@ Completed Python Foundations:
 - Day02 — Mutable vs immutable objects, copy behavior, hashability
 - Day03 — Function parameter passing, call by sharing, mutation vs rebinding
 - Day04 — Scope, LEGB, lexical scope, closure basics, late binding
+- Day05 — Closures, captured environment, factory functions, late binding fixes
 
 ---
 
@@ -65,6 +67,14 @@ Completed Python Foundations:
 - Define closure as function object plus captured environment.
 - Explain late binding and the `i=i` default argument fix.
 - Connect scope risks to FastAPI, Playwright, and AI backend systems.
+- Explain why a closure can access local variables after the outer function returns.
+- Explain captured environment and state preservation.
+- Explain why `x = x + 1` raises `UnboundLocalError`, not `NameError`.
+- Explain how `nonlocal` enables intentional rebinding in the nearest enclosing scope.
+- Explain factory function design and how it separates configuration from business logic.
+- Compare closure vs class for backend design.
+- Build FastAPI dependency factories, Playwright configuration factories, and AI prompt builders.
+- Explain production risks caused by captured mutable state.
 
 ---
 
@@ -80,6 +90,20 @@ Completed Python Foundations:
 - FastAPI global request state scenario
 - Playwright global page scenario
 - AI prompt builder closure scenario
+- Closure identification exercises
+- Closure memory model exercises
+- `nonlocal` output prediction exercises
+- Factory function exercises
+- `make_multiplier()` implementation
+- Counter implementation with state preservation
+- `UnboundLocalError` repair exercises
+- Closure vs class refactoring exercise
+- Late binding output prediction exercises
+- Late binding fix with `i=i`
+- FastAPI dependency factory exercise
+- Playwright timeout factory exercise
+- AI prompt builder factory exercise
+- Closure engineering thinking exercises
 
 ---
 

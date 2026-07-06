@@ -418,6 +418,105 @@ def make_counter():
 
 The returned function keeps access to `count` even after `make_counter()` returns.
 
+Closure is not just "a function inside another function."
+
+The important part is:
+
+```text
+The inner function is returned or used later,
+and it keeps access to variables from its defining environment.
+```
+
+---
+
+## Captured Environment
+
+A captured environment is the set of outer-scope names a closure still needs.
+
+```python
+def make_prefixer(prefix: str):
+    def add_prefix(value: str) -> str:
+        return f"{prefix}{value}"
+
+    return add_prefix
+```
+
+`add_prefix` captures `prefix`.
+
+Memory model:
+
+```text
+make_prefixer("user:")
+        |
+        v
+Function Object: add_prefix
+        |
+        v
+Captured Environment
+        |
+        +-- prefix -> "user:"
+```
+
+---
+
+## State Preservation
+
+Closures can preserve state without using global variables.
+
+```python
+def make_counter():
+    count = 0
+
+    def counter():
+        nonlocal count
+        count += 1
+        return count
+
+    return counter
+```
+
+Each returned `counter` owns its own captured `count`.
+
+---
+
+## Factory Function
+
+A factory function creates configured behavior.
+
+```python
+def make_multiplier(factor: int):
+    def multiply(value: int) -> int:
+        return value * factor
+
+    return multiply
+```
+
+Why it matters:
+
+- Separates configuration from business logic.
+- Avoids global configuration.
+- Supports FastAPI dependency factories.
+- Supports Playwright configuration factories.
+- Supports AI prompt builder factories.
+
+---
+
+## Closure vs Class
+
+| Use Closure | Use Class |
+|-------------|-----------|
+| Small captured configuration | Multiple pieces of state |
+| One main behavior | Many methods |
+| Simple factory | Clear lifecycle needed |
+| Lightweight dependency | Complex domain object |
+
+Rule:
+
+```text
+Use a closure for small behavior with small captured state.
+Use a class when the state and behavior need names, lifecycle, and structure.
+```
+
 ---
 
 ## Late Binding
@@ -455,6 +554,72 @@ def f(i=i):
 ```
 
 Now each function keeps its own default value.
+
+This is also called early binding through default arguments.
+
+---
+
+## Common Closure Patterns
+
+- Counter factory
+- Validator factory
+- Retry policy factory
+- FastAPI dependency factory
+- Playwright timeout or context factory
+- AI prompt builder factory
+- Callback factory
+- Tool registration helper
+
+---
+
+## Common Closure Bugs
+
+Missing `nonlocal`:
+
+```python
+def outer():
+    count = 0
+
+    def inner():
+        count = count + 1
+        return count
+
+    return inner
+```
+
+This raises `UnboundLocalError` because Python treats `count` as a local name inside
+`inner`.
+
+Late binding:
+
+```python
+funcs = []
+
+for i in range(3):
+    def f():
+        return i
+
+    funcs.append(f)
+```
+
+Every function returns the final value of `i`.
+
+Fix:
+
+```python
+for i in range(3):
+    def f(i=i):
+        return i
+
+    funcs.append(f)
+```
+
+Shared mutable captured state:
+
+```text
+If a closure captures a mutable list, dictionary, messages history, page, or context,
+make ownership explicit.
+```
 
 ---
 
@@ -521,5 +686,10 @@ Use callable objects when behavior needs configuration.
 - "Python uses lexical scope, not dynamic scope."
 - "LEGB means Local, Enclosing, Global, Built-in."
 - "A closure is a function object plus a captured environment."
+- "A captured environment preserves the outer variables needed by the returned function."
+- "Closures preserve state without requiring global variables."
+- "Factory functions separate configuration from business logic."
+- "Use closures for small captured configuration and classes for complex state."
 - "Late binding means a closure looks up a variable when the function is called."
+- "The `i=i` pattern fixes late binding by storing the current value as a default argument."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

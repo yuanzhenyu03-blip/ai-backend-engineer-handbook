@@ -817,6 +817,451 @@ Follow-up questions:
 
 ---
 
+## Day05 Questions: Closures
+
+### Beginner 1. What is a closure?
+
+Question:
+
+What is a closure in Python?
+
+中文解析:
+
+闭包不是简单的“函数里面定义函数”。工程上更准确的定义是：
+
+```text
+Closure = Function Object + Captured Environment
+```
+
+也就是说，一个函数对象被返回或稍后使用时，仍然保留了它定义时所需要的外层变量。
+
+English answer:
+
+A closure is a function object plus a captured environment. It allows a function to keep
+access to variables from the scope where it was defined, even after the outer function has
+returned.
+
+Overseas backend interview answer:
+
+In backend systems, I use closures when I need to create configured behavior without using
+global state. For example, a factory function can capture configuration and return a
+dependency, validator, or prompt builder.
+
+Follow-up questions:
+
+- Why is "a function inside another function" not a complete definition?
+- What does the inner function capture?
+- How can closure state become risky in production?
+
+### Beginner 2. What is a captured environment?
+
+Question:
+
+What does captured environment mean?
+
+中文解析:
+
+Captured environment 指闭包保留下来的外层变量环境。外层函数结束后，普通局部变量本来应该消失，
+但如果内部函数还需要这些变量，Python 会把需要的环境保存下来。
+
+English answer:
+
+A captured environment is the set of outer-scope variables that a closure keeps access to.
+The function object can use those variables later because Python preserves the environment
+needed by the function.
+
+Overseas backend interview answer:
+
+I think of the captured environment as configuration or state owned by the returned
+function. This is useful for dependency factories, callback factories, and AI prompt
+builder functions.
+
+Follow-up questions:
+
+- Does a closure capture all local variables?
+- Does Python capture names or values?
+- Why does captured mutable state require care?
+
+### Beginner 3. Why can an inner function access variables after the outer function returns?
+
+Question:
+
+Why can this still access `count`?
+
+```python
+def make_counter():
+    count = 0
+
+    def counter():
+        return count
+
+    return counter
+```
+
+中文解析:
+
+因为返回的 `counter` 是一个函数对象，而且它需要外层作用域里的 `count`。Python 不会把这个被捕获的
+环境销毁，而是把它和函数对象一起保留下来。
+
+English answer:
+
+The inner function can access `count` because it is a closure. Python keeps the captured
+environment alive as long as the returned function object needs it.
+
+Overseas backend interview answer:
+
+This behavior lets us build small configured functions, such as a FastAPI dependency
+factory or an AI prompt builder, without relying on global variables.
+
+Follow-up questions:
+
+- What happens if two counters are created from two calls?
+- Is the outer function still running?
+- Where is the state preserved?
+
+### Beginner 4. What does `nonlocal` do?
+
+Question:
+
+What does `nonlocal` do in a closure?
+
+中文解析:
+
+`nonlocal` 告诉 Python：这个名字不是当前内部函数的局部变量，而是来自最近的外层函数作用域。
+它用于重新绑定外层函数里的变量。
+
+English answer:
+
+`nonlocal` tells Python to rebind a name in the nearest enclosing function scope instead
+of creating a new local variable.
+
+Overseas backend interview answer:
+
+I use `nonlocal` carefully when a closure intentionally owns small internal state, such
+as a counter or retry state. I avoid using it for large shared production state because
+it can hide mutation.
+
+Follow-up questions:
+
+- Why does mutation sometimes not require `nonlocal`?
+- Why does `count = count + 1` fail without `nonlocal`?
+- Why is `nonlocal` different from `global`?
+
+### Intermediate 1. Explain closure vs class.
+
+Question:
+
+When would you use a closure instead of a class?
+
+中文解析:
+
+闭包适合捕获少量配置并返回一个主要行为。类适合管理更复杂的状态、多个方法、生命周期和更清晰的对象边界。
+
+English answer:
+
+I use a closure when I need lightweight configured behavior with small captured state.
+I use a class when the state is complex, has a lifecycle, or needs multiple methods.
+
+Overseas backend interview answer:
+
+For a simple FastAPI dependency factory, a closure is clean. For a service object that
+manages a database client, cache client, retries, and several operations, I would prefer
+a class.
+
+Follow-up questions:
+
+- When does a closure become too implicit?
+- How would you test closure state?
+- How would you refactor a closure into a class?
+
+### Intermediate 2. What is a factory function?
+
+Question:
+
+What is a factory function?
+
+中文解析:
+
+Factory Function 是创建并返回配置好行为的函数。它把配置阶段和业务执行阶段分开。
+
+English answer:
+
+A factory function is a function that creates and returns another object or function,
+often with configuration captured in a closure.
+
+Overseas backend interview answer:
+
+Factory functions are useful in backend systems because they separate configuration from
+runtime logic. For example, a factory can capture required roles and return a FastAPI
+dependency that checks the current user.
+
+Follow-up questions:
+
+- Why does a factory function improve dependency injection?
+- What does the returned function capture?
+- When would you use a class-based factory instead?
+
+### Intermediate 3. Why is closure useful in backend development?
+
+Question:
+
+Why are closures useful in backend engineering?
+
+中文解析:
+
+闭包可以在不使用全局变量的情况下保存配置和小状态。它常用于依赖工厂、验证器工厂、回调函数、Prompt Builder
+和工具注册。
+
+English answer:
+
+Closures are useful because they allow configured behavior without global state. They are
+common in dependency injection, callbacks, validators, retry policies, and prompt builders.
+
+Overseas backend interview answer:
+
+In production backend code, closures help keep configuration close to behavior while still
+allowing the request-specific data to stay isolated.
+
+Follow-up questions:
+
+- What production risk comes from captured mutable state?
+- How can closures help avoid global request state?
+- How do closures connect to decorators?
+
+### Intermediate 4. Explain late binding.
+
+Question:
+
+What is late binding in Python closures?
+
+中文解析:
+
+Late Binding 指闭包在调用时查找变量，而不是在创建函数时把值固定下来。
+
+English answer:
+
+Late binding means a closure looks up captured variables when the function is called,
+not when the function is created.
+
+Overseas backend interview answer:
+
+Late binding matters when generating callbacks or handlers in a loop. If I do not capture
+the current value intentionally, every generated function may use the final loop value.
+
+Follow-up questions:
+
+- Why does late binding happen?
+- How does `i=i` fix it?
+- Where can this bug appear in backend code?
+
+### Intermediate 5. Why does the famous loop example print `2 2 2`?
+
+Question:
+
+Why does this print `2 2 2`?
+
+```python
+def make_funcs():
+    funcs = []
+
+    for i in range(3):
+        def f():
+            return i
+
+        funcs.append(f)
+
+    return funcs
+```
+
+中文解析:
+
+三个函数捕获的是同一个变量名 `i`，不是每次循环的值。循环结束后，`i` 的最终值是 `2`。
+调用函数时才查找 `i`，所以结果都是 `2`。
+
+English answer:
+
+It prints `2 2 2` because all functions capture the same variable `i`. They look up `i`
+when called, and after the loop finishes, `i` is `2`.
+
+Overseas backend interview answer:
+
+This is a common callback-generation bug. I fix it by binding the current value explicitly,
+for example with `def f(i=i): return i`.
+
+Follow-up questions:
+
+- Does Python capture the variable or the value?
+- Why does the default argument fix work?
+- How would this affect generated route handlers or job callbacks?
+
+### Senior 1. Explain Python closure from the perspective of function objects.
+
+Question:
+
+Explain closure using Python's object model.
+
+中文解析:
+
+函数本身是对象。闭包就是一个函数对象携带了它执行时还需要的外层环境。这个函数对象可以被赋值、返回、传递，
+并在未来继续使用捕获的环境。
+
+English answer:
+
+From the object model perspective, a closure is a function object that carries references
+to variables from its defining environment. The function object can be returned, passed
+around, and called later while still using that environment.
+
+Overseas backend interview answer:
+
+This explains why frameworks can accept callables and why factories can return configured
+functions. The callable is an object, and its captured environment carries the configuration.
+
+Follow-up questions:
+
+- What makes a function first-class?
+- How does this connect to dependency injection?
+- What can go wrong if the captured environment is mutable?
+
+### Senior 2. Explain how closure works internally.
+
+Question:
+
+How does a closure work internally?
+
+中文解析:
+
+当内部函数引用外层变量，并且内部函数会在外层函数结束后继续存在时，Python 会保留这些被引用的变量。
+返回的函数对象持有对这些变量环境的引用。
+
+English answer:
+
+Python preserves the variables needed by the inner function and attaches that environment
+to the returned function object. The outer function does not keep running, but the captured
+environment remains alive.
+
+Overseas backend interview answer:
+
+This means closure state has a lifecycle. If the closure is kept globally or reused across
+workers, its captured state can live much longer than expected, so ownership must be clear.
+
+Follow-up questions:
+
+- Does the outer stack frame keep running?
+- Why can captured state outlive the function call?
+- How would you inspect closure behavior during debugging?
+
+### Senior 3. Why does Python capture names instead of values?
+
+Question:
+
+Why does Python capture names instead of values?
+
+中文解析:
+
+Python 的作用域规则基于名字查找。闭包保存的是变量环境，调用时再解析名字。这让闭包可以保存可变状态，
+也能让 `nonlocal` 更新外层变量，但副作用是会出现 Late Binding。
+
+English answer:
+
+Python closures capture variables by reference to the environment, so names are resolved
+when the function is called. This supports state preservation and `nonlocal`, but it also
+creates late binding behavior.
+
+Overseas backend interview answer:
+
+The trade-off is flexibility versus surprise. I use explicit binding, such as default
+arguments, when generating functions in loops so the production behavior is predictable.
+
+Follow-up questions:
+
+- What is the trade-off of this design?
+- Why does late binding surprise new engineers?
+- How would you make the behavior explicit?
+
+### Senior 4. Explain Dependency Factory in FastAPI.
+
+Question:
+
+How does a closure support a FastAPI dependency factory?
+
+中文解析:
+
+FastAPI 的 `Depends()` 接收 callable。Factory Function 可以先捕获配置，比如 required role，
+然后返回真正处理请求的依赖函数。
+
+English answer:
+
+A FastAPI dependency factory captures configuration and returns a dependency function.
+The returned callable is used by `Depends()` during the request lifecycle.
+
+Overseas backend interview answer:
+
+For example, `require_role("admin")` can return a dependency that checks the current user.
+The role is configuration captured by the closure; the user remains request-scoped data.
+
+Follow-up questions:
+
+- Why should the current user not be captured globally?
+- What should be captured by the factory?
+- What should remain request-scoped?
+
+### Senior 5. Explain Prompt Factory in AI Backend.
+
+Question:
+
+How can closures support AI prompt builders?
+
+中文解析:
+
+Prompt Factory 可以捕获固定配置，比如产品名、语气、系统规则，然后返回一个函数，根据用户输入生成 prompt。
+这样配置和运行时消息可以分离。
+
+English answer:
+
+A prompt factory can capture stable configuration such as product name, tone, or system
+rules, and return a builder function that creates prompts from request-specific input.
+
+Overseas backend interview answer:
+
+This pattern helps avoid global prompt state and prevents different users' messages from
+mixing. Stable configuration is captured; conversation history should remain session-scoped.
+
+Follow-up questions:
+
+- What should not be captured in a global prompt builder?
+- How can shared `messages` cause prompt pollution?
+- When would you store prompt configuration in a class instead?
+
+### Senior 6. Explain trade-offs between Closure and OOP.
+
+Question:
+
+What are the trade-offs between closure-based design and object-oriented design?
+
+中文解析:
+
+闭包轻量，适合少量配置和一个主要行为；OOP 更显式，适合复杂状态、多方法、生命周期和团队协作。
+
+English answer:
+
+Closures are lightweight and good for small configured behavior. Classes are more explicit
+and better for complex state, multiple methods, lifecycle management, and large-team
+maintainability.
+
+Overseas backend interview answer:
+
+I choose the simplest structure that makes ownership clear. For a small dependency factory,
+I use a closure. For a production service with database access, retries, logging, and
+several operations, I use a class.
+
+Follow-up questions:
+
+- How do you avoid overusing closures?
+- What would a tech lead reject in a closure-heavy design?
+- How do testing and observability affect the choice?
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
@@ -910,6 +1355,24 @@ Late binding means a closure looks up a captured variable when the function is c
 not when the function is created. This is why functions created in a loop can all return
 the final loop value unless the current value is captured explicitly.
 
+### Explain captured environment.
+
+A captured environment is the outer-scope state that a closure preserves. The outer function
+does not keep running, but the returned function object keeps access to the variables it
+needs.
+
+### Explain factory functions.
+
+A factory function creates configured behavior. In Python, it often returns a closure that
+captures configuration, such as a required role, timeout value, prompt style, or validation
+rule.
+
+### Explain closure vs class.
+
+I use closures for small captured configuration and one main behavior. I use classes when
+the state is complex, when there are multiple methods, or when lifecycle and observability
+need to be explicit.
+
 ---
 
 ## Common Mistakes
@@ -927,6 +1390,11 @@ the final loop value unless the current value is captured explicitly.
 - Storing request state in global variables.
 - Using `nonlocal` when simple mutation does not require rebinding.
 - Forgetting late binding when creating functions in loops.
+- Defining closure only as "a function inside another function."
+- Forgetting that a closure captures variables, not fixed values.
+- Capturing shared mutable state without clear ownership.
+- Using closure state where a class would make lifecycle clearer.
+- Capturing AI `messages` or Playwright `Page` objects in long-lived closures.
 
 ---
 
@@ -945,7 +1413,13 @@ the final loop value unless the current value is captured explicitly.
 - LEGB means Local, Enclosing, Global, Built-in.
 - Python uses lexical scope.
 - Closure means function object plus captured environment.
+- Captured environment means preserved outer-scope variables.
+- `nonlocal` rebinds a name in the nearest enclosing function scope.
+- Factory functions create configured behavior.
+- Closure is good for small captured configuration.
+- Class is better for complex state and lifecycle.
 - Late binding means variables are looked up when the closure is called.
+- `def f(i=i)` captures the current loop value as a default argument.
 - Prefer explicit dependencies over global state.
 - Use type hints for public functions.
 - Production Python requires tests, logging, and clear structure.
