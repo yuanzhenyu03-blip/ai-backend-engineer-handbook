@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.15 — Day10 Type Hints Documentation
+
+Date: 2026-07-07
+
+### Added
+
+- Added `docs/python/day10-type-hints.md`.
+- Added Day10 Type Hints review material to `cheat_sheets/python.md`.
+- Added Day10 Type Hints interview questions to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day10 as completed and Day11 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day10 as completed and prepare Day11.
+- Updated `TASKS.md` with completed Day10 tasks and Day11 preparation tasks.
+- Updated `CHANGELOG.md` with the Day10 repository update.
+
+### Notes
+
+- Covered Type Hints as interface contracts, runtime behavior, parameter and return types, `list[T]`, `dict[K, V]`, `tuple`, `set[T]`, `User | None`, `Optional`, `Union`, type inference, `TypeVar`, and `Generic`.
+- Connected Day10 concepts to FastAPI request models, response models, `Depends()`, Pydantic, OpenAPI, Playwright object types, and AI backend tool/message contracts.
+- No `exercises/` directory exists, so Day10 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.14 — Day09 Consistency Fix
 
 Date: 2026-07-07

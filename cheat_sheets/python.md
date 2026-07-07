@@ -1476,6 +1476,362 @@ def create_client() -> LLMClient:
 
 ---
 
+## Type Hints
+
+Core idea:
+
+```text
+Type Hints = Interface Contracts
+```
+
+They describe expected types for humans, IDEs, static checkers, frameworks, and AI coding
+assistants.
+
+Important:
+
+- Type Hints are not runtime checks by default.
+- FastAPI and Pydantic can use Type Hints for runtime validation.
+- Public function boundaries should usually be typed.
+
+---
+
+## Basic Type Hints
+
+```python
+name: str = "Alice"
+age: int = 30
+score: float = 98.5
+is_active: bool = True
+```
+
+Function boundary:
+
+```python
+def create_user(email: str, age: int) -> User:
+    ...
+```
+
+Best practice:
+
+- Type public parameters.
+- Type return values.
+- Avoid noisy annotations for obvious local variables.
+
+---
+
+## Return Type Hints
+
+```python
+def find_user(email: str) -> User | None:
+    ...
+```
+
+Why:
+
+- Callers know what to expect.
+- Missing values become explicit.
+- IDEs and static checkers can warn about unhandled `None`.
+
+---
+
+## Collection Type Hints
+
+| Type | Meaning |
+|------|---------|
+| `list[str]` | list of strings |
+| `list[User]` | list of users |
+| `dict[str, int]` | string keys, integer values |
+| `tuple[float, float]` | fixed two-position tuple |
+| `set[str]` | unique strings |
+
+Prefer:
+
+```python
+def send_emails(users: list[User]) -> None:
+    ...
+```
+
+Over:
+
+```python
+def send_emails(users: list) -> None:
+    ...
+```
+
+Production risk:
+
+- Plain `list` and `dict` hide item shape.
+- `dict[str, object]` may hide a missing model.
+
+---
+
+## `User | None`, `Optional`, and `Union`
+
+Modern syntax:
+
+```python
+def find_user(email: str) -> User | None:
+    ...
+```
+
+Older syntax:
+
+```python
+from typing import Optional
+
+
+def find_user(email: str) -> Optional[User]:
+    ...
+```
+
+Meaning:
+
+```text
+Optional[User] == User | None
+```
+
+Union:
+
+```python
+def parse_id(raw: str) -> int | str:
+    ...
+```
+
+Best practice:
+
+- Use `User | None` when `None` is a valid result.
+- Avoid large unions that force callers to handle too many branches.
+
+---
+
+## Type Inference
+
+Type inference means tools infer types from context.
+
+```python
+name = "Alice"      # inferred as str
+count = 3           # inferred as int
+tags = ["ai", "api"]  # inferred as list[str]
+```
+
+Annotate when inference is not enough:
+
+```python
+messages: list[ChatMessage] = []
+metadata: dict[str, str] = {}
+```
+
+Rule:
+
+- Empty collections often need annotations.
+- Obvious local variables usually do not.
+
+---
+
+## `TypeVar`
+
+Use `TypeVar` to preserve relationships.
+
+```python
+from typing import TypeVar
+
+T = TypeVar("T")
+
+
+def identity(value: T) -> T:
+    return value
+```
+
+Why `T -> T` is better than `object -> object`:
+
+```text
+object -> object
+    |
+    v
+type information lost
+
+T -> T
+    |
+    v
+input type preserved as output type
+```
+
+---
+
+## `Generic`
+
+Use `Generic` for reusable wrappers.
+
+```python
+from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
+
+@dataclass
+class Response(Generic[T]):
+    data: T
+    error: str | None = None
+```
+
+Examples:
+
+```python
+Response[User]
+Response[AgentTask]
+Response[list[ChatMessage]]
+```
+
+---
+
+## Type Hint Best Practices
+
+- Type public functions.
+- Type return values.
+- Type empty collections.
+- Prefer `list[User]` over `list`.
+- Prefer honest `User | None` over hidden `None`.
+- Use `TypeVar` when input and output types are related.
+- Use models when dictionaries become domain objects.
+- Avoid excessive local annotations.
+- Avoid broad `object` unless the value is truly unknown.
+
+---
+
+## Type Hint Common Bugs
+
+| Bug | Risk | Better |
+|-----|------|--------|
+| `items: list` | item type unknown | `items: list[User]` |
+| `payload: dict` | key/value shape unknown | `payload: dict[str, str]` or model |
+| `-> User` but returns `None` | dishonest contract | `-> User | None` |
+| `object -> object` | loses type relationship | `T -> T` |
+| huge `Union` | caller complexity | clearer model or split functions |
+
+---
+
+## FastAPI Type Hint Patterns
+
+Request model:
+
+```python
+class CreateUserRequest(BaseModel):
+    email: str
+    name: str
+```
+
+Response model:
+
+```python
+class UserResponse(BaseModel):
+    id: int
+    email: str
+```
+
+Dependency:
+
+```python
+def get_current_user(token: str) -> User:
+    ...
+```
+
+FastAPI uses Type Hints for:
+
+- request body parsing
+- response serialization
+- `Depends()` contracts
+- Pydantic validation
+- OpenAPI generation
+
+---
+
+## Playwright Type Hint Patterns
+
+Common object types:
+
+```python
+from playwright.async_api import Browser, BrowserContext, Locator, Page
+```
+
+Examples:
+
+```python
+async def login(page: Page, email: str, password: str) -> None:
+    ...
+
+
+async def create_context(browser: Browser) -> BrowserContext:
+    ...
+
+
+def get_submit_button(page: Page) -> Locator:
+    return page.get_by_role("button", name="Submit")
+```
+
+Storage state:
+
+```python
+StorageState = dict[str, object]
+```
+
+Production risk:
+
+- Do not confuse `Browser`, `BrowserContext`, `Page`, and `Locator`.
+- Type lifecycle helpers clearly.
+
+---
+
+## AI Backend Type Hint Patterns
+
+Message type:
+
+```python
+@dataclass
+class ChatMessage:
+    role: str
+    content: str
+```
+
+Agent task:
+
+```python
+@dataclass
+class AgentTask:
+    task_id: str
+    messages: list[ChatMessage]
+```
+
+Agent result:
+
+```python
+@dataclass
+class AgentResult:
+    output: str
+    tool_calls: list[ToolResult]
+```
+
+Generic response:
+
+```python
+Response[AgentResult]
+```
+
+Tool calling:
+
+```python
+def run_tool(name: str, arguments: dict[str, object]) -> ToolResult:
+    ...
+```
+
+Production value:
+
+- Message shape is explicit.
+- Tool input and output contracts are visible.
+- AI assistants can infer intent more accurately.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -1539,4 +1895,11 @@ def create_client() -> LLMClient:
 - "Absolute imports are often clearer in large backend systems."
 - "Wildcard imports create namespace pollution and make ownership unclear."
 - "Import side effects can break FastAPI startup, Playwright workers, and AI backend tests."
+- "Type Hints are interface contracts, not runtime checks by default."
+- "Public function parameters and return values should usually be typed."
+- "`list[User]` is more informative than `list` because it preserves item type."
+- "`User | None` makes the missing case explicit."
+- "`TypeVar` preserves relationships that `object` would lose."
+- "FastAPI relies on Type Hints for validation, dependency resolution, and OpenAPI generation."
+- "Type Hints improve AI-assisted development by making contracts explicit."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

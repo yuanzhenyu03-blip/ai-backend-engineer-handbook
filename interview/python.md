@@ -2486,6 +2486,364 @@ intentional, not accidental.
 
 ---
 
+## Day10 Questions: Type Hints
+
+### Beginner 1. Why did Python introduce Type Hints?
+
+Question:
+
+Why did Python introduce Type Hints?
+
+中文解析:
+
+Python 仍然是动态语言。Type Hints 的目标不是把 Python 变成强制静态类型语言，而是让函数边界更清楚，让人、IDE、静态检查工具、框架和 AI 助手都能理解代码契约。
+
+Standard Answer:
+
+Python introduced Type Hints to improve readability, tooling, static analysis, refactoring,
+framework integration, and maintainability while keeping Python dynamically typed.
+
+### Beginner 2. Are Type Hints checked at runtime?
+
+Question:
+
+Are Type Hints checked at runtime by default?
+
+中文解析:
+
+默认不会。Type Hints 描述预期类型，但 Python 不会自动在函数调用前检查。FastAPI 和 Pydantic 这类框架可以读取 Type Hints 并执行运行时校验。
+
+Standard Answer:
+
+No. Type Hints are not enforced at runtime by default. They are mainly used by humans,
+IDEs, static type checkers, and frameworks. Frameworks such as FastAPI and Pydantic can use
+them for runtime validation.
+
+### Beginner 3. Why should parameters be annotated?
+
+Question:
+
+Why should function parameters be annotated?
+
+中文解析:
+
+参数类型提示告诉调用者应该传什么，也告诉 IDE 和静态检查工具这个函数的输入契约。
+
+Standard Answer:
+
+Parameter annotations define what callers are expected to pass. They make the function
+interface easier to understand and safer to use.
+
+### Beginner 4. Why should return values be annotated?
+
+Question:
+
+Why should return values be annotated?
+
+中文解析:
+
+返回值是调用方继续工作的基础。如果返回类型不清楚，后续代码就只能猜。
+
+Standard Answer:
+
+Return annotations tell callers what to expect from a function. They reduce guessing and
+make downstream code easier to review and refactor.
+
+### Beginner 5. What is the difference between `list[T]` and `list`?
+
+Question:
+
+What is the difference between `list[T]` and `list`?
+
+中文解析:
+
+`list` 只说明这是列表，`list[T]` 说明列表里的元素类型。后者对工程更有价值。
+
+Standard Answer:
+
+`list` only says the value is a list. `list[T]` also tells us the type of each item in the
+list.
+
+### Intermediate 1. What is the difference between `Optional` and `Union`?
+
+Question:
+
+What is the difference between `Optional` and `Union`?
+
+中文解析:
+
+`Optional[User]` 本质上是 `Union[User, None]`。它专门表达“这个值可能不存在”。
+
+Standard Answer:
+
+`Optional[T]` means `T | None`. `Union` is more general and represents a value that may be
+one of several types.
+
+Follow-up Question:
+
+When should you avoid large unions?
+
+### Intermediate 2. What is the difference between `User | None` and `Optional[User]`?
+
+Question:
+
+What is the difference between `User | None` and `Optional[User]`?
+
+中文解析:
+
+语义相同，`User | None` 是现代 Python 更直接的写法。
+
+Standard Answer:
+
+They mean the same thing: the value can be a `User` or `None`. `User | None` is the modern
+syntax.
+
+### Intermediate 3. Why is `list[User]` better than `list`?
+
+Question:
+
+Why is `list[User]` better than `list`?
+
+中文解析:
+
+因为它保留了元素类型。调用者、IDE 和静态检查工具都知道列表里的每一项应该是 `User`。
+
+Standard Answer:
+
+`list[User]` preserves the item type. It tells readers and tools that every item should be
+a `User`, which improves autocomplete and static checking.
+
+### Intermediate 4. Why is a Type Hint an interface contract?
+
+Question:
+
+Why is a Type Hint an interface contract?
+
+中文解析:
+
+Type Hint 说明函数承诺接收什么、返回什么。它不是实现细节，而是调用方依赖的边界协议。
+
+Standard Answer:
+
+A Type Hint is an interface contract because it describes what a function accepts and
+returns. It defines expectations between caller and implementation.
+
+Follow-up Question:
+
+How does this contract help during refactoring?
+
+### Intermediate 5. What is Type Inference?
+
+Question:
+
+What is Type Inference?
+
+中文解析:
+
+Type Inference 是工具根据上下文推断变量类型，不需要每个局部变量都显式标注。
+
+Standard Answer:
+
+Type inference means a tool can infer a variable's type from context without an explicit
+annotation.
+
+### Intermediate 6. Why can IDEs autocomplete better with Type Hints?
+
+Question:
+
+Why can IDEs autocomplete better with Type Hints?
+
+中文解析:
+
+IDE 知道变量是什么类型，就能知道它有哪些属性和方法。
+
+Standard Answer:
+
+Type Hints tell the IDE what type a value has, so the IDE can suggest the correct methods,
+attributes, and function signatures.
+
+### Senior 1. Explain Type Hints as interface contracts.
+
+Question:
+
+Explain Type Hints as Interface Contracts.
+
+Standard Answer:
+
+Type Hints define expectations at code boundaries. They describe what a function accepts
+and returns, making the contract between caller and implementation explicit.
+
+Interview Review:
+
+Strong answers mention humans, tooling, frameworks, refactoring, and production
+maintainability.
+
+Follow-up Questions:
+
+- Are Type Hints runtime checks by default?
+- How can frameworks use Type Hints?
+- Where should Type Hints be prioritized?
+
+Production Case:
+
+In FastAPI, Type Hints become request models, dependency contracts, response schemas, and
+OpenAPI documentation.
+
+### Senior 2. Explain `Generic` and `TypeVar`.
+
+Question:
+
+Explain Generic and TypeVar.
+
+Standard Answer:
+
+`TypeVar` represents a type variable, and `Generic` allows functions or classes to preserve
+type relationships across different concrete types.
+
+Interview Review:
+
+The key is relationship preservation, not syntax memorization.
+
+Follow-up Question:
+
+Why is `Response[T]` better than a response wrapper with `data: object`?
+
+Production Case:
+
+An AI backend can use `Response[AgentResult]`, `Response[ToolResult]`, and
+`Response[list[ChatMessage]]` while preserving payload type.
+
+### Senior 3. Why is `T -> T` better than `object -> object`?
+
+Question:
+
+Why is `T -> T` better than `object -> object`?
+
+Standard Answer:
+
+`object -> object` loses the relationship between input and output. `T -> T` says the
+function returns the same type it receives, so type information is preserved.
+
+Interview Review:
+
+This question tests whether the candidate understands generics as contracts, not just
+annotations.
+
+Follow-up Question:
+
+How would this affect IDE autocomplete after calling the function?
+
+Production Case:
+
+A generic cache helper can return the same type that was stored instead of forcing callers
+to cast from `object`.
+
+### Senior 4. Explain Type Inference.
+
+Question:
+
+Explain Type Inference.
+
+Standard Answer:
+
+Type inference is the ability of tooling to infer a value's type from assignment,
+function return values, or control flow without explicit annotations.
+
+Interview Review:
+
+A strong answer explains why obvious local variables often do not need annotations.
+
+Follow-up Question:
+
+When should an empty list still be annotated?
+
+### Senior 5. Why does FastAPI rely heavily on Type Hints?
+
+Question:
+
+Why does FastAPI rely heavily on Type Hints?
+
+Standard Answer:
+
+FastAPI introspects function signatures and Pydantic models. It uses Type Hints for request
+parsing, validation, dependency injection, response serialization, and OpenAPI generation.
+
+Interview Review:
+
+Good candidates connect Type Hints to framework behavior, not just readability.
+
+Production Case:
+
+A route parameter annotated as `user_id: int` can be parsed and validated automatically.
+A request model annotated with Pydantic fields becomes an OpenAPI schema.
+
+### Senior 6. How do Type Hints improve AI-assisted development?
+
+Question:
+
+How do Type Hints improve AI-assisted development?
+
+Standard Answer:
+
+Type Hints give AI tools clearer context about function contracts, message types, tool
+inputs, tool outputs, and generic wrappers. This reduces incorrect assumptions during code
+generation.
+
+Interview Review:
+
+This answer is especially important for AI Backend roles.
+
+Follow-up Question:
+
+How would you type an AI tool calling interface?
+
+Production Case:
+
+An AI agent with typed `ChatMessage`, `AgentTask`, `ToolResult`, and `Response[T]` is easier
+for both humans and AI assistants to extend safely.
+
+### Senior 7. When should engineers avoid writing Type Hints?
+
+Question:
+
+When should engineers avoid writing Type Hints?
+
+Standard Answer:
+
+Engineers can skip annotations when local variables are obvious and type inference is
+clear. Type Hints should reduce ambiguity, not add noise.
+
+Interview Review:
+
+This question tests judgment. Senior engineers do not annotate everything blindly.
+
+Follow-up Question:
+
+Which is more important: typing every local variable or typing public function boundaries?
+
+### Senior 8. How do Type Hints improve maintainability in large backend systems?
+
+Question:
+
+How do Type Hints improve maintainability in large backend systems?
+
+Standard Answer:
+
+They make interfaces explicit, improve refactoring safety, support static analysis,
+improve IDE navigation, document expected data shapes, and help frameworks generate
+accurate schemas.
+
+Interview Review:
+
+Tie the answer to team scale, onboarding, refactoring, and production risk.
+
+Production Case:
+
+When a service function changes from returning `User` to `User | None`, Type Hints make
+callers update missing-case handling instead of failing later in production.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak

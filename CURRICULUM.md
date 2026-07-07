@@ -291,11 +291,21 @@ Topic:
 Type Hints
 
 Status:
+✅ Completed
+
+---
+
+### Day11
+
+Topic:
+Object-Oriented Programming
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day11-Day14
+### Day12-Day14
 
 Status:
 Planned

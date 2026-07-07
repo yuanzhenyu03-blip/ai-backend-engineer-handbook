@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day10 — Type Hints
+Day11 — Object-Oriented Programming
 
 Status:
 Not started
@@ -29,6 +29,7 @@ Not completed yet
 - ✅ Day07 — Iterators & Generators
 - ✅ Day08 — Exception Handling
 - ✅ Day09 — Modules & Packages
+- ✅ Day10 — Type Hints
 
 ---
 
@@ -40,25 +41,26 @@ None.
 
 ## Last Completed Lesson
 
-Day09 — Modules & Packages
+Day10 — Type Hints
 
 Completed Time:
 2026-07-07
 
 Completed Work:
 
-- Day09 classroom learning
-- Day09 lesson document
-- Day09 mini exercises
-- Day09 cheat sheet update
-- Day09 interview notes update
-- Day09 repository status update
+- Day10 classroom learning
+- Day10 lesson document
+- Day10 code practice
+- Day10 mini exercises
+- Day10 cheat sheet update
+- Day10 interview notes update
+- Day10 repository status update
 
 ---
 
 ## Next
 
-- Day10 — Type Hints
+- Day11 — Object-Oriented Programming
 
 Status:
 Not started
@@ -78,6 +80,7 @@ Completed Python Foundations:
 - Day07 — Iterables, iterators, generators, lazy evaluation, streaming pipelines
 - Day08 — Exception handling, propagation, custom exceptions, exception chaining, root cause analysis
 - Day09 — Modules, packages, import execution, module cache, namespaces, import side effects
+- Day10 — Type Hints, interface contracts, collection types, Optional, TypeVar, Generic, framework contracts
 
 ---
 
@@ -135,6 +138,18 @@ Completed Python Foundations:
 - Prefer absolute imports for large backend systems.
 - Identify import side effects and their production risks.
 - Connect package boundaries to FastAPI, Playwright, and AI backend architecture.
+- Explain Type Hints as interface contracts.
+- Explain why Type Hints are not runtime checks by default.
+- Add parameter and return type hints to backend functions.
+- Use `list[T]`, `dict[K, V]`, `tuple`, `set[T]`, `User | None`, `Optional`, and `Union`.
+- Explain type inference and when local annotations are unnecessary.
+- Explain why empty collections often need explicit types.
+- Use `TypeVar` to preserve input-output type relationships.
+- Explain why `T -> T` is better than `object -> object`.
+- Use `Generic` for reusable wrappers such as `Response[T]`.
+- Connect Type Hints to FastAPI request models, response models, `Depends()`, Pydantic, and OpenAPI.
+- Connect Type Hints to Playwright `Browser`, `BrowserContext`, `Page`, `Locator`, and storage state.
+- Connect Type Hints to AI backend `ChatMessage`, `AgentTask`, `AgentResult`, `ToolResult`, and tool calling.
 
 ---
 
@@ -206,6 +221,16 @@ Completed Python Foundations:
 - FastAPI package design exercise
 - Playwright module boundary exercise
 - AI backend package architecture exercise
+- Basic Type Hint exercises
+- Return type exercises
+- `list[T]` and `dict[K, V]` exercises
+- `User | None`, `Optional`, and `Union` exercises
+- `TypeVar` identity exercise
+- `Generic` response wrapper exercise
+- FastAPI request and response model exercise
+- FastAPI `Depends()` type contract exercise
+- Playwright `Page`, `BrowserContext`, and `Locator` typing exercise
+- AI backend `ChatMessage`, `AgentTask`, `AgentResult`, and `Response[T]` exercise
 
 ---
 

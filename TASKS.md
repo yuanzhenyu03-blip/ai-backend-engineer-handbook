@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day10 — Type Hints
+Day11 — Object-Oriented Programming
 
 Status:
 Not started
@@ -24,17 +24,77 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day10-type-hints.md
+docs/python/day11-object-oriented-programming.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day10 classroom learning.
-- [ ] Review function signatures and return types.
-- [ ] Prepare examples for typed backend function design.
-- [ ] Connect type hints to FastAPI validation, Playwright APIs, and AI backend contracts.
+- [ ] Begin Day11 classroom learning.
+- [ ] Review object identity and references before OOP.
+- [ ] Prepare examples for classes, instances, attributes, and methods.
+- [ ] Connect OOP to FastAPI services, Playwright page objects, and AI backend agent classes.
+
+---
+
+## Completed Day10 Tasks
+
+- [x] Complete Day10 classroom learning.
+- [x] Generate Day10 handbook lesson.
+- [x] Add Type Hints as interface contracts.
+- [x] Add runtime behavior discussion.
+- [x] Add parameter and return type hints.
+- [x] Add `list[T]`, `dict[K, V]`, `tuple`, and `set[T]`.
+- [x] Add `User | None`, `Optional`, and `Union`.
+- [x] Add type inference discussion.
+- [x] Add empty collection typing discussion.
+- [x] Add `TypeVar` and `Generic`.
+- [x] Add `identity(T) -> T` reasoning.
+- [x] Add FastAPI request model, response model, `Depends()`, Pydantic, and OpenAPI connections.
+- [x] Add Playwright `Browser`, `BrowserContext`, `Page`, `Locator`, and storage state connections.
+- [x] Add AI backend `ChatMessage`, `AgentTask`, `AgentResult`, `Response[T]`, and tool calling connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day10 Repository Tasks
+
+- [x] Update `docs/python/day10-type-hints.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day10 Interview Tasks
+
+- [x] Add beginner Type Hint questions.
+- [x] Add intermediate Type Hint questions.
+- [x] Add senior Type Hint questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day10 Homework
+
+- [x] Complete basic Type Hint exercises.
+- [x] Complete return type exercises.
+- [x] Complete `list[T]` exercise.
+- [x] Complete `dict[K, V]` exercise.
+- [x] Complete `User | None` exercise.
+- [x] Complete `Union` exercise.
+- [x] Complete `TypeVar` identity exercise.
+- [x] Complete `Generic` response wrapper exercise.
+- [x] Complete FastAPI request and response model exercise.
+- [x] Complete Playwright object type exercise.
+- [x] Complete AI backend message and response type exercise.
 
 ---
 
@@ -463,11 +523,36 @@ None.
 
 ### Day10 Preparation
 
-- [ ] Review function signatures.
-- [ ] Review public function boundaries.
-- [ ] Prepare examples for `list[str]`, `dict[str, Any]`, and `Optional`-style thinking.
-- [ ] Prepare FastAPI examples where type hints affect request and response design.
-- [ ] Prepare AI backend examples where types document tool contracts.
+- [x] Review function signatures.
+- [x] Review public function boundaries.
+- [x] Prepare examples for `list[str]`, `dict[str, Any]`, and `Optional`-style thinking.
+- [x] Prepare FastAPI examples where type hints affect request and response design.
+- [x] Prepare AI backend examples where types document tool contracts.
+
+### Day10 Review
+
+- [ ] Explain Type Hints as interface contracts.
+- [ ] Explain why Type Hints are not runtime checks by default.
+- [ ] Type parameters and return values.
+- [ ] Explain `list[T]` vs `list`.
+- [ ] Explain `dict[K, V]`.
+- [ ] Explain `User | None`, `Optional`, and `Union`.
+- [ ] Explain type inference.
+- [ ] Explain why empty collections often need annotations.
+- [ ] Explain `TypeVar` and `Generic`.
+- [ ] Explain why `T -> T` is better than `object -> object`.
+- [ ] Explain how FastAPI uses Type Hints.
+- [ ] Explain Playwright object type boundaries.
+- [ ] Explain AI backend message and tool contracts.
+
+### Day11 Preparation
+
+- [ ] Review Day01 object model.
+- [ ] Review references and mutability.
+- [ ] Prepare questions about class vs instance.
+- [ ] Prepare examples for service classes.
+- [ ] Prepare examples for Playwright page objects.
+- [ ] Prepare examples for AI agent classes.
 
 ### Future Knowledge Base TODO
 
@@ -517,3 +602,4 @@ Purpose:
 - [x] Complete Day07 — Iterators & Generators.
 - [x] Complete Day08 — Exception Handling.
 - [x] Complete Day09 — Modules & Packages.
+- [x] Complete Day10 — Type Hints.
