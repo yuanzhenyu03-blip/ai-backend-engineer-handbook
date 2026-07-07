@@ -1832,6 +1832,350 @@ Production value:
 
 ---
 
+## Object-Oriented Programming
+
+Core idea:
+
+```text
+OOP = Responsibility Design
+```
+
+OOP is not about writing more classes.
+
+It is about grouping state and behavior under clear ownership.
+
+---
+
+## Object, Class, and Instance
+
+| Concept | Meaning |
+|---------|---------|
+| Object | Runtime value with identity, type, state, and behavior |
+| Class | Blueprint for creating instances; also an object in Python |
+| Instance | Object created from a class |
+| State | Data owned by an object |
+| Behavior | Methods exposed by an object |
+
+Mental model:
+
+```text
+Everything
+      |
+      v
+    Object
+```
+
+---
+
+## `self`
+
+`self` is the current instance.
+
+It is a convention, not a keyword.
+
+```text
+u1.say_hi()
+    |
+    v
+User.say_hi(u1)
+```
+
+Common bug:
+
+- Forgetting `self` in an instance method causes a `TypeError`.
+- `self` does not create the object; it receives the current instance.
+
+---
+
+## Attribute and Method Lookup
+
+Lookup flow:
+
+```text
+Instance
+    |
+    v
+Class
+    |
+    v
+Parent
+    |
+    v
+object
+```
+
+Methods are attributes too.
+
+Python stops at the first matching attribute or method.
+
+---
+
+## Class Attribute vs Instance Attribute
+
+Class attribute:
+
+```python
+class User:
+    company = "OpenAI"
+```
+
+Instance attribute:
+
+```python
+class User:
+    def __init__(self, name: str) -> None:
+        self.name = name
+```
+
+Shadowing:
+
+```python
+u1.company = "Google"
+```
+
+This creates or updates `u1`'s instance attribute.
+
+It does not modify `User.company`.
+
+Production risk:
+
+- Mutable class attributes can accidentally share state across instances.
+
+---
+
+## Inheritance and Override
+
+Inheritance expresses Is-A.
+
+```python
+class Browser:
+    def launch(self) -> str:
+        return "launch browser"
+
+
+class Chromium(Browser):
+    def launch(self) -> str:
+        return "launch chromium"
+```
+
+Override:
+
+- Child class defines a method with the same name as the parent.
+- Python finds the child method first and stops lookup.
+
+---
+
+## `super()`
+
+`super()` delegates to the next class in the Method Resolution Order.
+
+Common use:
+
+```python
+class LLMClient(BaseClient):
+    def __init__(self, timeout: int, model: str) -> None:
+        super().__init__(timeout)
+        self.model = model
+```
+
+Call flow:
+
+```text
+Child.__init__()
+    |
+    v
+super().__init__()
+    |
+    v
+Base.__init__()
+    |
+    v
+return to Child
+```
+
+Common bug:
+
+- Parent `__init__()` does not run automatically.
+- Forgetting `super().__init__()` can leave parent state uninitialized.
+
+---
+
+## Composition
+
+Composition expresses Has-A.
+
+```text
+ChatService
+├── Database
+├── Redis
+├── LLMClient
+├── PromptBuilder
+└── VectorStore
+```
+
+Prefer:
+
+```python
+class ChatService:
+    def __init__(self, database: Database, llm_client: LLMClient) -> None:
+        self.database = database
+        self.llm_client = llm_client
+```
+
+Avoid:
+
+```python
+class ChatService(Database, LLMClient):
+    ...
+```
+
+Rule:
+
+```text
+Is-A  -> inheritance
+Has-A -> composition
+```
+
+---
+
+## MRO
+
+MRO means Method Resolution Order.
+
+It gives Python a deterministic method lookup order.
+
+For simple inheritance:
+
+```text
+Instance -> Class -> Parent -> object
+```
+
+Do not overuse complex multiple inheritance in backend application code.
+
+---
+
+## OOP Best Practices
+
+- Design around responsibility.
+- Keep state ownership clear.
+- Use instance attributes for per-object state.
+- Use class attributes only for truly shared values.
+- Prefer composition for service dependencies.
+- Use inheritance only for real Is-A relationships.
+- Call `super().__init__()` when parent initialization is required.
+- Keep service objects small and testable.
+- Use dependency injection to make dependencies visible.
+
+---
+
+## OOP Common Mistakes
+
+| Mistake | Risk |
+|---------|------|
+| Missing `self` | Method call fails with `TypeError` |
+| Mutable class attribute | State leaks across instances |
+| Inheritance for code reuse only | Hidden coupling |
+| Missing `super().__init__()` | Parent state not initialized |
+| Misunderstanding override | Unexpected method behavior |
+| Confusing Is-A and Has-A | Poor architecture |
+
+---
+
+## FastAPI OOP Patterns
+
+FastAPI objects:
+
+- `FastAPI()` application object
+- `Request` object
+- `Response` object
+- Dependency objects
+- Service objects
+
+Service layer:
+
+```python
+class UserService:
+    def __init__(self, repository: UserRepository) -> None:
+        self.repository = repository
+```
+
+Why FastAPI prefers composition:
+
+- Dependencies can be injected.
+- Services can be tested independently.
+- Request-scoped state stays isolated.
+- Framework layer stays thin.
+
+---
+
+## Playwright OOP Patterns
+
+Object hierarchy:
+
+```text
+Browser
+    |
+    v
+BrowserContext
+    |
+    v
+Page
+    |
+    v
+Locator
+```
+
+Key principle:
+
+```text
+Shared Behavior
+Isolated State
+```
+
+`BrowserContext` isolates cookies, local storage, permissions, and session state.
+
+Avoid sharing one context across unrelated jobs.
+
+---
+
+## AI Backend OOP Patterns
+
+Common objects:
+
+- `LLMClient`
+- `ChatService`
+- `PromptBuilder`
+- `VectorStore`
+- `UserRepository`
+- `RedisCache`
+
+AI backends usually prefer composition:
+
+```python
+class ChatService:
+    def __init__(
+        self,
+        llm_client: LLMClient,
+        prompt_builder: PromptBuilder,
+        vector_store: VectorStore,
+        cache: RedisCache,
+    ) -> None:
+        self.llm_client = llm_client
+        self.prompt_builder = prompt_builder
+        self.vector_store = vector_store
+        self.cache = cache
+```
+
+Why:
+
+- Providers are replaceable.
+- Caches are replaceable.
+- Vector stores are replaceable.
+- Prompt builders are testable.
+- Agent behavior stays modular.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -1902,4 +2246,11 @@ Production value:
 - "`TypeVar` preserves relationships that `object` would lose."
 - "FastAPI relies on Type Hints for validation, dependency resolution, and OpenAPI generation."
 - "Type Hints improve AI-assisted development by making contracts explicit."
+- "OOP is responsibility design, not class decoration."
+- "`self` is the current instance passed to an instance method."
+- "Attribute lookup starts from the instance, then the class, then parents, then `object`."
+- "Class attributes are shared; instance attributes are isolated per object."
+- "Inheritance expresses Is-A; composition expresses Has-A."
+- "Modern backend systems often prefer composition over inheritance."
+- "FastAPI services, Playwright contexts, and AI backend clients all rely on clear object ownership."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

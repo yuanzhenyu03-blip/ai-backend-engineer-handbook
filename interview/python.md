@@ -2844,6 +2844,371 @@ callers update missing-case handling instead of failing later in production.
 
 ---
 
+## Day11 Questions: Object-Oriented Programming
+
+### Beginner 1. What is an object?
+
+Question:
+
+What is an object?
+
+中文解析:
+
+对象是运行时存在的值。它有身份、类型、状态和行为。Python 几乎所有东西都是对象。
+
+Standard Answer:
+
+An object is a runtime value with identity, type, state, and behavior.
+
+### Beginner 2. Difference between class and instance.
+
+Question:
+
+What is the difference between a class and an instance?
+
+中文解析:
+
+类是创建对象的蓝图，同时在 Python 中类本身也是对象。实例是由类创建出来的具体对象。
+
+Standard Answer:
+
+A class is a blueprint for creating objects and is also an object in Python. An instance is
+an object created from a class.
+
+### Beginner 3. What is `self`?
+
+Question:
+
+What is `self`?
+
+中文解析:
+
+`self` 是当前实例对象。调用 `u1.say_hi()` 时，Python 会把 `u1` 作为第一个参数传给方法。
+
+Standard Answer:
+
+`self` is the current instance passed to an instance method. It is a naming convention, not
+a Python keyword.
+
+### Beginner 4. What are state and behavior?
+
+Question:
+
+What are state and behavior?
+
+中文解析:
+
+State 是对象拥有的数据，Behavior 是对象通过方法提供的行为。
+
+Standard Answer:
+
+State is the data an object owns. Behavior is what the object can do through methods.
+
+### Beginner 5. Difference between class attribute and instance attribute.
+
+Question:
+
+What is the difference between a class attribute and an instance attribute?
+
+中文解析:
+
+类属性存在类对象上，可能被多个实例共享。实例属性存在具体实例上，用于保存每个对象自己的状态。
+
+Standard Answer:
+
+A class attribute lives on the class and can be shared by instances. An instance attribute
+lives on a specific instance and represents that object's own state.
+
+### Intermediate 1. Explain attribute lookup.
+
+Question:
+
+Explain attribute lookup.
+
+中文解析:
+
+Python 查找属性时，通常先找实例，再找类，再找父类，最后到 `object`。
+
+Standard Answer:
+
+Python looks for an attribute on the instance first, then the class, then parent classes,
+and eventually `object`.
+
+Follow-up Question:
+
+Why does `u1.company = "Google"` not modify `User.company`?
+
+### Intermediate 2. Explain method lookup.
+
+Question:
+
+Explain method lookup.
+
+中文解析:
+
+方法也是属性。Python 会按属性查找顺序寻找方法，找到第一个匹配方法后停止。
+
+Standard Answer:
+
+Methods are attributes. Python searches for them using the same lookup order and stops at
+the first match.
+
+Follow-up Question:
+
+How does method lookup explain overriding?
+
+### Intermediate 3. Explain inheritance.
+
+Question:
+
+Explain inheritance.
+
+中文解析:
+
+继承表示子类复用和扩展父类行为，适合真实的 Is-A 关系。
+
+Standard Answer:
+
+Inheritance allows a child class to reuse and specialize behavior from a parent class. It
+should model a real Is-A relationship.
+
+Follow-up Question:
+
+When is inheritance the wrong tool?
+
+### Intermediate 4. Explain method overriding.
+
+Question:
+
+Explain method overriding.
+
+中文解析:
+
+Override 是子类定义与父类同名的方法，用子类行为替换或扩展父类行为。
+
+Standard Answer:
+
+Method overriding happens when a child class defines a method with the same name as a
+parent method, providing more specific behavior.
+
+Follow-up Question:
+
+Why does Python stop lookup after finding the child method?
+
+### Intermediate 5. What does `super()` do?
+
+Question:
+
+What does `super()` do?
+
+中文解析:
+
+`super()` 会按照 MRO 调用下一个类的方法，常用于调用父类初始化逻辑。
+
+Standard Answer:
+
+`super()` delegates method calls to the next class in the Method Resolution Order. It is
+commonly used to call parent initialization or behavior.
+
+Follow-up Question:
+
+Why does parent `__init__()` not run automatically?
+
+### Intermediate 6. Why does Python use MRO?
+
+Question:
+
+Why does Python use MRO?
+
+中文解析:
+
+MRO 给方法查找提供确定顺序，尤其在继承链或多继承场景中避免歧义。
+
+Standard Answer:
+
+Python uses MRO to provide a deterministic method lookup order, especially when inheritance
+chains become more complex.
+
+Follow-up Question:
+
+Why should backend application code avoid unnecessary complex multiple inheritance?
+
+### Senior 1. Why is composition preferred over inheritance?
+
+Question:
+
+Why is Composition preferred over Inheritance?
+
+Standard Answer:
+
+Composition is preferred when an object uses other objects rather than being a specialized
+version of them. It reduces coupling, improves testability, and makes dependencies easier
+to replace.
+
+Interview Review:
+
+Strong answers mention Is-A vs Has-A, dependency injection, testability, and object
+ownership.
+
+Follow-up Questions:
+
+- When is inheritance still appropriate?
+- How does composition help unit testing?
+
+Production Case:
+
+`ChatService` should have `Database`, `RedisCache`, `LLMClient`, `PromptBuilder`, and
+`VectorStore` dependencies instead of inheriting from them.
+
+### Senior 2. Explain Is-A vs Has-A.
+
+Question:
+
+Explain Is-A vs Has-A.
+
+Standard Answer:
+
+Is-A usually indicates inheritance. Has-A usually indicates composition.
+
+Interview Review:
+
+The important part is design judgment. `Chromium` is a `Browser`, but `ChatService` has an
+`LLMClient`.
+
+Follow-up Question:
+
+How would you model `ChatService` and `LLMClient`?
+
+Production Case:
+
+Using inheritance for Has-A relationships creates confusing APIs and lifecycle ownership.
+
+### Senior 3. How does FastAPI use OOP?
+
+Question:
+
+How does FastAPI use OOP?
+
+Standard Answer:
+
+FastAPI uses objects such as the application object, request object, response object,
+dependency objects, and service objects. Even when handlers are functions, the framework
+uses objects to manage state and behavior.
+
+Interview Review:
+
+Good answers connect FastAPI OOP to service layers and dependency injection.
+
+Production Case:
+
+A `UserService` can receive a `UserRepository` through composition and be injected into
+route handlers.
+
+### Senior 4. How does Playwright use OOP?
+
+Question:
+
+How does Playwright use OOP?
+
+Standard Answer:
+
+Playwright models browser automation with objects such as `Browser`, `BrowserContext`,
+`Page`, and `Locator`. Each object owns a different lifecycle responsibility.
+
+Interview Review:
+
+Strong answers mention shared behavior and isolated state.
+
+Production Case:
+
+Workers may share a `Browser`, but each job should usually own its own `BrowserContext` to
+avoid cookie and local storage leakage.
+
+### Senior 5. How does AI Backend use composition?
+
+Question:
+
+How does AI Backend use Composition?
+
+Standard Answer:
+
+AI backend services often compose dependencies such as `LLMClient`, `PromptBuilder`,
+`VectorStore`, `UserRepository`, `RedisCache`, and database clients so each dependency can
+be replaced, tested, and owned explicitly.
+
+Interview Review:
+
+This is a high-value AI Backend answer because it connects OOP with production agent
+architecture.
+
+Production Case:
+
+`ChatService` coordinates dependencies but does not inherit from provider, cache, or
+database classes.
+
+### Senior 6. Production risks caused by incorrect inheritance.
+
+Question:
+
+What production risks can incorrect inheritance cause?
+
+Standard Answer:
+
+Incorrect inheritance can create hidden coupling, fragile base classes, unclear lifecycle
+ownership, unexpected overrides, accidental shared state, and hard-to-test components.
+
+Interview Review:
+
+Strong answers explain concrete failures, not only "inheritance is bad."
+
+Follow-up Question:
+
+How would composition reduce those risks?
+
+### Senior 7. Explain object lifecycle.
+
+Question:
+
+Explain object lifecycle.
+
+Standard Answer:
+
+Object lifecycle describes when an object is created, initialized, used, and released or
+cleaned up.
+
+Interview Review:
+
+Connect lifecycle to resources such as database sessions, Playwright contexts, and LLM
+clients.
+
+Production Case:
+
+A Playwright job creates a context, uses pages inside it, and closes the context after the
+job.
+
+### Senior 8. Explain object ownership.
+
+Question:
+
+Explain object ownership.
+
+Standard Answer:
+
+Object ownership describes which component is responsible for creating, holding, using, and
+disposing of an object.
+
+Interview Review:
+
+Object ownership is a senior-level design concept. It prevents hidden shared state and
+unclear cleanup responsibility.
+
+Production Case:
+
+In an AI backend, `ChatService` may own request-level orchestration while injected clients
+own provider communication, caching, or retrieval behavior.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak

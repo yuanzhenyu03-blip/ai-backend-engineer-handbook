@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.16 — Day11 Object-Oriented Programming Documentation
+
+Date: 2026-07-07
+
+### Added
+
+- Added `docs/python/day11-object-oriented-programming.md`.
+- Added Day11 Object-Oriented Programming review material to `cheat_sheets/python.md`.
+- Added Day11 OOP interview questions to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day11 as completed and Day12 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day11 as completed and prepare Day12.
+- Updated `TASKS.md` with completed Day11 tasks and Day12 preparation tasks.
+- Updated `CHANGELOG.md` with the Day11 repository update.
+
+### Notes
+
+- Covered object, class, instance, state, behavior, `self`, attribute lookup, method lookup, class attributes, instance attributes, inheritance, override, `super()`, MRO, and composition.
+- Connected Day11 concepts to FastAPI application/service/dependency objects, Playwright browser/context/page/locator objects, and AI backend service composition.
+- No `exercises/` directory exists, so Day11 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.15 — Day10 Type Hints Documentation
 
 Date: 2026-07-07

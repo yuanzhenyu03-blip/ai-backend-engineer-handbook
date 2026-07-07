@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day11 — Object-Oriented Programming
+Day12 — Context Managers
 
 Status:
 Not started
@@ -24,17 +24,82 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day11-object-oriented-programming.md
+docs/python/day12-context-managers.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day11 classroom learning.
-- [ ] Review object identity and references before OOP.
-- [ ] Prepare examples for classes, instances, attributes, and methods.
-- [ ] Connect OOP to FastAPI services, Playwright page objects, and AI backend agent classes.
+- [ ] Begin Day12 classroom learning.
+- [ ] Review object lifecycle and ownership before context managers.
+- [ ] Prepare examples for resource acquisition and cleanup.
+- [ ] Connect context managers to files, database sessions, Playwright contexts, and AI backend resource handling.
+
+---
+
+## Completed Day11 Tasks
+
+- [x] Complete Day11 classroom learning.
+- [x] Generate Day11 handbook lesson.
+- [x] Add OOP as responsibility design.
+- [x] Add unified object model review.
+- [x] Add object, class, instance, state, and behavior.
+- [x] Add `self` and `u1.say_hi()` to `User.say_hi(u1)` reasoning.
+- [x] Add class object vs instance object discussion.
+- [x] Add attribute lookup and method lookup.
+- [x] Add class attribute vs instance attribute.
+- [x] Add shadowing with `u1.company = "Google"`.
+- [x] Add inheritance, override, and method lookup discussion.
+- [x] Add `Browser -> Chromium -> launch()` classroom case.
+- [x] Add `super().__init__()` call stack reasoning.
+- [x] Add MRO introduction.
+- [x] Add composition, Is-A vs Has-A, and dependency injection.
+- [x] Add `ChatService` composition example.
+- [x] Add FastAPI, Playwright, and AI backend connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day11 Repository Tasks
+
+- [x] Update `docs/python/day11-object-oriented-programming.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day11 Interview Tasks
+
+- [x] Add beginner OOP questions.
+- [x] Add intermediate OOP questions.
+- [x] Add senior OOP design questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day11 Homework
+
+- [x] Complete object model exercise.
+- [x] Complete class vs instance exercise.
+- [x] Complete state vs behavior exercise.
+- [x] Complete `self` exercise.
+- [x] Complete class attribute exercise.
+- [x] Complete instance attribute and shadowing exercise.
+- [x] Complete inheritance exercise.
+- [x] Complete method override exercise.
+- [x] Complete `super().__init__()` exercise.
+- [x] Complete composition exercise.
+- [x] Complete FastAPI service layer design exercise.
+- [x] Complete Playwright object ownership exercise.
+- [x] Complete AI backend `ChatService` composition exercise.
 
 ---
 
@@ -547,12 +612,41 @@ None.
 
 ### Day11 Preparation
 
-- [ ] Review Day01 object model.
-- [ ] Review references and mutability.
-- [ ] Prepare questions about class vs instance.
-- [ ] Prepare examples for service classes.
-- [ ] Prepare examples for Playwright page objects.
-- [ ] Prepare examples for AI agent classes.
+- [x] Review Day01 object model.
+- [x] Review references and mutability.
+- [x] Prepare questions about class vs instance.
+- [x] Prepare examples for service classes.
+- [x] Prepare examples for Playwright page objects.
+- [x] Prepare examples for AI agent classes.
+
+### Day11 Review
+
+- [ ] Explain OOP as responsibility design.
+- [ ] Explain object, class, and instance.
+- [ ] Explain state and behavior.
+- [ ] Explain `self`.
+- [ ] Explain why `u1.say_hi()` becomes `User.say_hi(u1)`.
+- [ ] Explain class attribute vs instance attribute.
+- [ ] Explain attribute lookup.
+- [ ] Explain method lookup.
+- [ ] Explain inheritance and override.
+- [ ] Explain `super().__init__()`.
+- [ ] Explain basic MRO.
+- [ ] Explain composition.
+- [ ] Explain Is-A vs Has-A.
+- [ ] Explain why FastAPI prefers composition.
+- [ ] Explain Playwright shared behavior and isolated state.
+- [ ] Explain AI backend `ChatService` composition.
+
+### Day12 Preparation
+
+- [ ] Review object lifecycle.
+- [ ] Review exception handling.
+- [ ] Prepare questions about setup and cleanup.
+- [ ] Prepare examples for file handling.
+- [ ] Prepare examples for database session cleanup.
+- [ ] Prepare examples for Playwright context cleanup.
+- [ ] Prepare examples for AI backend resource cleanup.
 
 ### Future Knowledge Base TODO
 
@@ -603,3 +697,4 @@ Purpose:
 - [x] Complete Day08 — Exception Handling.
 - [x] Complete Day09 — Modules & Packages.
 - [x] Complete Day10 — Type Hints.
+- [x] Complete Day11 — Object-Oriented Programming.

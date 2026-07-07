@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day11 — Object-Oriented Programming
+Day12 — Context Managers
 
 Status:
 Not started
@@ -30,6 +30,7 @@ Not completed yet
 - ✅ Day08 — Exception Handling
 - ✅ Day09 — Modules & Packages
 - ✅ Day10 — Type Hints
+- ✅ Day11 — Object-Oriented Programming
 
 ---
 
@@ -41,26 +42,26 @@ None.
 
 ## Last Completed Lesson
 
-Day10 — Type Hints
+Day11 — Object-Oriented Programming
 
 Completed Time:
 2026-07-07
 
 Completed Work:
 
-- Day10 classroom learning
-- Day10 lesson document
-- Day10 code practice
-- Day10 mini exercises
-- Day10 cheat sheet update
-- Day10 interview notes update
-- Day10 repository status update
+- Day11 classroom learning
+- Day11 lesson document
+- Day11 code practice
+- Day11 mini exercises
+- Day11 cheat sheet update
+- Day11 interview notes update
+- Day11 repository status update
 
 ---
 
 ## Next
 
-- Day11 — Object-Oriented Programming
+- Day12 — Context Managers
 
 Status:
 Not started
@@ -81,6 +82,7 @@ Completed Python Foundations:
 - Day08 — Exception handling, propagation, custom exceptions, exception chaining, root cause analysis
 - Day09 — Modules, packages, import execution, module cache, namespaces, import side effects
 - Day10 — Type Hints, interface contracts, collection types, Optional, TypeVar, Generic, framework contracts
+- Day11 — Object-oriented programming, class and instance, state and behavior, `self`, lookup, inheritance, `super()`, composition
 
 ---
 
@@ -150,6 +152,22 @@ Completed Python Foundations:
 - Connect Type Hints to FastAPI request models, response models, `Depends()`, Pydantic, and OpenAPI.
 - Connect Type Hints to Playwright `Browser`, `BrowserContext`, `Page`, `Locator`, and storage state.
 - Connect Type Hints to AI backend `ChatMessage`, `AgentTask`, `AgentResult`, `ToolResult`, and tool calling.
+- Explain OOP as responsibility design, not class decoration.
+- Explain object, class, instance, state, and behavior.
+- Explain `self` as the current instance object.
+- Explain `u1.say_hi()` as `User.say_hi(u1)`.
+- Explain class attributes, instance attributes, and shadowing.
+- Explain attribute lookup and method lookup.
+- Explain inheritance as Is-A.
+- Explain method override and why lookup stops after the first match.
+- Explain why parent `__init__()` does not run automatically.
+- Use `super().__init__()` to initialize parent state.
+- Explain basic MRO.
+- Explain composition as Has-A.
+- Explain why modern backend systems often prefer composition over inheritance.
+- Connect OOP to FastAPI application, request, response, dependency, and service objects.
+- Connect OOP to Playwright `Browser`, `BrowserContext`, `Page`, and `Locator`.
+- Connect OOP to AI backend `ChatService`, `LLMClient`, `PromptBuilder`, `VectorStore`, `UserRepository`, and `RedisCache`.
 
 ---
 
@@ -231,6 +249,18 @@ Completed Python Foundations:
 - FastAPI `Depends()` type contract exercise
 - Playwright `Page`, `BrowserContext`, and `Locator` typing exercise
 - AI backend `ChatMessage`, `AgentTask`, `AgentResult`, and `Response[T]` exercise
+- Object model exercises
+- Class vs instance exercises
+- State vs behavior exercises
+- `self` call transformation exercise
+- Class attribute and instance attribute exercises
+- Attribute lookup and shadowing exercises
+- Inheritance and method override exercises
+- `super().__init__()` exercise
+- Composition refactoring exercise
+- FastAPI service layer design exercise
+- Playwright object ownership exercise
+- AI backend `ChatService` composition exercise
 
 ---
 

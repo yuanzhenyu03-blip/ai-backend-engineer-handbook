@@ -301,11 +301,21 @@ Topic:
 Object-Oriented Programming
 
 Status:
+✅ Completed
+
+---
+
+### Day12
+
+Topic:
+Context Managers
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day12-Day14
+### Day13-Day14
 
 Status:
 Planned
