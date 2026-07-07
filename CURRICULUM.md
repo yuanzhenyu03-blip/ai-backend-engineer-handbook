@@ -281,11 +281,21 @@ Topic:
 Modules & Packages
 
 Status:
+✅ Completed
+
+---
+
+### Day10
+
+Topic:
+Type Hints
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day10-Day14
+### Day11-Day14
 
 Status:
 Planned

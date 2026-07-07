@@ -2220,6 +2220,272 @@ for debugging.
 
 ---
 
+## Day09 Questions: Modules and Packages
+
+### Beginner 1. What is a Python module?
+
+Question:
+
+What is a Python module?
+
+Standard Answer:
+
+A Python module is a file that Python loads as a runtime module object. The module object
+has its own namespace containing names such as functions, classes, constants, and imported
+objects.
+
+Engineering Perspective:
+
+In backend systems, modules are the first unit of code organization. A module should have a
+clear responsibility and should be safe to import during tests, application startup, and
+worker boot.
+
+### Beginner 2. What is a package?
+
+Question:
+
+What is a package?
+
+Standard Answer:
+
+A package is a directory that groups related modules and subpackages under one namespace.
+
+Engineering Perspective:
+
+Packages help large codebases express architecture boundaries, such as API routes,
+services, repositories, schemas, tools, and provider clients.
+
+### Beginner 3. What does `__init__.py` do?
+
+Question:
+
+What does `__init__.py` do?
+
+Standard Answer:
+
+`__init__.py` marks a directory as a regular Python package and can define package-level
+initialization or re-export selected names.
+
+Engineering Perspective:
+
+I keep `__init__.py` lightweight because it runs when the package is imported. Heavy work
+there can create hidden startup side effects.
+
+### Beginner 4. What is the difference between `import module` and `from module import function`?
+
+Question:
+
+What is the difference between `import module` and `from module import function`?
+
+Standard Answer:
+
+Both load the module, but they bind different names in the current namespace. `import
+module` binds the module object. `from module import function` binds the imported function
+directly.
+
+Engineering Perspective:
+
+`import module` keeps ownership visible through the module namespace. `from module import
+function` is concise when the imported name is specific and clear.
+
+### Intermediate 1. Explain Python import execution.
+
+Question:
+
+Explain Python import execution.
+
+Standard Answer:
+
+Python checks `sys.modules` first. If the module is already loaded, Python reuses the cached
+module object. If not, Python finds the module, creates a module object, stores it in
+`sys.modules`, executes the module's top-level code, and binds the requested name.
+
+Engineering Perspective:
+
+Import is execution, not copy-paste. This is why top-level database connections, browser
+launches, or LLM calls during import are risky.
+
+Follow-up Questions:
+
+- Why does top-level code run during import?
+- Why does Python cache modules?
+- What happens if import-time code raises an exception?
+
+### Intermediate 2. Why is a module executed only once?
+
+Question:
+
+Why is a module executed only once?
+
+Standard Answer:
+
+After the first successful import, Python stores the module object in `sys.modules`. Later
+imports reuse the same cached module object instead of executing the source file again.
+
+Engineering Perspective:
+
+This preserves module identity and avoids repeated top-level execution. The trade-off is
+that module-level mutable state is shared by every importer.
+
+Follow-up Questions:
+
+- How can module caching create hidden shared state?
+- Why should AI conversation state not live in a module-level list?
+
+### Intermediate 3. What is `sys.modules`?
+
+Question:
+
+What is `sys.modules`?
+
+Standard Answer:
+
+`sys.modules` is a dictionary mapping module names to loaded module objects.
+
+Engineering Perspective:
+
+It is the module cache. Understanding it helps explain why repeated imports do not
+re-execute modules and why module-level mutable state can be shared across the application.
+
+### Intermediate 4. Difference between absolute and relative imports.
+
+Question:
+
+What is the difference between absolute and relative imports?
+
+Standard Answer:
+
+An absolute import uses the full package path, such as `from app.services.user_service
+import create_user`. A relative import uses the current package position, such as `from
+.user_service import create_user`.
+
+Engineering Perspective:
+
+Absolute imports are usually clearer in large backend systems because they show ownership
+and package boundaries directly. Simple relative imports can be acceptable inside small
+local packages.
+
+### Intermediate 5. What are import side effects?
+
+Question:
+
+What are import side effects?
+
+Standard Answer:
+
+Import side effects are meaningful actions that happen just because a module is imported,
+such as connecting to a database, launching a browser, registering tools, or calling an
+external API.
+
+Engineering Perspective:
+
+Import side effects make startup, tests, workers, and debugging unpredictable. Production
+modules should usually define functions, classes, constants, and factories at import time,
+then perform runtime work explicitly.
+
+### Senior 1. Explain Python's import mechanism.
+
+Question:
+
+Explain Python's import mechanism.
+
+Standard Answer:
+
+Python resolves the requested module name, checks `sys.modules`, creates a module object if
+needed, stores it in the cache, executes top-level code to populate the module namespace,
+and binds a name in the importing module. Later imports reuse the cached module object.
+
+Engineering Perspective:
+
+The import mechanism affects architecture. Clean imports make application startup
+predictable, reduce circular dependencies, and keep package boundaries understandable.
+
+### Senior 2. How does Python cache imported modules?
+
+Question:
+
+How does Python cache imported modules?
+
+Standard Answer:
+
+Python stores loaded module objects in `sys.modules`, keyed by module name. When the same
+module is imported again, Python returns the cached object instead of executing the module
+again.
+
+Engineering Perspective:
+
+Caching improves performance and preserves module identity, but it also means module-level
+mutable objects are shared globally.
+
+### Senior 3. Why are absolute imports preferred in large backend systems?
+
+Question:
+
+Why are absolute imports preferred in large backend systems?
+
+Standard Answer:
+
+Absolute imports make the source package explicit. They improve readability, code review,
+tooling, and refactoring in large codebases.
+
+Engineering Perspective:
+
+When a service grows, import clarity becomes architecture clarity. Engineers should not
+need to count dots or guess where a dependency comes from.
+
+### Senior 4. What problems can namespace pollution cause?
+
+Question:
+
+What problems can namespace pollution cause?
+
+Standard Answer:
+
+Namespace pollution can cause name collisions, accidental shadowing, hidden dependencies,
+and unclear ownership. Wildcard imports are a common source of namespace pollution.
+
+Engineering Perspective:
+
+In production code, explicit imports make dependencies reviewable and reduce the chance of
+accidental behavior changes when another module adds a new public name.
+
+### Senior 5. How should packages be organized in a FastAPI project?
+
+Question:
+
+How should packages be organized in a FastAPI project?
+
+Standard Answer:
+
+I would separate route handlers, services, repositories, schemas, dependencies,
+configuration, and domain errors. Route modules can import services, services can import
+repositories, but lower-level modules should not depend on HTTP route modules.
+
+Engineering Perspective:
+
+Package structure should reflect dependency direction and lifecycle ownership. Request
+state should be created during the request lifecycle, not at import time.
+
+### Senior 6. How do module boundaries affect AI Backend architecture?
+
+Question:
+
+How do module boundaries affect AI Backend architecture?
+
+Standard Answer:
+
+AI backend modules should separate prompts, tools, LLM clients, agent orchestration,
+session state, and domain errors. Clear boundaries make testing, retry logic, observability,
+and provider replacement easier.
+
+Engineering Perspective:
+
+If prompts, tools, provider calls, and session state are mixed together, the system becomes
+hard to test and easy to pollute with shared state. Import-time tool registration should be
+intentional, not accidental.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak

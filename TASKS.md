@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day09 — Modules & Packages
+Day10 — Type Hints
 
 Status:
 Not started
@@ -24,17 +24,74 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day09-modules-packages.md
+docs/python/day10-type-hints.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day09 classroom learning.
-- [ ] Review imports and module boundaries.
-- [ ] Prepare package structure exercises.
-- [ ] Connect modules and packages to FastAPI project organization and AI backend codebases.
+- [ ] Begin Day10 classroom learning.
+- [ ] Review function signatures and return types.
+- [ ] Prepare examples for typed backend function design.
+- [ ] Connect type hints to FastAPI validation, Playwright APIs, and AI backend contracts.
+
+---
+
+## Completed Day09 Tasks
+
+- [x] Complete Day09 classroom learning.
+- [x] Generate Day09 handbook lesson.
+- [x] Add module mental model.
+- [x] Add import execution flow.
+- [x] Add `sys.modules` module cache discussion.
+- [x] Add module vs package reasoning.
+- [x] Add `__init__.py` and namespace package discussion.
+- [x] Add namespace and import style analysis.
+- [x] Add absolute vs relative import discussion.
+- [x] Add import side effects and production risks.
+- [x] Add FastAPI package structure connections.
+- [x] Add Playwright module boundary connections.
+- [x] Add AI backend package architecture connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day09 Repository Tasks
+
+- [x] Update `docs/python/day09-modules-packages.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day09 Interview Tasks
+
+- [x] Add beginner module and package questions.
+- [x] Add intermediate import execution questions.
+- [x] Add senior import mechanism questions.
+- [x] Add English standard answers.
+- [x] Add overseas AI Backend engineering perspectives.
+
+---
+
+## Completed Day09 Homework
+
+- [x] Complete Module vs Package classification exercise.
+- [x] Complete import output prediction exercise.
+- [x] Complete `sys.modules` reasoning exercise.
+- [x] Complete `__init__.py` execution order exercise.
+- [x] Complete namespace pollution review exercise.
+- [x] Complete absolute vs relative import exercise.
+- [x] Complete import side effect review exercise.
+- [x] Complete FastAPI package design exercise.
+- [x] Complete Playwright module boundary exercise.
+- [x] Complete AI backend package architecture exercise.
 
 ---
 
@@ -383,11 +440,34 @@ None.
 
 ### Day09 Preparation
 
-- [ ] Review Python file imports.
-- [ ] Review `__init__.py`.
-- [ ] Prepare questions about package boundaries.
-- [ ] Prepare examples for FastAPI app structure.
-- [ ] Prepare examples for AI backend module organization.
+- [x] Review Python file imports.
+- [x] Review `__init__.py`.
+- [x] Prepare questions about package boundaries.
+- [x] Prepare examples for FastAPI app structure.
+- [x] Prepare examples for AI backend module organization.
+
+### Day09 Review
+
+- [ ] Explain import as execution, not copy-paste.
+- [ ] Explain module objects and namespaces.
+- [ ] Explain `sys.modules`.
+- [ ] Explain module vs package.
+- [ ] Explain `__init__.py` and namespace packages.
+- [ ] Compare `import module` and `from module import name`.
+- [ ] Explain why wildcard imports are risky.
+- [ ] Explain absolute vs relative imports.
+- [ ] Identify import side effects.
+- [ ] Design a FastAPI package boundary.
+- [ ] Design a Playwright worker module boundary.
+- [ ] Design an AI backend package structure.
+
+### Day10 Preparation
+
+- [ ] Review function signatures.
+- [ ] Review public function boundaries.
+- [ ] Prepare examples for `list[str]`, `dict[str, Any]`, and `Optional`-style thinking.
+- [ ] Prepare FastAPI examples where type hints affect request and response design.
+- [ ] Prepare AI backend examples where types document tool contracts.
 
 ### Future Knowledge Base TODO
 
@@ -436,3 +516,4 @@ Purpose:
 - [x] Complete Day06 — Decorators.
 - [x] Complete Day07 — Iterators & Generators.
 - [x] Complete Day08 — Exception Handling.
+- [x] Complete Day09 — Modules & Packages.

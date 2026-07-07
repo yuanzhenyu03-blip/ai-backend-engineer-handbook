@@ -1245,6 +1245,229 @@ AI Backend:
 
 ---
 
+## Module
+
+A module is a Python file loaded as a module object.
+
+```text
+user_service.py
+        |
+        v
+module object
+        |
+        v
+module namespace
+```
+
+Key point:
+
+- A module is not copy-pasted into the importing file.
+- Python executes the module and creates a runtime module object.
+- The module object has its own namespace.
+
+---
+
+## Package
+
+A package groups related modules and subpackages.
+
+```text
+app/
+  api/
+  services/
+  repositories/
+  schemas/
+```
+
+Production purpose:
+
+- Organize code by responsibility.
+- Create clear import boundaries.
+- Make backend projects easier to review and test.
+
+---
+
+## Import System
+
+Import execution flow:
+
+```text
+import module
+    |
+    v
+check sys.modules
+    |
+    +-- cached -> reuse module object
+    |
+    +-- not cached -> find module
+                     -> create module object
+                     -> execute top-level code
+                     -> cache in sys.modules
+                     -> bind name
+```
+
+Important:
+
+- Import executes top-level code.
+- Import does not copy source code.
+- Later imports usually reuse the cached module object.
+
+---
+
+## Module Cache: `sys.modules`
+
+`sys.modules` maps module names to loaded module objects.
+
+```python
+import sys
+import json
+
+print(sys.modules["json"] is json)
+```
+
+Output:
+
+```text
+True
+```
+
+Production risk:
+
+- Module-level mutable state is shared by every importer.
+- Do not store request-specific, job-specific, or conversation-specific state in module globals.
+
+---
+
+## `__init__.py`
+
+`__init__.py` marks a directory as a regular package and can define package-level exports.
+
+```text
+app/
+  __init__.py
+  services/
+    __init__.py
+```
+
+Best practice:
+
+- Keep `__init__.py` lightweight.
+- Avoid database connections, browser launches, API calls, and hidden state mutation.
+- Re-export only intentional public names.
+
+---
+
+## Namespace Package
+
+Python 3.3+ supports namespace packages without `__init__.py`.
+
+Use case:
+
+- Split one logical package across multiple directories or distributions.
+
+Engineering rule:
+
+- For normal backend application code, explicit `__init__.py` is usually clearer.
+- Use namespace packages only when there is a real packaging reason.
+
+---
+
+## Import Styles
+
+| Style | Meaning | Use Case | Risk |
+|-------|---------|----------|------|
+| `import module` | Bind module name | Keep namespace visible | Can be verbose |
+| `from module import name` | Bind imported object directly | Clear specific dependency | Source namespace less visible |
+| `from module import *` | Import many public names | Rare package export cases | Namespace pollution |
+
+Production guidance:
+
+- Prefer explicit imports.
+- Avoid wildcard imports.
+- Choose the style that makes ownership obvious.
+
+---
+
+## Namespace Pollution
+
+Namespace pollution happens when too many names enter the current namespace without clear
+ownership.
+
+Bad:
+
+```python
+from app.services.user_service import *
+```
+
+Risks:
+
+- Name collisions
+- Accidental shadowing
+- Hidden dependencies
+- Poor code review readability
+- Harder static analysis
+
+---
+
+## Absolute Import vs Relative Import
+
+Absolute import:
+
+```python
+from app.services.user_service import create_user
+```
+
+Relative import:
+
+```python
+from .user_service import create_user
+```
+
+Production rule:
+
+- Prefer absolute imports in large backend systems.
+- Use simple relative imports only when local package clarity improves.
+- Avoid deep relative imports such as `from ...services import x`.
+
+---
+
+## Import Side Effects
+
+An import side effect is meaningful work that happens because a module is imported.
+
+Bad examples:
+
+- Connect to a database at import time.
+- Launch a Playwright browser at import time.
+- Open a page at import time.
+- Call an LLM provider at import time.
+- Register request-specific or user-specific state at import time.
+
+Better:
+
+- Define factories at import time.
+- Execute runtime work inside request handlers, workers, jobs, or explicit startup hooks.
+
+```python
+def create_client() -> LLMClient:
+    return LLMClient()
+```
+
+---
+
+## Python Import Best Practices
+
+- Keep imports explicit.
+- Keep import-time behavior lightweight.
+- Keep `__init__.py` simple.
+- Avoid `from module import *`.
+- Prefer absolute imports for large projects.
+- Avoid module-level mutable request state.
+- Use factories for database sessions, browser pages, and LLM clients.
+- Treat circular imports as architecture boundary warnings.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -1300,4 +1523,12 @@ AI Backend:
 - "`raise ... from ...` preserves root cause while translating errors."
 - "FastAPI uses exceptions to turn backend failures into HTTP responses."
 - "AI backend errors should distinguish prompt validation, LLM request failure, tool failure, and rate limits."
+- "A module is a runtime object with its own namespace."
+- "Import executes top-level code and caches the module in `sys.modules`."
+- "`sys.modules` preserves module identity and prevents repeated execution."
+- "Packages are architecture boundaries, not just folders."
+- "I keep import-time behavior lightweight to avoid hidden startup side effects."
+- "Absolute imports are often clearer in large backend systems."
+- "Wildcard imports create namespace pollution and make ownership unclear."
+- "Import side effects can break FastAPI startup, Playwright workers, and AI backend tests."
 - "In production code, I prefer explicit dependencies and clear ownership of state."

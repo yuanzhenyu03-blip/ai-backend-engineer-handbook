@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day09 — Modules & Packages
+Day10 — Type Hints
 
 Status:
 Not started
@@ -28,6 +28,7 @@ Not completed yet
 - ✅ Day06 — Decorators
 - ✅ Day07 — Iterators & Generators
 - ✅ Day08 — Exception Handling
+- ✅ Day09 — Modules & Packages
 
 ---
 
@@ -37,9 +38,27 @@ None.
 
 ---
 
+## Last Completed Lesson
+
+Day09 — Modules & Packages
+
+Completed Time:
+2026-07-07
+
+Completed Work:
+
+- Day09 classroom learning
+- Day09 lesson document
+- Day09 mini exercises
+- Day09 cheat sheet update
+- Day09 interview notes update
+- Day09 repository status update
+
+---
+
 ## Next
 
-- Day10 — Type Hints
+- Day11 — Object-Oriented Programming
 
 Status:
 Not started
@@ -58,6 +77,7 @@ Completed Python Foundations:
 - Day06 — Decorators, wrappers, universal decorators, metadata preservation
 - Day07 — Iterables, iterators, generators, lazy evaluation, streaming pipelines
 - Day08 — Exception handling, propagation, custom exceptions, exception chaining, root cause analysis
+- Day09 — Modules, packages, import execution, module cache, namespaces, import side effects
 
 ---
 
@@ -104,6 +124,17 @@ Completed Python Foundations:
 - Design custom exceptions such as `InvalidPromptError`.
 - Preserve root cause with `raise ... from ...`.
 - Connect exceptions to FastAPI `HTTPException`, Playwright recovery, and AI backend error design.
+- Explain import as module execution, not source-code copying.
+- Explain module objects and module namespaces.
+- Explain how `sys.modules` caches imported modules.
+- Explain why modules usually execute only once.
+- Explain module vs package.
+- Explain `__init__.py` and namespace packages.
+- Compare `import module`, `from module import name`, and wildcard imports.
+- Explain namespace pollution and why `from module import *` is risky.
+- Prefer absolute imports for large backend systems.
+- Identify import side effects and their production risks.
+- Connect package boundaries to FastAPI, Playwright, and AI backend architecture.
 
 ---
 
@@ -165,6 +196,16 @@ Completed Python Foundations:
 - FastAPI `HTTPException` scenario
 - Playwright timeout screenshot and cleanup scenario
 - AI backend prompt validation and tool error scenario
+- Module vs package classification exercises
+- Import output prediction exercises
+- `__init__.py` execution order exercise
+- `sys.modules` cache reasoning exercise
+- Namespace pollution review exercise
+- Absolute vs relative import exercise
+- Import side effect review exercise
+- FastAPI package design exercise
+- Playwright module boundary exercise
+- AI backend package architecture exercise
 
 ---
 

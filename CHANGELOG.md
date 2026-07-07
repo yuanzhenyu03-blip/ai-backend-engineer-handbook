@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.13 — Day09 Modules and Packages Documentation
+
+Date: 2026-07-07
+
+### Added
+
+- Added `docs/python/day09-modules-packages.md`.
+- Added Day09 module, package, import system, and import side effect review material to `cheat_sheets/python.md`.
+- Added Day09 interview questions with overseas AI Backend engineering answers to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day09 as completed and Day10 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day09 as completed and prepare Day10.
+- Updated `TASKS.md` with completed Day09 tasks and Day10 preparation tasks.
+- Updated `CHANGELOG.md` with the Day09 repository update.
+
+### Notes
+
+- Covered import execution flow, module objects, module cache with `sys.modules`, module vs package, `__init__.py`, namespace packages, absolute imports, relative imports, namespace pollution, and import side effects.
+- Connected Day09 concepts to FastAPI package structure, Playwright worker boundaries, and AI backend package architecture.
+- No `exercises/` directory exists, so Day09 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.12 — Day08 Exception Handling Polish
 
 Date: 2026-07-07
