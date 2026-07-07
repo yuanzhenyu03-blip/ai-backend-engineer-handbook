@@ -3263,6 +3263,244 @@ fakes.
 
 ---
 
+# Day12 Context Managers
+
+## Day12 Questions: Context Managers
+
+### Beginner 1. What is a Context Manager?
+
+Question:
+
+What is a context manager?
+
+中文解析:
+
+上下文管理器是一个能保证资源被正确释放的对象。它在 `__enter__` 中获取资源，在 `__exit__` 中释放资源，即使中间发生异常也能清理。
+
+Standard Answer:
+
+A context manager is an object that guarantees deterministic cleanup. It acquires a resource
+in `__enter__` and releases it in `__exit__`, so cleanup runs even if the body raises.
+
+### Beginner 2. Why use `with`?
+
+Question:
+
+Why use `with`?
+
+中文解析:
+
+`with` 会自动调用 `__enter__` 和 `__exit__`，保证即使函数体抛出异常，清理代码也一定会执行，从而避免资源泄漏。
+
+Standard Answer:
+
+`with` automatically calls `__enter__` and `__exit__`, so cleanup is guaranteed even when the
+body raises. It removes manual `close()` calls and prevents resource leaks.
+
+### Beginner 3. What are `__enter__` and `__exit__`?
+
+Question:
+
+What are `__enter__` and `__exit__`?
+
+中文解析:
+
+`__enter__` 负责获取资源，并返回 `as` 绑定的对象。`__exit__` 负责释放资源，并接收异常信息（类型、值、traceback）。
+
+Standard Answer:
+
+`__enter__` acquires the resource and returns what the `as` name points to. `__exit__` runs
+afterward to release the resource and receives the exception type, value, and traceback.
+
+### Intermediate 1. Explain the Resource Lifecycle.
+
+Question:
+
+Explain the resource lifecycle.
+
+中文解析:
+
+每个资源都遵循 Acquire -> Use -> Release。最容易出错的是 Release，因为 Use 阶段抛异常时 Release 可能被跳过。上下文管理器保证 Release 一定执行。
+
+Standard Answer:
+
+Every resource follows Acquire, Use, and Release. The dangerous step is Release, because an
+exception during Use can skip it. A context manager guarantees Release on every path.
+
+Follow-up Question:
+
+How does `try / finally` express this lifecycle?
+
+### Intermediate 2. `yield` vs `return`.
+
+Question:
+
+What is the difference between `yield` and `return` in a context manager?
+
+中文解析:
+
+`return` 直接结束函数，没有恢复阶段，无法在函数体之后执行清理。`yield` 会暂停函数，把资源交给函数体，之后恢复并执行 `finally` 清理。
+
+Standard Answer:
+
+`return` ends the function with no resume, so there is no place to run cleanup after the body.
+`yield` pauses the function, hands the resource to the body, and resumes afterward to run the
+`finally` cleanup.
+
+Follow-up Question:
+
+Why must `yield` sit inside `try / finally`?
+
+### Intermediate 3. FastAPI dependency lifecycle.
+
+Question:
+
+Explain the FastAPI dependency lifecycle.
+
+中文解析:
+
+FastAPI 的 `yield` 依赖会在请求前创建资源，`yield` 给处理函数使用，请求结束后恢复生成器并在 `finally` 中关闭资源。会话是请求级别的，一定会被清理。
+
+Standard Answer:
+
+A FastAPI `yield` dependency creates a resource before the request, yields it to the handler,
+and resumes after the response to close it in `finally`. The session is request-scoped and
+always cleaned up.
+
+Follow-up Question:
+
+Why should the session not be shared across requests?
+
+### Senior 1. How do you guarantee production cleanup?
+
+Question:
+
+How do you guarantee cleanup under failure in production?
+
+中文解析:
+
+用上下文管理器或 `try / finally` 获取每个资源，把释放放进 `finally`，并且不要在 `__exit__` 中返回 `True`，这样错误仍会传播，同时资源一定被释放。
+
+Standard Answer:
+
+I acquire every resource with a context manager or `try / finally`, put release in `finally`,
+and avoid returning `True` from `__exit__` so errors still propagate. This guarantees release
+on both success and failure paths.
+
+Interview Review:
+
+Strong answers separate the cleanup guarantee from exception propagation.
+
+Follow-up Question:
+
+When would you deliberately suppress an exception in `__exit__`?
+
+Production Case:
+
+A database session dependency must close in `finally`; otherwise a failing query leaks a
+connection and eventually exhausts the pool.
+
+### Senior 2. Context managers in FastAPI.
+
+Question:
+
+How do context managers apply to FastAPI?
+
+中文解析:
+
+FastAPI 使用 `yield` 依赖和 `asynccontextmanager` 生命周期处理器，都遵循 Acquire -> Use -> Release，在请求或应用边界保证清理。
+
+Standard Answer:
+
+FastAPI uses `yield` dependencies and `asynccontextmanager` lifespan handlers. Both follow
+Acquire -> Use -> Release, with cleanup guaranteed at the request or application boundary.
+
+Interview Review:
+
+Good answers mention request-scoped sessions and application startup/shutdown.
+
+Production Case:
+
+`get_db` yields a session and closes it in `finally` so every request cleans up its own
+connection.
+
+### Senior 3. Context managers in Playwright.
+
+Question:
+
+How do context managers apply to Playwright?
+
+中文解析:
+
+Playwright 共享 `Browser`，但每个任务隔离一个 `BrowserContext`，必须在 `finally` 中关闭，避免内存增长和任务间的会话状态泄漏。
+
+Standard Answer:
+
+Playwright shares a `Browser` but isolates a `BrowserContext` per job. Each context must be
+closed in `finally` to avoid memory growth and session-state leaks between jobs.
+
+Interview Review:
+
+Strong answers connect cleanup to object ownership: shared Browser, isolated Context.
+
+Production Case:
+
+A worker that forgets to close contexts slowly leaks memory and leaves zombie browser
+processes.
+
+### Senior 4. Context managers in AI backends.
+
+Question:
+
+How do context managers apply to AI backends?
+
+中文解析:
+
+AI 请求会获取 LLM 流、Redis 连接、数据库会话和锁。即使生成失败也必须释放，所以要用上下文管理器包裹，防止 socket、连接和锁泄漏。
+
+Standard Answer:
+
+AI requests acquire LLM streams, Redis connections, database sessions, and locks. Each must
+be released even when generation fails, so I wrap them in context managers to prevent socket,
+connection, and lock leaks.
+
+Interview Review:
+
+This is a high-value AI Backend answer because it connects cleanup to streaming and
+concurrency.
+
+Production Case:
+
+A leaked LLM stream keeps a socket open and can keep consuming tokens after the client
+disconnects.
+
+### Senior 5. Resource ownership in cleanup design.
+
+Question:
+
+Why should business logic not own resource management?
+
+中文解析:
+
+业务逻辑经常变化。如果清理依赖于每条代码路径都记得关闭资源，就很容易漏掉。上下文管理器拥有 Acquire 和 Release，业务逻辑只负责 Use。
+
+English Standard Answer:
+
+Business logic changes often. If cleanup depends on remembering to close resources on every
+code path, leaks are inevitable. The context manager owns Acquire and Release, and the
+business logic owns only the Use step.
+
+Interview Review:
+
+This is a separation-of-concerns answer and signals senior design judgment.
+
+Production Case:
+
+Mixing `conn.close()` into request handlers means any early return or exception path can leak
+a connection.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
@@ -3396,6 +3634,12 @@ need to be explicit.
 - Capturing shared mutable state without clear ownership.
 - Using closure state where a class would make lifecycle clearer.
 - Capturing AI `messages` or Playwright `Page` objects in long-lived closures.
+- Closing a resource after the work instead of in `finally`.
+- Forgetting `try / finally` around `yield` in a `@contextmanager`.
+- Returning `True` from `__exit__` and silently swallowing errors.
+- Letting business logic own resource cleanup.
+- Sharing a database session or Playwright context across jobs.
+- Forgetting to close an LLM stream, leaking sockets and tokens.
 
 ---
 
@@ -3424,3 +3668,14 @@ need to be explicit.
 - Prefer explicit dependencies over global state.
 - Use type hints for public functions.
 - Production Python requires tests, logging, and clear structure.
+- A context manager guarantees deterministic cleanup.
+- Resource lifecycle is Acquire, Use, Release.
+- `with` is `try / finally` with cleaner syntax.
+- `__enter__` acquires; `__exit__` releases and sees exceptions.
+- `__exit__` returning `True` suppresses the exception.
+- `@contextmanager` uses `yield` for the resume-and-cleanup phase.
+- `yield` must sit inside `try / finally`.
+- Business logic should not own resource management.
+- FastAPI `yield` dependencies close sessions in `finally`.
+- Playwright isolates and closes a BrowserContext per job.
+- AI backends wrap LLM streams, connections, and locks to prevent leaks.

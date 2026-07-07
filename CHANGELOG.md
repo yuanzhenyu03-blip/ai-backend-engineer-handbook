@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.18 — Day12 Context Managers Documentation
+
+Date: 2026-07-07
+
+### Added
+
+- Added `docs/python/day12-context-managers.md`.
+- Added Day12 Context Managers review material to `cheat_sheets/python.md`.
+- Added Day12 Context Managers interview questions to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day12 as completed and Day13 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day12 as completed and prepare Day13.
+- Updated `TASKS.md` with completed Day12 tasks and Day13 preparation tasks.
+- Updated `CHANGELOG.md` with the Day12 repository update.
+
+### Notes
+
+- Covered resource lifecycle (Acquire -> Use -> Release), `try / finally`, the `with` statement, `__enter__`, `__exit__`, exception handling in `__exit__`, `@contextmanager`, `yield` vs `return`, and generator pause/resume cleanup.
+- Emphasized the principle that business logic should not own resource management.
+- Connected Day12 concepts to FastAPI `yield` dependencies and lifespan handlers, Playwright `BrowserContext` cleanup, and AI backend LLM stream, Redis, session, and lock cleanup.
+- Documented production risks: database connection leaks, file handle leaks, BrowserContext leaks, Redis connection leaks, LLM stream leaks, and locks not released.
+- No `exercises/` directory exists, so Day12 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.17 — Day11 Review Fix
 
 Date: 2026-07-07

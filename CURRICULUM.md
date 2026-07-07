@@ -311,11 +311,21 @@ Topic:
 Context Managers
 
 Status:
+✅ Completed
+
+---
+
+### Day13
+
+Topic:
+Async Programming
+
+Status:
 ⏳ Current Lesson
 
 ---
 
-### Day13-Day14
+### Day14
 
 Status:
 Planned

@@ -2251,6 +2251,272 @@ Why:
 
 ---
 
+## Day12 Cheat Sheet: Context Managers
+
+Core idea:
+
+```text
+Context Manager = Deterministic Resource Cleanup
+```
+
+Context managers are not about `with` syntax.
+
+They guarantee that a resource is released, even when the body raises.
+
+Resource lifecycle:
+
+```text
+Acquire
+   |
+   v
+Use
+   |
+   v
+Release  (always guaranteed)
+```
+
+---
+
+## Day12 Resource Lifecycle
+
+| Step | Meaning |
+|------|---------|
+| Acquire | Open the resource (file, connection, context, stream, lock) |
+| Use | Run business logic with the resource |
+| Release | Close or return the resource, even on failure |
+
+Principle:
+
+```text
+Business Logic should not own Resource Management.
+```
+
+The context manager owns Acquire and Release. The business logic owns only Use.
+
+---
+
+## Day12 `try / finally`
+
+```python
+conn = connect_db()
+try:
+    result = run_query(conn)
+finally:
+    conn.close()
+```
+
+`finally` runs on both success and failure, so Release is guaranteed.
+
+---
+
+## Day12 `with`
+
+```python
+with open("data.txt") as f:
+    data = f.read()
+```
+
+Equivalent to:
+
+```python
+f = open("data.txt")
+try:
+    data = f.read()
+finally:
+    f.close()
+```
+
+`with` guarantees cleanup even if the body raises.
+
+---
+
+## Day12 `__enter__` / `__exit__`
+
+```python
+class FileManager:
+    def __enter__(self):
+        self.file = open(self.path)
+        return self.file
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+        self.file.close()
+        return False
+```
+
+Meaning:
+
+- `__enter__` acquires the resource and returns what `as` points to.
+- `__exit__` releases the resource and receives exception information.
+
+`__exit__` arguments:
+
+```text
+exc_type, exc_value, traceback  -> None on success, filled on failure
+```
+
+Return value:
+
+```text
+return False -> exception propagates (normal)
+return True  -> exception suppressed (rare, deliberate)
+```
+
+Key rule:
+
+```text
+Cleanup should always run; errors should usually still propagate.
+```
+
+---
+
+## Day12 `@contextmanager` and yield vs return
+
+```python
+from contextlib import contextmanager
+
+
+@contextmanager
+def open_file(path: str):
+    f = open(path)        # Acquire
+    try:
+        yield f           # Use
+    finally:
+        f.close()         # Release
+```
+
+Generator cleanup model:
+
+```text
+Enter -> yield -> Pause -> Business Logic -> Resume -> finally -> Cleanup
+```
+
+| Keyword | Behavior | Cleanup phase |
+|---------|----------|---------------|
+| `return` | Ends the function, no resume | No place for post-cleanup |
+| `yield` | Pauses and can resume | Code after `yield` runs on resume |
+
+Common bug:
+
+```python
+@contextmanager
+def bad_open(path: str):
+    f = open(path)
+    yield f
+    f.close()   # skipped if body raises
+```
+
+`yield` must sit inside `try / finally`.
+
+---
+
+## Day12 FastAPI yield Dependency
+
+```python
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+Request lifecycle:
+
+```text
+Request -> Create Session -> yield db -> Business Logic -> Resume Generator -> db.close()
+```
+
+Why:
+
+- Session is request-scoped.
+- Cleanup runs even if the handler raises.
+- Handler owns business logic, not resource management.
+
+---
+
+## Day12 Playwright Cleanup
+
+```python
+context = await browser.new_context()
+try:
+    page = await context.new_page()
+    # Use
+finally:
+    await context.close()
+```
+
+Ownership:
+
+```text
+Browser        -> shared, long-lived
+BrowserContext -> per job, must be closed
+Page           -> lives inside the context
+```
+
+Rule: share the `Browser`, isolate and close the `BrowserContext` per job.
+
+---
+
+## Day12 AI Backend Cleanup
+
+Resources that leak:
+
+```text
+LLM stream
+Redis connection
+Database session
+Vector store client
+Concurrency lock
+```
+
+Stream cleanup:
+
+```python
+@contextmanager
+def llm_stream(client, prompt: str):
+    stream = client.stream(prompt)
+    try:
+        yield stream
+    finally:
+        stream.close()
+```
+
+Multiple resources release in reverse acquisition order:
+
+```python
+with get_db() as db, get_redis() as cache:
+    with llm_stream(client, prompt) as stream:
+        return build_response(db, cache, stream)
+```
+
+---
+
+## Day12 Best Practices
+
+- Acquire every resource with `with` or `try / finally`.
+- Put Release in `finally`, not after `yield`.
+- Do not return `True` from `__exit__` unless suppression is intentional.
+- Wrap `yield` in `try / finally` inside `@contextmanager`.
+- Keep business logic out of resource management.
+- Close FastAPI sessions in the dependency `finally`.
+- Close Playwright contexts per job.
+- Close LLM streams and release locks even on failure.
+
+---
+
+## Day12 Common Mistakes
+
+| Mistake | Risk |
+|---------|------|
+| `close()` after the work, not in `finally` | Leak on failure |
+| Missing `try / finally` around `yield` | Resource never released |
+| `__exit__` returns `True` by accident | Errors silently swallowed |
+| Sharing a session or context across jobs | State leaks, pool exhaustion |
+| Business logic owns cleanup | Cleanup breaks when logic changes |
+| Forgetting to close an LLM stream | Hanging socket, wasted tokens |
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -2329,3 +2595,15 @@ Why:
 - "Modern backend systems often prefer composition over inheritance."
 - "FastAPI services, Playwright contexts, and AI backend clients all rely on clear object ownership."
 - "In production code, I prefer explicit dependencies and clear ownership of state."
+- "A context manager guarantees deterministic cleanup of a resource, even when the body raises."
+- "Every resource follows Acquire, Use, and Release; Release is the step engineers forget."
+- "`with` is `try / finally` with a cleaner syntax and a guaranteed cleanup step."
+- "`__enter__` acquires the resource; `__exit__` releases it and receives exception info."
+- "`__exit__` returning `True` suppresses the exception, which is usually the wrong default."
+- "`@contextmanager` uses `yield` because cleanup needs a resume phase that `return` cannot provide."
+- "In `@contextmanager`, `yield` must sit inside `try / finally` or the resource leaks on failure."
+- "Business logic should not own resource management; the context manager owns Acquire and Release."
+- "FastAPI `yield` dependencies create a session, yield it, and close it in `finally` after the response."
+- "Playwright shares a Browser but isolates and closes a BrowserContext per job."
+- "AI backends wrap LLM streams, Redis connections, sessions, and locks in context managers to prevent leaks."
+- "Cleanup should always run; errors should usually still propagate."

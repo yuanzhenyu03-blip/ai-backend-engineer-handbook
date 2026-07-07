@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day12 — Context Managers
+Day13 — Async Programming
 
 Status:
 Not started
@@ -31,6 +31,7 @@ Not completed yet
 - ✅ Day09 — Modules & Packages
 - ✅ Day10 — Type Hints
 - ✅ Day11 — Object-Oriented Programming
+- ✅ Day12 — Context Managers
 
 ---
 
@@ -42,26 +43,26 @@ None.
 
 ## Last Completed Lesson
 
-Day11 — Object-Oriented Programming
+Day12 — Context Managers
 
 Completed Time:
 2026-07-07
 
 Completed Work:
 
-- Day11 classroom learning
-- Day11 lesson document
-- Day11 code practice
-- Day11 mini exercises
-- Day11 cheat sheet update
-- Day11 interview notes update
-- Day11 repository status update
+- Day12 classroom learning
+- Day12 lesson document
+- Day12 code practice
+- Day12 mini exercises
+- Day12 cheat sheet update
+- Day12 interview notes update
+- Day12 repository status update
 
 ---
 
 ## Next
 
-- Day12 — Context Managers
+- Day13 — Async Programming
 
 Status:
 Not started
@@ -83,6 +84,7 @@ Completed Python Foundations:
 - Day09 — Modules, packages, import execution, module cache, namespaces, import side effects
 - Day10 — Type Hints, interface contracts, collection types, Optional, TypeVar, Generic, framework contracts
 - Day11 — Object-oriented programming, class and instance, state and behavior, `self`, lookup, inheritance, `super()`, composition
+- Day12 — Context managers, resource lifecycle, `with`, `try / finally`, `__enter__`, `__exit__`, `@contextmanager`, deterministic cleanup
 
 ---
 
@@ -168,6 +170,20 @@ Completed Python Foundations:
 - Connect OOP to FastAPI application, request, response, dependency, and service objects.
 - Connect OOP to Playwright `Browser`, `BrowserContext`, `Page`, and `Locator`.
 - Connect OOP to AI backend `ChatService`, `LLMClient`, `PromptBuilder`, `VectorStore`, `UserRepository`, and `RedisCache`.
+- Explain a context manager as deterministic resource cleanup, not just `with` syntax.
+- Explain the resource lifecycle: Acquire, Use, Release.
+- Explain why Release is the step most often skipped on failure.
+- Use `try / finally` to guarantee cleanup manually.
+- Explain what `with` guarantees over plain assignment.
+- Implement `__enter__` and `__exit__` for a custom context manager.
+- Explain the three `__exit__` arguments and the meaning of returning `True` vs `False`.
+- Write `@contextmanager` generators and explain `yield` vs `return`.
+- Explain why `yield` must sit inside `try / finally`.
+- Explain why business logic should not own resource management.
+- Build FastAPI `yield` dependencies and `asynccontextmanager` lifespan handlers.
+- Close Playwright `BrowserContext` per job to avoid leaks.
+- Wrap LLM streams, Redis connections, sessions, and locks to prevent AI backend leaks.
+- Identify database, file, browser, Redis, stream, and lock leaks.
 
 ---
 
@@ -261,6 +277,13 @@ Completed Python Foundations:
 - FastAPI service layer design exercise
 - Playwright object ownership exercise
 - AI backend `ChatService` composition exercise
+- `with` file rewrite exercise
+- `try / finally` cleanup exercise
+- `__enter__` implementation exercise
+- `__exit__` implementation exercise
+- Exception cleanup output prediction exercise
+- `@contextmanager` yield exercise
+- FastAPI `yield` dependency exercise
 
 ---
 

@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day12 — Context Managers
+Day13 — Async Programming
 
 Status:
 Not started
@@ -24,17 +24,74 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day12-context-managers.md
+docs/python/day13-async-programming.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day12 classroom learning.
-- [ ] Review object lifecycle and ownership before context managers.
-- [ ] Prepare examples for resource acquisition and cleanup.
-- [ ] Connect context managers to files, database sessions, Playwright contexts, and AI backend resource handling.
+- [ ] Begin Day13 classroom learning.
+- [ ] Review generators, pause/resume, and context manager cleanup before async.
+- [ ] Prepare examples for `async`, `await`, and the event loop.
+- [ ] Connect async to FastAPI async routes, Playwright async API, and AI backend concurrency.
+
+---
+
+## Completed Day12 Tasks
+
+- [x] Complete Day12 classroom learning.
+- [x] Generate Day12 handbook lesson.
+- [x] Add Context Managers as deterministic resource cleanup.
+- [x] Add resource lifecycle: Acquire -> Use -> Release.
+- [x] Add `try / finally` cleanup guarantee.
+- [x] Add `with` statement and its equivalence to `try / finally`.
+- [x] Add `__enter__` and `__exit__` protocol.
+- [x] Add `__exit__` exception arguments and return value rule.
+- [x] Add `@contextmanager` and `yield` vs `return`.
+- [x] Add generator pause/resume cleanup model.
+- [x] Add "business logic should not own resource management" principle.
+- [x] Add production risks and resource leak table.
+- [x] Add FastAPI `yield` dependency and lifespan connections.
+- [x] Add Playwright `BrowserContext` cleanup connections.
+- [x] Add AI backend LLM stream, Redis, session, and lock cleanup connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day12 Repository Tasks
+
+- [x] Update `docs/python/day12-context-managers.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day12 Interview Tasks
+
+- [x] Add beginner context manager questions.
+- [x] Add intermediate resource lifecycle and `yield` vs `return` questions.
+- [x] Add senior production cleanup questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day12 Homework
+
+- [x] Complete `with` file rewrite exercise.
+- [x] Complete `try / finally` cleanup exercise.
+- [x] Complete `__enter__` implementation exercise.
+- [x] Complete `__exit__` implementation exercise.
+- [x] Complete exception cleanup output prediction exercise.
+- [x] Complete `@contextmanager` yield exercise.
+- [x] Complete FastAPI `yield` dependency exercise.
 
 ---
 
@@ -640,13 +697,39 @@ None.
 
 ### Day12 Preparation
 
-- [ ] Review object lifecycle.
-- [ ] Review exception handling.
-- [ ] Prepare questions about setup and cleanup.
-- [ ] Prepare examples for file handling.
-- [ ] Prepare examples for database session cleanup.
-- [ ] Prepare examples for Playwright context cleanup.
-- [ ] Prepare examples for AI backend resource cleanup.
+- [x] Review object lifecycle.
+- [x] Review exception handling.
+- [x] Prepare questions about setup and cleanup.
+- [x] Prepare examples for file handling.
+- [x] Prepare examples for database session cleanup.
+- [x] Prepare examples for Playwright context cleanup.
+- [x] Prepare examples for AI backend resource cleanup.
+
+### Day12 Review
+
+- [ ] Explain the resource lifecycle: Acquire -> Use -> Release.
+- [ ] Explain why Release is the dangerous step.
+- [ ] Explain how `try / finally` guarantees cleanup.
+- [ ] Explain what `with` guarantees.
+- [ ] Explain `__enter__` and `__exit__`.
+- [ ] Explain the three `__exit__` arguments.
+- [ ] Explain returning `True` vs `False` from `__exit__`.
+- [ ] Explain why `@contextmanager` uses `yield`.
+- [ ] Explain why `yield` must sit inside `try / finally`.
+- [ ] Explain why business logic should not own resource management.
+- [ ] Write a FastAPI `yield` dependency from memory.
+- [ ] Explain Playwright `BrowserContext` cleanup.
+- [ ] Explain AI backend LLM stream and lock cleanup.
+
+### Day13 Preparation
+
+- [ ] Review generators, pause, and resume.
+- [ ] Review context manager cleanup.
+- [ ] Prepare questions about blocking vs non-blocking work.
+- [ ] Prepare examples for `async` and `await`.
+- [ ] Prepare examples for FastAPI async routes.
+- [ ] Prepare examples for Playwright async API.
+- [ ] Prepare examples for AI backend concurrency.
 
 ### Future Knowledge Base TODO
 
@@ -698,3 +781,4 @@ Purpose:
 - [x] Complete Day09 — Modules & Packages.
 - [x] Complete Day10 — Type Hints.
 - [x] Complete Day11 — Object-Oriented Programming.
+- [x] Complete Day12 — Context Managers.
