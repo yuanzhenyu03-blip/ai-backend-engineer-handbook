@@ -1234,6 +1234,8 @@ Playwright:
 
 - Separate recoverable timeout from non-recoverable login failure.
 - Capture evidence before cleanup.
+- Use framework-specific exception classes when needed, such as `PlaywrightTimeoutError`
+  instead of bare `TimeoutError`.
 
 AI Backend:
 

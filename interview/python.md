@@ -2194,6 +2194,30 @@ Engineering Perspective:
 Workers should capture evidence such as screenshots, clean up browser contexts, preserve
 root cause, and avoid infinite retries or silent `pass` blocks.
 
+### Senior 7. How would you design exception handling for a full AI Backend system?
+
+Question:
+
+How would you design exception handling for an AI Backend system that uses FastAPI,
+background workers, Playwright tools, and LLM providers?
+
+Standard Answer:
+
+I would define domain exceptions such as `InvalidPromptError`, `LLMRequestError`,
+`ToolExecutionError`, and `RateLimitError`. At the FastAPI API boundary, I would translate
+domain exceptions into safe HTTP responses. At the worker boundary, I would separate retryable
+failures from fail-fast failures. For Playwright tools, I would capture evidence such as
+screenshots before cleanup. For LLM providers, I would classify rate limits, timeouts, and
+provider errors separately. I would use structured logging and preserve root cause with
+`raise ... from ...`, while ensuring user-facing messages do not leak internal tracebacks.
+
+Engineering Perspective:
+
+The important design is not "catch everything." The important design is clear failure
+ownership. API boundaries translate errors for users, worker boundaries decide retry vs
+fail-fast, tool boundaries capture evidence, and provider boundaries preserve root cause
+for debugging.
+
 ---
 
 ## Enterprise Scenarios

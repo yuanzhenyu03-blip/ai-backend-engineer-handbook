@@ -1,8 +1,7 @@
 # Lesson 8 — Exception Handling
 
 Release Badge:
-🟡 Completed
-Ready for Review
+🟢 Completed
 
 Version: v1.0
 
@@ -203,12 +202,55 @@ except SomeError:
 Classroom example:
 
 ```python
-def divide(a: int, b: int) -> float:
+def divide(a: int, b: int) -> float | None:
     try:
         return a / b
     except ZeroDivisionError:
-        return 0.0
+        print("Cannot divide by zero")
+        return None
 ```
+
+Classroom record:
+
+Student version:
+
+```python
+def divide(a: int, b: int):
+    try:
+        print(a / b)
+    except Exception:
+        print("error")
+```
+
+Tech Lead Review:
+
+This version proves the student understands the basic `try / except` shape, but it hides
+too much.
+
+Problems:
+
+* It catches `Exception` instead of the specific failure.
+* It prints the result instead of returning it.
+* It gives a vague error message.
+* It makes the function harder to reuse in backend code.
+
+Recommended classroom version:
+
+```python
+def divide(a: int, b: int) -> float | None:
+    try:
+        return a / b
+    except ZeroDivisionError:
+        print("Cannot divide by zero")
+        return None
+```
+
+Why this is better:
+
+* It catches the exact error we expect.
+* It returns a value to the caller.
+* It gives a clear classroom-visible message.
+* It does not hide unrelated bugs.
 
 Tech Lead Question:
 
@@ -431,9 +473,11 @@ framework boundary converts it to response/log/retry
 Example:
 
 ```python
-def check_age(age: int) -> None:
-    if age < 0:
-        raise ValueError("age must not be negative")
+def check_age(age: int) -> str:
+    if age < 18:
+        raise ValueError("Age must be at least 18.")
+
+    return "Access granted"
 ```
 
 Tech Lead Question:
@@ -464,6 +508,29 @@ The requested operation is invalid.
 Stop normal execution.
 Route this failure to an error handler.
 ```
+
+Classroom warning:
+
+Do not design code that raises and catches its own business exception in the same small
+function just to continue.
+
+Weak pattern:
+
+```python
+def check_age(age: int) -> str:
+    try:
+        if age < 18:
+            raise ValueError("Age must be at least 18.")
+    except ValueError:
+        return "Access denied"
+
+    return "Access granted"
+```
+
+Why this is not recommended:
+
+The same function creates the failure and immediately hides it. A cleaner design raises at
+the validation layer and lets the caller or API boundary decide how to respond.
 
 ## 7. Return `None` vs Raise
 
@@ -652,10 +719,13 @@ Playwright automation fails in expected ways:
 Example pattern:
 
 ```python
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+
 async def click_with_screenshot(page, locator) -> None:
     try:
         await locator.click(timeout=5000)
-    except TimeoutError:
+    except PlaywrightTimeoutError:
         await page.screenshot(path="click-timeout.png")
         raise
 ```
@@ -832,17 +902,18 @@ Why does `"B"` not print?
 Starter Code:
 
 ```python
-def divide(a: int, b: int) -> float:
+def divide(a: int, b: int) -> float | None:
     try:
         return a / b
     except ZeroDivisionError:
-        return 0.0
+        print("Cannot divide by zero")
+        return None
 ```
 
 Expected Output:
 
 ```text
-divide(10, 0) returns 0.0
+divide(10, 0) prints "Cannot divide by zero" and returns None
 ```
 
 Explanation:
@@ -892,20 +963,24 @@ Which layer should translate this into an API response?
 Starter Code:
 
 ```python
-def check_age(age: int) -> None:
-    if age < 0:
-        raise ValueError("age must not be negative")
+def check_age(age: int) -> str:
+    if age < 18:
+        raise ValueError("Age must be at least 18.")
+
+    return "Access granted"
 ```
 
 Expected Output:
 
 ```text
-check_age(-1) raises ValueError
+check_age(17) raises ValueError
+check_age(18) returns "Access granted"
 ```
 
 Explanation:
 
-Negative age violates a business rule. The function cannot continue safely.
+Being under 18 violates the classroom business rule. The function cannot continue safely,
+so it raises instead of returning a vague failure value.
 
 Follow-up Question:
 
@@ -1003,10 +1078,13 @@ Should every service function raise `HTTPException` directly?
 Starter Code:
 
 ```python
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+
 async def click_login(page, locator) -> None:
     try:
         await locator.click(timeout=5000)
-    except TimeoutError:
+    except PlaywrightTimeoutError:
         await page.screenshot(path="login-timeout.png")
         raise
 ```
@@ -1152,10 +1230,13 @@ login invalid -> stop job and mark failed
 Example:
 
 ```python
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+
+
 async def run_job(page) -> None:
     try:
         await page.get_by_role("button", name="Export").click(timeout=5000)
-    except TimeoutError:
+    except PlaywrightTimeoutError:
         await page.screenshot(path="export-timeout.png")
         raise
     finally:
@@ -1393,6 +1474,26 @@ FastAPI turns exceptions into HTTP responses.
 Playwright workers use exceptions for evidence, retry, and cleanup.
 
 AI backends use exceptions to classify prompt, model, tool, and rate-limit failures.
+
+---
+
+## Today's Tech Lead Advice
+
+Exceptions are not just for reporting errors.
+
+They are a mechanism for controlling failure in production systems.
+
+Good exception design helps the team decide:
+
+* which layer owns the failure
+* which failures can be retried
+* which failures should stop immediately
+* which details are safe to show users
+* which root cause must be preserved for debugging
+
+The point is not to make code louder.
+
+The point is to make failure understandable.
 
 ---
 

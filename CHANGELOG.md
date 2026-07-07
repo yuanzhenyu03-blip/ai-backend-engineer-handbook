@@ -9,6 +9,28 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.12 — Day08 Exception Handling Polish
+
+Date: 2026-07-07
+
+### Changed
+
+- Polished the Day08 completion badge in `docs/python/day08-exception-handling.md`.
+- Preserved classroom code review examples for `divide(a, b)` and `check_age(age)`.
+- Improved Playwright timeout specificity by using `PlaywrightTimeoutError`.
+- Added Day08 Tech Lead Advice after Today's Takeaway.
+- Added a Day08 system design interview question for AI Backend exception handling.
+- Added a cheat sheet note about framework-specific exception classes.
+
+### Notes
+
+- Did not rewrite Day08.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.11 — Day08 Exception Handling Documentation
 
 Date: 2026-07-06
