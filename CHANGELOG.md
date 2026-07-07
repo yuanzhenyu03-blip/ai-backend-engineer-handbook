@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.17 — Day11 Review Fix
+
+Date: 2026-07-07
+
+### Changed
+
+- Strengthened the Day11 OOP cheat sheet structure in `cheat_sheets/python.md`.
+- Added explicit Day11 OOP beginner interview questions for class and instance in `interview/python.md`.
+- Added a senior Day11 Dependency Injection interview question in `interview/python.md`.
+
+### Notes
+
+- Did not modify `docs/python/day11-object-oriented-programming.md`.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.16 — Day11 Object-Oriented Programming Documentation
 
 Date: 2026-07-07

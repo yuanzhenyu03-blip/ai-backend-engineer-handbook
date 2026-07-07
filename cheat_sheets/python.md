@@ -1832,7 +1832,7 @@ Production value:
 
 ---
 
-## Object-Oriented Programming
+## Day11 Cheat Sheet: Object-Oriented Programming
 
 Core idea:
 
@@ -1844,9 +1844,26 @@ OOP is not about writing more classes.
 
 It is about grouping state and behavior under clear ownership.
 
+Core mental model:
+
+```text
+Everything
+      |
+      v
+    Object
+```
+
+```text
+Class
+   |
+creates
+   |
+Instance
+```
+
 ---
 
-## Object, Class, and Instance
+## Day11 Object, Class, and Instance
 
 | Concept | Meaning |
 |---------|---------|
@@ -1856,14 +1873,32 @@ It is about grouping state and behavior under clear ownership.
 | State | Data owned by an object |
 | Behavior | Methods exposed by an object |
 
-Mental model:
+Object checklist:
 
-```text
-Everything
-      |
-      v
-    Object
+- identity
+- type
+- state
+- behavior
+
+Class vs instance:
+
+```python
+class User:
+    pass
+
+
+user = User()
+
+print(type(User))
+print(type(user))
 ```
+
+Meaning:
+
+- `User` is a class object.
+- `user` is an instance object.
+- `type(User)` is usually `type`.
+- `type(user)` is `User`.
 
 ---
 
@@ -1880,10 +1915,36 @@ u1.say_hi()
 User.say_hi(u1)
 ```
 
+Meaning:
+
+- `self` is not a keyword.
+- `self` is the current instance.
+- Python automatically passes the instance as the first argument.
+
 Common bug:
 
 - Forgetting `self` in an instance method causes a `TypeError`.
 - `self` does not create the object; it receives the current instance.
+
+---
+
+## State vs Behavior
+
+State is data owned by an object.
+
+Behavior is what the object can do through methods.
+
+Put logic inside an object when:
+
+- behavior depends on the object's state
+- the object owns dependencies
+- lifecycle or ownership matters
+
+Prefer a plain function when:
+
+- the logic is stateless
+- the behavior does not belong to a specific object
+- a class would only group unrelated helpers
 
 ---
 
@@ -1908,6 +1969,9 @@ Methods are attributes too.
 
 Python stops at the first matching attribute or method.
 
+For override, Python stops because the child method is the closest and most specific
+behavior for that instance.
+
 ---
 
 ## Class Attribute vs Instance Attribute
@@ -1930,12 +1994,23 @@ class User:
 Shadowing:
 
 ```python
+print(User.company)
+print(u1.company)
+print(u2.company)
+
 u1.company = "Google"
 ```
 
 This creates or updates `u1`'s instance attribute.
 
 It does not modify `User.company`.
+
+Meaning:
+
+- `User.company` starts lookup from the class.
+- `u1.company` starts lookup from the instance.
+- `u2.company` starts lookup from another instance.
+- `u1.company = "Google"` shadows the class attribute only for `u1`.
 
 Production risk:
 

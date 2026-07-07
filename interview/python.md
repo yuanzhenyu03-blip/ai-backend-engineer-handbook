@@ -2844,6 +2844,8 @@ callers update missing-case handling instead of failing later in production.
 
 ---
 
+# Day11 Object-Oriented Programming
+
 ## Day11 Questions: Object-Oriented Programming
 
 ### Beginner 1. What is an object?
@@ -2860,7 +2862,36 @@ Standard Answer:
 
 An object is a runtime value with identity, type, state, and behavior.
 
-### Beginner 2. Difference between class and instance.
+### Beginner 2. What is a class?
+
+Question:
+
+What is a class?
+
+中文解析:
+
+类是创建实例对象的蓝图。在 Python 中，类本身也是对象。
+
+English Standard Answer:
+
+A class is a blueprint for creating instances. In Python, a class is also an object.
+
+### Beginner 3. What is an instance?
+
+Question:
+
+What is an instance?
+
+中文解析:
+
+实例是由类创建出来的具体对象。实例拥有自己的状态，并可以使用类定义的行为。
+
+English Standard Answer:
+
+An instance is an object created from a class. It owns its own state and can use behavior
+defined by the class.
+
+### Beginner 4. Difference between class and instance.
 
 Question:
 
@@ -2875,7 +2906,7 @@ Standard Answer:
 A class is a blueprint for creating objects and is also an object in Python. An instance is
 an object created from a class.
 
-### Beginner 3. What is `self`?
+### Beginner 5. What is `self`?
 
 Question:
 
@@ -2890,7 +2921,7 @@ Standard Answer:
 `self` is the current instance passed to an instance method. It is a naming convention, not
 a Python keyword.
 
-### Beginner 4. What are state and behavior?
+### Beginner 6. State vs Behavior.
 
 Question:
 
@@ -2904,7 +2935,7 @@ Standard Answer:
 
 State is the data an object owns. Behavior is what the object can do through methods.
 
-### Beginner 5. Difference between class attribute and instance attribute.
+### Beginner 7. Class Attribute vs Instance Attribute.
 
 Question:
 
@@ -3206,6 +3237,29 @@ Production Case:
 
 In an AI backend, `ChatService` may own request-level orchestration while injected clients
 own provider communication, caching, or retrieval behavior.
+
+### Senior 9. How does Dependency Injection relate to OOP?
+
+Question:
+
+How does Dependency Injection relate to OOP?
+
+English Standard Answer:
+
+Dependency Injection is an OOP design technique where an object receives its dependencies
+from the outside instead of creating them internally. It supports composition, testability,
+and clearer ownership.
+
+Interview Notes:
+
+This answer should connect composition with production testing. A service object should
+receive dependencies such as repositories, caches, and clients explicitly.
+
+Production Case:
+
+A `ChatService` can receive `Database`, `RedisCache`, `LLMClient`, `PromptBuilder`, and
+`VectorStore` through its constructor. Unit tests can replace those dependencies with
+fakes.
 
 ---
 
