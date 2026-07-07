@@ -361,32 +361,26 @@ Calling the factory performs the side effect intentionally.
 Python import follows a clear flow.
 
 ```text
-import app.services.user_service
-        |
-        v
-Check sys.modules
-        |
-        +-- already loaded?
-        |       |
-        |       v
-        |   reuse cached module object
-        |
-        +-- not loaded?
-                |
-                v
-        find module/package
-                |
-                v
+import module
+    |
+    v
+check sys.modules
+    |
+    +-- cached -> reuse module object
+    |
+    +-- not cached
+            |
+            v
         create module object
-                |
-                v
-        put module in sys.modules
-                |
-                v
+            |
+            v
+        cache in sys.modules
+            |
+            v
         execute top-level code
-                |
-                v
-        bind name in current namespace
+            |
+            v
+        bind imported name
 ```
 
 Important detail:
@@ -1808,9 +1802,9 @@ Explain Python's import mechanism.
 Standard Answer:
 
 Python resolves the module path, checks the module cache in `sys.modules`, creates a module
-object for unloaded modules, executes top-level code to populate the module namespace, and
-binds the requested name in the importing module. The cached module object preserves module
-identity and prevents repeated execution.
+object for unloaded modules, stores it in the module cache, executes top-level code to
+populate the module namespace, and binds the requested name in the importing module. The
+cached module object preserves module identity and prevents repeated execution.
 
 Engineering perspective:
 
@@ -1882,19 +1876,26 @@ Python import is not copy-paste.
 Python import is runtime behavior:
 
 ```text
-find module
+import module
     |
     v
-create module object
+check sys.modules
     |
-    v
-execute top-level code
+    +-- cached -> reuse module object
     |
-    v
-cache in sys.modules
-    |
-    v
-bind name
+    +-- not cached
+            |
+            v
+        create module object
+            |
+            v
+        cache in sys.modules
+            |
+            v
+        execute top-level code
+            |
+            v
+        bind imported name
 ```
 
 Modules and packages are not only file organization.

@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.14 — Day09 Consistency Fix
+
+Date: 2026-07-07
+
+### Changed
+
+- Fixed `PROJECT_STATUS.md` so the Next section consistently points to Day10.
+- Standardized the Day09 import execution flow in `docs/python/day09-modules-packages.md`.
+- Standardized the Day09 import execution flow in `cheat_sheets/python.md`.
+
+### Notes
+
+- Did not rewrite Day09.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.13 — Day09 Modules and Packages Documentation
 
 Date: 2026-07-07

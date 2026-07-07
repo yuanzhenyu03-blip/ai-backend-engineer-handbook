@@ -58,7 +58,7 @@ Completed Work:
 
 ## Next
 
-- Day11 — Object-Oriented Programming
+- Day10 — Type Hints
 
 Status:
 Not started

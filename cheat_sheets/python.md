@@ -1299,11 +1299,19 @@ check sys.modules
     |
     +-- cached -> reuse module object
     |
-    +-- not cached -> find module
-                     -> create module object
-                     -> execute top-level code
-                     -> cache in sys.modules
-                     -> bind name
+    +-- not cached
+            |
+            v
+        create module object
+            |
+            v
+        cache in sys.modules
+            |
+            v
+        execute top-level code
+            |
+            v
+        bind imported name
 ```
 
 Important:
