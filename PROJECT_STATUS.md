@@ -8,7 +8,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day13 — Async Programming
+Day14 — Mini Project + Mock Interview
 
 Status:
 Not started
@@ -32,6 +32,7 @@ Not completed yet
 - ✅ Day10 — Type Hints
 - ✅ Day11 — Object-Oriented Programming
 - ✅ Day12 — Context Managers
+- ✅ Day13 — Async Programming
 
 ---
 
@@ -43,26 +44,26 @@ None.
 
 ## Last Completed Lesson
 
-Day12 — Context Managers
+Day13 — Async Programming
 
 Completed Time:
-2026-07-07
+2026-07-08
 
 Completed Work:
 
-- Day12 classroom learning
-- Day12 lesson document
-- Day12 code practice
-- Day12 mini exercises
-- Day12 cheat sheet update
-- Day12 interview notes update
-- Day12 repository status update
+- Day13 classroom learning
+- Day13 lesson document
+- Day13 code practice
+- Day13 mini exercises
+- Day13 cheat sheet update
+- Day13 interview notes update
+- Day13 repository status update
 
 ---
 
 ## Next
 
-- Day13 — Async Programming
+- Day14 — Mini Project + Mock Interview
 
 Status:
 Not started
@@ -85,6 +86,7 @@ Completed Python Foundations:
 - Day10 — Type Hints, interface contracts, collection types, Optional, TypeVar, Generic, framework contracts
 - Day11 — Object-oriented programming, class and instance, state and behavior, `self`, lookup, inheritance, `super()`, composition
 - Day12 — Context managers, resource lifecycle, `with`, `try / finally`, `__enter__`, `__exit__`, `@contextmanager`, deterministic cleanup
+- Day13 — Async programming, event loop, coroutine vs task, `await`, `gather()`, cancellation, exception propagation, semaphore, stable throughput
 
 ---
 
@@ -184,6 +186,19 @@ Completed Python Foundations:
 - Close Playwright `BrowserContext` per job to avoid leaks.
 - Wrap LLM streams, Redis connections, sessions, and locks to prevent AI backend leaks.
 - Identify database, file, browser, Redis, stream, and lock leaks.
+- Explain that async improves I/O throughput, not CPU speed.
+- Explain I/O bound vs CPU bound work.
+- Explain blocking vs non-blocking from the Event Loop's perspective.
+- Explain the Event Loop as a single-threaded cooperative scheduler.
+- Explain coroutine, coroutine object, and why calling a coroutine does not run it.
+- Explain the difference between a coroutine and a Task.
+- Explain what `await` does to the coroutine and the Event Loop.
+- Explain why `asyncio.gather()` returns input order, not completion order.
+- Explain the Task lifecycle and cooperative cancellation with `CancelledError`.
+- Explain exception propagation and "Task exception was never retrieved".
+- Explain why a `Semaphore` protects downstream capacity for stable throughput.
+- Use `asyncio.to_thread()` for unavoidable blocking work.
+- Connect async to FastAPI request Tasks, Playwright automation, and AI backend concurrency.
 
 ---
 
@@ -284,6 +299,15 @@ Completed Python Foundations:
 - Exception cleanup output prediction exercise
 - `@contextmanager` yield exercise
 - FastAPI `yield` dependency exercise
+- Blocking vs non-blocking exercise
+- Coroutine object output prediction exercise
+- Task concurrency exercise
+- `await` suspension point exercise
+- `gather()` input-order exercise
+- Task cancellation cleanup exercise
+- Task exception propagation exercise
+- Semaphore concurrency limit exercise
+- FastAPI async lifecycle exercise
 
 ---
 

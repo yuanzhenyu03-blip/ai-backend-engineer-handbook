@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day13 — Async Programming
+Day14 — Mini Project + Mock Interview
 
 Status:
 Not started
@@ -24,17 +24,78 @@ Not started
 Target lesson:
 
 ```text
-docs/python/day13-async-programming.md
+docs/python/day14-mini-project-mock-interview.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day13 classroom learning.
-- [ ] Review generators, pause/resume, and context manager cleanup before async.
-- [ ] Prepare examples for `async`, `await`, and the event loop.
-- [ ] Connect async to FastAPI async routes, Playwright async API, and AI backend concurrency.
+- [ ] Begin Day14 mini project and mock interview preparation.
+- [ ] Review Day01-Day13 core concepts before the mock interview.
+- [ ] Plan a small async FastAPI project that applies the foundations.
+- [ ] Prepare beginner, intermediate, and senior mock interview questions.
+
+---
+
+## Completed Day13 Tasks
+
+- [x] Complete Day13 classroom learning.
+- [x] Generate Day13 handbook lesson.
+- [x] Add async motivation: I/O throughput, not CPU speed.
+- [x] Add I/O bound vs CPU bound discussion.
+- [x] Add blocking vs non-blocking with `time.sleep()` vs `asyncio.sleep()`.
+- [x] Add Event Loop single-thread cooperative scheduling with ASCII diagram.
+- [x] Add coroutine, coroutine object, and execution plan discussion.
+- [x] Add coroutine vs Task and `create_task`.
+- [x] Add `await` suspend/resume and Event Loop release.
+- [x] Add `asyncio.gather()` concurrency and input-order results.
+- [x] Add Task lifecycle: Pending -> Running -> Suspend -> Resume -> Done -> Cancelled.
+- [x] Add cooperative cancellation and `CancelledError`.
+- [x] Add exception propagation and "Task exception was never retrieved".
+- [x] Add `Semaphore` and downstream capacity with ASCII diagram.
+- [x] Add engineering thinking: stable throughput vs maximum concurrency.
+- [x] Add production risks: blocking loop, pool exhaustion, 429s, browser explosion.
+- [x] Add FastAPI, Playwright, and AI backend connections.
+- [x] Add interview questions.
+- [x] Add homework and review checklist.
+
+---
+
+## Completed Day13 Repository Tasks
+
+- [x] Update `docs/python/day13-async-programming.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day13 Interview Tasks
+
+- [x] Add beginner async questions.
+- [x] Add intermediate Event Loop, Task, gather, and cancellation questions.
+- [x] Add senior throughput, scheduling, semaphore, and concurrency-control questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day13 Homework
+
+- [x] Complete blocking vs non-blocking exercise.
+- [x] Complete coroutine object exercise.
+- [x] Complete Task concurrency exercise.
+- [x] Complete `await` suspension exercise.
+- [x] Complete `gather()` input-order exercise.
+- [x] Complete Task cancellation exercise.
+- [x] Complete exception propagation exercise.
+- [x] Complete Semaphore concurrency exercise.
+- [x] Complete FastAPI async lifecycle exercise.
 
 ---
 
@@ -723,13 +784,37 @@ None.
 
 ### Day13 Preparation
 
-- [ ] Review generators, pause, and resume.
-- [ ] Review context manager cleanup.
-- [ ] Prepare questions about blocking vs non-blocking work.
-- [ ] Prepare examples for `async` and `await`.
-- [ ] Prepare examples for FastAPI async routes.
-- [ ] Prepare examples for Playwright async API.
-- [ ] Prepare examples for AI backend concurrency.
+- [x] Review generators, pause, and resume.
+- [x] Review context manager cleanup.
+- [x] Prepare questions about blocking vs non-blocking work.
+- [x] Prepare examples for `async` and `await`.
+- [x] Prepare examples for FastAPI async routes.
+- [x] Prepare examples for Playwright async API.
+- [x] Prepare examples for AI backend concurrency.
+
+### Day13 Review
+
+- [ ] Explain why async helps I/O but not CPU work.
+- [ ] Explain blocking vs non-blocking from the Event Loop's view.
+- [ ] Explain why one blocking call freezes the loop.
+- [ ] Explain what the Event Loop does during `await`.
+- [ ] Explain why calling a coroutine does not run it.
+- [ ] Explain coroutine vs Task.
+- [ ] Explain the three effects of `await`.
+- [ ] Explain why `gather()` returns input order.
+- [ ] Draw the Task lifecycle from memory.
+- [ ] Explain cooperative cancellation and `CancelledError`.
+- [ ] Explain when a Task's exception is raised.
+- [ ] Explain why unlimited `gather()` is dangerous.
+- [ ] Explain how a `Semaphore` gives stable throughput.
+- [ ] Explain the FastAPI async request lifecycle.
+
+### Day14 Preparation
+
+- [ ] Review Day01-Day13 core concepts.
+- [ ] Prepare a small async FastAPI project scope.
+- [ ] Prepare mock interview questions across all foundation topics.
+- [ ] Prepare production discussion prompts for the mock interview.
 
 ### Future Knowledge Base TODO
 
@@ -782,3 +867,4 @@ Purpose:
 - [x] Complete Day10 — Type Hints.
 - [x] Complete Day11 — Object-Oriented Programming.
 - [x] Complete Day12 — Context Managers.
+- [x] Complete Day13 — Async Programming.

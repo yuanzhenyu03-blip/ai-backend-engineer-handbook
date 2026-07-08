@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.19 — Day13 Async Programming Documentation
+
+Date: 2026-07-08
+
+### Added
+
+- Added `docs/python/day13-async-programming.md`.
+- Added Day13 Async Programming review material to `cheat_sheets/python.md`.
+- Added Day13 Async Programming interview questions to `interview/python.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day13 as completed and Day14 as the current lesson.
+- Updated `PROJECT_STATUS.md` to mark Day13 as completed and prepare Day14.
+- Updated `TASKS.md` with completed Day13 tasks and Day14 preparation tasks.
+- Updated `CHANGELOG.md` with the Day13 repository update.
+
+### Notes
+
+- Explained every concept from the Event Loop perspective: what the loop is doing, which Task runs, which is suspended, and why the scheduler switches.
+- Covered async motivation (I/O throughput vs CPU), I/O bound vs CPU bound, blocking vs non-blocking (`time.sleep()` vs `asyncio.sleep()`), the Event Loop, coroutine vs coroutine object, Task vs coroutine, `await`, `asyncio.gather()` input-order results, the Task lifecycle, cooperative cancellation and `CancelledError`, exception propagation, and `Semaphore` concurrency control.
+- Emphasized stable throughput over maximum concurrency and respecting downstream capacity (OpenAI rate limits, Redis, PostgreSQL pools, GPU, browser memory).
+- Connected Day13 concepts to FastAPI async request Tasks and `asyncio.to_thread()`, Playwright async automation with bounded concurrency, and AI backend concurrency with `gather()` and semaphores.
+- Documented production risks: blocking the Event Loop, blocking libraries in async code, connection pool exhaustion, too many concurrent OpenAI requests, Redis overload, PostgreSQL connection exhaustion, browser explosion, and memory pressure from excessive Tasks.
+- No `exercises/` directory exists, so Day13 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.18 — Day12 Context Managers Documentation
 
 Date: 2026-07-07

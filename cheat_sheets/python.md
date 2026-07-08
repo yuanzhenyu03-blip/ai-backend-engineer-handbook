@@ -2517,6 +2517,185 @@ with get_db() as db, get_redis() as cache:
 
 ---
 
+## Day13 Cheat Sheet: Async Programming
+
+Core idea:
+
+```text
+Async = Event Loop overlapping I/O waiting on a single thread
+```
+
+Async improves I/O throughput, not CPU speed.
+
+Always ask: what is the Event Loop doing, which Task runs, which is suspended, why switch?
+
+---
+
+## Day13 Blocking vs Non-blocking
+
+```python
+time.sleep(2)          # blocks the whole Event Loop
+await asyncio.sleep(2) # suspends only this Task
+```
+
+| Call | Effect |
+|------|--------|
+| `time.sleep()` | Freezes the single thread; no Task can run |
+| `asyncio.sleep()` | Suspends this Task; loop runs others |
+| Blocking library in `async def` | Freezes every concurrent request |
+| `asyncio.to_thread(fn)` | Pushes blocking work to a thread |
+
+---
+
+## Day13 Event Loop
+
+```text
+Ready Queue -> Event Loop -> run one Task
+     ^                          |
+     | resume (I/O ready)   await (suspend)
+     |                          v
+              Waiting State (I/O pending)
+```
+
+- Single thread, one line of Python at a time.
+- Cooperative: a Task runs until `await`, then releases the loop.
+- Concurrency = overlapping waiting, not parallel CPU.
+
+---
+
+## Day13 Coroutine and Task
+
+```python
+async def hello(): ...
+coro = hello()                 # coroutine object (a plan), NOT executed
+task = asyncio.create_task(coro)  # scheduled, runs concurrently
+await task                     # wait for result
+```
+
+```text
+Coroutine -> create_task -> Task -> Event Loop -> Running
+```
+
+| Form | Behavior |
+|------|----------|
+| `await coro()` | Run now, block here until done |
+| `create_task(coro())` | Schedule now, run concurrently, await later |
+
+Calling a coroutine function does not run its body.
+
+---
+
+## Day13 await
+
+```text
+await X -> suspend this coroutine -> release Event Loop -> resume when X ready
+```
+
+- `await` suspends the current coroutine.
+- `await` does NOT create a thread.
+- `await` releases the Event Loop so other Tasks run.
+
+---
+
+## Day13 asyncio.gather()
+
+```python
+a, b = await asyncio.gather(task1(), task2())
+```
+
+- Runs coroutines concurrently.
+- Total time ≈ max(t1, t2), not t1 + t2.
+- Returns results in INPUT order, not completion order.
+
+---
+
+## Day13 Task Lifecycle
+
+```text
+Pending -> Running -> Suspend -> Resume -> Done
+                          |
+                          +-> Cancelled (CancelledError)
+```
+
+Suspended Tasks cost memory, not CPU.
+
+---
+
+## Day13 Cancellation
+
+```python
+task.cancel()   # request, NOT immediate kill
+```
+
+```python
+try:
+    await work()
+except asyncio.CancelledError:
+    # cleanup
+    raise
+```
+
+- `cancel()` injects `CancelledError` at the next await.
+- Run cleanup in except/finally, then usually re-raise.
+- FastAPI cancels the request Task on client disconnect.
+
+---
+
+## Day13 Exception Propagation
+
+```python
+task = asyncio.create_task(boom())
+await task   # stored exception re-raised HERE
+```
+
+- A Task stores its exception until awaited.
+- Never awaiting a failing Task -> "Task exception was never retrieved".
+- Await Tasks (or add a done callback) so failures are visible.
+
+---
+
+## Day13 Semaphore
+
+```python
+sem = asyncio.Semaphore(10)
+
+async def call(p):
+    async with sem:
+        return await call_openai(p)
+```
+
+- Bounds concurrency to protect downstream capacity.
+- Prevents 429s, timeouts, connection-pool exhaustion.
+- Respect: OpenAI rate limits, Redis, PostgreSQL pool, GPU, browser memory.
+- Goal: stable throughput, not maximum concurrency.
+
+---
+
+## Day13 Best Practices
+
+- Use async only for I/O-bound work.
+- Never call blocking functions inside `async def`; use async APIs or `to_thread()`.
+- Use `create_task` for real concurrency.
+- Bound external `gather()` with a `Semaphore`.
+- Await Tasks so exceptions surface.
+- Handle `CancelledError` with cleanup and re-raise.
+- Close resources (contexts, connections) in `finally`, even on cancellation.
+
+---
+
+## Day13 Common Mistakes
+
+| Mistake | Risk |
+|---------|------|
+| `time.sleep()` in async code | Freezes the whole Event Loop |
+| Blocking DB/HTTP driver in `async def` | All concurrent requests stall |
+| Calling a coroutine without await | Body never runs; RuntimeWarning |
+| Unlimited `gather()` on external calls | 429s, timeouts, pool exhaustion |
+| Fire-and-forget Task that fails | Exception silently lost |
+| Expecting `cancel()` to kill instantly | Cancellation is cooperative |
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -2607,3 +2786,15 @@ with get_db() as db, get_redis() as cache:
 - "Playwright shares a Browser but isolates and closes a BrowserContext per job."
 - "AI backends wrap LLM streams, Redis connections, sessions, and locks in context managers to prevent leaks."
 - "Cleanup should always run; errors should usually still propagate."
+- "Async improves I/O throughput, not CPU speed, because one thread runs one line at a time."
+- "The Event Loop is a single-threaded cooperative scheduler that switches Tasks at each `await`."
+- "A blocking call inside `async def` freezes every concurrent Task on that worker."
+- "Calling a coroutine function creates a coroutine object; it does not run the body."
+- "A coroutine is an execution plan; a Task is a coroutine the Event Loop is driving concurrently."
+- "`await` suspends the current coroutine and releases the Event Loop without creating a thread."
+- "`asyncio.gather()` runs coroutines concurrently and returns results in input order."
+- "Cancellation is cooperative: `CancelledError` is raised at the next await, not immediately."
+- "A Task stores its exception until you await it; otherwise it is lost with a warning."
+- "A `Semaphore` bounds concurrency to protect downstream capacity and give stable throughput."
+- "I optimize for stable throughput, not maximum concurrency."
+- "Use `asyncio.to_thread()` for unavoidable blocking work so the Event Loop stays free."

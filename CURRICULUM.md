@@ -321,14 +321,17 @@ Topic:
 Async Programming
 
 Status:
-⏳ Current Lesson
+✅ Completed
 
 ---
 
 ### Day14
 
+Topic:
+Mini Project + Mock Interview
+
 Status:
-Planned
+⏳ Current Lesson
 
 Follow `ROADMAP.md` for the official learning order.
 

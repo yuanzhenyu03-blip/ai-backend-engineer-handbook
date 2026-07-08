@@ -3501,6 +3501,316 @@ a connection.
 
 ---
 
+# Day13 Async Programming
+
+## Day13 Questions: Async Programming
+
+### Beginner 1. What is async?
+
+Question:
+
+What is async?
+
+中文解析:
+
+异步是一种并发模型。单线程的事件循环在每个 await 处暂停一个 I/O 任务，去运行其他任务，等 I/O 就绪后再恢复。它提升的是 I/O 吞吐，不是 CPU 速度。
+
+Standard Answer:
+
+Async is a concurrency model where a single-threaded Event Loop runs many I/O-bound Tasks by
+suspending each at `await` and resuming it when its I/O is ready. It improves I/O throughput,
+not CPU speed.
+
+Follow-up Question:
+
+Does async make CPU-bound work faster?
+
+Production Discussion:
+
+Backend latency is mostly network and database I/O, which is exactly where async pays off.
+
+### Beginner 2. What is await?
+
+Question:
+
+What is `await`?
+
+中文解析:
+
+await 暂停当前协程并释放事件循环，让其他任务运行，等待的 I/O 完成后再恢复。它不创建线程。
+
+Standard Answer:
+
+`await` suspends the current coroutine and releases the Event Loop so other Tasks can run,
+then resumes when the awaited work is ready. It does not create a thread.
+
+Follow-up Question:
+
+Does `await` run code in parallel on multiple cores?
+
+Production Discussion:
+
+Because it is one thread, `await` overlaps waiting, not CPU computation.
+
+### Beginner 3. What is a coroutine?
+
+Question:
+
+What is a coroutine?
+
+中文解析:
+
+协程是用 async def 定义的可暂停、可恢复的工作单元。调用它只创建一个协程对象（执行计划），并不执行函数体。
+
+Standard Answer:
+
+A coroutine is a pausable, resumable unit of work defined with `async def`. Calling it creates
+a coroutine object, an execution plan the Event Loop runs.
+
+Follow-up Question:
+
+Why does calling `hello()` not print anything?
+
+Production Discussion:
+
+A coroutine that is never awaited or scheduled does nothing and raises a RuntimeWarning.
+
+### Intermediate 1. Explain the Event Loop.
+
+Question:
+
+Explain the Event Loop.
+
+中文解析:
+
+事件循环是单线程的协作式调度器。它运行一个任务直到遇到 await，把它挂起，运行就绪队列里的其他任务，I/O 完成后再恢复它。
+
+Standard Answer:
+
+The Event Loop is a single-threaded cooperative scheduler. It runs a Task until an `await`,
+suspends it, runs other ready Tasks, and resumes it when its I/O completes.
+
+Follow-up Question:
+
+How can one thread provide concurrency?
+
+Production Discussion:
+
+One worker serving many awaiting requests is why async backends scale for I/O-bound load.
+
+### Intermediate 2. Task vs Coroutine.
+
+Question:
+
+What is the difference between a Task and a coroutine?
+
+中文解析:
+
+协程是执行计划；Task 是被事件循环驱动、创建后立即并发运行的协程。create_task 立刻调度，await coro() 是内联运行。
+
+Standard Answer:
+
+A coroutine is an execution plan. A Task is a coroutine scheduled on the Event Loop that runs
+concurrently. `create_task` starts it now; `await coro()` runs it inline.
+
+Follow-up Question:
+
+When do you need a Task instead of a bare `await`?
+
+Production Discussion:
+
+Tasks enable concurrency because they start running before you await the result.
+
+### Intermediate 3. What does gather() do?
+
+Question:
+
+What does `asyncio.gather()` do?
+
+中文解析:
+
+gather 并发运行多个协程，并按传入顺序返回结果，与完成顺序无关。
+
+Standard Answer:
+
+`gather()` runs multiple coroutines concurrently and returns their results in input order,
+regardless of which finished first.
+
+Follow-up Question:
+
+Why is input order important when unpacking results?
+
+Production Discussion:
+
+Positional unpacking like `user, orders = await gather(...)` is only safe because order is
+deterministic.
+
+### Intermediate 4. Explain cancellation.
+
+Question:
+
+Explain Task cancellation.
+
+中文解析:
+
+取消是协作式的。task.cancel() 只是请求取消，CancelledError 在下一个 await 处抛出，需要在 except/finally 里清理并通常重新抛出。
+
+Standard Answer:
+
+Cancellation is cooperative. `task.cancel()` requests cancellation, and `CancelledError` is
+raised at the next await, so cleanup runs before the Task ends.
+
+Follow-up Question:
+
+Why is cancellation not an immediate kill?
+
+Production Discussion:
+
+FastAPI cancels a request Task when the client disconnects; cleanup must release resources.
+
+### Senior 1. How does async improve backend throughput?
+
+Question:
+
+How does async improve backend throughput?
+
+中文解析:
+
+后端延迟主要是 I/O。异步把等待重叠起来，一个 worker 能并发服务很多请求，而不是逐个阻塞。它提升 I/O 吞吐，不提升 CPU 速度。
+
+Standard Answer:
+
+Backend latency is mostly I/O, so async overlaps waiting and lets one worker serve many
+concurrent requests instead of blocking on each. It raises I/O throughput, not CPU speed.
+
+Interview Review:
+
+Strong answers separate throughput from speed and mention the single thread.
+
+Production Case:
+
+A FastAPI worker awaiting OpenAI serves other requests during the wait instead of blocking.
+
+### Senior 2. Explain Event Loop scheduling.
+
+Question:
+
+Explain Event Loop scheduling.
+
+中文解析:
+
+循环维护就绪队列和等待集合。运行一个任务到 await，移入等待，运行下一个就绪任务，I/O 完成后恢复等待者。整个过程单线程、协作式。
+
+Standard Answer:
+
+The loop keeps a ready queue and a waiting set. It runs a Task until `await`, moves it to
+waiting, runs the next ready Task, and resumes waiters when their I/O completes. It is
+cooperative and single-threaded.
+
+Interview Review:
+
+Good answers note that one blocking call freezes all scheduling.
+
+Production Case:
+
+A stray `time.sleep` in async code freezes every concurrent request on that worker.
+
+### Senior 3. Why use a Semaphore?
+
+Question:
+
+Why use a Semaphore in async backends?
+
+中文解析:
+
+信号量限制并发数量，保护下游系统。无限 gather() 会触发限流、超时和连接池耗尽。目标是稳定吞吐，而不是最大并发。
+
+Standard Answer:
+
+A semaphore bounds concurrency to protect downstream systems. Unlimited `gather()` can trigger
+rate limits, timeouts, and connection-pool exhaustion. The goal is stable throughput.
+
+Interview Review:
+
+Senior answers optimize for stable throughput, not maximum concurrency.
+
+Production Case:
+
+Limiting concurrent OpenAI calls to 10 avoids HTTP 429 and keeps latency predictable.
+
+### Senior 4. How do you control production concurrency?
+
+Question:
+
+How do you control concurrency in production?
+
+中文解析:
+
+用带信号量的有界 gather()，尊重连接池大小，把阻塞工作放进 to_thread()，并 await 任务让异常暴露出来，目标是稳定吞吐。
+
+Standard Answer:
+
+Use bounded `gather()` with a semaphore, respect connection-pool sizes, keep blocking work in
+`to_thread()`, and await Tasks so failures surface. Target stable throughput.
+
+Interview Review:
+
+Look for downstream capacity awareness: OpenAI, Redis, PostgreSQL, GPU, browser.
+
+Production Case:
+
+Embedding 100k texts is chunked behind a semaphore to respect rate limits and pool sizes.
+
+### Senior 5. Explain FastAPI async architecture.
+
+Question:
+
+Explain FastAPI async architecture.
+
+中文解析:
+
+ASGI 服务器运行事件循环，每个请求是一个 Task。在 await 数据库或 API 时请求挂起，worker 服务其他请求；客户端断开会取消请求 Task。
+
+Standard Answer:
+
+An ASGI server runs an Event Loop; each request is a Task. At each `await` on the DB or an API,
+the request suspends and the worker serves others. Client disconnects can cancel the request
+Task.
+
+Interview Review:
+
+Strong answers mention `to_thread()` for blocking work and cancellation on disconnect.
+
+Production Case:
+
+An async endpoint awaiting PostgreSQL scales because the worker is not blocked during queries.
+
+### Senior 6. How do you handle AI Backend concurrency?
+
+Question:
+
+How do you handle AI backend concurrency?
+
+中文解析:
+
+用 gather() 并发独立 I/O，用信号量限制外部调用，对 429 做退避重试，并 await 任务让异常可见，目标是稳定吞吐。
+
+Standard Answer:
+
+Run independent I/O with `gather()`, bound external calls with a semaphore, handle HTTP 429
+with backoff, and await Tasks so exceptions are visible. Optimize for stable throughput.
+
+Interview Review:
+
+This connects async to real agent and RAG pipelines.
+
+Production Case:
+
+A RAG request concurrently fetches context from Redis and PostgreSQL, then calls the LLM under
+a semaphore.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
@@ -3640,6 +3950,12 @@ need to be explicit.
 - Letting business logic own resource cleanup.
 - Sharing a database session or Playwright context across jobs.
 - Forgetting to close an LLM stream, leaking sockets and tokens.
+- Calling `time.sleep()` or a blocking library inside `async def`.
+- Calling a coroutine function without awaiting or scheduling it.
+- Running unlimited `gather()` against rate-limited external services.
+- Firing tasks and forgetting to await them, losing their exceptions.
+- Expecting `task.cancel()` to stop a Task immediately.
+- Using async for CPU-bound work instead of processes or threads.
 
 ---
 
@@ -3679,3 +3995,14 @@ need to be explicit.
 - FastAPI `yield` dependencies close sessions in `finally`.
 - Playwright isolates and closes a BrowserContext per job.
 - AI backends wrap LLM streams, connections, and locks to prevent leaks.
+- Async improves I/O throughput, not CPU speed.
+- The Event Loop is single-threaded and cooperative.
+- A blocking call inside `async def` freezes the whole loop.
+- Calling a coroutine function creates a plan; it does not run.
+- A coroutine is a plan; a Task is a coroutine the loop drives.
+- `await` suspends the coroutine and releases the loop, no threads.
+- `gather()` runs concurrently and returns input order.
+- Cancellation is cooperative; `CancelledError` fires at the next await.
+- A Task stores its exception until awaited.
+- A `Semaphore` bounds concurrency for stable throughput.
+- Use `asyncio.to_thread()` for unavoidable blocking work.
