@@ -328,10 +328,22 @@ Status:
 ### Day14
 
 Topic:
-Mini Project + Mock Interview
+Mini Project & Backend Architecture
 
 Status:
-⏳ Current Lesson
+✅ Completed
+
+Released Lesson:
+`docs/python/day14-mini-project.md`
+
+---
+
+## Phase 1 — Complete
+
+All Day01–Day14 Python foundation lessons are completed.
+
+Next Phase:
+Phase 2 — Engineering Foundations (Git, Linux, Docker)
 
 Follow `ROADMAP.md` for the official learning order.
 

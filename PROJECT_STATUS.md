@@ -2,19 +2,22 @@
 
 ## Current Phase
 
-Phase 1 — Python Foundations
+Phase 1 — Python Foundations (Complete)
+
+Next Phase:
+Phase 2 — Engineering Foundations (Git, Linux, Docker)
 
 ---
 
 ## Current Lesson
 
-Day14 — Mini Project + Mock Interview
+Phase 1 complete — Day14 finished.
+
+Next:
+Phase 2 — Engineering Foundations (Git, Linux, Docker)
 
 Status:
 Not started
-
-Completed Time:
-Not completed yet
 
 ---
 
@@ -33,6 +36,7 @@ Not completed yet
 - ✅ Day11 — Object-Oriented Programming
 - ✅ Day12 — Context Managers
 - ✅ Day13 — Async Programming
+- ✅ Day14 — Mini Project & Backend Architecture
 
 ---
 
@@ -44,26 +48,26 @@ None.
 
 ## Last Completed Lesson
 
-Day13 — Async Programming
+Day14 — Mini Project & Backend Architecture
 
 Completed Time:
 2026-07-08
 
 Completed Work:
 
-- Day13 classroom learning
-- Day13 lesson document
-- Day13 code practice
-- Day13 mini exercises
-- Day13 cheat sheet update
-- Day13 interview notes update
-- Day13 repository status update
+- Day14 classroom learning
+- Day14 lesson document
+- Day14 architecture design and mock interview
+- Day14 exercises
+- Day14 python and fastapi cheat sheet update
+- Day14 python and fastapi interview notes update
+- Day14 repository status update
 
 ---
 
 ## Next
 
-- Day14 — Mini Project + Mock Interview
+- Phase 2 — Engineering Foundations (Git, Linux, Docker)
 
 Status:
 Not started
@@ -87,6 +91,7 @@ Completed Python Foundations:
 - Day11 — Object-oriented programming, class and instance, state and behavior, `self`, lookup, inheritance, `super()`, composition
 - Day12 — Context managers, resource lifecycle, `with`, `try / finally`, `__enter__`, `__exit__`, `@contextmanager`, deterministic cleanup
 - Day13 — Async programming, event loop, coroutine vs task, `await`, `gather()`, cancellation, exception propagation, semaphore, stable throughput
+- Day14 — Mini project and backend architecture, layered design, thin router, service layer, browser/LLM/repository layers, dependency injection, stateless services, worker throughput
 
 ---
 
@@ -199,6 +204,17 @@ Completed Python Foundations:
 - Explain why a `Semaphore` protects downstream capacity for stable throughput.
 - Use `asyncio.to_thread()` for unavoidable blocking work.
 - Connect async to FastAPI request Tasks, Playwright automation, and AI backend concurrency.
+- Design a layered AI backend: API, Service, Browser, LLM, Repository, Database.
+- Explain the single responsibility of each layer and what it must NOT do.
+- Keep FastAPI routers thin and move logic into the Service layer.
+- Use dependency injection to build stateless, testable services.
+- Treat the Browser and LLM as infrastructure behind interfaces.
+- Apply the Repository pattern to hide the database.
+- Apply separation of concerns, single responsibility, low coupling, and high cohesion.
+- Reason about worker architecture, async vs worker scaling, and horizontal scaling.
+- Apply Semaphore, retry, and exponential backoff for downstream limits.
+- Design a task-status pattern for long-running jobs.
+- Answer backend architecture interview questions with engineering reasoning and trade-offs.
 
 ---
 
@@ -308,6 +324,16 @@ Completed Python Foundations:
 - Task exception propagation exercise
 - Semaphore concurrency limit exercise
 - FastAPI async lifecycle exercise
+- API layer refactor exercise
+- Service layer design exercise
+- Browser layer boundary exercise
+- Dependency injection wiring exercise
+- Repository pattern exercise
+- Task status design exercise
+- Retry strategy with backoff exercise
+- Worker architecture exercise
+- System design exercise
+- Architecture mock interview exercise
 
 ---
 

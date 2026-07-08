@@ -9,6 +9,40 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.20 — Day14 Mini Project & Backend Architecture Documentation
+
+Date: 2026-07-08
+
+### Added
+
+- Added `docs/python/day14-mini-project.md`.
+- Added `cheat_sheets/fastapi.md` (new FastAPI cheat sheet).
+- Added Day14 backend architecture review material to `cheat_sheets/python.md`.
+- Added Day14 backend architecture interview questions to `interview/python.md`.
+- Added Day14 backend architecture interview questions to `interview/fastapi.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day14 as completed and Phase 1 as complete.
+- Updated `PROJECT_STATUS.md` to mark Day14 completed and point to Phase 2.
+- Updated `TASKS.md` with completed Day14 tasks and Phase 2 preparation tasks.
+- Updated `CHANGELOG.md` with the Day14 repository update.
+
+### Notes
+
+- Day14 is an integration lesson, not a Python syntax lesson: it combines Day01–Day13 into a production-shaped, layered AI backend.
+- Covered layered architecture (API, Service, Browser, LLM, Repository, Database), each layer's single responsibility and what it must NOT do, thin routers, service orchestration, the browser and LLM as infrastructure behind interfaces, multi-provider architecture, and the repository pattern.
+- Covered engineering thinking: separation of concerns, single responsibility, low coupling, high cohesion, dependency injection, stateless services, shared mutable state, interface-first development, and architecture before coding.
+- Covered production topics: worker architecture, async vs worker scaling, horizontal scaling, throughput, bottleneck analysis, semaphore, retry, exponential backoff, HTTP 429, and browser/LLM resource management.
+- Connected the design to FastAPI request flow with `Depends()`, Playwright browser layer cleanup, and an AI summary service with queue, worker pool, Redis, PostgreSQL, and OpenAI.
+- Added a mock interview and 10-level architecture exercises.
+- No `exercises/` directory exists, so Day14 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.19 — Day13 Async Programming Documentation
 
 Date: 2026-07-08

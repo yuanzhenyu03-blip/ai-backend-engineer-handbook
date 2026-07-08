@@ -2696,6 +2696,109 @@ async def call(p):
 
 ---
 
+## Day14 Cheat Sheet: Mini Project & Backend Architecture
+
+Core idea:
+
+```text
+Working once is a script; well-structured layers are a system.
+```
+
+Integrate Day01-Day13 into a layered, production-shaped AI backend.
+
+---
+
+## Day14 Layered Architecture
+
+```text
+API / Router -> Service -> Browser -> LLM -> Repository -> Database
+```
+
+| Layer | Should | Should NOT |
+|-------|--------|------------|
+| API / Router | Validate + delegate | Contain business logic |
+| Service | Orchestrate workflow | Know HTTP or SQL |
+| Browser | Extract page data | Return FastAPI models |
+| LLM | Summarize / generate | Know about HTTP |
+| Repository | Read/write via abstraction | Leak SQL upward |
+| Database | Store data | Contain business rules |
+
+Data flows down; dependencies point to interfaces, not details.
+
+---
+
+## Day14 Router and Service
+
+```python
+@router.post("/summarize", response_model=SummaryResponse)
+async def summarize(req: SummarizeRequest, svc: SummaryService = Depends(get_service)):
+    return await svc.summarize(req.url)
+```
+
+- Thin router: request model in, response model out, delegate to service.
+- `main.py` only wires app, routers, and dependencies.
+- Service orchestrates: extract -> summarize -> save.
+- Service depends on interfaces, stays stateless.
+
+---
+
+## Day14 Browser and LLM Layers
+
+- Browser wraps Playwright, returns plain data, closes context in `finally`.
+- LLM hides the provider behind an interface (`OpenAI`, `Anthropic`, `Gemini`).
+- Multi-provider architecture enables fail-over and testing with fakes.
+
+---
+
+## Day14 Repository Pattern
+
+```python
+class TaskRepository:
+    async def save_task(self, url: str, summary: str) -> Task: ...
+    async def get_task(self, task_id: int) -> Task | None: ...
+```
+
+Hides the database; returns domain objects, not raw rows.
+
+---
+
+## Day14 Dependency Injection and Stateless Service
+
+- Pass dependencies in; do not construct them inside.
+- Stateless service = safe under concurrency, horizontally scalable.
+- Shared mutable state = data leaks and race conditions.
+
+---
+
+## Day14 Engineering Principles
+
+| Principle | Meaning |
+|-----------|---------|
+| Separation of Concerns | Each layer owns one concern |
+| Single Responsibility | One reason to change |
+| Low Coupling | Depend on interfaces |
+| High Cohesion | One purpose per layer |
+| Interface First | Design contracts before code |
+| Architecture before Coding | Structure, then implement |
+
+---
+
+## Day14 Production and Scaling
+
+```text
+Async     -> per-worker I/O throughput
+Workers   -> parallelism and isolation
+Scaling   -> add replicas behind a queue
+```
+
+- Find the bottleneck (OpenAI rate limit, DB pool, browser memory).
+- Semaphore bounds concurrency to downstream capacity.
+- Retry with exponential backoff on HTTP 429.
+- Long jobs: queue + worker + task status, not a 30s blocking request.
+- Optimize for stable throughput, name the trade-off.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.
@@ -2798,3 +2901,15 @@ async def call(p):
 - "A `Semaphore` bounds concurrency to protect downstream capacity and give stable throughput."
 - "I optimize for stable throughput, not maximum concurrency."
 - "Use `asyncio.to_thread()` for unavoidable blocking work so the Event Loop stays free."
+- "Working once is a script; well-structured layers are a system."
+- "A layered backend separates transport, workflow, infrastructure, and persistence."
+- "Keep FastAPI routers thin; put business logic in a stateless service."
+- "The service orchestrates the workflow and depends on interfaces, not implementations."
+- "The Browser and LLM layers are infrastructure behind interfaces and return data, not models."
+- "The Repository pattern hides the database so the service never writes SQL."
+- "Dependency injection makes services testable, swappable, and explicit."
+- "A stateless service scales horizontally because any replica can serve any request."
+- "Async gives per-worker throughput; workers and replicas give capacity."
+- "Semaphore, retry, and exponential backoff protect downstream systems from overload."
+- "For long jobs, return a task_id and process in a worker instead of blocking the request."
+- "Senior engineers optimize for stable throughput and name their trade-offs."

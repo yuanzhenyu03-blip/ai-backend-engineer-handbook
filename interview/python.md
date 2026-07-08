@@ -3811,6 +3811,246 @@ a semaphore.
 
 ---
 
+# Day14 Mini Project & Backend Architecture
+
+## Day14 Questions: Backend Architecture
+
+### Beginner 1. What is layered architecture?
+
+Question:
+
+What is layered architecture?
+
+中文解析:
+
+分层架构把系统拆成职责单一的层：API、Service、基础设施（Browser、LLM）、持久化（Repository、Database）。每一层可以独立变化。
+
+Standard Answer:
+
+Layered architecture splits a system into layers with single responsibilities — API, Service,
+infrastructure, and persistence — so each can change independently.
+
+Follow-up Question:
+
+What should the API layer NOT do?
+
+Production Discussion:
+
+Mixing all layers into one route function makes the system untestable and fragile.
+
+### Beginner 2. What is dependency injection?
+
+Question:
+
+What is dependency injection?
+
+中文解析:
+
+依赖注入是把组件的依赖从外部传入，而不是在内部创建，从而提升可测试性和解耦。
+
+Standard Answer:
+
+Dependency injection passes a component's dependencies from the outside instead of creating
+them inside, improving testability and decoupling.
+
+Follow-up Question:
+
+How does FastAPI provide dependency injection?
+
+Production Discussion:
+
+`Depends()` gives request-scoped injection so tests can pass fakes.
+
+### Beginner 3. What is a stateless service?
+
+Question:
+
+What is a stateless service?
+
+中文解析:
+
+无状态服务不在实例上保存每个请求的可变状态，因此在并发下安全，任意副本都能处理任意请求。
+
+Standard Answer:
+
+A stateless service keeps no per-request mutable state on the instance, so it is safe under
+concurrency and any replica can handle any request.
+
+Follow-up Question:
+
+What goes wrong with shared mutable state?
+
+Production Discussion:
+
+Shared mutable state causes data leaks between users and race conditions.
+
+### Intermediate 1. Why keep FastAPI routers thin?
+
+Question:
+
+Why should FastAPI routers stay thin?
+
+中文解析:
+
+路由只负责校验和委派，业务逻辑放进可复用、可测试的 Service。臃肿的路由重复逻辑且难以测试。
+
+Standard Answer:
+
+Routers should validate and delegate, keeping business logic in a reusable, testable service.
+Fat routers duplicate logic and are hard to test.
+
+Follow-up Question:
+
+What belongs in `main.py`?
+
+Production Discussion:
+
+`main.py` only wires the app, routers, and dependencies.
+
+### Intermediate 2. Why use the Repository pattern?
+
+Question:
+
+Why use the Repository pattern?
+
+中文解析:
+
+Repository 把数据库隐藏在方法后面，Service 不直接写 SQL，从而解耦并可在无真实数据库时测试。
+
+Standard Answer:
+
+The Repository pattern hides the database behind methods so the service is not coupled to SQL
+and can be tested without a real database.
+
+Follow-up Question:
+
+What should the repository return?
+
+Production Discussion:
+
+It should return domain objects, not raw rows, so persistence details stop at the repository.
+
+### Intermediate 3. Why hide the LLM behind an interface?
+
+Question:
+
+Why define an LLM interface instead of calling a provider directly?
+
+中文解析:
+
+接口让我们支持多provider、故障切换，并在测试中用假实现，而不改动业务流程。
+
+Standard Answer:
+
+An interface lets us support multiple providers, fail over, and mock the LLM in tests without
+changing the workflow.
+
+Follow-up Question:
+
+How does multi-provider architecture improve reliability?
+
+Production Discussion:
+
+When one provider is down or rate-limited, the system fails over to another.
+
+### Senior 1. How do you scale an AI summarization service?
+
+Question:
+
+How do you scale an AI summarization service?
+
+中文解析:
+
+用异步提升单 worker 的 I/O 吞吐，用队列和 worker pool 提升容量，对每个下游用信号量，429 时指数退避重试，并水平扩展副本。
+
+Standard Answer:
+
+Async for per-worker I/O throughput, a queue and worker pool for capacity, semaphores per
+downstream dependency, and retries with exponential backoff. I scale replicas horizontally
+behind the queue.
+
+Interview Review:
+
+Strong answers separate concurrency (async) from parallelism (workers) and name the
+bottleneck.
+
+Production Case:
+
+Summarizing 10,000 URLs is bounded by OpenAI rate limits, so I cap concurrency and back off on
+429.
+
+### Senior 2. How do you keep a slow endpoint responsive?
+
+Question:
+
+The endpoint takes 30 seconds because the LLM is slow. How do you keep the API responsive?
+
+中文解析:
+
+在产品层面异步化：接收任务、立即返回 task_id、在 worker 中处理、暴露任务状态，让客户端轮询或被通知。
+
+Standard Answer:
+
+Accept the job, return a `task_id`, process it in a worker, and expose task status. The API
+stays fast while the work runs in the background.
+
+Interview Review:
+
+Look for queue + worker + status, not holding the connection open.
+
+Production Case:
+
+A 30-second LLM job runs in a worker; the client polls `GET /tasks/{id}`.
+
+### Senior 3. What is the most important trade-off here?
+
+Question:
+
+Would you maximize concurrency to make it faster?
+
+中文解析:
+
+不会。把并发限制在下游瓶颈内。无限并发会导致 429、超时和连接池耗尽，整体更慢。目标是稳定吞吐。
+
+Standard Answer:
+
+No. I bound concurrency to the downstream bottleneck. Unlimited concurrency causes 429s,
+timeouts, and pool exhaustion, which is slower overall. I optimize for stable throughput.
+
+Interview Review:
+
+Senior engineers argue trade-offs, not absolutes.
+
+Production Case:
+
+Capping concurrent OpenAI calls keeps latency predictable under load.
+
+### Senior 4. How do you decide layer boundaries?
+
+Question:
+
+How do you decide what belongs in each layer?
+
+中文解析:
+
+按单一职责划分：API 管传输，Service 管流程，基础设施层管外部系统，Repository 管持久化。依赖指向接口，而非细节。
+
+Standard Answer:
+
+By single responsibility: API owns transport, Service owns workflow, infrastructure layers own
+external systems, and the Repository owns persistence. Dependencies point to interfaces, not
+details.
+
+Interview Review:
+
+Good answers state what each layer must NOT do.
+
+Production Case:
+
+A browser layer returning FastAPI models is a boundary violation and creates tight coupling.
+
+---
+
 ## Enterprise Scenarios
 
 ### Scenario 1: FastAPI Dependency Leak
@@ -3956,6 +4196,12 @@ need to be explicit.
 - Firing tasks and forgetting to await them, losing their exceptions.
 - Expecting `task.cancel()` to stop a Task immediately.
 - Using async for CPU-bound work instead of processes or threads.
+- Putting business logic, scraping, and SQL in one route function.
+- Constructing services inside routes instead of injecting them.
+- Letting the service know about HTTP status codes or SQL.
+- Sharing mutable state on a service instance across requests.
+- Holding an HTTP connection open for a long LLM job.
+- Maximizing concurrency instead of bounding it to the bottleneck.
 
 ---
 
@@ -4006,3 +4252,11 @@ need to be explicit.
 - A Task stores its exception until awaited.
 - A `Semaphore` bounds concurrency for stable throughput.
 - Use `asyncio.to_thread()` for unavoidable blocking work.
+- Layered architecture separates transport, workflow, infrastructure, and persistence.
+- Keep routers thin; services orchestrate; repositories hide the database.
+- Browser and LLM layers return data, not FastAPI models.
+- Dependency injection makes services testable, swappable, and stateless.
+- Async gives per-worker throughput; workers and replicas give capacity.
+- Semaphore, retry, and backoff protect downstream systems.
+- Long jobs use a queue, worker, and task status.
+- Optimize for stable throughput and name your trade-offs.

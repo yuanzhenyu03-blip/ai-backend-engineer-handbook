@@ -16,25 +16,91 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day14 — Mini Project + Mock Interview
+Phase 1 complete — Day14 finished.
+
+Next:
+Phase 2 — Engineering Foundations (Git, Linux, Docker)
 
 Status:
 Not started
 
-Target lesson:
+Last lesson:
 
 ```text
-docs/python/day14-mini-project-mock-interview.md
+docs/python/day14-mini-project.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Day14 mini project and mock interview preparation.
-- [ ] Review Day01-Day13 core concepts before the mock interview.
-- [ ] Plan a small async FastAPI project that applies the foundations.
-- [ ] Prepare beginner, intermediate, and senior mock interview questions.
+- [ ] Begin Phase 2 preparation (Git, Linux, Docker).
+- [ ] Review the Day14 layered architecture before applying it in projects.
+- [ ] Plan the Phase 1 mini project repository structure.
+- [ ] Schedule a full mock interview across Day01-Day14 topics.
+
+---
+
+## Completed Day14 Tasks
+
+- [x] Complete Day14 classroom learning.
+- [x] Generate Day14 handbook lesson.
+- [x] Add layered architecture: API, Service, Browser, LLM, Repository, Database.
+- [x] Add each layer's single responsibility and what it must NOT do.
+- [x] Add thin router and `main.py` responsibility.
+- [x] Add service layer orchestration, dependency injection, and stateless design.
+- [x] Add browser layer as infrastructure returning data.
+- [x] Add LLM layer interface and multi-provider architecture.
+- [x] Add repository pattern and database abstraction.
+- [x] Add engineering thinking: SoC, SRP, low coupling, high cohesion, interface-first.
+- [x] Add production topics: workers, async vs worker, throughput, bottleneck, retry, backoff.
+- [x] Add FastAPI request flow connections.
+- [x] Add Playwright browser layer connections.
+- [x] Add AI backend connections: summary service, queue, worker pool, Redis, PostgreSQL, OpenAI.
+- [x] Add mock interview sections.
+- [x] Add 10-level architecture exercises.
+- [x] Add interview questions and review checklist.
+
+---
+
+## Completed Day14 Repository Tasks
+
+- [x] Add `docs/python/day14-mini-project.md`.
+- [x] Update `cheat_sheets/python.md`.
+- [x] Add `cheat_sheets/fastapi.md`.
+- [x] Update `interview/python.md`.
+- [x] Update `interview/fastapi.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day14 Interview Tasks
+
+- [x] Add beginner architecture questions.
+- [x] Add intermediate router, repository, and interface questions.
+- [x] Add senior scaling, responsiveness, and trade-off questions.
+- [x] Add FastAPI architecture interview questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day14 Homework
+
+- [x] Complete API layer refactor exercise.
+- [x] Complete service layer design exercise.
+- [x] Complete browser layer boundary exercise.
+- [x] Complete dependency injection wiring exercise.
+- [x] Complete repository pattern exercise.
+- [x] Complete task status design exercise.
+- [x] Complete retry strategy exercise.
+- [x] Complete worker architecture exercise.
+- [x] Complete system design exercise.
+- [x] Complete architecture mock interview exercise.
 
 ---
 
@@ -811,10 +877,32 @@ None.
 
 ### Day14 Preparation
 
-- [ ] Review Day01-Day13 core concepts.
-- [ ] Prepare a small async FastAPI project scope.
-- [ ] Prepare mock interview questions across all foundation topics.
-- [ ] Prepare production discussion prompts for the mock interview.
+- [x] Review Day01-Day13 core concepts.
+- [x] Prepare a small async FastAPI project scope.
+- [x] Prepare mock interview questions across all foundation topics.
+- [x] Prepare production discussion prompts for the mock interview.
+
+### Day14 Review
+
+- [ ] Name each layer and its single responsibility.
+- [ ] State what each layer must NOT do.
+- [ ] Explain why routers stay thin.
+- [ ] Explain why the service avoids HTTP and SQL.
+- [ ] Explain why the browser layer returns data, not models.
+- [ ] Explain why the LLM sits behind an interface.
+- [ ] Explain the repository pattern.
+- [ ] Explain dependency injection and stateless services.
+- [ ] Explain async vs worker scaling.
+- [ ] Explain semaphore, retry, and backoff together.
+- [ ] Explain the task-status pattern for long jobs.
+- [ ] Explain one architectural trade-off.
+
+### Phase 2 Preparation (Git, Linux, Docker)
+
+- [ ] Review Git basics and workflow.
+- [ ] Review Linux command-line fundamentals.
+- [ ] Prepare Docker and Docker Compose learning goals.
+- [ ] Plan how the mini project will be containerized.
 
 ### Future Knowledge Base TODO
 
@@ -868,3 +956,5 @@ Purpose:
 - [x] Complete Day11 — Object-Oriented Programming.
 - [x] Complete Day12 — Context Managers.
 - [x] Complete Day13 — Async Programming.
+- [x] Complete Day14 — Mini Project & Backend Architecture.
+- [x] Complete Phase 1 — Python Foundations.
