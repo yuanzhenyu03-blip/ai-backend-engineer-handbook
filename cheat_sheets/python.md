@@ -2799,6 +2799,28 @@ Scaling   -> add replicas behind a queue
 
 ---
 
+## Day14 Interview Review
+
+Short interview review bullets for Day14 backend architecture:
+
+- Layered Architecture: separate transport, workflow, infrastructure, and persistence into single-responsibility layers.
+- Thin Router: validate the request model and delegate; no business logic in the route.
+- Service Layer: orchestrate the workflow; never contain HTTP or SQL logic.
+- Browser Layer: infrastructure that returns plain data, not FastAPI models or JSON.
+- LLM Layer: hide the provider behind an interface for multi-provider fail-over and testing.
+- Repository Pattern: hide the database and return domain objects, not raw rows.
+- Dependency Injection: pass dependencies in so services are testable and swappable.
+- Stateless Service: keep no per-request state on the instance so any replica can serve any request.
+- Shared Mutable State: shared instance state causes data leaks and race conditions.
+- Worker vs Async: async gives per-worker I/O throughput; workers give parallelism and isolation.
+- Semaphore: bound concurrency to downstream capacity.
+- Retry: recover from transient failures such as HTTP 429.
+- Exponential Backoff: wait longer each retry to respect rate limits.
+- Stable Throughput: optimize for predictable throughput, not maximum concurrency.
+- Horizontal Scaling: add stateless replicas behind a queue to grow capacity.
+
+---
+
 ## Enterprise Rules
 
 - Avoid hidden shared mutable state.

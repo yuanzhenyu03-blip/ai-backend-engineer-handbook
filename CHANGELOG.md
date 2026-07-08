@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.21 — Day14 Review Fix
+
+Date: 2026-07-08
+
+### Added
+
+- Added a concise `## Day14 Interview Review` bullet section to `cheat_sheets/python.md` covering layered architecture, thin router, service layer, browser layer, LLM layer, repository pattern, dependency injection, stateless service, shared mutable state, worker vs async, semaphore, retry, exponential backoff, stable throughput, and horizontal scaling.
+- Added four missing Day14 interview questions to `interview/python.md`: why the Browser Layer returns data instead of JSON, what shared mutable state is, async vs worker scaling, and how to design an AI Summary Service.
+
+### Notes
+
+- Did not rewrite the Day14 lesson.
+- Did not create duplicate Day14 sections; the new questions extend the existing Day14 interview section and stay grouped by difficulty.
+- Verified Day14 lesson section ordering follows `LESSON_TEMPLATE.md`.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.20 — Day14 Mini Project & Backend Architecture Documentation
 
 Date: 2026-07-08

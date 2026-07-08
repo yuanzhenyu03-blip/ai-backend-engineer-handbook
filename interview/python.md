@@ -3884,6 +3884,31 @@ Production Discussion:
 
 Shared mutable state causes data leaks between users and race conditions.
 
+### Beginner 4. Why does the Browser Layer return data instead of JSON?
+
+Question:
+
+Why should the Browser Layer return plain data instead of JSON or a FastAPI model?
+
+中文解析:
+
+浏览器层是基础设施，应该返回纯数据，让 Service 决定如何使用。如果它返回 JSON 或 FastAPI 模型，就会反向依赖上层，产生紧耦合，也无法被其他调用方复用。
+
+Standard Answer:
+
+The Browser Layer is infrastructure. It should return plain data so the Service decides how to
+use it. Returning JSON or a FastAPI model makes the layer depend upward, creating tight
+coupling and preventing reuse by other callers.
+
+Production Discussion:
+
+A browser client that imports FastAPI models cannot be reused in a worker, a CLI, or a test
+without a web layer.
+
+Follow-up Question:
+
+Which direction should dependencies point between layers?
+
 ### Intermediate 1. Why keep FastAPI routers thin?
 
 Question:
@@ -3952,6 +3977,31 @@ How does multi-provider architecture improve reliability?
 Production Discussion:
 
 When one provider is down or rate-limited, the system fails over to another.
+
+### Intermediate 4. What is shared mutable state?
+
+Question:
+
+What is shared mutable state, and why is it dangerous?
+
+中文解析:
+
+共享可变状态是指多个请求共享同一个可变对象（比如服务实例上的缓存或列表）。在并发下会造成数据串用和竞态条件，也破坏水平扩展。
+
+Standard Answer:
+
+Shared mutable state is a mutable object shared across requests, such as a cache or list stored
+on a service instance. Under concurrency it causes data leaks between requests and race
+conditions, and it breaks horizontal scaling.
+
+Production Discussion:
+
+Keep request data in parameters and return values; use Redis for state that must be shared
+across replicas.
+
+Follow-up Question:
+
+How does a stateless service avoid this problem?
 
 ### Senior 1. How do you scale an AI summarization service?
 
@@ -4048,6 +4098,67 @@ Good answers state what each layer must NOT do.
 Production Case:
 
 A browser layer returning FastAPI models is a boundary violation and creates tight coupling.
+
+### Senior 5. Async vs Worker.
+
+Question:
+
+What is the difference between async and worker-based scaling?
+
+中文解析:
+
+异步在单个进程内重叠 I/O 等待，提升单 worker 的吞吐；worker/进程池提供真正的并行和隔离。两者层级不同：异步管进程内并发，worker 管跨进程并行，扩容靠加副本。
+
+Standard Answer:
+
+Async overlaps I/O waiting inside one process, raising per-worker throughput. Workers and
+process pools provide real parallelism and isolation. They operate at different levels: async
+for in-process concurrency, workers for cross-process parallelism, and replicas for capacity.
+
+Interview Review:
+
+Strong answers separate concurrency (async) from parallelism (workers) and mention the
+bottleneck.
+
+Production Case:
+
+I/O-bound summarization scales with async per worker; CPU-heavy or isolated work scales with a
+worker pool and horizontal replicas.
+
+Follow-up Question:
+
+Which model helps CPU-bound work, and why?
+
+### Senior 6. How would you design an AI Summary Service?
+
+Question:
+
+Design an AI service that scrapes a page and summarizes it. Walk through the architecture.
+
+中文解析:
+
+薄 FastAPI 路由校验请求并委派给 SummaryService。Service 编排 BrowserClient 抽取文本、LLMClient 摘要、TaskRepository 持久化。依赖注入、无状态、每层依赖接口。高并发时加队列、worker pool、信号量和退避重试。
+
+Standard Answer:
+
+A thin FastAPI router validates the request and delegates to a `SummaryService`. The service
+orchestrates a `BrowserClient` to extract text, an `LLMClient` to summarize, and a
+`TaskRepository` to persist. Dependencies are injected, the service is stateless, and each
+layer depends on an interface. For volume, add a queue, a worker pool, semaphores, and retries
+with backoff.
+
+Interview Review:
+
+Reject any design where the router calls OpenAI directly or the service writes SQL.
+
+Production Case:
+
+For long jobs, return a `task_id` immediately and process in a worker; the client polls
+`GET /tasks/{id}`.
+
+Follow-up Question:
+
+Which parts of this design are stateless, and which hold state?
 
 ---
 
