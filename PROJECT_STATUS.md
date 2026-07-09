@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day16 — Git Branch & Merge
+Day17 — GitHub Workflow & Collaboration
 
 Status:
 Completed
@@ -39,6 +39,7 @@ Completed Time:
 - ✅ Day14 — Mini Project & Backend Architecture
 - ✅ Day15 — Git Fundamentals
 - ✅ Day16 — Git Branch & Merge
+- ✅ Day17 — GitHub Workflow & Collaboration
 
 ---
 
@@ -50,20 +51,20 @@ None.
 
 ## Last Completed Lesson
 
-Day16 — Git Branch & Merge
+Day17 — GitHub Workflow & Collaboration
 
 Completed Time:
 2026-07-09
 
 Completed Work:
 
-- Day16 classroom learning
-- Day16 lesson document
-- Day16 branch and merge experiments
-- Day16 exercises
-- Day16 git cheat sheet update
-- Day16 git interview notes update
-- Day16 repository status update
+- Day17 classroom learning
+- Day17 lesson document
+- Day17 pull request workflow experiments
+- Day17 exercises
+- Day17 github cheat sheet (new)
+- Day17 github interview notes (new)
+- Day17 repository status update
 
 ---
 
@@ -96,6 +97,7 @@ Completed Python Foundations:
 - Day14 — Mini project and backend architecture, layered design, thin router, service layer, browser/LLM/repository layers, dependency injection, stateless services, worker throughput
 - Day15 — Git fundamentals, snapshot vs diff, immutable commits, repository vs working directory, staging area, three-tree model, HEAD/branch, detached HEAD, reset modes, reflog
 - Day16 — Git branch and merge, branch as movable reference, instant branch creation, HEAD/current branch, fast-forward merge, three-way merge, merge conflict, Git as a DAG
+- Day17 — GitHub workflow, protected main, pull requests, CI vs code review, branch protection, stale review, review discussion as knowledge
 
 ---
 
@@ -238,6 +240,13 @@ Completed Python Foundations:
 - Explain why merge conflicts happen and why Git refuses to guess intent.
 - Explain Git history as a Directed Acyclic Graph.
 - Connect branching to FastAPI, Playwright, AI backend, agent, and Docker work.
+- Explain why pushing directly to `main` is dangerous.
+- Explain a Pull Request as Review + CI + Discussion + Audit Trail.
+- Explain the split: machines validate rules, humans validate intent.
+- Explain why Branch Protection protects `main`.
+- Explain why a review goes stale after `main` changes.
+- Explain why review discussions are preserved as engineering knowledge.
+- Connect the GitHub workflow to FastAPI, Playwright, AI backend, prompt, and Docker work.
 
 ---
 
@@ -366,6 +375,12 @@ Completed Python Foundations:
 - Fast-forward merge experiment
 - Three-way merge experiment
 - Merge conflict create-and-resolve experiment
+- Open a pull request exercise
+- Trigger CI exercise
+- Request changes exercise
+- Approve exercise
+- Simulate stale review exercise
+- Merge pull request exercise
 
 ---
 

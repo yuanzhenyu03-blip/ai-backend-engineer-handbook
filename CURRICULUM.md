@@ -372,7 +372,20 @@ Released Lesson:
 
 ---
 
-### Day17 and beyond
+### Day17
+
+Topic:
+GitHub Workflow & Collaboration
+
+Status:
+✅ Completed
+
+Released Lesson:
+`docs/git/day17-github-workflow.md`
+
+---
+
+### Day18 and beyond
 
 Status:
 Planned

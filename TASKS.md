@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day16 — Git Branch & Merge
+Day17 — GitHub Workflow & Collaboration
 
 Status:
 Completed
@@ -24,17 +24,68 @@ Completed
 Target lesson:
 
 ```text
-docs/git/day16-branch-and-merge.md
+docs/git/day17-github-workflow.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day16 Git Branch & Merge classroom learning.
-- [x] Run the two-branch, fast-forward, three-way, and conflict experiments.
-- [x] Connect branch and merge to FastAPI, Playwright, AI backend, and Docker work.
-- [ ] Prepare for the next Phase 2 lesson (Git collaboration, Linux, Docker).
+- [x] Complete Day17 GitHub Workflow classroom learning.
+- [x] Practice the pull request lifecycle (open, CI, request changes, approve, stale, merge).
+- [x] Connect the workflow to FastAPI, Playwright, AI backend, prompt, and Docker work.
+- [ ] Prepare for the next Phase 2 lesson (Linux, Docker).
+
+---
+
+## Completed Day17 Tasks
+
+- [x] Complete Day17 GitHub Workflow classroom learning.
+- [x] Generate Day17 handbook lesson.
+- [x] Explain why direct push to main is dangerous.
+- [x] Define Pull Request as Review + CI + Discussion + Audit Trail.
+- [x] Explain machines validate rules, humans validate intent.
+- [x] Explain Branch Protection and why it protects main.
+- [x] Explain stale review after main changes.
+- [x] Explain review discussion as engineering knowledge.
+- [x] Add the workflow mental-model diagram.
+- [x] Add FastAPI, Playwright, AI backend, prompt, and Docker connections.
+- [x] Add pull request lifecycle exercises and interview review.
+- [x] Keep Day18 topics out of scope.
+
+---
+
+## Completed Day17 Repository Tasks
+
+- [x] Add `docs/git/day17-github-workflow.md`.
+- [x] Add `cheat_sheets/github.md`.
+- [x] Add `interview/github.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day17 Interview Tasks
+
+- [x] Add beginner direct-push and pull-request questions.
+- [x] Add intermediate CI-vs-review and branch-protection questions.
+- [x] Add senior stale-review, review-discussion, and full-workflow questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day17 Homework
+
+- [x] Complete open a pull request exercise.
+- [x] Complete trigger CI exercise.
+- [x] Complete request changes exercise.
+- [x] Complete approve exercise.
+- [x] Complete simulate stale review exercise.
+- [x] Complete merge exercise.
 
 ---
 
@@ -1038,10 +1089,19 @@ None.
 - [ ] Explain why merge conflicts happen and why Git refuses to guess.
 - [ ] Explain Git history as a DAG.
 
+### Day17 Review
+
+- [ ] Explain why a direct push to main is dangerous.
+- [ ] Explain the four parts of a Pull Request.
+- [ ] Explain CI (rules) vs code review (intent).
+- [ ] Explain what Branch Protection enforces.
+- [ ] Explain what a stale review is and why it happens.
+- [ ] Explain why review discussions are preserved.
+
 ### Next Phase 2 Lesson Preparation
 
 - [x] Review Git branching basics.
-- [ ] Prepare questions about remotes and collaboration (Day17+).
+- [x] Review remotes and collaboration workflow.
 - [ ] Review Linux command-line fundamentals.
 - [ ] Prepare Docker learning goals for later lessons.
 
@@ -1101,3 +1161,4 @@ Purpose:
 - [x] Complete Phase 1 — Python Foundations.
 - [x] Complete Day15 — Git Fundamentals (Phase 2 started).
 - [x] Complete Day16 — Git Branch & Merge.
+- [x] Complete Day17 — GitHub Workflow & Collaboration.

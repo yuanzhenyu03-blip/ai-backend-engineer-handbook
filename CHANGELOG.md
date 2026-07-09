@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.25 — Day17 GitHub Workflow & Collaboration Documentation
+
+Date: 2026-07-09
+
+### Added
+
+- Added `docs/git/day17-github-workflow.md`.
+- Added `cheat_sheets/github.md` (new GitHub workflow cheat sheet).
+- Added `interview/github.md` (new GitHub workflow interview notes).
+
+### Changed
+
+- Updated `CURRICULUM.md` to add Day17 and mark it completed under Phase 2.
+- Updated `PROJECT_STATUS.md` to mark Day17 completed.
+- Updated `TASKS.md` with completed Day17 tasks and Day17 review.
+- Updated `CHANGELOG.md` with the Day17 repository update.
+
+### Notes
+
+- Day17 teaches the GitHub collaboration workflow as gates around shared state, not tool clicks: why direct push to main is dangerous, Pull Request as Review + CI + Discussion + Audit Trail, machines validate rules while humans validate intent, Branch Protection, stale reviews, and review discussions as an engineering knowledge base.
+- Preserved the classroom rhythm and student reasoning across every topic.
+- Included the required workflow mental-model diagram (Developer -> Feature Branch -> Commit -> Push -> Pull Request [CI + Human Review] -> Branch Protection -> Stable main -> Engineering Knowledge Base).
+- Connected the workflow to FastAPI endpoints, Playwright tests, AI backend prompt and agent changes, and Docker changes.
+- Added pull request lifecycle exercises: open a PR, trigger CI, request changes, approve, simulate a stale review, and merge.
+- Deliberately excluded Day18 topics.
+- Created dedicated `github.md` cheat sheet and interview files, keeping GitHub collaboration separate from Git internals in `git.md`.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.24 — Day16 Git Branch & Merge Documentation
 
 Date: 2026-07-09
