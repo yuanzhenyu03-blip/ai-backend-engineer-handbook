@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.27 — Day19 GitHub Project Management Documentation
+
+Date: 2026-07-09
+
+### Added
+
+- Added `docs/github/day19-project-management.md` (new `docs/github/` folder).
+- Added Day19 project management material to `cheat_sheets/github.md`.
+- Added Day19 project management interview questions to `interview/github.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to add Day19 and mark it completed under Phase 2.
+- Updated `PROJECT_STATUS.md` to mark Day19 completed.
+- Updated `TASKS.md` with completed Day19 tasks and Day19 review.
+- Updated `CHANGELOG.md` with the Day19 repository update.
+
+### Notes
+
+- Day19 teaches GitHub project management as managing work, not clicking UI: why teams manage work not only code, Issue as a work item (collaboration, tracking, prioritization, ownership), Label as structured metadata (retrieval, workflow, automation), Milestone as a product delivery goal, Projects as workflow management, the Issue/Label/Milestone/Project hierarchy, and the complete Idea-to-Release workflow connecting Day15-Day19.
+- Preserved the classroom rhythm and student reasoning, including "if work isn't tracked, it doesn't exist" and "ownership is not blame," and related Labels to database indexes, RAG filtering, vector search filtering, and Kubernetes labels.
+- Connected project management to FastAPI, Playwright, AI backend, prompt, and Docker work.
+- Added exercises: convert feature requests into Issues, assign and justify Labels, group Issues into a Milestone, and build a Project workflow board.
+- Deliberately excluded Day20 topics.
+- No `exercises/` directory exists, so Day19 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.26 — Day18 Merge Strategy & Code Review Documentation
 
 Date: 2026-07-09

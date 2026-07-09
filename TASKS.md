@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day18 — Merge Strategy & Code Review
+Day19 — GitHub Project Management
 
 Status:
 Completed
@@ -24,17 +24,68 @@ Completed
 Target lesson:
 
 ```text
-docs/git/day18-merge-strategy-and-code-review.md
+docs/github/day19-project-management.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day18 Merge Strategy & Code Review classroom learning.
-- [x] Compare merge commit, squash, and rebase and choose per feature.
-- [x] Practice senior code review and constructive comments.
+- [x] Complete Day19 GitHub Project Management classroom learning.
+- [x] Convert requests into Issues, apply Labels, group into a Milestone, build a Project board.
+- [x] Assemble the Idea-to-Release workflow tying Day15-Day19 together.
 - [ ] Prepare for the next Phase 2 lesson (Linux, Docker).
+
+---
+
+## Completed Day19 Tasks
+
+- [x] Complete Day19 GitHub Project Management classroom learning.
+- [x] Generate Day19 handbook lesson.
+- [x] Explain why teams manage work, not only code.
+- [x] Explain Issue as a work item (collaboration, tracking, prioritization, ownership).
+- [x] Add "if work isn't tracked, it doesn't exist" and ownership != blame.
+- [x] Explain Label as structured metadata (retrieval, workflow, automation).
+- [x] Relate Labels to database indexes, RAG filtering, vector search, and Kubernetes labels.
+- [x] Explain Milestone as a product delivery goal.
+- [x] Explain Projects as workflow management (where work is, not just what).
+- [x] Add the engineering hierarchy: Issue, Label, Milestone, Project.
+- [x] Build the complete Idea-to-Release workflow connecting Day15-Day19.
+- [x] Add FastAPI, Playwright, AI backend, prompt, and Docker connections.
+- [x] Add exercises and interview review.
+- [x] Keep Day20 topics out of scope.
+
+---
+
+## Completed Day19 Repository Tasks
+
+- [x] Add `docs/github/day19-project-management.md`.
+- [x] Update `cheat_sheets/github.md`.
+- [x] Update `interview/github.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day19 Interview Tasks
+
+- [x] Add beginner Issue and Label questions.
+- [x] Add intermediate Issue-vs-Milestone and Projects questions.
+- [x] Add senior Issue-vs-Project, ownership-vs-blame, and full-workflow questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day19 Homework
+
+- [x] Complete convert-requests-into-Issues exercise.
+- [x] Complete assign-and-justify-Labels exercise.
+- [x] Complete group-Issues-into-a-Milestone exercise.
+- [x] Complete build-a-Project-board exercise.
 
 ---
 
@@ -1157,11 +1208,23 @@ None.
 - [ ] Explain review the code, not the coder.
 - [ ] Explain the three goals of review.
 
+### Day19 Review
+
+- [ ] Explain why teams manage work, not only code.
+- [ ] Explain Issue as a work item and its four purposes.
+- [ ] Explain ownership vs blame.
+- [ ] Explain Label as metadata for retrieval, workflow, and automation.
+- [ ] Explain Milestone as a delivery goal.
+- [ ] Explain Projects as workflow management.
+- [ ] State the hierarchy: Issue, Label, Milestone, Project.
+- [ ] Trace the Idea-to-Release workflow.
+
 ### Next Phase 2 Lesson Preparation
 
 - [x] Review Git branching basics.
 - [x] Review remotes and collaboration workflow.
 - [x] Review merge strategies and code review.
+- [x] Review GitHub project management.
 - [ ] Review Linux command-line fundamentals.
 - [ ] Prepare Docker learning goals for later lessons.
 
@@ -1223,3 +1286,4 @@ Purpose:
 - [x] Complete Day16 — Git Branch & Merge.
 - [x] Complete Day17 — GitHub Workflow & Collaboration.
 - [x] Complete Day18 — Merge Strategy & Code Review.
+- [x] Complete Day19 — GitHub Project Management.

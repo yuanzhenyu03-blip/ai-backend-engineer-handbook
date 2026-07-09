@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day18 — Merge Strategy & Code Review
+Day19 — GitHub Project Management
 
 Status:
 Completed
@@ -41,6 +41,7 @@ Completed Time:
 - ✅ Day16 — Git Branch & Merge
 - ✅ Day17 — GitHub Workflow & Collaboration
 - ✅ Day18 — Merge Strategy & Code Review
+- ✅ Day19 — GitHub Project Management
 
 ---
 
@@ -52,19 +53,19 @@ None.
 
 ## Last Completed Lesson
 
-Day18 — Merge Strategy & Code Review
+Day19 — GitHub Project Management
 
 Completed Time:
 2026-07-09
 
 Completed Work:
 
-- Day18 classroom learning
-- Day18 lesson document
-- Day18 merge strategy and review exercises
-- Day18 github cheat sheet update
-- Day18 github interview notes update
-- Day18 repository status update
+- Day19 classroom learning
+- Day19 lesson document
+- Day19 issue/label/milestone/project exercises
+- Day19 github cheat sheet update
+- Day19 github interview notes update
+- Day19 repository status update
 
 ---
 
@@ -99,6 +100,7 @@ Completed Python Foundations:
 - Day16 — Git branch and merge, branch as movable reference, instant branch creation, HEAD/current branch, fast-forward merge, three-way merge, merge conflict, Git as a DAG
 - Day17 — GitHub workflow, protected main, pull requests, CI vs code review, branch protection, stale review, review discussion as knowledge
 - Day18 — Merge strategy and code review, history for humans, development vs product history, merge commit / squash / rebase, senior review focus, review the code not the coder
+- Day19 — GitHub project management, manage work not only code, Issue as work item, Label as metadata, Milestone as goal, Projects as workflow, Idea-to-Release pipeline
 
 ---
 
@@ -255,6 +257,14 @@ Completed Python Foundations:
 - Explain "review the code, not the coder."
 - Explain the three goals of review: improve the code, the developer, and the team.
 - Connect merge strategy and review to FastAPI, Playwright, AI backend, prompt, and Docker work.
+- Explain why software teams manage work, not only code.
+- Explain an Issue as a work item enabling collaboration, tracking, prioritization, and ownership.
+- Explain a Label as structured metadata for retrieval, workflow, and automation.
+- Explain a Milestone as a delivery goal made of many Issues.
+- Explain GitHub Projects as workflow management, distinct from task management.
+- Explain the hierarchy: Issue (Work), Label (Metadata), Milestone (Goal), Project (Workflow).
+- Assemble the complete Idea-to-Release workflow tying Day15-Day19 together.
+- Distinguish ownership from blame.
 
 ---
 
@@ -393,6 +403,10 @@ Completed Python Foundations:
 - Merge strategy selection exercise
 - FastAPI endpoint review exercise
 - Rewrite a poor review comment exercise
+- Convert feature requests into Issues exercise
+- Assign and justify Labels exercise
+- Group Issues into a Milestone exercise
+- Build a Project workflow board exercise
 
 ---
 

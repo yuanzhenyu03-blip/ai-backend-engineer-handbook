@@ -398,7 +398,20 @@ Released Lesson:
 
 ---
 
-### Day19 and beyond
+### Day19
+
+Topic:
+GitHub Project Management
+
+Status:
+✅ Completed
+
+Released Lesson:
+`docs/github/day19-project-management.md`
+
+---
+
+### Day20 and beyond
 
 Status:
 Planned

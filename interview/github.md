@@ -337,3 +337,167 @@ Production Case:
 
 Rewriting "this is wrong" into "this returns 200 on an auth failure; should it be 401?" keeps the
 discussion specific and useful.
+
+---
+
+# Day19 GitHub Project Management Questions
+
+These questions come from the Day19 GitHub Project Management lesson. They focus on why teams
+manage work with Issues, Labels, Milestones, and Projects.
+
+## Beginner
+
+### 1. Why do teams need Issues?
+
+Question:
+
+Why do teams need Issues?
+
+中文解析:
+
+因为团队要管理"工作"，不只是代码。Issue 是可追踪、可归属、可排优先级的工作项。没被追踪的工作活在记忆和聊天里，会丢失——工作没被追踪，就等于不存在。
+
+Standard Answer:
+
+Because teams must manage work, not only code. An Issue is a trackable, ownable, prioritizable
+work item. Untracked work lives in memory and chat and gets lost — if work isn't tracked, it
+doesn't exist.
+
+Follow-up Question:
+
+Is an Issue only for bugs?
+
+### 2. Why use Labels?
+
+Question:
+
+Why use Labels?
+
+中文解析:
+
+Label 是工作上的结构化元数据，支持检索（过滤）、流程（如 needs-review 状态）和自动化（路由或触发），类似数据库索引、RAG 元数据过滤和 Kubernetes labels。
+
+Standard Answer:
+
+A Label is structured metadata on work. It enables retrieval (filtering), workflow (states like
+needs-review), and automation (routing or triggers) — similar to database indexes, RAG metadata
+filtering, and Kubernetes labels.
+
+Follow-up Question:
+
+Which of retrieval, workflow, and automation does `priority-high` serve?
+
+## Intermediate
+
+### 1. Difference between an Issue and a Milestone.
+
+Question:
+
+What is the difference between an Issue and a Milestone?
+
+中文解析:
+
+Issue 管理一个任务；Milestone 把多个 Issue 组成一个产品交付目标，并显示交付进度。
+
+Standard Answer:
+
+An Issue manages one task. A Milestone groups many Issues into one product delivery goal and
+shows progress toward shipping it.
+
+Follow-up Question:
+
+What does a Milestone show that an individual Issue cannot?
+
+### 2. What is GitHub Projects?
+
+Question:
+
+What is GitHub Projects?
+
+中文解析:
+
+GitHub Projects 管理的是工作流，不是任务。它是一个看板，显示每项工作在流水线中的位置（Backlog、In Progress、Review、Done），暴露流动和瓶颈。
+
+Standard Answer:
+
+GitHub Projects manages workflow, not tasks. It is a board that shows where each piece of work
+is in the pipeline (Backlog, In Progress, Review, Done), exposing flow and bottlenecks.
+
+Follow-up Question:
+
+What question does a Project answer that an Issue does not?
+
+## Senior
+
+### 1. Difference between Issue management and Project management.
+
+Question:
+
+What is the difference between Issue management and Project management?
+
+中文解析:
+
+Issue 管理回答"存在哪些工作"——工作单元。Project 管理回答"工作现在在哪"——每个单元在流水线中的阶段。
+
+Standard Answer:
+
+Issue management answers "what work exists?" — the units of work. Project management answers
+"where is the work now?" — the stage of each unit in the pipeline.
+
+Interview Review:
+
+Strong answers frame Issue as the unit and Project as the flow.
+
+Production Case:
+
+Standup becomes "what is stuck in Review?" because the board shows every Issue's column.
+
+### 2. Explain ownership vs blame.
+
+Question:
+
+Explain ownership vs blame.
+
+中文解析:
+
+Ownership 是指某人负责把一项工作推进到完成；blame 是出问题后追究过错。分配 ownership 让工作前进；把它当成 blame 会让人不敢承担。
+
+Standard Answer:
+
+Ownership means someone is responsible for driving a piece of work to done. Blame is about fault
+after something breaks. Assigning ownership makes work move; treating it as blame discourages
+people from taking it.
+
+Interview Review:
+
+Good answers connect ownership to healthy team culture.
+
+Production Case:
+
+An owner drives the rate-limit Issue to done; the team treats a resulting incident as a system
+fix, not a personal fault.
+
+### 3. Explain the full Idea-to-Release workflow.
+
+Question:
+
+Trace the workflow from an idea to a release.
+
+中文解析:
+
+Idea → Issue（追踪工作）→ Project（放上看板）→ Feature Branch → Commit → Pull Request → CI → Review → Merge → Deploy → Release，把 Day15-Day19 连成一条流水线。
+
+Standard Answer:
+
+An idea becomes an Issue, is placed on the Project board, becomes a feature branch, is committed,
+opened as a Pull Request, validated by CI, reviewed, merged, deployed, and released. Work
+management and code management are one continuous pipeline.
+
+Interview Review:
+
+Senior answers show that work and code management are one pipeline, not separate tools.
+
+Production Case:
+
+"Add /agent endpoint" flows from an MVP Issue through the board, branch, PR, review, and merge to
+deploy, then the Issue closes.

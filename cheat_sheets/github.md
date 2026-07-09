@@ -146,6 +146,49 @@ Code review is knowledge sharing, not just approval.
 
 ---
 
+## Day19 GitHub Project Management
+
+Core idea:
+
+```text
+Manage work, not only code. If work isn't tracked, it doesn't exist.
+```
+
+Hierarchy of concerns:
+
+```text
+Issue     = Work        (the unit of work)
+Label     = Metadata    (structured description)
+Milestone = Goal        (a delivery target of many Issues)
+Project   = Workflow    (where the work is in the pipeline)
+```
+
+| Layer | Answers | Notes |
+|-------|---------|-------|
+| Issue | What work exists? | Work item: collaboration, tracking, prioritization, ownership |
+| Label | What kind? | Metadata for retrieval, workflow, automation |
+| Milestone | Toward what goal? | Delivery target (e.g., AI Backend MVP) |
+| Project | Where is it now? | Workflow board: Backlog -> In Progress -> Review -> Done |
+
+Key distinctions:
+
+```text
+Ownership != Blame     (responsible to deliver, not at fault).
+Issue answers "What work exists?"
+Project answers "Where is the work now?"
+```
+
+Label is like: database index, metadata, RAG filter, vector-search filter, Kubernetes label.
+
+Complete workflow (Day15-Day19):
+
+```text
+Idea -> Issue -> Label -> Milestone -> Project -> Branch -> Commit -> Pull Request
+     -> CI -> Review -> Merge -> Deploy -> Release
+```
+
+---
+
 ## Interview Phrases
 
 - "main is shared, releasable state, so every change goes through a Pull Request."
@@ -160,3 +203,9 @@ Code review is knowledge sharing, not just approval.
 - "Senior review targets architecture, performance, security, and maintainability, not formatting."
 - "Review the code, not the coder: specific, kind, and constructive."
 - "Code review improves the code, the developer, and the team."
+- "Teams manage work, not only code; if work isn't tracked, it doesn't exist."
+- "An Issue is a work item, not just a bug report."
+- "Ownership means responsibility to deliver, not blame."
+- "A Label is structured metadata for retrieval, workflow, and automation."
+- "A Milestone is a delivery goal made of many Issues."
+- "A Project manages workflow: Issue answers what work exists, Project answers where it is."
