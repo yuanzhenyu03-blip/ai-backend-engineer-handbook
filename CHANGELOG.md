@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.24 — Day16 Git Branch & Merge Documentation
+
+Date: 2026-07-09
+
+### Added
+
+- Added `docs/git/day16-branch-and-merge.md`.
+- Added Day16 Branch & Merge review material to `cheat_sheets/git.md`.
+- Added Day16 Branch & Merge interview questions to `interview/git.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to add Day16 and mark it completed under Phase 2.
+- Updated `PROJECT_STATUS.md` to mark Day16 completed.
+- Updated `TASKS.md` with completed Day16 tasks and Day16 review.
+- Updated `CHANGELOG.md` with the Day16 repository update.
+
+### Notes
+
+- Day16 teaches branch and merge as the Git object model in motion, not command memorization: why branches exist, branch as a movable reference, instant branch creation, HEAD and current branch, fast-forward merge as reference movement, three-way merge with a two-parent merge commit, merge conflict as Git refusing to guess intent, and Git history as a Directed Acyclic Graph.
+- Preserved the classroom rhythm and student reasoning, including the production/feature/hotfix scenario, the "branch is not a copy" correction, the instant-branch derivation, the fast-forward discovery, and the key sentence "Git does not fail; Git refuses to guess business intent."
+- Included the required diagrams (branch as reference, HEAD/current branch before and after commit, fast-forward, two-parent three-way merge, merge conflict, DAG).
+- Connected branch and merge to FastAPI feature branches, Playwright test branches, AI backend prompt and agent workflow branches, and Docker changes.
+- Deliberately excluded Day17+ topics: GitHub, pull requests, code review, GitHub Flow, rebase, and cherry-pick.
+- No `exercises/` directory exists, so Day16 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.23 — Day15 Revision
 
 Date: 2026-07-09

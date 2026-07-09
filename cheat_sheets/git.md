@@ -144,6 +144,64 @@ Use cases:
 
 ---
 
+## Day16 Branch & Merge
+
+Core idea:
+
+```text
+Branch and Merge are the Git object model in motion.
+```
+
+| Concept | Meaning |
+|---------|---------|
+| Branch | A movable reference to a commit, not a copy |
+| HEAD | The current branch reference |
+| Branch creation | Instant: a new reference, not a new project |
+| Commit on a branch | Moves only the current branch; others stay put |
+| Fast-forward merge | Move the reference forward (no merge commit) |
+| Three-way merge | New merge commit with two parents |
+| Merge conflict | Git refuses to guess business intent |
+| Git history | A Directed Acyclic Graph (DAG) |
+
+Branch as reference:
+
+```text
+main
+  |
+  v
+Commit3
+  ^
+  |
+feature
+```
+
+Fast-forward vs three-way:
+
+```text
+main not diverged  -> fast-forward (move reference)
+both diverged      -> merge commit with two parents
+```
+
+Three-way merge:
+
+```text
+        MergeCommit
+        /         \
+   CommitA       CommitB
+```
+
+Merge conflict:
+
+```text
+main:    return "A"
+feature: return "B"
+Git cannot know the intended behavior, so it asks a human.
+```
+
+Python link: a branch is a name; committing rebinds the name forward, like `a = new_obj`.
+
+---
+
 ## Production Warnings
 
 - Do not run `git add .` blindly; stage only what you intend to commit.
@@ -163,3 +221,9 @@ Use cases:
 - "The three-tree model explains every command as movement between Working Directory, Index, and Repository."
 - "`reset --soft` moves the reference, `--mixed` also resets the Index, `--hard` also resets the Working Directory."
 - "`git reflog` is my recovery net for mistaken HEAD movements."
+- "A branch is a movable reference to a commit, not a copy, so branch creation is instant."
+- "HEAD points to the current branch; a commit moves only that branch."
+- "Fast-forward merge just moves a reference forward when history has not diverged."
+- "A three-way merge creates a merge commit with two parents to preserve both histories."
+- "A merge conflict is Git refusing to guess business intent, not a Git failure."
+- "Git history is a Directed Acyclic Graph: commits point to parents, with no cycles."

@@ -359,7 +359,20 @@ Released Lesson:
 
 ---
 
-### Day16 and beyond
+### Day16
+
+Topic:
+Git Branch & Merge
+
+Status:
+✅ Completed
+
+Released Lesson:
+`docs/git/day16-branch-and-merge.md`
+
+---
+
+### Day17 and beyond
 
 Status:
 Planned

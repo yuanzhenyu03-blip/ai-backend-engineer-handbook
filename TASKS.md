@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day15 — Git Fundamentals (Phase 2 started)
+Day16 — Git Branch & Merge
 
 Status:
 Completed
@@ -24,17 +24,67 @@ Completed
 Target lesson:
 
 ```text
-docs/git/day15-git-fundamentals.md
+docs/git/day16-branch-and-merge.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day15 Git Fundamentals classroom learning.
-- [x] Run the snapshot, staging, reset, and reflog experiments.
-- [x] Connect Git to FastAPI, Playwright, and AI backend work.
+- [x] Complete Day16 Git Branch & Merge classroom learning.
+- [x] Run the two-branch, fast-forward, three-way, and conflict experiments.
+- [x] Connect branch and merge to FastAPI, Playwright, AI backend, and Docker work.
 - [ ] Prepare for the next Phase 2 lesson (Git collaboration, Linux, Docker).
+
+---
+
+## Completed Day16 Tasks
+
+- [x] Complete Day16 Git Branch & Merge classroom learning.
+- [x] Generate Day16 handbook lesson.
+- [x] Derive why branches exist from the production/feature/hotfix scenario.
+- [x] Add branch as a movable reference (not a copy) with the reference diagram.
+- [x] Add why branch creation is instant.
+- [x] Add HEAD and current branch with before/after commit diagrams.
+- [x] Add fast-forward merge as reference movement.
+- [x] Add three-way merge with a two-parent merge commit diagram.
+- [x] Add merge conflict: Git refuses to guess business intent.
+- [x] Add Git history as a Directed Acyclic Graph.
+- [x] Add FastAPI, Playwright, AI backend, agent, and Docker connections.
+- [x] Add classroom exercises and interview review.
+- [x] Keep Day17 topics (GitHub, PR, rebase, cherry-pick) out of scope.
+
+---
+
+## Completed Day16 Repository Tasks
+
+- [x] Add `docs/git/day16-branch-and-merge.md`.
+- [x] Update `cheat_sheets/git.md`.
+- [x] Update `interview/git.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day16 Interview Tasks
+
+- [x] Add beginner branch-weight question.
+- [x] Add intermediate fast-forward and three-way merge questions.
+- [x] Add senior conflict, auto-choice, and DAG questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day16 Homework
+
+- [x] Complete two-branches-one-commit exercise.
+- [x] Complete fast-forward merge exercise.
+- [x] Complete three-way merge exercise.
+- [x] Complete merge conflict create-and-resolve exercise.
 
 ---
 
@@ -977,10 +1027,21 @@ None.
 - [ ] Explain which reset mode can lose uncommitted work.
 - [ ] Recover a mistaken reset with reflog.
 
+### Day16 Review
+
+- [ ] Explain the engineering problem branches solve.
+- [ ] Explain why a branch is a movable reference, not a copy.
+- [ ] Explain why branch creation is instant.
+- [ ] Explain HEAD and what moves on commit.
+- [ ] Explain fast-forward merge.
+- [ ] Explain three-way merge and the two-parent merge commit.
+- [ ] Explain why merge conflicts happen and why Git refuses to guess.
+- [ ] Explain Git history as a DAG.
+
 ### Next Phase 2 Lesson Preparation
 
-- [ ] Review Git branching and collaboration basics.
-- [ ] Prepare questions about remotes, merge, and pull requests.
+- [x] Review Git branching basics.
+- [ ] Prepare questions about remotes and collaboration (Day17+).
 - [ ] Review Linux command-line fundamentals.
 - [ ] Prepare Docker learning goals for later lessons.
 
@@ -1039,3 +1100,4 @@ Purpose:
 - [x] Complete Day14 — Mini Project & Backend Architecture.
 - [x] Complete Phase 1 — Python Foundations.
 - [x] Complete Day15 — Git Fundamentals (Phase 2 started).
+- [x] Complete Day16 — Git Branch & Merge.

@@ -385,3 +385,148 @@ Production Case:
 
 Understanding this makes rollback, diffing, and branching intuitive across FastAPI, Playwright,
 Docker, and prompt files.
+
+---
+
+# Day16 Git Branch & Merge Questions
+
+These questions come from the Day16 Git Branch & Merge lesson. They treat branch and merge as
+the Git object model in motion.
+
+## Beginner
+
+### 1. Why are Git branches lightweight?
+
+Question:
+
+Why are Git branches lightweight?
+
+中文解析:
+
+分支只是指向某个 commit 的可移动引用，本质上是一个存着 commit 哈希的小文件。创建分支不复制项目，所以无论仓库多大都几乎是瞬间完成。
+
+Standard Answer:
+
+A branch is a movable reference to a commit — essentially a small file holding a commit hash.
+Creating one does not copy the project, so branch creation is nearly instant regardless of
+repository size.
+
+Follow-up Question:
+
+In object-model terms, what does `git branch` create?
+
+## Intermediate
+
+### 1. Explain fast-forward merge.
+
+Question:
+
+Explain fast-forward merge.
+
+中文解析:
+
+如果目标分支没有分叉，合并只是把它的引用向前移动到另一个分支的 commit，不创建 merge commit，历史保持线性。
+
+Standard Answer:
+
+If the target branch has not diverged, merging only moves its reference forward to the other
+branch's commit. No merge commit is created, and history stays linear.
+
+Follow-up Question:
+
+When is a fast-forward not possible?
+
+### 2. Explain three-way merge.
+
+Question:
+
+Explain three-way merge.
+
+中文解析:
+
+当两个分支都有新 commit 时，Git 创建一个有两个父提交的 merge commit，父提交分别是两个分支的末端，从而整合分叉的历史而不重写任何一方。
+
+Standard Answer:
+
+When both branches have new commits, Git creates a merge commit with two parents — the tips of
+both branches — integrating the diverged histories without rewriting either side.
+
+Follow-up Question:
+
+Why can Git not just move one pointer here?
+
+## Senior
+
+### 1. Why does a merge conflict happen?
+
+Question:
+
+Why does a merge conflict happen?
+
+中文解析:
+
+当两个分支以不兼容的方式改动了同一处内容（比如同一个函数的同一行），Git 无法判断哪一个改动才是想要的行为。
+
+Standard Answer:
+
+A conflict happens when two branches change the same content in incompatible ways, such as the
+same line of the same function. Git cannot determine which change reflects the intended
+behavior.
+
+Interview Review:
+
+Strong answers frame conflicts as semantic ambiguity, not tooling failure.
+
+Production Case:
+
+Two engineers edit the same prompt line differently; Git surfaces a conflict instead of
+silently shipping the wrong prompt.
+
+### 2. Why doesn't Git automatically choose one version?
+
+Question:
+
+Why doesn't Git automatically choose one version in a conflict?
+
+中文解析:
+
+因为自动选择可能悄悄发布错误的业务逻辑。Git 拒绝猜测意图，所以停下来让人来解决语义歧义。
+
+Standard Answer:
+
+Because choosing could silently ship the wrong business logic. Git refuses to guess intent, so
+it stops and asks a human to resolve the semantic ambiguity.
+
+Interview Review:
+
+The key sentence: Git does not fail; it refuses to guess business intent.
+
+Production Case:
+
+`return "A"` versus `return "B"` in the same handler must be resolved by a human who knows the
+correct behavior.
+
+### 3. Explain Git as a DAG.
+
+Question:
+
+Explain Git history as a DAG.
+
+中文解析:
+
+Git 历史是有向无环图：每个 commit 指向其父提交，边只向后所以没有环，分支和合并让历史成为图而不是直线。
+
+Standard Answer:
+
+Git history is a Directed Acyclic Graph: each commit points to its parent or parents, edges
+only point backward so there are no cycles, and branching and merging make the history a graph
+rather than a straight line.
+
+Interview Review:
+
+Good answers connect immutability (no rewrite) to acyclicity (no cycles).
+
+Production Case:
+
+Tracing a regression means walking the DAG backward through parents to find the commit that
+changed a route, prompt, or Dockerfile.

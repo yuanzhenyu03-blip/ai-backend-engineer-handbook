@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day15 — Git Fundamentals (Phase 2 started)
+Day16 — Git Branch & Merge
 
 Status:
 Completed
@@ -38,6 +38,7 @@ Completed Time:
 - ✅ Day13 — Async Programming
 - ✅ Day14 — Mini Project & Backend Architecture
 - ✅ Day15 — Git Fundamentals
+- ✅ Day16 — Git Branch & Merge
 
 ---
 
@@ -49,21 +50,20 @@ None.
 
 ## Last Completed Lesson
 
-Day15 — Git Fundamentals
+Day16 — Git Branch & Merge
 
 Completed Time:
 2026-07-09
 
 Completed Work:
 
-- Day15 classroom learning
-- Day15 lesson document
-- Day15 hands-on git experiments
-- Day15 exercises
-- Day15 git cheat sheet (new)
-- Day15 git interview notes update
-- Day15 repository status update
-- Day15 revision: Python-to-Git object model derivation, Git Object diagram, reflog derivation chain, cheat sheet Mental Model Summary
+- Day16 classroom learning
+- Day16 lesson document
+- Day16 branch and merge experiments
+- Day16 exercises
+- Day16 git cheat sheet update
+- Day16 git interview notes update
+- Day16 repository status update
 
 ---
 
@@ -95,6 +95,7 @@ Completed Python Foundations:
 - Day13 — Async programming, event loop, coroutine vs task, `await`, `gather()`, cancellation, exception propagation, semaphore, stable throughput
 - Day14 — Mini project and backend architecture, layered design, thin router, service layer, browser/LLM/repository layers, dependency injection, stateless services, worker throughput
 - Day15 — Git fundamentals, snapshot vs diff, immutable commits, repository vs working directory, staging area, three-tree model, HEAD/branch, detached HEAD, reset modes, reflog
+- Day16 — Git branch and merge, branch as movable reference, instant branch creation, HEAD/current branch, fast-forward merge, three-way merge, merge conflict, Git as a DAG
 
 ---
 
@@ -228,6 +229,15 @@ Completed Python Foundations:
 - Explain `git reset --soft`, `--mixed`, and `--hard` using the three trees.
 - Recover a mistaken reset with `git reflog`.
 - Connect Git to FastAPI rollback, Playwright test history, and AI prompt versioning.
+- Explain why branches exist from the engineering problem they solve.
+- Explain that a branch is a movable reference, not a copy.
+- Explain why branch creation is nearly instant.
+- Explain HEAD and how only the current branch moves on commit.
+- Explain fast-forward merge as reference movement.
+- Explain three-way merge and why a merge commit has two parents.
+- Explain why merge conflicts happen and why Git refuses to guess intent.
+- Explain Git history as a Directed Acyclic Graph.
+- Connect branching to FastAPI, Playwright, AI backend, agent, and Docker work.
 
 ---
 
@@ -352,6 +362,10 @@ Completed Python Foundations:
 - Staging area experiment
 - Reset mode experiment
 - Reflog recovery experiment
+- Two-branches-one-commit experiment
+- Fast-forward merge experiment
+- Three-way merge experiment
+- Merge conflict create-and-resolve experiment
 
 ---
 
