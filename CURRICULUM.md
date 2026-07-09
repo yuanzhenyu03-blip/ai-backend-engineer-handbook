@@ -342,8 +342,27 @@ Released Lesson:
 
 All Day01–Day14 Python foundation lessons are completed.
 
-Next Phase:
-Phase 2 — Engineering Foundations (Git, Linux, Docker)
+---
+
+## Phase 2 — Engineering Foundations
+
+### Day15
+
+Topic:
+Git Fundamentals
+
+Status:
+✅ Completed
+
+Released Lesson:
+`docs/git/day15-git-fundamentals.md`
+
+---
+
+### Day16 and beyond
+
+Status:
+Planned
 
 Follow `ROADMAP.md` for the official learning order.
 

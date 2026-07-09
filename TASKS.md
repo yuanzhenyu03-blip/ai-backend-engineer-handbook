@@ -16,28 +16,77 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Phase 1 complete — Day14 finished.
-
-Next:
-Phase 2 — Engineering Foundations (Git, Linux, Docker)
+Day15 — Git Fundamentals (Phase 2 started)
 
 Status:
-Not started
+Completed
 
-Last lesson:
+Target lesson:
 
 ```text
-docs/python/day14-mini-project.md
+docs/git/day15-git-fundamentals.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Begin Phase 2 preparation (Git, Linux, Docker).
-- [ ] Review the Day14 layered architecture before applying it in projects.
-- [ ] Plan the Phase 1 mini project repository structure.
-- [ ] Schedule a full mock interview across Day01-Day14 topics.
+- [x] Complete Day15 Git Fundamentals classroom learning.
+- [x] Run the snapshot, staging, reset, and reflog experiments.
+- [x] Connect Git to FastAPI, Playwright, and AI backend work.
+- [ ] Prepare for the next Phase 2 lesson (Git collaboration, Linux, Docker).
+
+---
+
+## Completed Day15 Tasks
+
+- [x] Complete Day15 Git Fundamentals classroom learning.
+- [x] Generate Day15 handbook lesson.
+- [x] Add Phase 2 context: Git as project history management.
+- [x] Add snapshot vs diff with reused references.
+- [x] Add commit as an immutable snapshot object.
+- [x] Add repository vs working directory vs commit.
+- [x] Add staging area / index as the next commit blueprint.
+- [x] Add the three-tree model and commands as tree movement.
+- [x] Add HEAD and branch as references with before/after diagrams.
+- [x] Add detached HEAD reasoning and interview answer.
+- [x] Add `git reset` soft/mixed/hard table and use cases.
+- [x] Add `git reflog` recovery workflow.
+- [x] Add FastAPI, Playwright, and AI backend connections.
+- [x] Add classroom exercises and interview review.
+
+---
+
+## Completed Day15 Repository Tasks
+
+- [x] Add `docs/git/day15-git-fundamentals.md`.
+- [x] Add `cheat_sheets/git.md`.
+- [x] Update `interview/git.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day15 Interview Tasks
+
+- [x] Add beginner Git questions.
+- [x] Add intermediate three-tree and detached HEAD questions.
+- [x] Add senior immutability, reset, reflog, and rollback questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day15 Homework
+
+- [x] Complete Python reference review exercise.
+- [x] Complete Git snapshot checkout experiment.
+- [x] Complete staging area experiment.
+- [x] Complete reset mode experiment.
+- [x] Complete reflog recovery experiment.
 
 ---
 
@@ -899,10 +948,30 @@ None.
 
 ### Phase 2 Preparation (Git, Linux, Docker)
 
-- [ ] Review Git basics and workflow.
+- [x] Review Git basics and workflow.
 - [ ] Review Linux command-line fundamentals.
 - [ ] Prepare Docker and Docker Compose learning goals.
 - [ ] Plan how the mini project will be containerized.
+
+### Day15 Review
+
+- [ ] Explain why Git uses snapshots, not pure diffs.
+- [ ] Explain why commits are immutable.
+- [ ] Explain repository vs working directory.
+- [ ] Explain why commit builds from the Index.
+- [ ] Draw the three-tree model from memory.
+- [ ] Explain HEAD vs branch.
+- [ ] Explain detached HEAD.
+- [ ] Fill in the reset soft/mixed/hard table.
+- [ ] Explain which reset mode can lose uncommitted work.
+- [ ] Recover a mistaken reset with reflog.
+
+### Next Phase 2 Lesson Preparation
+
+- [ ] Review Git branching and collaboration basics.
+- [ ] Prepare questions about remotes, merge, and pull requests.
+- [ ] Review Linux command-line fundamentals.
+- [ ] Prepare Docker learning goals for later lessons.
 
 ### Future Knowledge Base TODO
 
@@ -958,3 +1027,4 @@ Purpose:
 - [x] Complete Day13 — Async Programming.
 - [x] Complete Day14 — Mini Project & Backend Architecture.
 - [x] Complete Phase 1 — Python Foundations.
+- [x] Complete Day15 — Git Fundamentals (Phase 2 started).

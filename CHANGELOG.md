@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.22 — Day15 Git Fundamentals Documentation
+
+Date: 2026-07-09
+
+### Added
+
+- Added `docs/git/day15-git-fundamentals.md` (starts Phase 2 — Engineering Foundations).
+- Added `cheat_sheets/git.md` (new Git cheat sheet).
+- Added Day15 Git Fundamentals interview questions to `interview/git.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to add Phase 2 and mark Day15 as completed.
+- Updated `PROJECT_STATUS.md` to start Phase 2 and mark Day15 completed.
+- Updated `TASKS.md` with completed Day15 tasks and next Phase 2 preparation.
+- Updated `CHANGELOG.md` with the Day15 repository update.
+
+### Notes
+
+- Day15 teaches Git as an engineering system, not command memorization: object model, snapshot vs diff, immutable commits, repository vs working directory, staging area, the three-tree model, HEAD and branch, detached HEAD, reset modes, and reflog.
+- Preserved the classroom rhythm and student reasoning, including the IDE-history correction, the snapshot-vs-diff discovery, the immutable-snapshot answer, the staging-area v1/v2 question, the detached HEAD insight, and the reset/reflog corrections.
+- Included the required ASCII diagrams (snapshot reuse, working directory to repository flow, HEAD/branch before and after commit, detached HEAD, three-tree model) and the reset soft/mixed/hard table.
+- Connected Git to FastAPI rollback and diffing, Playwright locator/test history, and AI backend prompt and configuration versioning.
+- Marked Phase 2 as started; did not mark Day16 or later as started.
+- No `exercises/` directory exists, so Day15 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`.
+- Did not modify `TRAINING_WORKFLOW.md`.
+- Did not modify `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.21 — Day14 Review Fix
 
 Date: 2026-07-08

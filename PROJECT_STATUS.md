@@ -2,22 +2,22 @@
 
 ## Current Phase
 
-Phase 1 — Python Foundations (Complete)
+Phase 2 — Engineering Foundations (Started)
 
-Next Phase:
-Phase 2 — Engineering Foundations (Git, Linux, Docker)
+Previous Phase:
+Phase 1 — Python Foundations (Complete)
 
 ---
 
 ## Current Lesson
 
-Phase 1 complete — Day14 finished.
-
-Next:
-Phase 2 — Engineering Foundations (Git, Linux, Docker)
+Day15 — Git Fundamentals (Phase 2 started)
 
 Status:
-Not started
+Completed
+
+Completed Time:
+2026-07-09
 
 ---
 
@@ -37,6 +37,7 @@ Not started
 - ✅ Day12 — Context Managers
 - ✅ Day13 — Async Programming
 - ✅ Day14 — Mini Project & Backend Architecture
+- ✅ Day15 — Git Fundamentals
 
 ---
 
@@ -48,26 +49,26 @@ None.
 
 ## Last Completed Lesson
 
-Day14 — Mini Project & Backend Architecture
+Day15 — Git Fundamentals
 
 Completed Time:
-2026-07-08
+2026-07-09
 
 Completed Work:
 
-- Day14 classroom learning
-- Day14 lesson document
-- Day14 architecture design and mock interview
-- Day14 exercises
-- Day14 python and fastapi cheat sheet update
-- Day14 python and fastapi interview notes update
-- Day14 repository status update
+- Day15 classroom learning
+- Day15 lesson document
+- Day15 hands-on git experiments
+- Day15 exercises
+- Day15 git cheat sheet (new)
+- Day15 git interview notes update
+- Day15 repository status update
 
 ---
 
 ## Next
 
-- Phase 2 — Engineering Foundations (Git, Linux, Docker)
+- Phase 2 continues — Git collaboration, Linux, Docker
 
 Status:
 Not started
@@ -92,6 +93,7 @@ Completed Python Foundations:
 - Day12 — Context managers, resource lifecycle, `with`, `try / finally`, `__enter__`, `__exit__`, `@contextmanager`, deterministic cleanup
 - Day13 — Async programming, event loop, coroutine vs task, `await`, `gather()`, cancellation, exception propagation, semaphore, stable throughput
 - Day14 — Mini project and backend architecture, layered design, thin router, service layer, browser/LLM/repository layers, dependency injection, stateless services, worker throughput
+- Day15 — Git fundamentals, snapshot vs diff, immutable commits, repository vs working directory, staging area, three-tree model, HEAD/branch, detached HEAD, reset modes, reflog
 
 ---
 
@@ -215,6 +217,16 @@ Completed Python Foundations:
 - Apply Semaphore, retry, and exponential backoff for downstream limits.
 - Design a task-status pattern for long-running jobs.
 - Answer backend architecture interview questions with engineering reasoning and trade-offs.
+- Explain Git as a project history management system, not a backup tool.
+- Explain why Git's core model is a snapshot, not a pure diff.
+- Explain why a commit is an immutable snapshot object.
+- Distinguish the Repository, Working Directory, and a commit.
+- Explain the Staging Area as the blueprint of the next commit.
+- Explain the three-tree model and describe commands as tree movement.
+- Explain HEAD, branch, and detached HEAD as references.
+- Explain `git reset --soft`, `--mixed`, and `--hard` using the three trees.
+- Recover a mistaken reset with `git reflog`.
+- Connect Git to FastAPI rollback, Playwright test history, and AI prompt versioning.
 
 ---
 
@@ -334,6 +346,11 @@ Completed Python Foundations:
 - Worker architecture exercise
 - System design exercise
 - Architecture mock interview exercise
+- Python reference review exercise (Git connection)
+- Git snapshot checkout experiment
+- Staging area experiment
+- Reset mode experiment
+- Reflog recovery experiment
 
 ---
 
