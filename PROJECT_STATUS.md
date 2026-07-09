@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day17 — GitHub Workflow & Collaboration
+Day18 — Merge Strategy & Code Review
 
 Status:
 Completed
@@ -40,6 +40,7 @@ Completed Time:
 - ✅ Day15 — Git Fundamentals
 - ✅ Day16 — Git Branch & Merge
 - ✅ Day17 — GitHub Workflow & Collaboration
+- ✅ Day18 — Merge Strategy & Code Review
 
 ---
 
@@ -51,20 +52,19 @@ None.
 
 ## Last Completed Lesson
 
-Day17 — GitHub Workflow & Collaboration
+Day18 — Merge Strategy & Code Review
 
 Completed Time:
 2026-07-09
 
 Completed Work:
 
-- Day17 classroom learning
-- Day17 lesson document
-- Day17 pull request workflow experiments
-- Day17 exercises
-- Day17 github cheat sheet (new)
-- Day17 github interview notes (new)
-- Day17 repository status update
+- Day18 classroom learning
+- Day18 lesson document
+- Day18 merge strategy and review exercises
+- Day18 github cheat sheet update
+- Day18 github interview notes update
+- Day18 repository status update
 
 ---
 
@@ -98,6 +98,7 @@ Completed Python Foundations:
 - Day15 — Git fundamentals, snapshot vs diff, immutable commits, repository vs working directory, staging area, three-tree model, HEAD/branch, detached HEAD, reset modes, reflog
 - Day16 — Git branch and merge, branch as movable reference, instant branch creation, HEAD/current branch, fast-forward merge, three-way merge, merge conflict, Git as a DAG
 - Day17 — GitHub workflow, protected main, pull requests, CI vs code review, branch protection, stale review, review discussion as knowledge
+- Day18 — Merge strategy and code review, history for humans, development vs product history, merge commit / squash / rebase, senior review focus, review the code not the coder
 
 ---
 
@@ -247,6 +248,13 @@ Completed Python Foundations:
 - Explain why a review goes stale after `main` changes.
 - Explain why review discussions are preserved as engineering knowledge.
 - Connect the GitHub workflow to FastAPI, Playwright, AI backend, prompt, and Docker work.
+- Explain why Git history is designed for humans.
+- Distinguish development history from product history.
+- Explain merge commit, squash merge, and rebase merge, and when to use each.
+- Explain what senior engineers review: architecture, performance, security, maintainability.
+- Explain "review the code, not the coder."
+- Explain the three goals of review: improve the code, the developer, and the team.
+- Connect merge strategy and review to FastAPI, Playwright, AI backend, prompt, and Docker work.
 
 ---
 
@@ -381,6 +389,10 @@ Completed Python Foundations:
 - Approve exercise
 - Simulate stale review exercise
 - Merge pull request exercise
+- Merge commit vs squash merge comparison exercise
+- Merge strategy selection exercise
+- FastAPI endpoint review exercise
+- Rewrite a poor review comment exercise
 
 ---
 

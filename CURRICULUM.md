@@ -385,7 +385,20 @@ Released Lesson:
 
 ---
 
-### Day18 and beyond
+### Day18
+
+Topic:
+Merge Strategy & Code Review
+
+Status:
+✅ Completed
+
+Released Lesson:
+`docs/git/day18-merge-strategy-and-code-review.md`
+
+---
+
+### Day19 and beyond
 
 Status:
 Planned

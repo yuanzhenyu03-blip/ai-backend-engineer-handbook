@@ -173,3 +173,167 @@ Production Case:
 
 A prompt-v2 PR runs an eval in CI, a human confirms quality improved, protection blocks merge
 until approval, and the thread records the regression it fixed.
+
+---
+
+# Day18 Merge Strategy & Code Review Questions
+
+These questions come from the Day18 Merge Strategy & Code Review lesson. They focus on why
+merge strategies and review practices exist.
+
+## Beginner
+
+### 1. Why is Git history important?
+
+Question:
+
+Why is Git history important?
+
+中文解析:
+
+历史是给人看的。未来的工程师通过历史理解决策、排查回归。可读的历史让这件事很快，嘈杂的历史则浪费时间。机器只需要父指针。
+
+Standard Answer:
+
+Because history is for humans: future engineers read it to understand decisions and debug
+regressions. A readable history makes that fast; a noisy one wastes time. The machine only needs
+the parent pointers.
+
+Follow-up Question:
+
+Who is the readable part of history actually for?
+
+### 2. Development history vs product history.
+
+Question:
+
+What is the difference between development history and product history?
+
+中文解析:
+
+开发历史是功能分支上真实、嘈杂的过程（wip、fix）。产品历史是 main 上干净、有意义的记录（"新增 /agent 接口"）。分支是工作间，main 是展厅。
+
+Standard Answer:
+
+Development history is the real, noisy process on a feature branch (wip, fix). Product history is
+the clean, meaningful record on `main` ("Add /agent endpoint"). The branch is the workshop; main
+is the showroom.
+
+Follow-up Question:
+
+Which merge strategy turns development history into product history?
+
+## Intermediate
+
+### 1. Why does Git support multiple merge strategies?
+
+Question:
+
+Why does Git support multiple merge strategies?
+
+中文解析:
+
+因为不同分支需要不同的历史形状：有的要保留每个提交，有的要把噪声压成一个产品提交，有的要保持线性。策略是关于人读到什么样的历史。
+
+Standard Answer:
+
+Because different branches need different history shapes. Some changes should preserve every
+commit, some should collapse noise into one product commit, and some should stay linear. The
+strategy is a choice about what humans read in the history.
+
+Follow-up Question:
+
+Which strategy is most common for a noisy feature branch?
+
+### 2. Merge commit vs squash merge.
+
+Question:
+
+What is the difference between a merge commit and a squash merge?
+
+中文解析:
+
+merge commit 保留完整开发历史并加一个有两个父的合并点。squash 把多个提交压成一个有意义的产品提交，让 main 保持干净。
+
+Standard Answer:
+
+A merge commit preserves the full development history and adds a join with two parents. A squash
+merge compresses many commits into a single meaningful product commit, keeping `main` clean.
+
+Follow-up Question:
+
+When would you prefer to keep all the commits?
+
+## Senior
+
+### 1. When would you use a rebase merge?
+
+Question:
+
+When would you use a rebase merge?
+
+中文解析:
+
+当每个提交都有意义、且你想要没有合并提交的线性历史时。rebase 把提交重放到目标之上，会重写提交身份，所以用于整合分支，而不是已发布的共享历史。
+
+Standard Answer:
+
+When each commit is meaningful and you want a linear history with no merge commit. Rebase replays
+the commits on top of the target, so it rewrites commit identity and is used for integrating a
+branch, not for shared published history.
+
+Interview Review:
+
+Strong answers mention that rebase rewrites commit identity.
+
+Production Case:
+
+A few clean commits for a feature rebase onto main for a tidy linear log.
+
+### 2. What do senior reviewers focus on?
+
+Question:
+
+What do senior reviewers focus on?
+
+中文解析:
+
+架构、性能、安全、可维护性——机器无法判断的风险。格式和风格交给 linter。
+
+Standard Answer:
+
+Architecture, performance, security, and maintainability — the risks machines cannot judge.
+Formatting and style are left to linters.
+
+Interview Review:
+
+Good answers separate machine concerns (formatting) from human concerns (risk and design).
+
+Production Case:
+
+A reviewer catches a blocking DB call inside an async endpoint — a performance bug CI missed.
+
+### 3. Explain "review the code, not the coder."
+
+Question:
+
+Explain "review the code, not the coder."
+
+中文解析:
+
+好的评审针对代码，具体、友善、可执行，并给出方向；避免人身批评，这样评审保持高效，同时改进代码、开发者和团队。
+
+Standard Answer:
+
+Good review comments target the code, are specific and constructive, and propose a direction.
+They avoid personal criticism, so the review stays productive and improves the code, the
+developer, and the team.
+
+Interview Review:
+
+Strong answers connect this to the three goals: improve the code, the developer, and the team.
+
+Production Case:
+
+Rewriting "this is wrong" into "this returns 200 on an auth failure; should it be 401?" keeps the
+discussion specific and useful.

@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day17 — GitHub Workflow & Collaboration
+Day18 — Merge Strategy & Code Review
 
 Status:
 Completed
@@ -24,17 +24,67 @@ Completed
 Target lesson:
 
 ```text
-docs/git/day17-github-workflow.md
+docs/git/day18-merge-strategy-and-code-review.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day17 GitHub Workflow classroom learning.
-- [x] Practice the pull request lifecycle (open, CI, request changes, approve, stale, merge).
-- [x] Connect the workflow to FastAPI, Playwright, AI backend, prompt, and Docker work.
+- [x] Complete Day18 Merge Strategy & Code Review classroom learning.
+- [x] Compare merge commit, squash, and rebase and choose per feature.
+- [x] Practice senior code review and constructive comments.
 - [ ] Prepare for the next Phase 2 lesson (Linux, Docker).
+
+---
+
+## Completed Day18 Tasks
+
+- [x] Complete Day18 Merge Strategy & Code Review classroom learning.
+- [x] Generate Day18 handbook lesson.
+- [x] Explain that Git history is designed for humans.
+- [x] Explain development history vs product history.
+- [x] Explain merge commit (preserve full history).
+- [x] Explain squash merge (one product commit).
+- [x] Explain rebase merge (linear history, rewrites identity).
+- [x] Explain senior review focus: architecture, performance, security, maintainability.
+- [x] Explain review the code, not the coder.
+- [x] Explain the three review goals: improve code, developer, and team.
+- [x] Add FastAPI, Playwright, AI backend, prompt, and Docker connections.
+- [x] Add merge and review exercises and interview review.
+- [x] Keep Day19 topics out of scope.
+
+---
+
+## Completed Day18 Repository Tasks
+
+- [x] Add `docs/git/day18-merge-strategy-and-code-review.md`.
+- [x] Update `cheat_sheets/github.md`.
+- [x] Update `interview/github.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day18 Interview Tasks
+
+- [x] Add beginner history and development-vs-product questions.
+- [x] Add intermediate merge-strategy questions.
+- [x] Add senior rebase, senior-review-focus, and review-the-code questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day18 Homework
+
+- [x] Complete merge commit vs squash comparison exercise.
+- [x] Complete merge strategy selection exercise.
+- [x] Complete FastAPI endpoint review exercise.
+- [x] Complete rewrite-a-poor-review-comment exercise.
 
 ---
 
@@ -1098,10 +1148,20 @@ None.
 - [ ] Explain what a stale review is and why it happens.
 - [ ] Explain why review discussions are preserved.
 
+### Day18 Review
+
+- [ ] Explain why Git history is for humans.
+- [ ] Explain development history vs product history.
+- [ ] Explain merge commit, squash, and rebase and when to use each.
+- [ ] Explain what senior reviewers focus on.
+- [ ] Explain review the code, not the coder.
+- [ ] Explain the three goals of review.
+
 ### Next Phase 2 Lesson Preparation
 
 - [x] Review Git branching basics.
 - [x] Review remotes and collaboration workflow.
+- [x] Review merge strategies and code review.
 - [ ] Review Linux command-line fundamentals.
 - [ ] Prepare Docker learning goals for later lessons.
 
@@ -1162,3 +1222,4 @@ Purpose:
 - [x] Complete Day15 — Git Fundamentals (Phase 2 started).
 - [x] Complete Day16 — Git Branch & Merge.
 - [x] Complete Day17 — GitHub Workflow & Collaboration.
+- [x] Complete Day18 — Merge Strategy & Code Review.

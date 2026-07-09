@@ -91,6 +91,61 @@ An approval is a statement about a specific state.
 
 ---
 
+## Day18 Merge Strategy & Code Review
+
+Core idea:
+
+```text
+History is for humans; a good review improves the code, the developer, and the team.
+```
+
+History audiences:
+
+```text
+Machine -> needs parent pointers (the DAG).
+Humans  -> need a readable history to understand and debug.
+```
+
+Development vs product history:
+
+```text
+Feature branch = Development History (noisy, personal: wip, fix, wip).
+main           = Product History (clean, meaningful: "Add /agent endpoint").
+```
+
+Merge strategies:
+
+| Strategy | Result | Use when |
+|----------|--------|----------|
+| Merge Commit | Preserve full history + join (two parents) | Commits are meaningful; want an integration record |
+| Squash Merge | One meaningful product commit | Branch commits are noise; most common for features |
+| Rebase Merge | Preserve commits, linear history (rewrites identity) | Few clean commits; want a straight line |
+
+Senior review focus (not formatting):
+
+```text
+Architecture     -> fits layers and responsibilities?
+Performance      -> scales; no blocking calls / N+1 / unbounded concurrency?
+Security         -> auth, input validation, secrets, injection?
+Maintainability  -> can the next engineer change it safely?
+```
+
+Review the code, not the coder:
+
+```text
+Bad:  "You always ignore errors."
+Good: "This path can time out; should we handle it and return a clear error?"
+```
+
+Three goals of review:
+
+```text
+Improve the Code + Improve the Developer + Improve the Team.
+Code review is knowledge sharing, not just approval.
+```
+
+---
+
 ## Interview Phrases
 
 - "main is shared, releasable state, so every change goes through a Pull Request."
@@ -99,3 +154,9 @@ An approval is a statement about a specific state.
 - "Branch Protection makes the safe path the only path, even under pressure."
 - "A stale review is an approval for a state that changed, so it needs re-review."
 - "Review discussions are a permanent engineering knowledge base of why."
+- "Git history is for humans; the machine only needs the parent pointers."
+- "Feature branches hold development history; main holds clean product history."
+- "Merge commit preserves history; squash makes one product commit; rebase keeps commits linear."
+- "Senior review targets architecture, performance, security, and maintainability, not formatting."
+- "Review the code, not the coder: specific, kind, and constructive."
+- "Code review improves the code, the developer, and the team."

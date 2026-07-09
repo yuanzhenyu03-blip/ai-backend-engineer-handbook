@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.26 — Day18 Merge Strategy & Code Review Documentation
+
+Date: 2026-07-09
+
+### Added
+
+- Added `docs/git/day18-merge-strategy-and-code-review.md`.
+- Added Day18 merge strategy and code review material to `cheat_sheets/github.md`.
+- Added Day18 merge strategy and code review interview questions to `interview/github.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to add Day18 and mark it completed under Phase 2.
+- Updated `PROJECT_STATUS.md` to mark Day18 completed.
+- Updated `TASKS.md` with completed Day18 tasks and Day18 review.
+- Updated `CHANGELOG.md` with the Day18 repository update.
+
+### Notes
+
+- Day18 teaches merge strategy and code review as human-facing decisions: Git history is for humans, development history vs product history, merge commit (preserve history), squash merge (product history), rebase merge (linear history), senior review focus (architecture, performance, security, maintainability), "review the code, not the coder," and the three goals (improve the code, the developer, the team).
+- Preserved the classroom rhythm and student reasoning across every topic.
+- Connected merge strategy and review to FastAPI endpoints, Playwright tests, AI backend prompt and agent changes, and Docker changes.
+- Added exercises: compare merge commit vs squash, choose a merge strategy, review a FastAPI endpoint, and rewrite a poor review comment.
+- Deliberately excluded Day19 topics.
+- No `exercises/` directory exists, so Day18 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.25 — Day17 GitHub Workflow & Collaboration Documentation
 
 Date: 2026-07-09
