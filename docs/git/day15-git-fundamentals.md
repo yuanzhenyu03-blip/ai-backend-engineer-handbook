@@ -46,7 +46,7 @@ Tech Lead Question:
 
 If you had no Git, how would you recover code you broke yesterday?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -143,17 +143,18 @@ This is why Git is the first Phase 2 lesson.
 Today's Lesson
 
 1. Why Git Matters
-2. Snapshot vs Diff
-3. Commit as Immutable Snapshot
-4. Repository vs Working Directory vs Commit
-5. Staging Area / Index
-6. Three Trees Model
-7. HEAD and Branch
-8. Detached HEAD
-9. git reset (soft / mixed / hard)
-10. git reflog
-11. FastAPI, Playwright, and AI Backend Connections
-12. Interview Review
+2. From Python Object Model to Git Object Model
+3. Snapshot vs Diff
+4. Commit as Immutable Snapshot
+5. Repository vs Working Directory vs Commit
+6. Staging Area / Index
+7. Three Trees Model
+8. HEAD and Branch
+9. Detached HEAD
+10. git reset (soft / mixed / hard)
+11. git reflog
+12. FastAPI, Playwright, and AI Backend Connections
+13. Interview Review
 ```
 
 ---
@@ -173,13 +174,104 @@ Total: 5-6 hours
 
 # Main Concepts
 
-## Concept 1: Snapshot vs Diff
+## Concept 1: From Python Object Model to Git Object Model
+
+Tech Lead Question:
+
+Is Git brand-new knowledge, or have you already learned its core ideas in Python?
+
+Student Thinking:
+
+Maybe Git is a separate tool with its own commands to memorize.
+
+Student Answer:
+
+"It feels like a new tool with a lot of commands I have to remember."
+
+Tech Lead Review:
+
+Let's not memorize commands. Let's derive Git from what you already know.
+
+In Day01 and Day02 you learned Python's object model:
+
+```text
+Everything is an object.
+Names are references to objects.
+Identity distinguishes objects.
+Mutable vs immutable changes how sharing behaves.
+```
+
+Git is that same model applied to project history.
+
+Python to Git mapping:
+
+| Python | Git |
+|--------|-----|
+| Object | Commit (snapshot object) |
+| Reference (a name) | Branch |
+| The name currently in use | HEAD |
+| Object identity (`id`) | Commit hash |
+| Immutable object | Immutable commit |
+| Shared reference, no copy | Reused blobs and trees between commits |
+| Rebinding a name | Moving a branch or HEAD |
+
+Git Object diagram:
+
+```text
+HEAD
+  |
+  v
+Branch
+  |
+  v
+Commit
+  |
+  v
+Tree
+  |
+  v
+Blob
+```
+
+Read it as references between immutable objects:
+
+```text
+HEAD    -> points to a Branch
+Branch  -> points to a Commit
+Commit  -> points to a Tree (a directory snapshot)
+Tree    -> points to Blobs (file contents)
+```
+
+Every node is an immutable object identified by its hash. Every arrow is a reference, exactly
+like a Python name pointing to an object.
+
+Key derivation:
+
+```text
+Python Object Model
+      |
+      v
+Git Object Model
+(commits, trees, blobs = immutable objects; branches and HEAD = references)
+```
+
+Engineering conclusion:
+
+Git is not new knowledge. It is the Python object model applied to project history.
+
+Framework Connection:
+
+In an AI backend repository, this same object model versions your FastAPI routes, Playwright
+scripts, Dockerfiles, CI/CD config, and prompt files. Each commit is an immutable snapshot you
+can reference, diff, and roll back.
+
+## Concept 2: Snapshot vs Diff
 
 Tech Lead Question:
 
 When you commit, do you think Git stores only the changed lines?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -209,7 +301,7 @@ Tech Lead Question:
 
 If Git stored only diffs, what would happen when you check out a very old version?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -242,13 +334,13 @@ Immutable objects make sharing safe.
 
 Git reuses unchanged objects the same way Python reuses referenced objects.
 
-## Concept 2: Commit as Immutable Snapshot
+## Concept 3: Commit as Immutable Snapshot
 
 Tech Lead Question:
 
 Can Git edit an old commit in place?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -282,13 +374,13 @@ new one.
 Immutable snapshot -> stable history -> reliable rollback
 ```
 
-## Concept 3: Repository vs Working Directory vs Commit
+## Concept 4: Repository vs Working Directory vs Commit
 
 Tech Lead Question:
 
 What does a repository contain?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -336,13 +428,13 @@ Checkout switches the Working Directory to a snapshot.
 Checkout does not delete later commits.
 ```
 
-## Concept 4: Staging Area / Index
+## Concept 5: Staging Area / Index
 
 Tech Lead Question:
 
 Why does Git have a Staging Area at all? Why not commit the Working Directory directly?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -395,7 +487,7 @@ After committing, `git status` may still show api.py as modified,
 because the commit saved the staged v1 while the Working Directory has v2.
 ```
 
-## Concept 5: Three Trees Model
+## Concept 6: Three Trees Model
 
 Git works with three trees.
 
@@ -431,13 +523,13 @@ Engineering Thinking:
 Once you see the three trees, Git commands stop being magic. Each command just moves data
 between the Working Directory, the Index, and the Repository.
 
-## Concept 6: HEAD and Branch
+## Concept 7: HEAD and Branch
 
 Tech Lead Question:
 
 What is HEAD?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -517,7 +609,7 @@ a = obj2   # moves the reference; it does not mutate obj1
 A new commit moves `main` forward the way reassigning `a` moves the name — the old commit is
 not mutated.
 
-## Concept 7: Detached HEAD
+## Concept 8: Detached HEAD
 
 When you run:
 
@@ -556,13 +648,13 @@ Interview-quality English answer:
 I create a commit while in detached HEAD state, Git creates a new commit object, but no branch
 reference moves to it."
 
-## Concept 8: git reset
+## Concept 9: git reset
 
 Tech Lead Question:
 
 Is `git reset` magic that "undoes" things?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -603,13 +695,13 @@ git reset --hard can destroy uncommitted Working Directory changes. It is not re
 through reflog, because reflog tracks commits, not un-committed edits.
 ```
 
-## Concept 9: git reflog
+## Concept 10: git reflog
 
 Tech Lead Question:
 
 After `git reset --hard HEAD~1`, is the old commit gone forever?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 
@@ -628,6 +720,27 @@ reflog can help recover from a mistaken reset.
 Git records HEAD movement history.
 Dangling / unreachable commits are not always garbage-collected immediately.
 ```
+
+Derivation of why reflog can recover a commit:
+
+```text
+Commit                      (an immutable object, still stored)
+  |
+  v
+Reference removed           (the branch no longer points to it)
+  |
+  v
+Dangling / unreachable      (no branch reaches it via git log)
+  |
+  v
+HEAD History                (but Git recorded every HEAD movement)
+  |
+  v
+git reflog                  (find the old SHA and restore it)
+```
+
+Because the commit object is immutable and still in the object database, and because Git kept a
+history of where HEAD pointed, `git reflog` can find the SHA even when no branch references it.
 
 Recovery example:
 
@@ -674,7 +787,7 @@ Tech Lead Question:
 
 Why do professional teams care so much about commit quality?
 
-Think first.
+Student Thinking:
 
 Student Answer:
 

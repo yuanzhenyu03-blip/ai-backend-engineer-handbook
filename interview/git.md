@@ -358,3 +358,30 @@ Senior answers treat commit quality as an engineering asset.
 Production Case:
 
 Separating a prompt change from backend logic lets reviewers evaluate each independently.
+
+### 7. How does Git's object model relate to Python's object model?
+
+Question:
+
+How does Git's object model relate to Python's object model?
+
+中文解析:
+
+Git 是 Python 对象模型在项目历史层面的工程实践。Commit/Tree/Blob 是不可变对象，Branch 和 HEAD 是引用；就像 Python 里对象不可变、名字是引用、身份用 id 区分。commit hash 相当于对象身份，移动分支相当于重新绑定名字。
+
+Standard Answer:
+
+Git applies the Python object model to project history. Commits, trees, and blobs are immutable
+objects, and branches and HEAD are references, just like Python objects are values and names are
+references. A commit hash is like object identity, and moving a branch is like rebinding a name.
+Unchanged blobs and trees are shared between commits the same way Python shares references
+instead of copying.
+
+Interview Review:
+
+Strong answers show that Git is not new knowledge but the object model applied to history.
+
+Production Case:
+
+Understanding this makes rollback, diffing, and branching intuitive across FastAPI, Playwright,
+Docker, and prompt files.

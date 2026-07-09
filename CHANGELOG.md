@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.23 — Day15 Revision
+
+Date: 2026-07-09
+
+### Changed
+
+- Reframed `docs/git/day15-git-fundamentals.md` to derive the Git object model from the Python object model (Day01-Day02) instead of presenting Git commands.
+- Added a new first Main Concept "From Python Object Model to Git Object Model" with a Python-to-Git mapping table and the Git Object diagram (`HEAD -> Branch -> Commit -> Tree -> Blob`).
+- Added a reflog derivation chain (Commit -> reference removed -> dangling/unreachable -> HEAD history -> `git reflog`) so the recovery mechanism is derived, not just described.
+- Relabeled the classroom "Student Thinking" beats for a clearer Tech Lead Question -> Student Thinking -> Student Answer -> Tech Lead Review rhythm.
+- Updated the lesson map and renumbered the concepts to include the object-model derivation.
+- Added a `## Mental Model Summary` section to `cheat_sheets/git.md`.
+- Added a senior interview question linking Git's object model to Python's object model in `interview/git.md`.
+- Updated `PROJECT_STATUS.md` and `TASKS.md` to record the Day15 revision.
+
+### Notes
+
+- Preserved all classroom interaction, student reasoning, and derivations; did not convert the lesson into documentation.
+- Did not expand Day16 or later.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.22 — Day15 Git Fundamentals Documentation
 
 Date: 2026-07-09

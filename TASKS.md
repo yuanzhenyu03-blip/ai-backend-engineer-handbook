@@ -80,6 +80,17 @@ docs/git/day15-git-fundamentals.md
 
 ---
 
+## Completed Day15 Revision Tasks
+
+- [x] Add "From Python Object Model to Git Object Model" concept with the Git Object diagram (HEAD -> Branch -> Commit -> Tree -> Blob).
+- [x] Add the Python-to-Git mapping table.
+- [x] Add the reflog derivation chain (Commit -> Reference -> Dangling -> HEAD History -> reflog).
+- [x] Relabel the classroom Student Thinking beats.
+- [x] Add `## Mental Model Summary` to `cheat_sheets/git.md`.
+- [x] Add the Git-vs-Python object model interview question to `interview/git.md`.
+
+---
+
 ## Completed Day15 Homework
 
 - [x] Complete Python reference review exercise.

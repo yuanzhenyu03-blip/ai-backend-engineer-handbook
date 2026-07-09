@@ -18,6 +18,38 @@ Git records who changed what, when, why, and how to recover it.
 
 ---
 
+## Mental Model Summary
+
+Derived from the Python object model (Day01-Day02), for fast review later:
+
+```text
+Git                = Object Database
+Commit             = Immutable Snapshot
+Branch             = Movable Reference
+HEAD               = Current Reference
+Index              = Blueprint of Next Commit
+Working Directory  = Editable Files
+Repository         = Complete History
+```
+
+Object graph:
+
+```text
+HEAD -> Branch -> Commit -> Tree -> Blob
+```
+
+Python to Git:
+
+```text
+Object     -> Commit
+Reference  -> Branch
+Identity   -> Commit hash
+Immutable  -> Commit stays stable
+Rebinding  -> Moving a branch / HEAD
+```
+
+---
+
 ## Snapshot vs Diff
 
 - Git's core model is a snapshot, not a pure diff.
