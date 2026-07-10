@@ -15,7 +15,7 @@ Focused on CI/CD foundations: pipeline, quality gate, delivery, and Everything a
 | CI | Trusted, repeatable quality process (not just "running tests") |
 | Pipeline | Standard workflow of ordered stages |
 | Quality Gate | Risk control: only passing changes move forward |
-| CD | Reliable, repeatable delivery (not manual deploy) |
+| CD | Continuous Delivery (always ready to release) and Continuous Deployment (auto-release after gates) |
 | Workflow as Code | Pipeline defined in the repo, versioned and reviewed |
 | Everything as Code | Code, tests, workflow, infra, config, prompts all versioned |
 
@@ -56,13 +56,16 @@ into "you cannot."
 
 ---
 
-## CD
+## CD — Delivery vs Deployment
 
 ```text
-Repeatability + Consistency + Reliability + Scalability
+Continuous Delivery   = Always ready to release (a production-ready candidate is built).
+                        Production release may need manual approval.
+Continuous Deployment = Actually releasing automatically once every quality gate passes.
 ```
 
-CD encodes deployment so it is the same every time, replacing risky manual deploys.
+Shared qualities: Repeatability + Consistency + Reliability + Scalability.
+Do not treat Delivery and Deployment as identical.
 
 ---
 
@@ -91,6 +94,6 @@ Idea -> Issue -> Project -> Branch -> Commit -> Pull Request
 - "CI is a trusted quality process, not just running tests."
 - "A pipeline is a standard workflow of ordered stages that fails fast and gives fast feedback."
 - "A quality gate is risk control that protects main, production, the team, and users."
-- "CI validates changes; CD delivers validated changes repeatably and reliably."
+- "Continuous Delivery keeps you always ready to release; Continuous Deployment ships automatically once gates pass."
 - "Workflow as Code makes the process consistent, versioned, reviewable, and auditable."
 - "Everything as Code makes the whole system reproducible."

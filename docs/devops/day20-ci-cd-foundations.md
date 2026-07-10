@@ -75,7 +75,7 @@ Why this matters for a backend engineer:
 CI turns "trust me" into an automated, repeatable process.
 A pipeline makes the steps standard, ordered, and fast to fail.
 A quality gate stops bad changes before they reach production and users.
-CD makes deployment repeatable and reliable instead of a risky manual ritual.
+CD makes releasing repeatable and reliable: Continuous Delivery keeps you always ready to release; Continuous Deployment ships automatically once the gates pass.
 ```
 
 CI/CD is how a team moves fast without breaking `main`, production, or users.
@@ -297,32 +297,70 @@ Student Answer:
 
 Tech Lead Review:
 
-Exactly. CD (Continuous Delivery/Deployment) makes releasing an automated, repeatable process.
+Exactly — but "CD" is two distinct ideas, and engineers must not conflate them.
 
 ```text
-CD gives:
-  Repeatability -> the same deploy steps every time.
-  Consistency   -> every environment gets the same process.
-  Reliability   -> fewer human errors, predictable outcomes.
-  Scalability   -> deploy to many services/environments without more manual work.
+Continuous Integration
+   |
+   v
+Build & Validate
+   |
+   v
+Continuous Delivery
+   |
+   v
+Automatically produce a production-ready release candidate.
+Production deployment may still require manual approval.
+   |
+   v
+Continuous Deployment
+   |
+   v
+After every required Quality Gate passes,
+deployment to Production happens automatically.
+```
+
+The key distinction:
+
+```text
+Delivery   = Always ready to release.   (a validated, production-ready candidate is built)
+Deployment = Actually releasing.        (the change goes live in production)
+```
+
+Continuous Delivery does NOT always deploy automatically. It guarantees a production-ready
+artifact; a human may still approve the actual production release. Continuous Deployment removes
+that manual step: once every required quality gate passes, production deployment happens
+automatically.
+
+Both share the same qualities:
+
+```text
+Repeatability -> the same steps every time.
+Consistency   -> every environment gets the same process.
+Reliability   -> fewer human errors, predictable outcomes.
+Scalability   -> release to many services/environments without more manual work.
 ```
 
 Engineering Thinking:
 
 ```text
 Manual deploys do not scale and are unreliable.
-CD encodes deployment so it is repeatable, consistent, and safe.
+Continuous Delivery keeps you always ready to release.
+Continuous Deployment releases automatically after the gates pass.
+Choose Deployment when the automated gates are trusted enough to ship without a human.
 ```
 
 Production Example:
 
-Instead of a risky Friday-night manual deploy, CD ships the merged change through the same
-tested path automatically.
+A regulated team uses Continuous Delivery: every merge produces a production-ready release
+candidate, but a human approves the production release. A fast-moving team uses Continuous
+Deployment: once the gates pass, the change ships to production automatically.
 
 Framework Connection:
 
-CD builds and deploys the FastAPI Docker image the same way every time, so staging and
-production match.
+Continuous Delivery builds and validates the FastAPI Docker image as a release candidate every
+time; Continuous Deployment additionally ships it to production automatically once all gates
+pass.
 
 ## Concept 5: Workflow as Code and Everything as Code
 
@@ -395,41 +433,58 @@ Tech Lead Review:
 
 Exactly. The complete software delivery lifecycle:
 
+Continuous Delivery version (a human may approve the production release):
+
 ```text
 Idea
   |
   v
-Issue           (Day19: track work)
+Issue                 (Day19: track work)
   |
   v
-Project         (Day19: place on the board)
+Project               (Day19: place on the board)
   |
   v
-Branch          (Day16: isolate work)
+Branch                (Day16: isolate work)
   |
   v
-Commit          (Day15: immutable snapshot)
+Commit                (Day15: immutable snapshot)
   |
   v
-Pull Request    (Day17: gate the change)
+Pull Request          (Day17: gate the change)
   |
   v
-CI              (Day17/Day20: trusted quality process)
+CI                    (Day17/Day20: trusted quality process)
   |
   v
-Pipeline        (Day20: standard ordered stages)
+Pipeline              (Day20: standard ordered stages)
   |
   v
-Quality Gate    (Day20: risk control)
+Quality Gate          (Day20: risk control)
   |
   v
-Merge           (Day16/Day18: integrate)
+Merge                 (Day16/Day18: integrate)
   |
   v
-CD              (Day20: reliable delivery)
+Continuous Delivery   (Day20: produce a production-ready release candidate)
+  |
+  v
+Manual Approval       (optional)
   |
   v
 Production
+```
+
+Continuous Deployment version (no manual step once the gates pass):
+
+```text
+Merge
+  |
+  v
+All Gates Pass
+  |
+  v
+Automatic Production Deployment
 ```
 
 Engineering Thinking:
@@ -442,7 +497,7 @@ Every earlier lesson is a stage in this pipeline.
 Production Example:
 
 "Add /agent endpoint" becomes an Issue, a branch, commits, a PR that passes CI and the quality
-gate, is merged, and is deployed by CD to production — with no manual step.
+gate, is merged, delivered as a production-ready release candidate, and then deployed to production (automatically under Continuous Deployment, or after approval under Continuous Delivery).
 
 Framework Connection:
 

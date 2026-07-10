@@ -1280,15 +1280,23 @@ None.
 - [ ] Explain Workflow as Code and Everything as Code.
 - [ ] Trace the full Idea-to-Production lifecycle.
 
-### Next Phase 2 Lesson Preparation
+### Day21 Preparation — GitHub Actions Fundamentals
 
-- [x] Review Git branching basics.
-- [x] Review remotes and collaboration workflow.
-- [x] Review merge strategies and code review.
-- [x] Review GitHub project management.
-- [x] Review CI/CD foundations.
-- [ ] Review Linux command-line fundamentals.
-- [ ] Prepare Docker learning goals for later lessons.
+- [ ] Review CI/CD foundations (Day20) before implementing pipelines.
+- [ ] Prepare questions about Workflow, Trigger, Runner, Job, and Step.
+- [ ] Prepare a basic FastAPI CI example.
+- [ ] Review Secrets and Environment Variables concepts.
+
+### Phase 2 Roadmap (Day21-Day28)
+
+- [ ] Day21 — GitHub Actions Fundamentals (Planned).
+- [ ] Day22 — GitHub Actions Advanced (Planned).
+- [ ] Day23 — Docker Fundamentals (Planned).
+- [ ] Day24 — Docker Compose (Planned).
+- [ ] Day25 — Deployment Foundations (Planned).
+- [ ] Day26 — Kubernetes Foundations (Planned).
+- [ ] Day27 — Kubernetes Workloads (Planned).
+- [ ] Day28 — AI Backend Production Architecture (Planned).
 
 ### Future Knowledge Base TODO
 

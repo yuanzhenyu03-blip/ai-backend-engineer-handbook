@@ -81,17 +81,18 @@ What is the difference between CI and CD?
 
 中文解析:
 
-CI 关注自动集成和验证每个改动（构建、测试）。CD 关注把验证过的改动可重复、可靠地交付到各环境，取代手动部署。
+CI 关注自动集成和验证每个改动（构建、测试）。CD 有两层：Continuous Delivery 让每次改动都产出可随时发布的候选版本（生产发布可能仍需人工批准）；Continuous Deployment 在所有质量门通过后自动部署到生产。二者不是同一个概念。
 
 Standard Answer:
 
-CI is about integrating and validating changes automatically — building and testing every
-change. CD is about delivering those validated changes to environments repeatably and reliably,
-replacing manual deployment.
+CI integrates and validates every change automatically (build and test). CD has two levels:
+Continuous Delivery keeps every change as an always-ready, production-ready release candidate
+(the production release may still need manual approval), while Continuous Deployment
+automatically ships to production once all quality gates pass. They are not identical.
 
 Follow-up Question:
 
-Which four properties does CD provide?
+What is the difference between Continuous Delivery and Continuous Deployment?
 
 ## Senior
 

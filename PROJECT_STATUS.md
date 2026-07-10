@@ -72,7 +72,7 @@ Completed Work:
 
 ## Next
 
-- Phase 2 continues — Git collaboration, Linux, Docker
+- Day21 — GitHub Actions Fundamentals
 
 Status:
 Not started

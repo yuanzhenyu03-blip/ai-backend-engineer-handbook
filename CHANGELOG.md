@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.29 — Day20 Corrections & Phase 2 Curriculum Upgrade
+
+Date: 2026-07-10
+
+### Changed
+
+- Corrected `docs/devops/day20-ci-cd-foundations.md` to distinguish Continuous Delivery from Continuous Deployment (targeted edits, no rewrite): Delivery keeps an always-ready, production-ready release candidate with optional manual approval, while Deployment releases to production automatically once every required quality gate passes.
+- Removed statements implying "CD always deploys automatically"; clarified Delivery = always ready to release, Deployment = actually releasing.
+- Updated the delivery lifecycle diagram into a Continuous Delivery version (with optional Manual Approval before Production) and a Continuous Deployment version (Merge -> All Gates Pass -> Automatic Production Deployment).
+- Aligned `cheat_sheets/devops.md` and `interview/devops.md` with the Delivery vs Deployment distinction.
+- Upgraded `ROADMAP.md` Phase 2 into the official Day15–Day28 roadmap: Git Engineering (Day15-19), DevOps Foundations (Day20-22), Container Engineering (Day23-24), and Production Engineering (Day25-28), with a Software Delivery Lifecycle overview.
+- Upgraded `CURRICULUM.md` with Day21–Day28 topics and statuses and a "Why This Curriculum" explanation (WHY before HOW).
+- Updated `PROJECT_STATUS.md` Next to Day21 — GitHub Actions Fundamentals.
+- Updated `TASKS.md` with Day21 preparation and the Phase 2 Day21–Day28 roadmap.
+
+### Notes
+
+- This is a curriculum alignment update, not a content rewrite. Day15–Day20 lessons were not rewritten.
+- `ROADMAP.md` was intentionally updated as part of this official curriculum upgrade.
+- Did not modify `TRAINING_WORKFLOW.md` or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.28 — Day20 CI/CD Foundations Documentation
 
 Date: 2026-07-09

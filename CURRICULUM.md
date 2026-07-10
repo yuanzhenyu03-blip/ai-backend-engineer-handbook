@@ -424,10 +424,132 @@ Released Lesson:
 
 ---
 
-### Day21 and beyond
+## DevOps Foundations (continued)
+
+### Day21
+
+Topic:
+GitHub Actions Fundamentals
+
+Topics:
+Workflow, Trigger, Runner, GitHub-hosted Runner, Self-hosted Runner, Job, Step, Action
+Marketplace, `uses`, `run`, Secrets, Environment Variables, Basic FastAPI CI
 
 Status:
 Planned
+
+---
+
+### Day22
+
+Topic:
+GitHub Actions Advanced
+
+Topics:
+Matrix Build, Cache, Artifacts, Reusable Workflow, Composite Actions, Conditional Jobs,
+Deployment Pipeline
+
+Status:
+Planned
+
+---
+
+## Container Engineering
+
+### Day23
+
+Topic:
+Docker Fundamentals
+
+Topics:
+Container, Image, Layer, Dockerfile, Build, Run, Volume, Network
+
+Status:
+Planned
+
+---
+
+### Day24
+
+Topic:
+Docker Compose
+
+Topics:
+Multi-service, FastAPI + Redis, PostgreSQL, Environment, Local Development
+
+Status:
+Planned
+
+---
+
+## Production Engineering
+
+### Day25
+
+Topic:
+Deployment Foundations
+
+Topics:
+Reverse Proxy, Nginx, SSL, Domain, CI/CD Deployment, Zero Downtime
+
+Status:
+Planned
+
+---
+
+### Day26
+
+Topic:
+Kubernetes Foundations
+
+Topics:
+Pod, Deployment, Service, ConfigMap, Secret
+
+Status:
+Planned
+
+---
+
+### Day27
+
+Topic:
+Kubernetes Workloads
+
+Topics:
+Ingress, Autoscaling, Rolling Update, StatefulSet, Helm
+
+Status:
+Planned
+
+---
+
+### Day28
+
+Topic:
+AI Backend Production Architecture
+
+Topics:
+FastAPI, Celery, Redis, PostgreSQL, Object Storage, Queue, Monitoring, Observability
+
+Status:
+Planned
+
+---
+
+## Why This Curriculum
+
+Phase 2 follows the Software Delivery Lifecycle, not a list of tools:
+
+```text
+Git -> GitHub -> Project Management -> CI/CD -> GitHub Actions
+    -> Docker -> Deployment -> Kubernetes -> Production AI Backend
+```
+
+Students first understand WHY before HOW. Every tool solves an engineering problem introduced in
+previous lessons: Git manages code history, GitHub adds collaboration, project management makes
+work visible, CI/CD automates quality and delivery, GitHub Actions implements the pipeline as
+code, Docker makes environments reproducible, deployment and Kubernetes run it reliably in
+production, and the final lesson assembles a production AI backend architecture.
 
 Follow `ROADMAP.md` for the official learning order.
 

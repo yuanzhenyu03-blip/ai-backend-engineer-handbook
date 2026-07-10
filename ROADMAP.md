@@ -39,21 +39,66 @@ Deliverables:
 
 ---
 
-# Phase 2 — Engineering Foundations (Week 3)
+# Phase 2 — Engineering Foundations (Day15–Day28)
 
-Topics:
+Objective:
+Follow the Software Delivery Lifecycle: understand WHY each tool exists before HOW to use it.
+Every tool solves an engineering problem introduced in a previous lesson.
 
-- Git
-- GitHub
-- Linux
-- Docker
-- Docker Compose
+```text
+Git
+ -> GitHub
+ -> Project Management
+ -> CI/CD
+ -> GitHub Actions
+ -> Docker
+ -> Deployment
+ -> Kubernetes
+ -> Production AI Backend
+```
+
+## Git Engineering
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day15 | Git Object Model | ✅ Completed |
+| Day16 | Branch & Merge | ✅ Completed |
+| Day17 | GitHub Workflow | ✅ Completed |
+| Day18 | Merge Strategy & Code Review | ✅ Completed |
+| Day19 | GitHub Project Management | ✅ Completed |
+
+## DevOps Foundations
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day20 | CI/CD Foundations | ✅ Completed |
+| Day21 | GitHub Actions Fundamentals | Planned |
+| Day22 | GitHub Actions Advanced | Planned |
+
+## Container Engineering
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day23 | Docker Fundamentals | Planned |
+| Day24 | Docker Compose | Planned |
+
+## Production Engineering
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day25 | Deployment Foundations | Planned |
+| Day26 | Kubernetes Foundations | Planned |
+| Day27 | Kubernetes Workloads | Planned |
+| Day28 | AI Backend Production Architecture | Planned |
 
 Deliverables:
 
-- Git Workflow
-- Dockerized Applications
-- Linux Practice
+- Git & GitHub Workflow
+- CI/CD Pipelines with GitHub Actions
+- Dockerized Applications and Docker Compose stacks
+- Production Deployment (Nginx, SSL, zero downtime)
+- Kubernetes Workloads
+- Production-ready AI Backend Architecture
 
 ---
 
