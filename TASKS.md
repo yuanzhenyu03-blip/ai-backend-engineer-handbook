@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day19 — GitHub Project Management
+Day20 — CI/CD Foundations
 
 Status:
 Completed
@@ -24,17 +24,67 @@ Completed
 Target lesson:
 
 ```text
-docs/github/day19-project-management.md
+docs/devops/day20-ci-cd-foundations.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day19 GitHub Project Management classroom learning.
-- [x] Convert requests into Issues, apply Labels, group into a Milestone, build a Project board.
-- [x] Assemble the Idea-to-Release workflow tying Day15-Day19 together.
+- [x] Complete Day20 CI/CD Foundations classroom learning.
+- [x] Design a CI pipeline and explain quality gates.
+- [x] Assemble the full delivery lifecycle tying Day15-Day20 together.
 - [ ] Prepare for the next Phase 2 lesson (Linux, Docker).
+
+---
+
+## Completed Day20 Tasks
+
+- [x] Complete Day20 CI/CD Foundations classroom learning.
+- [x] Generate Day20 handbook lesson.
+- [x] Explain why "I tested locally" is insufficient.
+- [x] Explain CI as a trusted quality process.
+- [x] Explain pipeline: standard workflow, stage dependency, fail fast, fast feedback.
+- [x] Explain quality gate protecting main, production, team, and users.
+- [x] Explain CD: repeatability, consistency, reliability, scalability.
+- [x] Explain Workflow as Code and Everything as Code.
+- [x] Build the full delivery lifecycle connecting Day15-Day20.
+- [x] Add FastAPI, Playwright, AI backend, Docker, and prompt connections.
+- [x] Add exercises and interview review.
+- [x] Keep later topics out of scope.
+
+---
+
+## Completed Day20 Repository Tasks
+
+- [x] Add `docs/devops/day20-ci-cd-foundations.md`.
+- [x] Add `cheat_sheets/devops.md`.
+- [x] Add `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md`.
+
+---
+
+## Completed Day20 Interview Tasks
+
+- [x] Add beginner CI and pipeline questions.
+- [x] Add intermediate quality-gate and CI-vs-CD questions.
+- [x] Add senior workflow-as-code, everything-as-code, and lifecycle questions.
+- [x] Add Chinese explanations.
+- [x] Add English standard answers.
+- [x] Add production cases and follow-up questions.
+
+---
+
+## Completed Day20 Homework
+
+- [x] Complete why-local-testing-is-insufficient exercise.
+- [x] Complete design-a-CI-pipeline exercise.
+- [x] Complete explain-a-quality-gate exercise.
+- [x] Complete manual-deploy-vs-CD exercise.
+- [x] Complete explain-workflow-as-code exercise.
 
 ---
 
@@ -1219,12 +1269,24 @@ None.
 - [ ] State the hierarchy: Issue, Label, Milestone, Project.
 - [ ] Trace the Idea-to-Release workflow.
 
+### Day20 Review
+
+- [ ] Explain why "I tested locally" is not enough.
+- [ ] Explain what CI establishes.
+- [ ] Explain the four properties of a pipeline.
+- [ ] Explain what a quality gate protects.
+- [ ] Explain the four properties of CD.
+- [ ] Explain CI vs CD.
+- [ ] Explain Workflow as Code and Everything as Code.
+- [ ] Trace the full Idea-to-Production lifecycle.
+
 ### Next Phase 2 Lesson Preparation
 
 - [x] Review Git branching basics.
 - [x] Review remotes and collaboration workflow.
 - [x] Review merge strategies and code review.
 - [x] Review GitHub project management.
+- [x] Review CI/CD foundations.
 - [ ] Review Linux command-line fundamentals.
 - [ ] Prepare Docker learning goals for later lessons.
 
@@ -1287,3 +1349,4 @@ Purpose:
 - [x] Complete Day17 — GitHub Workflow & Collaboration.
 - [x] Complete Day18 — Merge Strategy & Code Review.
 - [x] Complete Day19 — GitHub Project Management.
+- [x] Complete Day20 — CI/CD Foundations.

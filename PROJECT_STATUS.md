@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day19 — GitHub Project Management
+Day20 — CI/CD Foundations
 
 Status:
 Completed
@@ -42,6 +42,7 @@ Completed Time:
 - ✅ Day17 — GitHub Workflow & Collaboration
 - ✅ Day18 — Merge Strategy & Code Review
 - ✅ Day19 — GitHub Project Management
+- ✅ Day20 — CI/CD Foundations
 
 ---
 
@@ -53,19 +54,19 @@ None.
 
 ## Last Completed Lesson
 
-Day19 — GitHub Project Management
+Day20 — CI/CD Foundations
 
 Completed Time:
 2026-07-09
 
 Completed Work:
 
-- Day19 classroom learning
-- Day19 lesson document
-- Day19 issue/label/milestone/project exercises
-- Day19 github cheat sheet update
-- Day19 github interview notes update
-- Day19 repository status update
+- Day20 classroom learning
+- Day20 lesson document
+- Day20 CI/CD pipeline exercises
+- Day20 devops cheat sheet (new)
+- Day20 devops interview notes (new)
+- Day20 repository status update
 
 ---
 
@@ -101,6 +102,7 @@ Completed Python Foundations:
 - Day17 — GitHub workflow, protected main, pull requests, CI vs code review, branch protection, stale review, review discussion as knowledge
 - Day18 — Merge strategy and code review, history for humans, development vs product history, merge commit / squash / rebase, senior review focus, review the code not the coder
 - Day19 — GitHub project management, manage work not only code, Issue as work item, Label as metadata, Milestone as goal, Projects as workflow, Idea-to-Release pipeline
+- Day20 — CI/CD foundations, CI as trusted quality process, pipeline (fail fast, fast feedback), quality gate, CD (repeatable delivery), workflow as code, everything as code
 
 ---
 
@@ -265,6 +267,13 @@ Completed Python Foundations:
 - Explain the hierarchy: Issue (Work), Label (Metadata), Milestone (Goal), Project (Workflow).
 - Assemble the complete Idea-to-Release workflow tying Day15-Day19 together.
 - Distinguish ownership from blame.
+- Explain why CI establishes a trusted quality process.
+- Explain a pipeline as ordered stages with fail-fast and fast feedback.
+- Explain a quality gate as risk control protecting main, production, team, and users.
+- Explain CD in terms of repeatability, consistency, reliability, and scalability.
+- Explain Workflow as Code and Everything as Code.
+- Assemble the full software delivery lifecycle tying Day15-Day20 together.
+- Connect CI/CD to FastAPI, Playwright, AI backend, Docker, and prompt work.
 
 ---
 
@@ -407,6 +416,11 @@ Completed Python Foundations:
 - Assign and justify Labels exercise
 - Group Issues into a Milestone exercise
 - Build a Project workflow board exercise
+- Why "I tested locally" is insufficient exercise
+- Design a CI pipeline exercise
+- Explain a quality gate exercise
+- Manual deployment vs CD exercise
+- Explain workflow as code exercise
 
 ---
 

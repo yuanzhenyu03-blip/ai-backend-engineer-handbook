@@ -411,7 +411,20 @@ Released Lesson:
 
 ---
 
-### Day20 and beyond
+### Day20
+
+Topic:
+CI/CD Foundations
+
+Status:
+✅ Completed
+
+Released Lesson:
+`docs/devops/day20-ci-cd-foundations.md`
+
+---
+
+### Day21 and beyond
 
 Status:
 Planned

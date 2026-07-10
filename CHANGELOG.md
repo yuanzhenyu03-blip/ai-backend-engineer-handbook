@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.28 — Day20 CI/CD Foundations Documentation
+
+Date: 2026-07-09
+
+### Added
+
+- Added `docs/devops/day20-ci-cd-foundations.md` (new `docs/devops/` folder).
+- Added `cheat_sheets/devops.md` (new DevOps cheat sheet).
+- Added `interview/devops.md` (new DevOps interview notes).
+
+### Changed
+
+- Updated `CURRICULUM.md` to add Day20 and mark it completed under Phase 2.
+- Updated `PROJECT_STATUS.md` to mark Day20 completed.
+- Updated `TASKS.md` with completed Day20 tasks and Day20 review.
+- Updated `CHANGELOG.md` with the Day20 repository update.
+
+### Notes
+
+- Day20 teaches CI/CD as replacing trust and manual work with automated process: why "I tested locally" is insufficient, CI as a trusted quality process, a pipeline as a standard workflow with stage dependency, fail-fast, and fast feedback, a quality gate as risk control protecting main/production/team/users, CD as repeatable/consistent/reliable/scalable delivery, Workflow as Code, and Everything as Code.
+- Assembled the full software delivery lifecycle connecting Day15-Day20: Idea -> Issue -> Project -> Branch -> Commit -> Pull Request -> CI -> Pipeline -> Quality Gate -> Merge -> CD -> Production.
+- Preserved the classroom rhythm and student reasoning across every topic.
+- Connected CI/CD to FastAPI, Playwright, AI backend, Docker, and prompt work.
+- Added exercises: why local testing is insufficient, design a CI pipeline, explain a quality gate, manual deployment vs CD, and explain workflow as code.
+- No `exercises/` directory exists, so Day20 exercises are included in the lesson document.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, or `LESSON_TEMPLATE.md`.
+
+---
+
 ## v0.1.27 — Day19 GitHub Project Management Documentation
 
 Date: 2026-07-09
