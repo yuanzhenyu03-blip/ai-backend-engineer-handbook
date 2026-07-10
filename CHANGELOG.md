@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.30 — Lesson Template v2 (Official Standard from Day21)
+
+Date: 2026-07-10
+
+### Added
+
+- Added `LESSON_TEMPLATE_v2.md`, the new official lesson standard starting with Day21.
+
+### Notes
+
+- v2 is built from `LESSON_TEMPLATE.md` and preserves its strengths (WHY before HOW, engineering thinking, roadmap position, lesson map, interview prep, today's takeaway, checklist, ASCII diagrams, trade-offs, production examples).
+- New 16-section architecture: Lesson Metadata, Learning Objectives, Why This Matters, Roadmap Position, Lesson Map, Core Mental Model, Main Concepts, Common Misconceptions, Engineering Trade-offs, Hands-on Exercises, Relevant Framework Connections, AI Backend Connections, English Interview, Mental Model Summary, Today's Takeaway, Before Next Lesson Checklist.
+- Made the Core Mental Model and Mental Model Summary required sections.
+- Required the classroom loop inside Main Concepts (Tech Lead Question -> Student Thinking -> Student Answer -> Tech Lead Review -> Engineering Thinking -> Production Example -> Framework Connection -> Exercise).
+- Added required Common Misconceptions (wrong-vs-right) and a dedicated Engineering Trade-offs section.
+- Replaced the fixed FastAPI/Playwright sections with a technology-agnostic Relevant Framework Connections section, and made AI Backend Connections a first-class section.
+- Made exercises and Learning Objectives artifact-agnostic (Python, YAML, Shell, Dockerfile, Kubernetes manifest, GitHub workflow, infrastructure config, architecture diagram), not Python-only.
+- Updated the AI Collaboration model to be future-proof (generic Repository Coding Agent — Claude Code / Codex — instead of hardcoding one).
+- Backward compatibility: did not modify `LESSON_TEMPLATE.md` or any Day01–Day20 lesson. Older lessons remain valid and require no migration.
+- Did not modify `ROADMAP.md`, `TRAINING_WORKFLOW.md`, `CURRICULUM.md`, or existing lessons.
+
+---
+
 ## v0.1.29 — Day20 Corrections & Phase 2 Curriculum Upgrade
 
 Date: 2026-07-10
