@@ -527,7 +527,8 @@ fixed job title (accountable, risk-qualified owner).
 Production Case:
 
 An AI backend deploys the exact digest its evaluation approved; production Secrets never reach general
-CI jobs.
+CI jobs. A `verify-image` job pulls and runs that exact digest and smoke-tests it before deploy, so
+source tests are backed by runtime verification of the built artifact.
 
 ### 2. When do you set `fail-fast: false`, and why is `concurrency` not a boolean?
 

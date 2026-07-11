@@ -70,6 +70,17 @@ docs/devops/day22-github-actions-advanced.md
 
 ---
 
+## Completed Day22 Review Fixes
+
+- [x] Add a `verify-image` job that pulls and runs the exact immutable digest and smoke-tests it before deploy.
+- [x] Make `deploy` depend on `build` and `verify-image` and reuse the same digest (no rebuild, no `:latest`).
+- [x] Upload test reports with `if: always()` and `if-no-files-found: warn`.
+- [x] Add `examples/github-actions/composite-python-quality/action.yml` (composite action).
+- [x] Add `examples/github-actions/reusable-fastapi-ci.example.yml` (reusable workflow).
+- [x] Sync the Day22 lesson, cheat sheet, interview notes, and examples index.
+
+---
+
 ## Completed Day22 Interview Tasks
 
 - [x] Add beginner matrix question.

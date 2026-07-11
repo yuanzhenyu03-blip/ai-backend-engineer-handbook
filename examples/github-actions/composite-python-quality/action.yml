@@ -1,0 +1,55 @@
+# =============================================================================
+# EXAMPLE ONLY — Day22 Composite Action (Reusable STEPS)
+#
+# A composite action bundles a repeated sequence of STEPS (install deps, lint,
+# test). It runs INSIDE the caller job's runner — it does not define `jobs` or
+# `runs-on`, and it must not hardcode secrets.
+#
+# Call it from a job step:
+#   steps:
+#     - uses: actions/checkout@v4
+#     - uses: ./examples/github-actions/composite-python-quality
+#       with:
+#         python-version: "3.12"
+#         requirements-path: requirements.txt
+#         test-command: pytest
+#
+# Lesson: docs/devops/day22-github-actions-advanced.md
+# =============================================================================
+
+name: Python Quality (composite)
+description: Set up Python, install dependencies, run Ruff, and run tests.
+
+inputs:
+  python-version:
+    description: Python version to set up.
+    required: false
+    default: "3.12"
+  requirements-path:
+    description: Path to the requirements file.
+    required: false
+    default: requirements.txt
+  test-command:
+    description: Test command to run.
+    required: false
+    default: pytest
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    # Each `run` step in a composite action must declare `shell`.
+    - name: Install dependencies
+      shell: bash
+      run: pip install -r "${{ inputs.requirements-path }}"
+
+    - name: Run Ruff
+      shell: bash
+      run: ruff check .
+
+    - name: Run tests
+      shell: bash
+      run: ${{ inputs.test-command }}

@@ -355,6 +355,25 @@ Artifacts move formal outputs between jobs (remember: jobs do not share a filesy
     path: coverage.xml
 ```
 
+If the report must be uploaded even when the test step failed, the upload step needs an explicit
+status condition — otherwise a failed test skips the later upload step:
+
+```yaml
+- name: Upload test reports
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: test-reports
+    path: |
+      coverage.xml
+      junit.xml
+    if-no-files-found: warn
+```
+
+`if: always()` only guarantees the step runs; it does NOT guarantee the files exist. Pair it with
+`if-no-files-found: warn` (or a file-existence check) so a missing report warns instead of being
+mistaken for success.
+
 ```yaml
 report:
   needs: test
@@ -425,6 +444,11 @@ Reusable Workflow = Reusable JOBS / workflow
 A composite action owns a step sequence (install deps, run Ruff+pytest, a Docker login/push
 group). It does NOT own `jobs`, `runs-on`, or dependency topology. A reusable workflow owns whole
 jobs — matrix, security scan, build/deploy gates, organization-wide CI/CD standards.
+
+Minimal examples live in the repository: `examples/github-actions/composite-python-quality/action.yml`
+(a composite action using `runs.using: composite`, each `run` step declaring `shell`, and no `jobs`
+or `runs-on`) and `examples/github-actions/reusable-fastapi-ci.example.yml` (a reusable workflow using
+`on: workflow_call` with typed inputs, called at the job level via `jobs.<id>.uses`).
 
 ### Engineering Thinking
 
@@ -569,8 +593,17 @@ failure, and which version was deployed.
 Build once, deploy many — the primary reason is integrity, not resource savings:
 
 ```text
-Build once -> Test the artifact -> Approve it -> Promote the SAME artifact -> Deploy it
+Build once -> Verify the built image -> Approve it -> Promote the SAME digest -> Deploy it
 What we tested = what we deployed.
+```
+
+Source tests are not enough on their own. They validate the source; they do not run the built
+runtime artifact. Separate the layers:
+
+```text
+Unit tests validate source behavior.
+Image verification validates the built runtime artifact (pull and run the exact digest, smoke test).
+Deployment promotes the exact verified immutable digest.
 ```
 
 Rebuilding in the deploy job can produce a different output (changed base images, dependency
@@ -580,7 +613,7 @@ Docker image transfer — `docker save`/`docker load` as an artifact is technica
 production uses:
 
 ```text
-Build once -> Push to a container registry -> Capture the immutable image digest -> Deploy that digest
+Build once -> Push to a registry -> Capture the immutable digest -> Verify THAT exact digest -> Deploy the same digest
 ```
 
 ```text
@@ -620,7 +653,8 @@ Simplified pipeline:
 
 ```text
 PR -> Lint + Test -> Merge / Version Tag -> Build image once -> Push immutable digest
-   -> Security scan / evaluation -> Production approval -> Serialized deploy -> Smoke test -> Monitor / rollback
+   -> Verify the exact digest (pull, run, smoke test) -> Security scan / evaluation
+   -> Production approval -> Serialized deploy (same digest) -> Smoke test -> Monitor / rollback
 ```
 
 ### Engineering Thinking
@@ -910,8 +944,12 @@ notification regardless     -> needs + if: always()
 complete pipeline reuse     -> Reusable Workflow
 ```
 
-A full runnable version is in `examples/github-actions/github-actions-advanced.example.yml`
-(example only; not placed under `.github/workflows/` in this documentation repository).
+Full runnable examples are in the repository (examples only; not under `.github/workflows/`):
+
+- `examples/github-actions/github-actions-advanced.example.yml` — the complete pipeline, including a
+  `verify-image` job that pulls and runs the exact digest before `deploy`.
+- `examples/github-actions/composite-python-quality/action.yml` — a composite action (reusable steps).
+- `examples/github-actions/reusable-fastapi-ci.example.yml` — a reusable workflow (`workflow_call`).
 
 Follow-up Question: where does the immutable digest come from, and why not `my-api:latest`?
 

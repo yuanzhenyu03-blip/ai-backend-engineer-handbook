@@ -230,7 +230,12 @@ concurrency: { group: production, cancel-in-progress: false }  -> serialize, do 
 Approval = accountable, risk-qualified owner (not one fixed job title).
 ```
 
-Simplified: `PR -> lint+test -> tag -> build once -> push digest -> scan/eval -> approval -> serial deploy -> smoke -> monitor/rollback`.
+Integrity chain: source tests validate source; `verify-image` pulls and runs the exact digest
+(smoke test) to validate the runtime artifact; deploy promotes the same verified digest.
+Upload reports even on test failure with `if: always()` + `if-no-files-found: warn`
+(`always()` runs the step; it does not guarantee the files exist).
+
+Simplified: `PR -> lint+test -> tag -> build once -> push digest -> verify digest -> scan/eval -> approval -> serial deploy -> smoke -> monitor/rollback`.
 
 ---
 

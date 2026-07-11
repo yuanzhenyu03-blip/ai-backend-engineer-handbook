@@ -4,18 +4,25 @@
 # A production-shaped FastAPI CI/CD workflow combining the Day22 mechanisms:
 #   - stable Python matrix + fail-fast: false
 #   - pip cache
-#   - uploaded test-report artifact
+#   - test reports uploaded with if: always() + if-no-files-found: warn
 #   - experimental Python 3.13 with continue-on-error
-#   - build job that `needs` the tests
-#   - immutable Docker image digest (registry), not a mutable :latest tag
-#   - tag-only deploy via `if`
+#   - build job that `needs` the tests and outputs an immutable image digest
+#   - verify-image job that runs the EXACT digest and smoke-tests it
+#   - tag-only deploy via `if`, depending on build AND verify-image
+#   - the same immutable digest is deployed (no rebuild, no mutable :latest)
 #   - production Environment with required reviewers + production Secrets
 #   - production concurrency group with cancel-in-progress: false
 #   - notification with needs + if: always()
 #
+# Integrity chain:
+#   Unit tests validate source behavior.
+#   Image verification validates the built runtime artifact.
+#   Deployment promotes the exact verified immutable digest.
+#
 # This is intentionally NOT placed under `.github/workflows/` in this
-# documentation repository (no FastAPI app / registry / environment exist here).
-# Copy to `.github/workflows/`, then adjust image name, registry, and commands.
+# documentation repository (no FastAPI app / Dockerfile / registry exist here).
+# Copy to `.github/workflows/`, then adjust the health-check path, startup
+# command, and test commands to your real project.
 #
 # Lesson: docs/devops/day22-github-actions-advanced.md
 # =============================================================================
@@ -55,15 +62,23 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # Adjust for your real project. --junitxml produces a formal test report.
       - name: Run tests
-        run: pytest --cov=app --cov-report=xml
+        run: pytest --cov=app --cov-report=xml --junitxml=junit.xml
 
       # Formal output of THIS run -> artifact (jobs do not share a filesystem).
-      - name: Upload coverage report
+      # if: always() -> upload even when the test step above failed.
+      # if-no-files-found: warn -> `always()` does not guarantee the files exist,
+      # so warn (do not fail) if a run produced no report instead of assuming success.
+      - name: Upload test reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-${{ matrix.python-version }}
-          path: coverage.xml
+          name: test-reports-${{ matrix.python-version }}
+          path: |
+            coverage.xml
+            junit.xml
+          if-no-files-found: warn
 
   # ---- Experimental compatibility signal that must NOT block release ------
   experimental:
@@ -86,7 +101,8 @@ jobs:
       contents: read
       packages: write
     outputs:
-      image: ${{ steps.push.outputs.digest }}
+      # docker/build-push-action exposes the pushed image digest as `digest`.
+      image-digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
 
@@ -98,16 +114,57 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
-        id: push
+        id: build
         uses: docker/build-push-action@v6
         with:
           push: true
           tags: ghcr.io/${{ github.repository }}:${{ github.sha }}
-          # `digest` is an immutable content identifier; deploy this, not :latest.
+          # steps.build.outputs.digest is an immutable content identifier (sha256).
+          # Deploy this digest, never a mutable :latest tag.
+
+  # ---- Verify the EXACT built runtime artifact, not just the source -------
+  verify-image:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Log in to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Pull and run the EXACT immutable digest that build produced.
+      # This validates the runtime artifact, which source tests cannot.
+      - name: Verify the immutable image digest
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image-digest }}
+        run: |
+          set -euo pipefail
+          echo "Verifying $IMAGE"
+          docker pull "$IMAGE"
+
+          # Adjust the port, startup, and health path to your real FastAPI app.
+          docker run -d --name app -p 8000:8000 "$IMAGE"
+
+          # Smoke test the health endpoint. Replace /health with your real path.
+          for i in $(seq 1 10); do
+            if curl -fsS http://localhost:8000/health; then
+              echo "Health check passed"; break
+            fi
+            echo "Waiting for the service... ($i)"; sleep 3
+            if [ "$i" -eq 10 ]; then echo "Health check failed"; exit 1; fi
+          done
+
+          docker rm -f app
 
   # ---- Deploy the SAME verified digest, protected and serialized ----------
   deploy:
-    needs: build
+    needs: [build, verify-image]  # deploy only after the exact image is verified
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment: production        # required reviewers + production Secrets + history
@@ -115,19 +172,21 @@ jobs:
       group: production            # all production deploys share one lock
       cancel-in-progress: false    # queue, never interrupt an active deployment
     steps:
+      # Same immutable digest as build/verify. No rebuild, no :latest.
       - name: Deploy immutable digest
         env:
+          IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image-digest }}
           DEPLOY_TOKEN: ${{ secrets.DEPLOY_TOKEN }}   # production-only secret
         run: |
-          echo "Deploying ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image }}"
-          # ./deploy.sh "ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image }}"
+          echo "Deploying $IMAGE"
+          # ./deploy.sh "$IMAGE"
 
-      - name: Smoke test
-        run: echo "Run a post-deploy smoke test here."
+      - name: Post-deploy smoke test
+        run: echo "Run a post-deploy smoke test against the live environment here."
 
   # ---- Notify regardless of outcome ---------------------------------------
   notify:
-    needs: [test, build, deploy]
+    needs: [test, build, verify-image, deploy]
     if: always()                   # run even if a dependency failed or was skipped
     runs-on: ubuntu-latest
     steps:
@@ -135,4 +194,5 @@ jobs:
         run: |
           echo "test=${{ needs.test.result }}"
           echo "build=${{ needs.build.result }}"
+          echo "verify=${{ needs.verify-image.result }}"
           echo "deploy=${{ needs.deploy.result }}"

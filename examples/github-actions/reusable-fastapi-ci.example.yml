@@ -1,0 +1,62 @@
+# =============================================================================
+# EXAMPLE ONLY — Day22 Reusable Workflow (Reusable JOBS / workflow)
+#
+# A reusable workflow defines complete JOBS (with `runs-on`) and is called via
+# `workflow_call`. Use it to share one pipeline (lint -> test) across many repos
+# so standards do not drift. It must not hardcode production secrets.
+#
+# A caller repository invokes it at the JOB level with `uses`:
+#
+#   # .github/workflows/ci.yml (in the calling repo)
+#   name: CI
+#   on: [push, pull_request]
+#   jobs:
+#     ci:
+#       uses: yuanzhenyu03-blip/ai-backend-engineer-handbook/examples/github-actions/reusable-fastapi-ci.example.yml@main
+#       with:
+#         python-version: "3.12"
+#
+# This is intentionally NOT under `.github/workflows/` in this documentation
+# repository. Copy it there in a real project and adjust commands.
+#
+# Lesson: docs/devops/day22-github-actions-advanced.md
+# =============================================================================
+
+name: Reusable FastAPI CI
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Python version to test against.
+        type: string
+        required: false
+        default: "3.12"
+      requirements-path:
+        description: Path to the requirements file.
+        type: string
+        required: false
+        default: requirements.txt
+
+# Least-privilege permission boundary for the reused jobs.
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install dependencies
+        run: pip install -r "${{ inputs.requirements-path }}"
+
+      - name: Run Ruff
+        run: ruff check .
+
+      - name: Run tests
+        run: pytest
