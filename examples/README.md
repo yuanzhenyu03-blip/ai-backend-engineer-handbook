@@ -7,3 +7,6 @@ repository; copy them into a real project and adjust paths, versions, and comman
 
 - `github-actions/fastapi-ci.example.yml` — Day21 FastAPI CI workflow
   (see `docs/devops/day21-github-actions-fundamentals.md`).
+- `github-actions/github-actions-advanced.example.yml` — Day22 advanced CI/CD workflow: matrix,
+  cache, artifacts, continue-on-error, immutable digest, environment, concurrency
+  (see `docs/devops/day22-github-actions-advanced.md`).

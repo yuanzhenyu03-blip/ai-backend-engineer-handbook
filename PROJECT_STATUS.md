@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day21 — GitHub Actions Fundamentals
+Day22 — GitHub Actions Advanced
 
 Status:
 Completed
@@ -20,7 +20,7 @@ Template:
 LESSON_TEMPLATE_v2
 
 Completed Time:
-2026-07-10
+2026-07-11
 
 ---
 
@@ -47,6 +47,7 @@ Completed Time:
 - ✅ Day19 — GitHub Project Management
 - ✅ Day20 — CI/CD Foundations
 - ✅ Day21 — GitHub Actions Fundamentals
+- ✅ Day22 — GitHub Actions Advanced
 
 ---
 
@@ -58,29 +59,29 @@ None.
 
 ## Last Completed Lesson
 
-Day21 — GitHub Actions Fundamentals
+Day22 — GitHub Actions Advanced
 
 Completed Time:
-2026-07-10
+2026-07-11
 
 Main Artifact:
-GitHub Actions workflow YAML (examples/github-actions/fastapi-ci.example.yml)
+Advanced GitHub Actions workflow YAML (examples/github-actions/github-actions-advanced.example.yml)
 
 Completed Work:
 
-- Day21 classroom learning (first lesson on LESSON_TEMPLATE_v2)
-- Day21 lesson document
-- Day21 FastAPI CI workflow example
-- Day21 GitHub Actions exercises
-- Day21 devops cheat sheet update
-- Day21 devops interview notes update
-- Day21 repository status update
+- Day22 classroom learning
+- Day22 lesson document (LESSON_TEMPLATE_v2)
+- Day22 advanced CI/CD workflow example
+- Day22 matrix/cache/artifact/deployment exercises
+- Day22 devops cheat sheet update
+- Day22 devops interview notes update
+- Day22 repository status update
 
 ---
 
 ## Next
 
-- Day22 — GitHub Actions Advanced
+- Day23 — Docker Fundamentals
 
 Status:
 Not started
@@ -112,6 +113,7 @@ Completed Python Foundations:
 - Day19 — GitHub project management, manage work not only code, Issue as work item, Label as metadata, Milestone as goal, Projects as workflow, Idea-to-Release pipeline
 - Day20 — CI/CD foundations, CI as trusted quality process, pipeline (fail fast, fast feedback), quality gate, CD (repeatable delivery), workflow as code, everything as code
 - Day21 — GitHub Actions fundamentals, workflow as code, execution model, trigger vs runner, hosted vs self-hosted runner, job as one fresh runner, run/uses/with, checkout, quality gate, FastAPI CI
+- Day22 — GitHub Actions advanced, matrix, fail-fast, cache vs artifact, composite action vs reusable workflow, needs/if/continue-on-error, deployment pipeline, immutable digest, environment, concurrency
 
 ---
 
@@ -290,6 +292,13 @@ Completed Python Foundations:
 - Implement a basic FastAPI CI workflow in YAML.
 - Distinguish `on`, `runs-on`, `run`, `uses`, and `with` precisely.
 - Connect GitHub Actions to FastAPI CI and AI backend GPU/evaluation workloads.
+- Explain a matrix as one job template expanded by variables (not a resource optimization).
+- Decide `fail-fast: true` vs `false` from the independent value of remaining combinations.
+- Distinguish cache (re-creatable acceleration) from artifact (formal workflow output).
+- Compare composite action (reusable steps) with reusable workflow (reusable jobs).
+- Separate `needs`, `if`, and `continue-on-error` as distinct control mechanisms.
+- Design a build-once/deploy-many pipeline with an immutable image digest.
+- Explain production Environment protection and serialized deployment concurrency.
 
 ---
 
@@ -442,6 +451,13 @@ Completed Python Foundations:
 - Hosted vs self-hosted runner design exercise
 - Multi-job AI backend workflow design exercise
 - Basic FastAPI CI workflow YAML exercise
+- Matrix expansion exercise
+- fail-fast decision exercise
+- Cache vs artifact classification exercise
+- Composite action vs reusable workflow exercise
+- needs/if/continue-on-error classification exercise
+- Deployment reliability review exercise
+- Comprehensive advanced workflow design exercise
 
 ---
 

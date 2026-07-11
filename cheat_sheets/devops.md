@@ -167,6 +167,73 @@ Common mistakes:
 
 ---
 
+## Day22 GitHub Actions Advanced
+
+Core mappings:
+
+```text
+Matrix             = One job template expanded by variables (still N isolated jobs)
+fail-fast          = Stop early OR collect complete independent results
+Cache              = Re-creatable acceleration data
+Artifact           = Formal workflow output
+Composite Action   = Reusable steps
+Reusable Workflow  = Reusable jobs / workflow
+needs              = Dependency graph (who finishes first)
+if                 = Execution decision (should this run)
+continue-on-error  = Failure does not block the flow
+Environment        = Protected deployment boundary
+Concurrency        = Serialized environment mutation
+Immutable Digest   = Exact deployable identity
+Deployment         = Controlled promotion of a verified artifact
+```
+
+Matrix:
+
+```text
+2 python × 2 os = 4 isolated jobs (no shared filesystem/deps).
+Wall-clock time = wait; Runner-minutes = sum of all jobs.
+Matrix does NOT reduce executions; it removes duplicated YAML + config drift.
+```
+
+fail-fast: decide by whether remaining combinations still have independent value.
+`false` = full compatibility (public SDK). `true` = one early signal is enough (costly probe).
+
+Cache vs Artifact:
+
+| | Cache | Artifact |
+|--|-------|----------|
+| Meaning | Re-creatable acceleration | This run's official output |
+| Examples | pip, Playwright Chromium | coverage.xml, app.tar.gz, evaluation-results.json |
+| On miss | Slower, still correct | N/A |
+| Key | `${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}` | name + path |
+
+Never use a cache as the official store for a result.
+
+Composite Action (steps) vs Reusable Workflow (jobs): if it needs its own `jobs`/`runs-on`/`needs`, it is a Reusable Workflow.
+
+Conditions (three separate mechanisms):
+
+```text
+needs             = who must finish first (+ access to needs.<job>.result)
+if                = when to run: branch/tag/event/input/result (success/failure/always/cancelled)
+continue-on-error = executed and failed WITHOUT blocking (≠ skipped)
+notify:  needs: [test, build]   if: always()
+```
+
+Deployment pipeline:
+
+```text
+Build once -> push to registry -> capture immutable digest -> deploy the SAME digest.
+What we tested = what we deployed. Prefer my-api@sha256:... over my-api:latest.
+environment: production   -> required reviewers + prod secrets + protection + history.
+concurrency: { group: production, cancel-in-progress: false }  -> serialize, do not interrupt.
+Approval = accountable, risk-qualified owner (not one fixed job title).
+```
+
+Simplified: `PR -> lint+test -> tag -> build once -> push digest -> scan/eval -> approval -> serial deploy -> smoke -> monitor/rollback`.
+
+---
+
 ## Interview Phrases
 
 - "CI is a trusted quality process, not just running tests."
@@ -184,3 +251,9 @@ Common mistakes:
 - "Choose GitHub-hosted vs self-hosted runners for control (GPU, internal network, data), not speed — but control is not safety."
 - "Secrets are encrypted and masked; environment variables are plain config; scope is workflow/job/step."
 - "`@v4` is a movable tag; pin to a full commit SHA for supply-chain immutability."
+- "A matrix expands one job definition into isolated jobs; it does not reduce executions."
+- "Cache is re-creatable acceleration; an artifact is this run's official output."
+- "Composite action = reusable steps; reusable workflow = reusable jobs."
+- "`needs` orders jobs, `if` decides execution, `continue-on-error` tolerates failure — three mechanisms."
+- "Build once, deploy many: deploy the immutable digest you tested, not `:latest`."
+- "Serialize production with a concurrency group and `cancel-in-progress: false`."

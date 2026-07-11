@@ -404,3 +404,163 @@ triggers/cost, runner choice, job isolation, and the quality gate)
 Strong: "GitHub Actions implements CI/CD as code: triggers make it event-driven, runners execute
 jobs, jobs isolate environments and failures, steps use reusable actions or shell commands, and a
 quality gate blocks the build until required checks pass — all versioned and reviewable."
+
+---
+
+# Day22 GitHub Actions Advanced Questions
+
+These questions come from the Day22 GitHub Actions Advanced lesson: matrix, cache vs artifact,
+composite vs reusable, conditions, and reliable deployment.
+
+## Beginner
+
+### 1. What does a matrix build do?
+
+Question:
+
+What does a matrix build do, and does it reduce the number of jobs?
+
+中文解析:
+
+矩阵把一个 job 定义按一组变量展开，生成每个组合一个独立 job（隔离环境，不共享文件系统/依赖）。它通常不减少执行次数，而是消除重复 YAML、防止配置漂移。
+
+Standard Answer:
+
+A matrix expands one job definition across a set of variables (Python versions, OSes), generating
+one isolated job per combination. It normally does not reduce the number of executions; it removes
+duplicated YAML and prevents configuration drift.
+
+Follow-up Question:
+
+What is the difference between wall-clock time and runner-minutes?
+
+## Intermediate
+
+### 1. Cache vs artifact.
+
+Question:
+
+What is the difference between a cache and an artifact?
+
+中文解析:
+
+Cache 是可重新生成的加速数据（依赖下载、浏览器二进制），用 OS + 依赖哈希做 key；cache miss 时工作流仍必须正确，只是更慢。Artifact 是本次运行的正式产物（覆盖率、报告、包），在 job 间传递并留存审计。绝不能把 cache 当作正式结果的存储。
+
+Standard Answer:
+
+A cache is re-creatable acceleration data (dependency downloads, browser binaries) keyed by OS and a
+dependency hash; a workflow must still be correct on a cache miss, only slower. An artifact is a
+formal output of this run (coverage, reports, packages) transferred between jobs and retained for
+audit. Never use a cache as the official store for a result.
+
+Follow-up Question:
+
+Why must a workflow still succeed on a cache miss?
+
+### 2. Composite action vs reusable workflow.
+
+Question:
+
+When do you use a composite action versus a reusable workflow?
+
+中文解析:
+
+Composite Action 复用的是「步骤」（装依赖、跑 Ruff/pytest、Docker 登录推送）；Reusable Workflow 复用的是「job/整条工作流」（lint→test→build、矩阵、安全扫描、部署门）。若复用单元需要自己的 jobs/runs-on/needs，就用 Reusable Workflow。
+
+Standard Answer:
+
+A composite action reuses steps (install deps, run Ruff/pytest, a Docker login/push group). A
+reusable workflow reuses whole jobs or a pipeline (lint→test→build, matrix, security scan, deploy
+gates). If the reusable unit needs its own `jobs`, `runs-on`, or `needs`, use a reusable workflow.
+
+Follow-up Question:
+
+What organization-level problem does a reusable workflow prevent?
+
+### 3. `needs` vs `if` vs `continue-on-error`.
+
+Question:
+
+Explain `needs`, `if`, and `continue-on-error`.
+
+中文解析:
+
+三者是不同机制：`needs` 定义依赖顺序（谁先完成，并可访问依赖结果）；`if` 决定是否执行（分支/标签/事件/输入/结果）；`continue-on-error` 让步骤/job 执行并记录失败但不阻断流程（不等于跳过）。「无论成败都通知」用 `needs: [test, build]` + `if: always()`。
+
+Standard Answer:
+
+They are three separate mechanisms. `needs` defines dependency and ordering (who finishes first, and
+gives access to dependency results). `if` decides whether to run based on context — branch, tag,
+event, input, or result. `continue-on-error` runs the step/job and records failure without blocking
+the flow (not the same as skipped). To notify regardless of outcome, use `needs: [test, build]` with
+`if: always()`.
+
+Follow-up Question:
+
+Why is `needs` alone not enough for a notify-on-failure job?
+
+## Senior
+
+### 1. How do you make a Docker deployment reliable?
+
+Question:
+
+How do you make a Docker deployment reliable in GitHub Actions?
+
+中文解析:
+
+一次构建、多次部署：构建一次镜像、推到镜像仓库、部署不可变 digest，绝不在部署阶段重建或部署可变的 `:latest`，保证「测的就是部署的」。部署放在 production Environment 后面，要求有风险资格的审批者和仅限生产的 secrets，并用 concurrency group + `cancel-in-progress: false` 串行化，避免部署重叠。再加冒烟测试、监控和回滚。
+
+Standard Answer:
+
+Build the image once, push it to a container registry, and deploy the immutable digest — never rebuild
+in deploy or deploy a mutable `:latest`, so what was tested is what ships. Gate the deploy behind a
+production Environment with required, risk-qualified reviewers and production-only Secrets, and
+serialize with a concurrency group using `cancel-in-progress: false` so deployments never overlap. Add
+smoke tests, monitoring, and a rollback path.
+
+Interview Review:
+
+Strong answers say "build once, deploy many," name the immutable digest, and separate approval from a
+fixed job title (accountable, risk-qualified owner).
+
+Production Case:
+
+An AI backend deploys the exact digest its evaluation approved; production Secrets never reach general
+CI jobs.
+
+### 2. When do you set `fail-fast: false`, and why is `concurrency` not a boolean?
+
+Question:
+
+When is `fail-fast: false` correct, and what is the shape of `concurrency`?
+
+中文解析:
+
+当剩余组合仍有独立的诊断/兼容/发布价值时用 `fail-fast: false`（如公开 SDK 支持所有组合）；只需早期信号且成本高时用 `true`。`concurrency` 是配置块不是布尔：`group` 决定哪些部署共享一把锁，`cancel-in-progress` 才是布尔，决定是否打断进行中的部署（生产用 false 排队而非打断）。
+
+Standard Answer:
+
+Use `fail-fast: false` when the remaining combinations still carry independent diagnostic,
+compatibility, or release value (a public SDK supporting all combinations); use `true` when one early
+signal is enough and runs are costly. `concurrency` is a configuration block, not a boolean: `group`
+decides which deployments share a lock, and `cancel-in-progress` is the boolean deciding whether a new
+run interrupts the active one — production uses `false` to queue rather than interrupt.
+
+Interview Review:
+
+Look for the decision criterion (independent value) and the group/cancel-in-progress split.
+
+Production Case:
+
+Cancelling an in-progress production deploy risks half-applied migrations and a mixed-version fleet.
+
+### Common Weak vs Strong Answer (Day22)
+
+Weak: "Matrix saves resources, cache and artifacts both store files, and I run `deploy.sh` after
+tests." (misses matrix isolation, cache-vs-artifact, immutable promotion, approval, concurrency)
+
+Strong: "Advanced Actions scale with matrices, accelerate with caches, transfer official outputs as
+artifacts, reuse steps (composite) and pipelines (reusable workflow), control flow with
+`needs`/`if`/`continue-on-error`, and deploy one immutable, approved digest under a serialized
+production Environment."

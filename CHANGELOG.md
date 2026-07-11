@@ -9,6 +9,38 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.34 — Day22 GitHub Actions Advanced Documentation
+
+Date: 2026-07-11
+
+### Added
+
+- Added `docs/devops/day22-github-actions-advanced.md` (LESSON_TEMPLATE_v2).
+- Added `examples/github-actions/github-actions-advanced.example.yml` (comprehensive advanced CI/CD workflow example).
+- Added Day22 review material to `cheat_sheets/devops.md`.
+- Added Day22 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/README.md` to index the Day22 example.
+- Updated `CURRICULUM.md` to mark Day22 completed (released lesson path + v2 template note).
+- Updated `ROADMAP.md` to mark Day22 completed.
+- Updated `PROJECT_STATUS.md` to mark Day22 completed and set Next to Day23.
+- Updated `TASKS.md` with completed Day22 tasks and Day23 preparation.
+- Updated `CHANGELOG.md` with the Day22 repository update.
+
+### Notes
+
+- Day22 extends the basic workflow into a production pipeline: matrix (one job template expanded by variables; does not reduce executions; jobs are isolated), `fail-fast` decision by remaining-combination value, cache (re-creatable acceleration) vs artifact (formal output), composite action (steps) vs reusable workflow (jobs), and the `needs`/`if`/`continue-on-error` control mechanisms.
+- Deployment pipeline taught as build once / deploy many: promote one immutable image digest from a container registry (not a rebuild, not a mutable `:latest`), gated by a production Environment with risk-qualified approval and production-only Secrets, serialized with a `concurrency` group and `cancel-in-progress: false`.
+- Preserved the actual classroom record, including the student's original wording and all 10 misconceptions and corrections (matrix purpose/environment, fail-fast criterion, composite vs reusable, needs vs artifact, conditional execution, approval ownership, artifact-reuse integrity, `concurrency` shape, Docker digest delivery).
+- Corrected terminology in artifacts: `continue-on-error`, `cancel-in-progress`, `concurrency` block, immutable image digest.
+- Connected the lesson to FastAPI CI, Docker registry/digest deployment, Playwright cache, and AI backend evaluation-gated releases with production Secrets scoped to the deploy job.
+- The example workflow is intentionally NOT under `.github/workflows/` (documentation repository), is valid YAML, pins action versions, and references secrets safely (no hardcoded credentials).
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE.md`, `LESSON_TEMPLATE_v2.md`, `TRAINING_WORKFLOW.md`, or any Day01–Day21 lesson.
+
+---
+
 ## v0.1.33 — Add Repository Update Standard (Master Prompt v3.1)
 
 Date: 2026-07-11

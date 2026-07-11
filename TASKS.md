@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day21 — GitHub Actions Fundamentals
+Day22 — GitHub Actions Advanced
 
 Status:
 Completed
@@ -24,17 +24,70 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day21-github-actions-fundamentals.md
+docs/devops/day22-github-actions-advanced.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day21 GitHub Actions Fundamentals classroom learning (first LESSON_TEMPLATE_v2 lesson).
-- [x] Write a basic FastAPI CI workflow and design a multi-job AI backend workflow.
-- [x] Distinguish `on`, `runs-on`, `run`, `uses`, and `with`.
-- [ ] Prepare for Day22 — GitHub Actions Advanced.
+- [x] Complete Day22 GitHub Actions Advanced classroom learning.
+- [x] Build the comprehensive advanced CI/CD workflow example.
+- [x] Distinguish matrix, cache/artifact, composite/reusable, and needs/if/continue-on-error.
+- [ ] Prepare for Day23 — Docker Fundamentals.
+
+---
+
+## Completed Day22 Tasks
+
+- [x] Complete Day22 GitHub Actions Advanced classroom learning.
+- [x] Generate Day22 handbook lesson using LESSON_TEMPLATE_v2.
+- [x] Explain matrix as one job template expanded by variables (not a resource optimization).
+- [x] Explain `fail-fast` decision by the independent value of remaining combinations.
+- [x] Distinguish cache (re-creatable acceleration) from artifact (formal output).
+- [x] Compare composite action (steps) with reusable workflow (jobs).
+- [x] Separate `needs`, `if`, and `continue-on-error` as distinct mechanisms.
+- [x] Explain the deployment pipeline: build once, deploy many, immutable digest.
+- [x] Explain production Environment protection and serialized concurrency.
+- [x] Preserve the 10 classroom misconceptions and corrections.
+- [x] Add Engineering Trade-offs, Mental Model Summary, and AI backend connections.
+- [x] Add the comprehensive advanced workflow example.
+
+---
+
+## Completed Day22 Repository Tasks
+
+- [x] Add `docs/devops/day22-github-actions-advanced.md`.
+- [x] Add `examples/github-actions/github-actions-advanced.example.yml`.
+- [x] Update `examples/README.md`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day22 Completed).
+- [x] Update `ROADMAP.md` (Day22 Completed).
+
+---
+
+## Completed Day22 Interview Tasks
+
+- [x] Add beginner matrix question.
+- [x] Add intermediate cache-vs-artifact, composite-vs-reusable, and conditions questions.
+- [x] Add senior deployment reliability and fail-fast/concurrency questions.
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day22 Homework
+
+- [x] Complete matrix expansion exercise.
+- [x] Complete fail-fast decision exercise.
+- [x] Complete cache-or-artifact classification exercise.
+- [x] Complete composite-vs-reusable exercise.
+- [x] Complete needs/if/continue-on-error classification exercise.
+- [x] Complete deployment reliability review exercise.
+- [x] Complete comprehensive advanced workflow design exercise.
 
 ---
 
@@ -1335,12 +1388,22 @@ None.
 - [ ] Explain Workflow as Code and Everything as Code.
 - [ ] Trace the full Idea-to-Production lifecycle.
 
-### Day22 Preparation — GitHub Actions Advanced
+### Day23 Preparation — Docker Fundamentals
 
-- [x] Review Day21 GitHub Actions fundamentals.
-- [ ] Prepare questions about Matrix Build, Cache, and Artifacts.
-- [ ] Prepare questions about Reusable Workflows and Composite Actions.
-- [ ] Prepare a deployment-pipeline example goal.
+- [x] Review Day22 GitHub Actions advanced (build once, deploy immutable digest).
+- [ ] Prepare questions about Container, Image, Layer, and Dockerfile.
+- [ ] Prepare questions about Build, Run, Volume, and Network.
+- [ ] Plan a FastAPI Dockerfile example goal.
+
+### Day22 Review
+
+- [ ] Why does a matrix not normally reduce executions?
+- [ ] How do you decide `fail-fast: true` vs `false`?
+- [ ] Cache vs artifact, and what happens on a cache miss?
+- [ ] Composite action vs reusable workflow?
+- [ ] `needs` vs `if` vs `continue-on-error`?
+- [ ] Why build once and deploy an immutable digest, not `:latest`?
+- [ ] Why serialize production with `cancel-in-progress: false`?
 
 ### Day21 Review
 
@@ -1355,7 +1418,7 @@ None.
 ### Phase 2 Roadmap (Day21-Day28)
 
 - [x] Day21 — GitHub Actions Fundamentals (Completed).
-- [ ] Day22 — GitHub Actions Advanced (Planned).
+- [x] Day22 — GitHub Actions Advanced (Completed).
 - [ ] Day23 — Docker Fundamentals (Planned).
 - [ ] Day24 — Docker Compose (Planned).
 - [ ] Day25 — Deployment Foundations (Planned).
@@ -1424,3 +1487,4 @@ Purpose:
 - [x] Complete Day19 — GitHub Project Management.
 - [x] Complete Day20 — CI/CD Foundations.
 - [x] Complete Day21 — GitHub Actions Fundamentals.
+- [x] Complete Day22 — GitHub Actions Advanced.
