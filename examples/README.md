@@ -12,5 +12,7 @@ repository; copy them into a real project and adjust paths, versions, and comman
   environment, concurrency (see `docs/devops/day22-github-actions-advanced.md`).
 - `github-actions/composite-python-quality/action.yml` — Day22 composite action (reusable steps:
   setup, install, Ruff, pytest), runs inside the caller job's runner.
-- `github-actions/reusable-fastapi-ci.example.yml` — Day22 reusable workflow (`workflow_call`,
-  typed inputs, a complete `quality` job), called at the job level via `uses`.
+- `github-actions/reusable-fastapi-ci.example.yml` — Day22 reusable workflow teaching template.
+  Copy it to `.github/workflows/reusable-fastapi-ci.yml` in a real shared-workflow repository before
+  calling it via a job-level `uses` (`owner/repo/.github/workflows/reusable-fastapi-ci.yml@<commit-sha>`);
+  it is not callable from this `examples/` path.

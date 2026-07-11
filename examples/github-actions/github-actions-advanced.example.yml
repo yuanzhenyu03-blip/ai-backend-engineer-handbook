@@ -145,6 +145,13 @@ jobs:
           IMAGE: ghcr.io/${{ github.repository }}@${{ needs.build.outputs.image-digest }}
         run: |
           set -euo pipefail
+
+          # Always clean up the container, even if the health check fails.
+          cleanup() {
+            docker rm -f app >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
           echo "Verifying $IMAGE"
           docker pull "$IMAGE"
 
@@ -159,8 +166,6 @@ jobs:
             echo "Waiting for the service... ($i)"; sleep 3
             if [ "$i" -eq 10 ]; then echo "Health check failed"; exit 1; fi
           done
-
-          docker rm -f app
 
   # ---- Deploy the SAME verified digest, protected and serialized ----------
   deploy:

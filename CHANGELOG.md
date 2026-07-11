@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.36 — Day22 Review: Correct Reusable Workflow Invocation Path
+
+Date: 2026-07-11
+
+### Changed
+
+- Corrected the caller example in `examples/github-actions/reusable-fastapi-ci.example.yml`: removed the invalid `owner/repo/examples/github-actions/...@main` path and documented the real two-step usage — copy the file directly into `.github/workflows/reusable-fastapi-ci.yml` in a shared-workflow repository, then call it at the job level as `owner/repo/.github/workflows/reusable-fastapi-ci.yml@<commit-sha>` (prefer a commit SHA over `@main`).
+- Synced `docs/devops/day22-github-actions-advanced.md`: the `examples/` reusable-workflow file is a teaching template, callable only after being copied into `.github/workflows/`; clarified that a composite action may live in any directory and is called via a step-level `uses`, while a reusable workflow must live directly under `.github/workflows/` (no subdirectories) and is called via a job-level `uses`.
+- Updated `examples/README.md` reusable-workflow entry accordingly.
+- Optional hardening: added a `trap cleanup EXIT` container cleanup to the `verify-image` smoke test in `examples/github-actions/github-actions-advanced.example.yml`.
+- Updated `TASKS.md` with the review fix.
+
+### Notes
+
+- Small-scope fix limited to the reusable-workflow invocation path (plus one optional cleanup improvement). Did not rewrite the Day22 chapter.
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, Day01–Day21 lessons, or the Day22 completion status.
+- All example YAML still parses; no credentials are hardcoded.
+
+---
+
 ## v0.1.35 — Day22 Review: Image Verification & Workflow Reuse Examples
 
 Date: 2026-07-11

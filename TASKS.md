@@ -78,6 +78,8 @@ docs/devops/day22-github-actions-advanced.md
 - [x] Add `examples/github-actions/composite-python-quality/action.yml` (composite action).
 - [x] Add `examples/github-actions/reusable-fastapi-ci.example.yml` (reusable workflow).
 - [x] Sync the Day22 lesson, cheat sheet, interview notes, and examples index.
+- [x] Correct the reusable-workflow invocation path (copy to `.github/workflows/`, job-level `uses`, commit SHA).
+- [x] Add a container cleanup trap to the verify-image smoke test.
 
 ---
 

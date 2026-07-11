@@ -448,7 +448,24 @@ jobs — matrix, security scan, build/deploy gates, organization-wide CI/CD stan
 Minimal examples live in the repository: `examples/github-actions/composite-python-quality/action.yml`
 (a composite action using `runs.using: composite`, each `run` step declaring `shell`, and no `jobs`
 or `runs-on`) and `examples/github-actions/reusable-fastapi-ci.example.yml` (a reusable workflow using
-`on: workflow_call` with typed inputs, called at the job level via `jobs.<id>.uses`).
+`on: workflow_call` with typed inputs).
+
+Invocation differs, and the reusable-workflow location is strict:
+
+```text
+Composite Action:
+- may live in any suitable directory in the repository
+- called with a Step-level `uses`
+
+Reusable Workflow:
+- must live DIRECTLY under `.github/workflows/<file>.yml` (subdirectories are not supported)
+- called with a Job-level `uses` (jobs.<job_id>.uses)
+```
+
+The reusable-workflow file under `examples/` is a teaching template. It becomes callable only after
+being copied directly into `.github/workflows/` in a real workflow repository, then called as
+`uses: owner/repo/.github/workflows/reusable-fastapi-ci.yml@<commit-sha>` (prefer a commit SHA over a
+moving branch ref like `@main`). It cannot be called from its `examples/` path.
 
 ### Engineering Thinking
 
@@ -949,7 +966,8 @@ Full runnable examples are in the repository (examples only; not under `.github/
 - `examples/github-actions/github-actions-advanced.example.yml` — the complete pipeline, including a
   `verify-image` job that pulls and runs the exact digest before `deploy`.
 - `examples/github-actions/composite-python-quality/action.yml` — a composite action (reusable steps).
-- `examples/github-actions/reusable-fastapi-ci.example.yml` — a reusable workflow (`workflow_call`).
+- `examples/github-actions/reusable-fastapi-ci.example.yml` — a reusable workflow teaching template
+  (copy it to `.github/workflows/` before calling it via a job-level `uses`).
 
 Follow-up Question: where does the immutable digest come from, and why not `my-api:latest`?
 

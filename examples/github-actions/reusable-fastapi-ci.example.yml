@@ -1,23 +1,28 @@
 # =============================================================================
-# EXAMPLE ONLY — Day22 Reusable Workflow (Reusable JOBS / workflow)
+# EXAMPLE TEMPLATE ONLY — Day22 Reusable Workflow (Reusable JOBS / workflow)
 #
 # A reusable workflow defines complete JOBS (with `runs-on`) and is called via
 # `workflow_call`. Use it to share one pipeline (lint -> test) across many repos
 # so standards do not drift. It must not hardcode production secrets.
 #
-# A caller repository invokes it at the JOB level with `uses`:
+# This file in `examples/` is a TEACHING TEMPLATE. It is NOT callable from this
+# path. A reusable workflow must live DIRECTLY under `.github/workflows/`;
+# subdirectories are not supported, so `examples/.../file.yml` cannot be used.
 #
-#   # .github/workflows/ci.yml (in the calling repo)
-#   name: CI
-#   on: [push, pull_request]
-#   jobs:
-#     ci:
-#       uses: yuanzhenyu03-blip/ai-backend-engineer-handbook/examples/github-actions/reusable-fastapi-ci.example.yml@main
-#       with:
-#         python-version: "3.12"
+# Step 1 — Copy this file into a real shared-workflow repository at:
 #
-# This is intentionally NOT under `.github/workflows/` in this documentation
-# repository. Copy it there in a real project and adjust commands.
+#     .github/workflows/reusable-fastapi-ci.yml
+#
+# Step 2 — Call it at the JOB level (jobs.<job_id>.uses), not the step level:
+#
+#     jobs:
+#       ci:
+#         uses: your-org/your-workflows-repo/.github/workflows/reusable-fastapi-ci.yml@<commit-sha>
+#         with:
+#           python-version: "3.12"
+#
+# Prefer pinning to an immutable <commit-sha> over `@main` for supply-chain
+# integrity (a branch ref like @main can move).
 #
 # Lesson: docs/devops/day22-github-actions-advanced.md
 # =============================================================================
