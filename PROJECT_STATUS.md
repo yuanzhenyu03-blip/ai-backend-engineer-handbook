@@ -11,13 +11,16 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day20 — CI/CD Foundations
+Day21 — GitHub Actions Fundamentals
 
 Status:
 Completed
 
+Template:
+LESSON_TEMPLATE_v2
+
 Completed Time:
-2026-07-09
+2026-07-10
 
 ---
 
@@ -43,6 +46,7 @@ Completed Time:
 - ✅ Day18 — Merge Strategy & Code Review
 - ✅ Day19 — GitHub Project Management
 - ✅ Day20 — CI/CD Foundations
+- ✅ Day21 — GitHub Actions Fundamentals
 
 ---
 
@@ -54,25 +58,29 @@ None.
 
 ## Last Completed Lesson
 
-Day20 — CI/CD Foundations
+Day21 — GitHub Actions Fundamentals
 
 Completed Time:
-2026-07-09
+2026-07-10
+
+Main Artifact:
+GitHub Actions workflow YAML (examples/github-actions/fastapi-ci.example.yml)
 
 Completed Work:
 
-- Day20 classroom learning
-- Day20 lesson document
-- Day20 CI/CD pipeline exercises
-- Day20 devops cheat sheet (new)
-- Day20 devops interview notes (new)
-- Day20 repository status update
+- Day21 classroom learning (first lesson on LESSON_TEMPLATE_v2)
+- Day21 lesson document
+- Day21 FastAPI CI workflow example
+- Day21 GitHub Actions exercises
+- Day21 devops cheat sheet update
+- Day21 devops interview notes update
+- Day21 repository status update
 
 ---
 
 ## Next
 
-- Day21 — GitHub Actions Fundamentals
+- Day22 — GitHub Actions Advanced
 
 Status:
 Not started
@@ -103,6 +111,7 @@ Completed Python Foundations:
 - Day18 — Merge strategy and code review, history for humans, development vs product history, merge commit / squash / rebase, senior review focus, review the code not the coder
 - Day19 — GitHub project management, manage work not only code, Issue as work item, Label as metadata, Milestone as goal, Projects as workflow, Idea-to-Release pipeline
 - Day20 — CI/CD foundations, CI as trusted quality process, pipeline (fail fast, fast feedback), quality gate, CD (repeatable delivery), workflow as code, everything as code
+- Day21 — GitHub Actions fundamentals, workflow as code, execution model, trigger vs runner, hosted vs self-hosted runner, job as one fresh runner, run/uses/with, checkout, quality gate, FastAPI CI
 
 ---
 
@@ -274,6 +283,13 @@ Completed Python Foundations:
 - Explain Workflow as Code and Everything as Code.
 - Assemble the full software delivery lifecycle tying Day15-Day20 together.
 - Connect CI/CD to FastAPI, Playwright, AI backend, Docker, and prompt work.
+- Explain why a repository defines its own workflow as code.
+- Explain the GitHub Actions execution model from event to result.
+- Compare GitHub-hosted and self-hosted runners and defend the trade-off.
+- Design a multi-job workflow based on runner lifecycle, parallelism, and failure isolation.
+- Implement a basic FastAPI CI workflow in YAML.
+- Distinguish `on`, `runs-on`, `run`, `uses`, and `with` precisely.
+- Connect GitHub Actions to FastAPI CI and AI backend GPU/evaluation workloads.
 
 ---
 
@@ -421,6 +437,11 @@ Completed Python Foundations:
 - Explain a quality gate exercise
 - Manual deployment vs CD exercise
 - Explain workflow as code exercise
+- Repository-defined workflow reasoning exercise
+- Workflow vs runner exercise
+- Hosted vs self-hosted runner design exercise
+- Multi-job AI backend workflow design exercise
+- Basic FastAPI CI workflow YAML exercise
 
 ---
 

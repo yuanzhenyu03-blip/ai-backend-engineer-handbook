@@ -436,7 +436,13 @@ Workflow, Trigger, Runner, GitHub-hosted Runner, Self-hosted Runner, Job, Step, 
 Marketplace, `uses`, `run`, Secrets, Environment Variables, Basic FastAPI CI
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/devops/day21-github-actions-fundamentals.md`
+
+Template:
+LESSON_TEMPLATE_v2
 
 ---
 

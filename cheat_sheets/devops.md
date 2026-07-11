@@ -89,6 +89,76 @@ Idea -> Issue -> Project -> Branch -> Commit -> Pull Request
 
 ---
 
+## Day21 GitHub Actions Fundamentals
+
+Core idea:
+
+```text
+A workflow describes the process as code; a runner executes it.
+```
+
+Execution model:
+
+```text
+Git Event -> Trigger (on) -> Workflow -> Scheduler -> Runner (runs-on)
+          -> Job (one fresh runner) -> Workspace (checkout) -> Step (uses/run) -> Result
+```
+
+Key mappings:
+
+```text
+Workflow = Process as Code
+Trigger  = Event Entry      (on = WHEN)
+Runner   = Execution Machine (runs-on = WHERE)
+Job      = One Fresh Runner
+Step     = Concrete Task
+uses     = Reusable GitHub Action
+run      = Shell Command
+with     = Action Parameters
+```
+
+| Keyword | Meaning |
+|---------|---------|
+| `on` | The trigger (event). NOT the operating system. |
+| `runs-on` | Selects the runner/OS for a job. |
+| `run` | Runs a shell command on the runner. |
+| `uses` | Calls a reusable Action (e.g. `actions/checkout@v4`). |
+| `with` | Passes parameters to an Action (like function args). |
+| `needs` | Makes a job depend on another (e.g. build `needs: quality`). |
+
+Runner choice (control, not speed):
+
+```text
+GitHub-hosted -> general, stateless, standardized, low maintenance; limited network/hardware.
+Self-hosted   -> internal network, GPU, custom hardware, data control; you operate it.
+```
+
+Rules:
+
+- `.github/workflows/` is Convention over Configuration.
+- Checkout is the first step (a fresh runner is empty).
+- One Job = One Fresh Runner; split jobs by environment, dependency, parallelism, isolation.
+- Build only after the quality gate (Ruff/pytest) passes.
+- Reference secrets safely: `${{ secrets.NAME }}` — never hardcode.
+
+FastAPI CI flow:
+
+```text
+Trigger -> Checkout -> Setup Python -> Install -> Ruff -> pytest -> Quality Gate -> Build -> Deploy
+```
+
+Common mistakes:
+
+```text
+❌ on = OS         ✅ on = trigger; runs-on = OS
+❌ run = trigger   ✅ run = shell command
+❌ uses = shell    ✅ uses = reusable Action
+❌ one big job     ✅ split by runner/dependency
+❌ build after lint fails  ✅ gate blocks the build
+```
+
+---
+
 ## Interview Phrases
 
 - "CI is a trusted quality process, not just running tests."
@@ -97,3 +167,10 @@ Idea -> Issue -> Project -> Branch -> Commit -> Pull Request
 - "Continuous Delivery keeps you always ready to release; Continuous Deployment ships automatically once gates pass."
 - "Workflow as Code makes the process consistent, versioned, reviewable, and auditable."
 - "Everything as Code makes the whole system reproducible."
+- "A workflow describes the process as code; a runner executes it."
+- "`on` is the trigger (when); `runs-on` is the runner (where)."
+- "`run` is a shell command; `uses` calls a reusable Action; `with` passes its parameters."
+- "One job equals one fresh runner; checkout is the first step."
+- "Split jobs by runner lifecycle, dependency, parallelism, and failure isolation."
+- "The build must wait for the quality gate; build is not validation."
+- "Choose GitHub-hosted vs self-hosted runners for control (GPU, internal network, data), not speed."

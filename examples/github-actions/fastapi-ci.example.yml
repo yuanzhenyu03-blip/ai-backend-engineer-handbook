@@ -1,0 +1,67 @@
+# =============================================================================
+# EXAMPLE ONLY — Day21 (GitHub Actions Fundamentals)
+#
+# This is a reference workflow for a FastAPI service. It is intentionally NOT
+# placed under `.github/workflows/` in this documentation repository, because
+# this repo is a handbook (it has no FastAPI app, requirements.txt, or tests),
+# so it should not execute here.
+#
+# To use it in a real FastAPI project:
+#   1. Copy this file to `.github/workflows/fastapi-ci.yml`.
+#   2. Adjust the Python version, dependency file, and commands to your project.
+#
+# Lesson: docs/devops/day21-github-actions-fundamentals.md
+# =============================================================================
+
+name: FastAPI CI
+
+# `on` = the trigger (WHEN the workflow runs). It is NOT the operating system.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  # One job = one fresh runner. This job is the quality gate.
+  quality:
+    # `runs-on` = the runner (WHERE the job executes).
+    runs-on: ubuntu-latest
+
+    steps:
+      # A fresh runner has no repo code; checkout initializes the workspace.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # `uses` calls a reusable Action; `with` passes its parameters.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # `run` executes shell commands on the current runner.
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Lint: part of the quality gate. A failure here blocks later steps.
+      - name: Run Ruff
+        run: ruff check .
+
+      # Tests: part of the quality gate.
+      - name: Run tests
+        run: pytest
+
+  # Example next stage: build only AFTER the quality gate passes.
+  # `needs: quality` makes the dependency explicit; the build never runs on
+  # code that failed lint or tests. (Docker build is expanded in Day23.)
+  build:
+    runs-on: ubuntu-latest
+    needs: quality
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build image (placeholder — see Day23)
+        run: echo "Build the Docker image here after the quality gate passes."
+        # Secrets are referenced safely, never hardcoded, e.g.:
+        #   ${{ secrets.OPENAI_API_KEY }}

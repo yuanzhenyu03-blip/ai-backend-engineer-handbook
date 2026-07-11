@@ -168,3 +168,160 @@ Production Case:
 
 "Add /agent endpoint" flows from an Issue through CI and the quality gate to an automated CD
 deploy, with no manual step.
+
+---
+
+# Day21 GitHub Actions Fundamentals Questions
+
+These questions come from the Day21 GitHub Actions Fundamentals lesson. They focus on the
+execution model, runner choice, job design, and the quality gate.
+
+## Beginner
+
+### 1. What is a GitHub Actions workflow?
+
+Question:
+
+What is a GitHub Actions workflow?
+
+中文解析:
+
+工作流是团队的工程流程，以代码形式定义在 `.github/workflows/` 中。它由触发器启动，在 runner 上执行 job，每个 job 顺序执行 step。因为是代码，所以可版本化、可评审、可审计。
+
+Standard Answer:
+
+A workflow is the team's engineering process defined as code in `.github/workflows/`. It runs on
+triggers, executes jobs on runners, and each job runs ordered steps. Because it is code, it is
+versioned, reviewable, and auditable.
+
+Follow-up Question:
+
+Why does the workflow live in a fixed directory?
+
+### 2. What is the difference between `on` and `runs-on`?
+
+Question:
+
+What is the difference between `on` and `runs-on`?
+
+中文解析:
+
+`on` 定义触发器（何时运行），不是操作系统。`runs-on` 选择 job 的 runner/操作系统（在哪运行）。
+
+Standard Answer:
+
+`on` defines the trigger — when the workflow runs. It is not the operating system. `runs-on`
+selects the runner/OS for a job — where it runs.
+
+Follow-up Question:
+
+Which one is event-driven?
+
+## Intermediate
+
+### 1. GitHub-hosted vs self-hosted runner.
+
+Question:
+
+What is the difference between a GitHub-hosted and a self-hosted runner?
+
+中文解析:
+
+两者都执行 job，区别是控制权。Hosted 通用、无状态、标准化、维护成本低，但网络和硬件受限。Self-hosted 提供内网访问、GPU/自定义硬件和数据控制，但需要自己运维。
+
+Standard Answer:
+
+Both execute jobs; the difference is control. Hosted runners are general, stateless,
+standardized, and low-maintenance but limited in network and hardware. Self-hosted runners give
+internal network access, custom hardware or GPU, and data control, at the cost of operational
+responsibility. Choose self-hosted for internal access, GPU, or data control; otherwise hosted.
+
+Follow-up Question:
+
+Is speed the main reason to use self-hosted?
+
+Production Case:
+
+A GPU model evaluation against an internal model server runs on a self-hosted GPU runner; general
+lint/test runs on a hosted runner.
+
+### 2. What is the difference between `run`, `uses`, and `with`?
+
+Question:
+
+What is the difference between `run`, `uses`, and `with`?
+
+中文解析:
+
+`run` 在当前 runner 上执行 shell 命令；`uses` 调用可复用的 GitHub Action；`with` 给 Action 传参数（相当于函数参数）。
+
+Standard Answer:
+
+`run` executes a shell command on the current runner; `uses` calls a reusable GitHub Action; and
+`with` passes parameters to that action, like function arguments.
+
+Follow-up Question:
+
+Why prefer a maintained action over a raw shell command for checkout or language setup?
+
+## Senior
+
+### 1. How would you design CI jobs for an AI backend with GPU evaluation?
+
+Question:
+
+How would you design CI jobs for an AI backend that needs general checks and GPU evaluation?
+
+中文解析:
+
+按执行环境和依赖拆分。hosted 的 quality job 跑 lint/test；self-hosted GPU 的 gpu-eval job 跑模型评估，二者并行。build job 依赖 quality，保证不会用未通过质量门的代码构建镜像。敏感评估留在自托管基础设施上，secrets 安全引用，昂贵评估可用 schedule 控成本。
+
+Standard Answer:
+
+I split by execution environment and dependency. A hosted `quality` job runs lint and tests; a
+self-hosted GPU `gpu-eval` job runs model evaluation; they run in parallel. A `build` job depends
+on `quality`, so no image is built from code that failed the gate. Sensitive evaluation stays on
+self-hosted infrastructure with secrets referenced safely, and expensive evaluation can move to a
+schedule to control cost.
+
+Interview Review:
+
+Strong answers divide jobs by runner lifecycle and dependency, not business labels, and make the
+build depend on the gate.
+
+Production Case:
+
+Prompt-regression results gate a model or prompt release.
+
+### 2. Why must the build wait for the quality gate?
+
+Question:
+
+If Ruff (lint) fails, should the Docker build still run?
+
+中文解析:
+
+不应该。当 Ruff 是质量门的一部分时，lint 失败应阻止构建。构建只是产出制品的阶段，不能替代质量验证；用未通过检查的代码构建镜像会浪费算力并可能发布已知有缺陷的制品。
+
+Standard Answer:
+
+No. When Ruff is part of the quality gate, a lint failure must block the build. Build is an
+artifact stage, not a substitute for quality validation; building from code that failed checks
+wastes compute and can ship a known-bad artifact.
+
+Interview Review:
+
+Look for "validate first, build second" and an explicit `needs:` dependency.
+
+Production Case:
+
+A PR whose `ruff check .` fails stops before Docker build; no image is produced for broken code.
+
+### Common Weak vs Strong Answer
+
+Weak: "GitHub Actions runs my tests automatically when I push." (misses workflow-as-code,
+triggers/cost, runner choice, job isolation, and the quality gate)
+
+Strong: "GitHub Actions implements CI/CD as code: triggers make it event-driven, runners execute
+jobs, jobs isolate environments and failures, steps use reusable actions or shell commands, and a
+quality gate blocks the build until required checks pass — all versioned and reviewable."

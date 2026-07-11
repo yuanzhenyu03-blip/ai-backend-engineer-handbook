@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day20 — CI/CD Foundations
+Day21 — GitHub Actions Fundamentals
 
 Status:
 Completed
@@ -24,17 +24,72 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day20-ci-cd-foundations.md
+docs/devops/day21-github-actions-fundamentals.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day20 CI/CD Foundations classroom learning.
-- [x] Design a CI pipeline and explain quality gates.
-- [x] Assemble the full delivery lifecycle tying Day15-Day20 together.
-- [ ] Prepare for the next Phase 2 lesson (Linux, Docker).
+- [x] Complete Day21 GitHub Actions Fundamentals classroom learning (first LESSON_TEMPLATE_v2 lesson).
+- [x] Write a basic FastAPI CI workflow and design a multi-job AI backend workflow.
+- [x] Distinguish `on`, `runs-on`, `run`, `uses`, and `with`.
+- [ ] Prepare for Day22 — GitHub Actions Advanced.
+
+---
+
+## Completed Day21 Tasks
+
+- [x] Complete Day21 GitHub Actions Fundamentals classroom learning.
+- [x] Generate Day21 handbook lesson using LESSON_TEMPLATE_v2.
+- [x] Explain workflow as code and Convention over Configuration.
+- [x] Add the execution model: Event -> Trigger -> Workflow -> Runner -> Job -> Step -> Result.
+- [x] Explain workflow vs runner (description vs execution).
+- [x] Explain the trigger (`on`) and event-driven cost control.
+- [x] Compare GitHub-hosted and self-hosted runners (control, not speed).
+- [x] Explain job as one fresh runner and job design principles.
+- [x] Explain step, `run`, `uses`, and `with`.
+- [x] Explain checkout and workspace initialization.
+- [x] Explain the quality gate and FastAPI CI flow.
+- [x] Add Common Misconceptions (on=OS, run=trigger, uses=shell, one-job, ruff blocks build).
+- [x] Add Engineering Trade-offs and Mental Model Summary sections.
+- [x] Add FastAPI, Docker, and GitHub Actions framework connections.
+- [x] Add AI backend connections (GPU self-hosted runners, scheduled evaluation, prompt regression).
+- [x] Add English interview section with weak vs strong answers.
+
+---
+
+## Completed Day21 Repository Tasks
+
+- [x] Add `docs/devops/day21-github-actions-fundamentals.md`.
+- [x] Add `examples/github-actions/fastapi-ci.example.yml` (example-only workflow).
+- [x] Add `examples/README.md`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day21 Completed).
+- [x] Update `ROADMAP.md` (Day21 Completed).
+
+---
+
+## Completed Day21 Interview Tasks
+
+- [x] Add beginner workflow and on-vs-runs-on questions.
+- [x] Add intermediate runner and run/uses/with questions.
+- [x] Add senior multi-job design and quality-gate questions.
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day21 Homework
+
+- [x] Complete repository-defined workflow reasoning exercise.
+- [x] Complete workflow vs runner exercise.
+- [x] Complete hosted vs self-hosted runner design exercise.
+- [x] Complete multi-job AI backend workflow design exercise.
+- [x] Complete basic FastAPI CI workflow YAML exercise.
 
 ---
 
@@ -1280,16 +1335,26 @@ None.
 - [ ] Explain Workflow as Code and Everything as Code.
 - [ ] Trace the full Idea-to-Production lifecycle.
 
-### Day21 Preparation — GitHub Actions Fundamentals
+### Day22 Preparation — GitHub Actions Advanced
 
-- [ ] Review CI/CD foundations (Day20) before implementing pipelines.
-- [ ] Prepare questions about Workflow, Trigger, Runner, Job, and Step.
-- [ ] Prepare a basic FastAPI CI example.
-- [ ] Review Secrets and Environment Variables concepts.
+- [x] Review Day21 GitHub Actions fundamentals.
+- [ ] Prepare questions about Matrix Build, Cache, and Artifacts.
+- [ ] Prepare questions about Reusable Workflows and Composite Actions.
+- [ ] Prepare a deployment-pipeline example goal.
+
+### Day21 Review
+
+- [ ] Draw the Event -> Trigger -> Workflow -> Runner -> Job -> Step -> Result model.
+- [ ] Explain `on` vs `runs-on`.
+- [ ] Explain `run` vs `uses` vs `with`.
+- [ ] Explain why checkout is first.
+- [ ] Explain one job = one fresh runner and when to split jobs.
+- [ ] Explain why build waits for the quality gate.
+- [ ] Explain GitHub-hosted vs self-hosted runner trade-off.
 
 ### Phase 2 Roadmap (Day21-Day28)
 
-- [ ] Day21 — GitHub Actions Fundamentals (Planned).
+- [x] Day21 — GitHub Actions Fundamentals (Completed).
 - [ ] Day22 — GitHub Actions Advanced (Planned).
 - [ ] Day23 — Docker Fundamentals (Planned).
 - [ ] Day24 — Docker Compose (Planned).
@@ -1358,3 +1423,4 @@ Purpose:
 - [x] Complete Day18 — Merge Strategy & Code Review.
 - [x] Complete Day19 — GitHub Project Management.
 - [x] Complete Day20 — CI/CD Foundations.
+- [x] Complete Day21 — GitHub Actions Fundamentals.

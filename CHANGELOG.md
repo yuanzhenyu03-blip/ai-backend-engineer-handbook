@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.31 — Day21 GitHub Actions Fundamentals Documentation
+
+Date: 2026-07-10
+
+### Added
+
+- Added `docs/devops/day21-github-actions-fundamentals.md` (first lesson using LESSON_TEMPLATE_v2).
+- Added `examples/github-actions/fastapi-ci.example.yml` (example-only FastAPI CI workflow).
+- Added `examples/README.md`.
+- Added Day21 GitHub Actions review material to `cheat_sheets/devops.md`.
+- Added Day21 GitHub Actions interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `CURRICULUM.md` to mark Day21 completed (with released lesson path and v2 template note).
+- Updated `ROADMAP.md` to mark Day21 completed.
+- Updated `PROJECT_STATUS.md` to mark Day21 completed and set Next to Day22.
+- Updated `TASKS.md` with completed Day21 tasks and Day22 preparation.
+- Updated `CHANGELOG.md` with the Day21 repository update.
+
+### Notes
+
+- Day21 implements the Day20 CI/CD principles with GitHub Actions, taught as engineering thinking: workflow as code, the execution model (Event -> Trigger -> Workflow -> Runner -> Job -> Step -> Result), workflow vs runner, triggers and event-driven cost control, GitHub-hosted vs self-hosted runners (control, not speed), job as one fresh runner, steps with `run`/`uses`/`with`, checkout, and the quality gate before build.
+- Preserved the actual classroom misconceptions and corrections: `on` mistaken for the OS, `run` mistaken for a trigger, `uses` mistaken for a shell command, preferring one big job, and Ruff failure not blocking the Docker build.
+- Followed LESSON_TEMPLATE_v2: added required Core Mental Model, Common Misconceptions, Engineering Trade-offs, technology-agnostic Hands-on Exercises (YAML artifact), Relevant Framework Connections (not Playwright-forced), first-class AI Backend Connections, and a Mental Model Summary.
+- The engineering artifact is a GitHub Actions workflow YAML. The example is intentionally NOT under `.github/workflows/` because this is a documentation repository with no FastAPI app to execute; it is clearly labeled example-only, uses pinned action versions, and references secrets safely (no hardcoded credentials).
+- Connected the lesson to FastAPI CI, Docker build stage, and AI backend GPU/self-hosted runners, scheduled evaluation, and prompt regression testing.
+- Did not modify `LESSON_TEMPLATE.md`, `LESSON_TEMPLATE_v2.md`, `TRAINING_WORKFLOW.md`, or Day01–Day20 lessons.
+
+---
+
 ## v0.1.30 — Lesson Template v2 (Official Standard from Day21)
 
 Date: 2026-07-10

@@ -72,7 +72,7 @@ Git
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
 | Day20 | CI/CD Foundations | ✅ Completed |
-| Day21 | GitHub Actions Fundamentals | Planned |
+| Day21 | GitHub Actions Fundamentals | ✅ Completed |
 | Day22 | GitHub Actions Advanced | Planned |
 
 ## Container Engineering
