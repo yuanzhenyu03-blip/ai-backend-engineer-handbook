@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.33 — Add Repository Update Standard (Master Prompt v3.1)
+
+Date: 2026-07-11
+
+### Added
+
+- Added `prompts/master-prompt.md` — the official long-term repository update standard (Claude Code Master Prompt v3.1) for Day21 and all future lessons.
+
+### Changed
+
+- Updated `prompts/README.md` to document the repository update standard and how it pairs with `LESSON_TEMPLATE_v2.md`.
+
+### Notes
+
+- v3.1 aligns with the Day21 review corrections: runner lifecycle language (one runner execution context; hosted fresh/ephemeral vs self-hosted persistent), stronger self-hosted runner security guidance, complete Secrets and Environment Variables coverage, and GitHub Action version pinning (movable tag vs commit SHA).
+- No lessons or status files changed; this only adds the standing update standard to the repository.
+- Did not modify `LESSON_TEMPLATE.md`, `LESSON_TEMPLATE_v2.md`, `ROADMAP.md`, or `CURRICULUM.md`.
+
+---
+
 ## v0.1.32 — Day21 Review Corrections
 
 Date: 2026-07-11
