@@ -317,6 +317,85 @@ Production Case:
 
 A PR whose `ruff check .` fails stops before Docker build; no image is produced for broken code.
 
+### 3. Secrets vs environment variables.
+
+Question:
+
+What is the difference between a secret and an environment variable in GitHub Actions?
+
+中文解析:
+
+环境变量是明文配置（如 LOG_LEVEL、APP_ENV），会出现在日志里；secret 是加密存储、日志中被遮蔽的敏感值（API key、token、数据库连接串）。env 有作用域：workflow/job/step，越窄越优先。用 `${{ secrets.NAME }}` 注入，绝不硬编码或打印。
+
+Standard Answer:
+
+An environment variable is plain, visible configuration (LOG_LEVEL, APP_ENV) and can appear in
+logs. A secret is an encrypted-at-rest, log-masked sensitive value (API keys, tokens, DB URLs).
+Env vars have scope — workflow, job, or step, with narrower overriding broader. Inject secrets
+with `${{ secrets.NAME }}`, never hardcode or echo them.
+
+Follow-up Question:
+
+Do fork pull requests from untrusted contributors receive repository secrets by default?
+
+Production Case:
+
+A FastAPI CI sets APP_ENV as an env var and injects OPENAI_API_KEY and DATABASE_URL from secrets
+only in the step that needs them.
+
+### 4. Is a self-hosted runner more secure?
+
+Question:
+
+Self-hosted runners give more control. Does that make them more secure?
+
+中文解析:
+
+不一定。更多控制不等于更安全。自托管 runner 的风险包括：状态在 job 间残留、fork PR 会在你的硬件上运行攻击者代码、长期凭证被窃取、主机被攻陷、以及它位于内网导致的内部爆炸半径。要靠 ephemeral/隔离 runner、不给 fork PR secrets、最小权限、网络隔离来缓解。
+
+Standard Answer:
+
+Not automatically. More control is not the same as more security. Self-hosted risks include
+persistent state between jobs, untrusted fork PRs running attacker-controlled code on your
+hardware, credential leakage, host compromise, and a large internal blast radius because the
+runner sits inside your network. You mitigate with ephemeral/isolated runners, no secrets for
+fork PRs, least privilege, and network segmentation.
+
+Interview Review:
+
+Strong answers explicitly separate "control" from "safety" and name the fork-PR and blast-radius
+risks.
+
+Production Case:
+
+A GPU self-hosted runner reaching an internal model server must be isolated so a malicious job
+cannot pivot into the internal network.
+
+### 5. How do you pin third-party actions safely?
+
+Question:
+
+Is `actions/checkout@v4` an immutable pin?
+
+中文解析:
+
+不是。`@v4` 是可移动的主版本标签，维护者可以把它指向新的提交，方便更新但不保证不可变。要更强的供应链保证，就固定到完整的 40 位 commit SHA，冻结确切代码。高安全流水线会用 SHA 固定第三方 action，并避免盲目使用未知 Marketplace action。
+
+Standard Answer:
+
+No. `@v4` is a movable major-version tag — maintainers can repoint it to new commits, which gives
+easy updates but not immutability. For a stronger supply-chain guarantee, pin to a full 40-character
+commit SHA, which freezes the exact code. High-security pipelines pin third-party actions to a SHA
+and avoid blindly using unknown Marketplace actions.
+
+Interview Review:
+
+Look for the trade-off: major tag = easy updates; commit SHA = immutability.
+
+Production Case:
+
+A security-sensitive AI backend pipeline pins every third-party action to a commit SHA.
+
 ### Common Weak vs Strong Answer
 
 Weak: "GitHub Actions runs my tests automatically when I push." (misses workflow-as-code,

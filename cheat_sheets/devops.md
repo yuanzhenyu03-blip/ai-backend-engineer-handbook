@@ -110,7 +110,7 @@ Key mappings:
 Workflow = Process as Code
 Trigger  = Event Entry      (on = WHEN)
 Runner   = Execution Machine (runs-on = WHERE)
-Job      = One Fresh Runner
+Job      = One Runner Execution Context
 Step     = Concrete Task
 uses     = Reusable GitHub Action
 run      = Shell Command
@@ -129,17 +129,25 @@ with     = Action Parameters
 Runner choice (control, not speed):
 
 ```text
-GitHub-hosted -> general, stateless, standardized, low maintenance; limited network/hardware.
-Self-hosted   -> internal network, GPU, custom hardware, data control; you operate it.
+GitHub-hosted -> general, fresh & ephemeral per job, standardized; limited network/hardware.
+Self-hosted   -> internal network, GPU, custom hardware; you operate AND secure it.
 ```
+
+Self-hosted security: control != safety. Risks: persistent state, untrusted fork PRs running on
+your hardware, credential leakage, host compromise, internal blast radius. Mitigate with
+ephemeral/isolated runners, no secrets for fork PRs, least privilege, network segmentation.
 
 Rules:
 
 - `.github/workflows/` is Convention over Configuration.
 - Checkout is the first step (a fresh runner is empty).
-- One Job = One Fresh Runner; split jobs by environment, dependency, parallelism, isolation.
+- One job = one runner execution context; fresh & ephemeral on hosted, self-hosted may persist.
+- Split jobs by environment, dependency, parallelism, isolation.
 - Build only after the quality gate (Ruff/pytest) passes.
-- Reference secrets safely: `${{ secrets.NAME }}` — never hardcode.
+- Secrets vs env: secrets are encrypted + masked (credentials); env is plain config; env scope is
+  workflow/job/step (narrower overrides broader).
+- Reference secrets safely: `${{ secrets.NAME }}` — never hardcode or echo them.
+- Pin actions: `@v4` is a movable major tag; a full commit SHA is immutable (stronger supply chain).
 
 FastAPI CI flow:
 
@@ -170,7 +178,9 @@ Common mistakes:
 - "A workflow describes the process as code; a runner executes it."
 - "`on` is the trigger (when); `runs-on` is the runner (where)."
 - "`run` is a shell command; `uses` calls a reusable Action; `with` passes its parameters."
-- "One job equals one fresh runner; checkout is the first step."
+- "One job runs in one runner execution context (fresh on hosted; self-hosted may persist); checkout is first."
 - "Split jobs by runner lifecycle, dependency, parallelism, and failure isolation."
 - "The build must wait for the quality gate; build is not validation."
-- "Choose GitHub-hosted vs self-hosted runners for control (GPU, internal network, data), not speed."
+- "Choose GitHub-hosted vs self-hosted runners for control (GPU, internal network, data), not speed — but control is not safety."
+- "Secrets are encrypted and masked; environment variables are plain config; scope is workflow/job/step."
+- "`@v4` is a movable tag; pin to a full commit SHA for supply-chain immutability."

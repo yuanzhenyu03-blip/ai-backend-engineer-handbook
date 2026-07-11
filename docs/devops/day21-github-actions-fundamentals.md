@@ -30,6 +30,9 @@ After completing this lesson, the student should be able to:
 * Design a multi-job workflow based on runner lifecycle, parallelism, and failure isolation.
 * Implement a basic FastAPI CI workflow in YAML.
 * Distinguish `on`, `runs-on`, `run`, `uses`, and `with` precisely.
+* Distinguish secrets from environment variables and inject them safely.
+* Explain self-hosted runner security risks and why control is not automatically safety.
+* Pin actions appropriately (major tag vs full commit SHA) for supply-chain safety.
 * Diagnose common GitHub Actions misconceptions in an interview.
 * Connect GitHub Actions to FastAPI CI and to AI backend GPU and evaluation workloads.
 * Answer beginner, intermediate, and senior interview questions in English.
@@ -99,7 +102,7 @@ Event
   -> Workflow
   -> GitHub Scheduler
   -> Runner (runs-on)
-  -> Job (one fresh runner)
+  -> Job (one runner execution context)
   -> Workspace (checkout)
   -> Step (uses / run / with)
   -> Quality Gate
@@ -129,7 +132,8 @@ GitHub Scheduler        -> schedules the run
 Runner (`runs-on`)      -> the machine that executes
     |
     v
-Job = One Fresh Runner  -> an isolated execution environment
+Job = One Runner Execution Context -> isolated per job
+                        (fresh & ephemeral on GitHub-hosted; may persist on self-hosted)
     |
     v
 Workspace (`actions/checkout`)  -> the repo code is downloaded here
@@ -155,7 +159,7 @@ One-line mappings to memorize:
 Workflow = Process as Code
 Trigger  = Event Entry
 Runner   = Execution Machine
-Job      = One Fresh Runner
+Job      = One Runner Execution Context
 Step     = Concrete Task
 uses     = Reusable Action
 run      = Shell Command
@@ -348,6 +352,11 @@ The main difference is control, not simply speed.
 Choose based on requirements: public, general CI → hosted. Internal networks, sensitive data, or
 GPU → self-hosted. There is no universally best option; it is context-dependent.
 
+Security note: self-hosted gives more control, but control is not the same as safety. A
+self-hosted runner can persist state, is exposed to untrusted fork-PR code, and sits inside your
+network, so a compromise has a large internal blast radius. It must be secured deliberately
+(ephemeral, isolated, least privilege, no secrets for fork PRs).
+
 ### Production Example
 
 A prompt regression evaluation that must access an internal model server and a GPU runs on a
@@ -359,7 +368,7 @@ runner.
 AI backend GPU evaluation and internal deployment use self-hosted runners; standard FastAPI
 lint/test uses hosted runners.
 
-## Concept 5: Job — One Fresh Runner
+## Concept 5: Job — One Runner Execution Context
 
 ### Tech Lead Question
 
@@ -375,11 +384,23 @@ One job is simpler and everything shares state. Why split it?
 
 ### Tech Lead Review
 
-Right. A job is an independent execution environment.
+Right. A job is assigned to one runner execution context.
 
 ```text
-One Job = One Fresh Runner.
+One Job = One Runner Execution Context.
 ```
+
+Be precise about "fresh," because it depends on the runner type:
+
+```text
+GitHub-hosted runner -> a fresh, ephemeral VM per job; no state carries over.
+Self-hosted runner   -> the SAME machine may persist state (files, caches,
+                        credentials) between jobs, unless it is explicitly made
+                        ephemeral or isolated.
+```
+
+So "one fresh runner" is accurate for GitHub-hosted runners, but on self-hosted
+runners freshness is a configuration choice, not a guarantee.
 
 Jobs enable:
 
@@ -392,8 +413,9 @@ Different runner types -> hosted for CI, self-hosted GPU for evaluation.
 
 Divide jobs by execution environment and dependency, not by business labels.
 
-Note: each job starts on a fresh runner, so jobs do NOT share a filesystem by default. Passing
-data between jobs needs artifacts (Day22).
+Note: on GitHub-hosted runners each job starts fresh, so jobs do NOT share a filesystem by
+default; passing data between jobs needs artifacts (Day22). On self-hosted runners a shared
+filesystem may leak between jobs unless the runner is ephemeral or isolated.
 
 ### Engineering Thinking
 
@@ -447,10 +469,24 @@ with:
 `uses` represents reusable capability and standardization; `run` is your own command; `with`
 supplies the action's arguments.
 
+Version pinning matters for `uses`:
+
+```text
+actions/checkout@v4      -> a MOVABLE major-version tag. Maintainers can repoint v4
+                            to new commits, so you get updates but not immutability.
+actions/checkout@<sha>   -> a full 40-character commit SHA. Immutable: the exact code
+                            is frozen, giving the strongest supply-chain guarantee.
+```
+
+`@v4` trades immutability for easy updates; a full commit SHA trades easy updates for
+supply-chain immutability. High-security pipelines pin third-party actions to a SHA.
+
 ### Engineering Thinking
 
 Prefer a maintained action (`uses`) for standard, reusable capability (checkout, language setup)
 and `run` for your project-specific commands. Reuse reduces bugs and standardizes environments.
+Pin third-party actions to an explicit version (major tag at minimum, commit SHA for stronger
+supply-chain immutability), and do not blindly trust unknown Marketplace actions.
 
 ### Production Example
 
@@ -505,7 +541,82 @@ Every job starts clean (reproducibility), so every job that touches code must ch
 
 Without checkout, `ruff check .` and `pytest` would have no FastAPI code to run against.
 
-## Concept 8: Quality Gate and the FastAPI CI Flow
+## Concept 8: Secrets and Environment Variables
+
+### Tech Lead Question
+
+Your CI needs an OpenAI API key and a log level. Do you write both directly into the YAML?
+
+### Student Thinking
+
+Hardcoding is easy, but the workflow file is committed to the repo, so the key would be exposed.
+
+### Student Answer
+
+"The API key must be a secret; the log level can be a plain environment variable."
+
+### Tech Lead Review
+
+Correct. Distinguish the two, because they solve different problems.
+
+```text
+Environment variable (`env`):
+  plain key-value config, visible in logs, for NON-sensitive values (LOG_LEVEL, APP_ENV).
+
+Secret (`${{ secrets.NAME }}`):
+  encrypted at rest, masked in logs, for SENSITIVE values (API keys, tokens, DB URLs).
+```
+
+Environment variables have a scope, and narrower scope overrides broader:
+
+```text
+env at workflow level -> available to every job and step
+env at job level      -> available to that job's steps
+env at step level     -> available only to that one step
+```
+
+Safe injection:
+
+```yaml
+env:
+  APP_ENV: production                 # non-sensitive, workflow-wide
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # injected from secrets, step scope
+        run: python evaluate.py
+```
+
+Rules:
+
+```text
+Reference secrets with `${{ secrets.NAME }}`; never hardcode them.
+Never echo or print a secret; secrets are masked in logs, do not defeat that.
+Fork pull requests from untrusted contributors do NOT receive repository secrets by default.
+Scope secrets to the step or job that needs them (least privilege).
+```
+
+### Engineering Thinking
+
+Separate configuration from credentials: config (env) can be visible and versioned; credentials
+(secrets) must be encrypted, masked, and least-privilege. A leaked key is a production incident,
+so secrets never live in code or logs.
+
+### Production Example
+
+A FastAPI CI sets `APP_ENV` as an env var and injects `DATABASE_URL` and `OPENAI_API_KEY` from
+secrets only in the integration-test step that needs them.
+
+### Framework Connection
+
+AI backend workflows inject `OPENAI_API_KEY`, model endpoints, and database URLs as secrets,
+while `LOG_LEVEL` and feature flags are plain env vars. On self-hosted GPU runners, keeping these
+as secrets (not host environment values) limits exposure if the host is compromised.
+
+## Concept 9: Quality Gate and the FastAPI CI Flow
 
 ### Tech Lead Question
 
@@ -585,7 +696,15 @@ Job design
 ❌ Put every stage in one job for simplicity.
 ✅ Split jobs by runner lifecycle, parallelism, dependency, and failure isolation.
 Why beginners think this: one job shares state and looks simpler.
-How to remember: One Job = One Fresh Runner; separate machines = separate jobs.
+How to remember: one job = one runner execution context; split jobs by environment/dependency. (Fresh & ephemeral on hosted; self-hosted may persist unless isolated.)
+```
+
+```text
+Secrets vs environment variables
+❌ A secret is just an environment variable.
+✅ A secret is encrypted at rest and masked in logs; an env var is plain, visible config.
+Why beginners think this: both are injected as `KEY=value` into a step.
+How to remember: secrets = credentials (masked); env = config (visible).
 ```
 
 ```text
@@ -605,12 +724,29 @@ GitHub-hosted Runner vs Self-hosted Runner
 
 GitHub-hosted:
 - lower operational burden, fast setup, standardized environment
+- fresh, ephemeral VM per job (no state carried over)
 - limited network and hardware control
 Self-hosted:
-- internal network access, custom hardware/GPU, greater security control
-- higher operational responsibility
+- internal network access, custom hardware/GPU
+- more configuration control
+- higher operational AND security responsibility
 Choose self-hosted when you need internal access, GPU, or data control; otherwise hosted.
 ```
+
+More control does NOT automatically mean safer. Self-hosted runners add real security risks:
+
+```text
+Persistent state    -> the machine may carry files, caches, or credentials between jobs.
+Untrusted PRs       -> a fork pull request can run attacker-controlled code on YOUR hardware.
+Credential leakage  -> long-lived host credentials can be exfiltrated by a malicious job.
+Host compromise     -> a compromised runner exposes the underlying host machine.
+Internal blast radius -> the runner lives inside your network, so a breach can reach internal
+                       systems (databases, model servers, secrets stores).
+```
+
+Mitigations: use ephemeral/isolated runners, never expose secrets to fork PRs, apply least
+privilege, and segment the runner's network. Treat self-hosted security as an ongoing
+responsibility, not a benefit you get for free.
 
 ```text
 One Job vs Multiple Jobs
@@ -846,7 +982,7 @@ Docker.
 
 ```text
 Where the concept appears: the whole lesson — workflows, triggers, runners, jobs, steps.
-State/lifecycle: each job is a fresh runner; steps share the job workspace.
+State/lifecycle: each job runs in one runner execution context (fresh & ephemeral on hosted; possibly persistent on self-hosted); steps share the job workspace.
 Share: reusable actions via `uses`.
 Isolate: each job runs on its own runner.
 Failure: a step's non-zero exit fails the job; jobs can fail independently.
@@ -917,7 +1053,7 @@ self-hosted `gpu-eval` job, with prompt-regression results gating a model or pro
 
 * "The workflow describes the process; the runner executes it."
 * "GitHub Actions is event-driven: the trigger decides when it runs."
-* "One job equals one fresh runner."
+* "One job runs in one runner execution context (fresh on hosted; self-hosted may persist)."
 * "Build should only start after the required quality checks pass."
 
 ## Beginner Question
@@ -967,7 +1103,7 @@ quality gate blocks the build until required checks pass — all versioned and r
 Workflow = Process as Code
 Trigger  = Event Entry (`on` = when)
 Runner   = Execution Machine (`runs-on` = where)
-Job      = One Fresh Runner (isolated environment)
+Job      = One Runner Execution Context (fresh & ephemeral on hosted; may persist on self-hosted)
 Step     = Concrete Task
 uses     = Reusable GitHub Action
 run      = Shell Command
@@ -996,7 +1132,7 @@ Does the build wait for the quality gate?
   pytest -> gate -> build.
 * Most important AI backend connection: self-hosted GPU runners and scheduled evaluation gating a
   model/prompt release.
-* Most important interview answer: a workflow is process-as-code; a job is one fresh runner;
+* Most important interview answer: a workflow is process-as-code; a job is one runner execution context;
   `on` is when, `runs-on` is where.
 
 The most important engineering sentence:
@@ -1018,7 +1154,7 @@ Before Day22, confirm you can answer these without looking at the notes:
 - [ ] What is the difference between `on` and `runs-on`?
 - [ ] What is the difference between `run`, `uses`, and `with`?
 - [ ] Why is checkout the first step on a fresh runner?
-- [ ] Why is "one job = one fresh runner," and when do I split jobs?
+- [ ] Why is "one job = one runner execution context" (fresh on hosted, maybe persistent on self-hosted), and when do I split jobs?
 - [ ] Why must the build wait for the quality gate?
 - [ ] When would I choose a self-hosted (GPU) runner for an AI backend?
 - [ ] Can I explain a GitHub Actions workflow in English in an interview?
