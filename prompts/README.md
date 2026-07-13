@@ -5,7 +5,7 @@ Reusable working instructions for AI coding assistants live here.
 ## Repository Update Standard
 
 `master-prompt.md` is the official long-term repository update standard (Claude Code Master
-Prompt, currently v3.1). Beginning with Day21, every lesson update follows it together with
+Prompt, currently v3.2). Beginning with Day21, every lesson update follows it together with
 `LESSON_TEMPLATE_v2.md`.
 
 It defines the Repository Coding Agent role, the daily input block, the required lesson standard,

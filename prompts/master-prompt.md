@@ -1,4 +1,4 @@
-# Claude Code Master Prompt v3.1
+# Claude Code Master Prompt v3.2
 # AI Backend Engineer Handbook — Repository Update Standard
 
 Repository = Single Source of Truth.
@@ -6,6 +6,8 @@ Repository = Single Source of Truth.
 This prompt is the long-term repository update standard for the AI Backend Engineer Training Camp.
 
 Version v3.1 corrects runner lifecycle language, strengthens self-hosted runner security guidance, adds complete Secrets and Environment Variables coverage, and clarifies GitHub Action version pinning.
+
+Version v3.2 adds a knowledge-continuity requirement, mental-model evolution capture, an explicit rule against forced technology connections, and daily-input fields for previous/future lesson connections. It only adds rules and is fully compatible with v3.1; it does not migrate or rewrite Day01–Day23 lessons or the folder structure.
 
 It is designed for Day21 and all future lessons.
 
@@ -97,6 +99,15 @@ THEME:
 CURRICULUM TOPICS:
 {{CURRICULUM_TOPICS}}
 
+PREVIOUS_LESSON_CONNECTION:
+{{PREVIOUS_LESSON_CONNECTION}}
+
+KNOWLEDGE_CHAIN_POSITION:
+{{KNOWLEDGE_CHAIN_POSITION}}
+
+FUTURE_LESSON_CONNECTION:
+{{FUTURE_LESSON_CONNECTION}}
+
 ACTUAL CLASSROOM CONTENT:
 {{ACTUAL_CLASSROOM_CONTENT}}
 
@@ -125,6 +136,11 @@ ADDITIONAL REPOSITORY INSTRUCTIONS:
 The classroom content above is authoritative.
 
 Do not add advanced topics that were not taught unless they are clearly labeled as future connections.
+
+`PREVIOUS_LESSON_CONNECTION`, `KNOWLEDGE_CHAIN_POSITION`, and `FUTURE_LESSON_CONNECTION` let a
+future AI agent place the lesson in the complete curriculum. If the teaching model leaves them
+blank, infer them from `CURRICULUM.md` and `ROADMAP.md` rather than omitting knowledge continuity
+(see section 9).
 
 ---
 
@@ -297,6 +313,49 @@ Production AI Backend
 
 Explain why this lesson appears at this point in the roadmap.
 
+## Knowledge Continuity Requirement (v3.2)
+
+Every lesson must explicitly show the continuity chain:
+
+```text
+Previous Knowledge
+        |
+        v
+Current Lesson Concept
+        |
+        v
+Future Production Usage
+```
+
+The lesson must explain:
+
+- Which previous lessons are prerequisites.
+- Which mental models are reused (name them, e.g. Day01 object model, Day22 immutable digest).
+- Why this lesson appears at this point in the roadmap.
+- Which future lessons depend on it.
+
+The curriculum is a continuous engineering growth path, not a set of isolated technologies:
+
+```text
+Python Foundations
+        |
+Git
+        |
+GitHub Workflow
+        |
+CI/CD
+        |
+GitHub Actions
+        |
+Docker
+        |
+Deployment
+        |
+Kubernetes
+        |
+Production AI Backend
+```
+
 ---
 
 # 10. Lesson Map
@@ -457,6 +516,27 @@ Do not ridicule mistakes.
 
 Use them to improve conceptual precision.
 
+## Mental Model Evolution (v3.2)
+
+Do not only record mistakes; record how engineering understanding evolves. When documenting
+classroom learning, preserve the progression:
+
+```text
+Initial Student Mental Model
+        |
+        v
+Student Reasoning
+        |
+        v
+Correction
+        |
+        v
+Final Engineering Mental Model
+```
+
+The value is the trajectory: what the student first believed, how they reasoned, what corrected
+it, and the durable engineering model they ended with.
+
 ---
 
 # 14. Common Misconceptions
@@ -605,6 +685,22 @@ For every chosen framework, explain:
 - What should be isolated
 - What failure can occur
 - What a production engineer should review
+
+## Avoid Forced Technology Connections (v3.2)
+
+Only create a framework connection when it is technically meaningful. Do not force FastAPI,
+Playwright, Docker, GitHub Actions, or AI Backend into every lesson. Each connection must explain
+a real engineering relationship, not a decorative mention.
+
+Avoid unrelated business-domain examples unless explicitly requested. Prefer:
+
+- Software engineering concepts
+- Backend architecture
+- Cloud-native systems
+- AI Backend production scenarios
+
+If a technology was not substantively used in the lesson, either omit it or label it clearly as a
+future connection.
 
 ---
 
