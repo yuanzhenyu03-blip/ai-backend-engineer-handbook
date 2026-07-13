@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day22 — GitHub Actions Advanced
+Day23 — Docker Fundamentals
 
 Status:
 Completed
@@ -20,7 +20,7 @@ Template:
 LESSON_TEMPLATE_v2
 
 Completed Time:
-2026-07-11
+2026-07-13
 
 ---
 
@@ -48,6 +48,7 @@ Completed Time:
 - ✅ Day20 — CI/CD Foundations
 - ✅ Day21 — GitHub Actions Fundamentals
 - ✅ Day22 — GitHub Actions Advanced
+- ✅ Day23 — Docker Fundamentals
 
 ---
 
@@ -59,29 +60,29 @@ None.
 
 ## Last Completed Lesson
 
-Day22 — GitHub Actions Advanced
+Day23 — Docker Fundamentals
 
 Completed Time:
-2026-07-11
+2026-07-13
 
 Main Artifact:
-Advanced GitHub Actions workflow YAML (examples/github-actions/github-actions-advanced.example.yml)
+Production-oriented FastAPI Dockerfile + .dockerignore (examples/docker/fastapi/)
 
 Completed Work:
 
-- Day22 classroom learning
-- Day22 lesson document (LESSON_TEMPLATE_v2)
-- Day22 advanced CI/CD workflow example
-- Day22 matrix/cache/artifact/deployment exercises
-- Day22 devops cheat sheet update
-- Day22 devops interview notes update
-- Day22 repository status update
+- Day23 classroom learning
+- Day23 lesson document (LESSON_TEMPLATE_v2)
+- Day23 FastAPI Docker example (Dockerfile, .dockerignore, build/run/volume/network commands)
+- Day23 container/image/layer/build-run/volume/network exercises
+- Day23 devops cheat sheet update
+- Day23 devops interview notes update
+- Day23 repository status update
 
 ---
 
 ## Next
 
-- Day23 — Docker Fundamentals
+- Day24 — Docker Compose
 
 Status:
 Not started
@@ -114,6 +115,7 @@ Completed Python Foundations:
 - Day20 — CI/CD foundations, CI as trusted quality process, pipeline (fail fast, fast feedback), quality gate, CD (repeatable delivery), workflow as code, everything as code
 - Day21 — GitHub Actions fundamentals, workflow as code, execution model, trigger vs runner, hosted vs self-hosted runner, job as one fresh runner, run/uses/with, checkout, quality gate, FastAPI CI
 - Day22 — GitHub Actions advanced, matrix, fail-fast, cache vs artifact, composite action vs reusable workflow, needs/if/continue-on-error, deployment pipeline, immutable digest, environment, concurrency
+- Day23 — Docker fundamentals, container as isolated process (namespaces/cgroups), image vs container, image layers vs writable layer, Dockerfile, build vs run, volumes, networks, immutable replacement
 
 ---
 
@@ -299,6 +301,14 @@ Completed Python Foundations:
 - Separate `needs`, `if`, and `continue-on-error` as distinct control mechanisms.
 - Design a build-once/deploy-many pipeline with an immutable image digest.
 - Explain production Environment protection and serialized deployment concurrency.
+- Explain a container as an isolated process (namespaces + cgroups), not a small VM.
+- Distinguish an image (immutable template) from a container (runtime instance).
+- Explain image layers, the writable layer, and build-cache ordering.
+- Write a Dockerfile and explain FROM/WORKDIR/COPY/RUN/CMD/ENTRYPOINT.
+- Distinguish `docker build` from `docker run`.
+- Separate compute lifecycle from data lifecycle using volumes.
+- Connect containers over an explicit network using service DNS names, not localhost.
+- Apply immutable replacement instead of mutating a running production container.
 
 ---
 
@@ -458,6 +468,15 @@ Completed Python Foundations:
 - needs/if/continue-on-error classification exercise
 - Deployment reliability review exercise
 - Comprehensive advanced workflow design exercise
+- Container vs VM exercise
+- Image vs container exercise
+- Layer/cache exercise
+- Dockerfile exercise
+- Build vs run exercise
+- Volume exercise
+- RAG architecture design exercise
+- Image optimization exercise
+- Minimal FastAPI Dockerfile authoring exercise
 
 ---
 

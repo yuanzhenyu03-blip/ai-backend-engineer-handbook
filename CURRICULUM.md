@@ -477,7 +477,13 @@ Topics:
 Container, Image, Layer, Dockerfile, Build, Run, Volume, Network
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/devops/day23-docker-fundamentals.md`
+
+Template:
+LESSON_TEMPLATE_v2
 
 ---
 

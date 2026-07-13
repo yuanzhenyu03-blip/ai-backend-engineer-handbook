@@ -16,3 +16,6 @@ repository; copy them into a real project and adjust paths, versions, and comman
   Copy it to `.github/workflows/reusable-fastapi-ci.yml` in a real shared-workflow repository before
   calling it via a job-level `uses` (`owner/repo/.github/workflows/reusable-fastapi-ci.yml@<commit-sha>`);
   it is not callable from this `examples/` path.
+- `docker/fastapi/` — Day23 production-oriented FastAPI `Dockerfile` + `.dockerignore` with
+  reproducible build/run, named-volume, and user-defined-network commands
+  (see `docs/devops/day23-docker-fundamentals.md`).

@@ -565,3 +565,161 @@ Strong: "Advanced Actions scale with matrices, accelerate with caches, transfer 
 artifacts, reuse steps (composite) and pipelines (reusable workflow), control flow with
 `needs`/`if`/`continue-on-error`, and deploy one immutable, approved digest under a serialized
 production Environment."
+
+---
+
+# Day23 Docker Fundamentals Questions
+
+These questions come from the Day23 Docker Fundamentals lesson: container model, image vs
+container, build vs run, volumes, and networking.
+
+## Beginner
+
+### 1. What is a Docker container?
+
+Question:
+
+What is a Docker container?
+
+中文解析:
+
+容器是通过宿主机内核运行的隔离进程。它有隔离的文件系统、进程和网络视图，可用 cgroups 限制资源。与虚拟机不同，它不启动自己的 guest 内核。
+
+Standard Answer:
+
+A Docker container is an isolated process that runs through the host operating system kernel. It
+has isolated filesystem, process, and network views, and it can be constrained with cgroups.
+Unlike a typical virtual machine, it does not boot its own guest kernel.
+
+Follow-up Question:
+
+What isolates what a container can see, and what limits how much it can consume?
+
+### 2. What is the difference between an image and a container?
+
+Question:
+
+What is the difference between an image and a container?
+
+中文解析:
+
+镜像是不可变、可分发的模板，由只读层组成；容器是镜像的一个运行实例，有自己的可写层和运行时配置。重建镜像不会更新已经在运行的容器。
+
+Standard Answer:
+
+An image is an immutable, distributable template made of read-only layers. A container is one
+runtime instance of that image with its own writable layer and runtime configuration. Rebuilding
+an image does not update containers that are already running.
+
+Follow-up Question:
+
+How do you roll out a code change if you must not edit the running container?
+
+## Intermediate
+
+### 1. `docker build` vs `docker run`.
+
+Question:
+
+What is the difference between `docker build` and `docker run`?
+
+中文解析:
+
+docker build 执行 Dockerfile 指令、产出不可变镜像；docker run 从镜像创建容器、应用运行时隔离和配置，并启动镜像的默认进程（除非被覆盖）。构建成功不代表服务已经在运行。
+
+Standard Answer:
+
+`docker build` executes Dockerfile instructions and produces an immutable image. `docker run`
+creates a container from that image, applies runtime isolation and configuration, and starts the
+image's default process unless it is overridden. A successful build does not mean the service is
+running.
+
+Follow-up Question:
+
+Is the published host port set at build time or run time?
+
+### 2. Image layers, cache, and Dockerfile order.
+
+Question:
+
+How does build cache ordering affect a Dockerfile?
+
+中文解析:
+
+构建缓存从第一条改变的指令开始失效，所以把稳定、低频的步骤放前面、把频繁变化的应用代码放后面：先 COPY requirements、RUN 安装依赖，最后 COPY 代码，这样依赖层能命中缓存。
+
+Standard Answer:
+
+The build cache is invalidated from the first changed instruction onward, so put stable,
+low-frequency steps first and frequently changing app code last: copy the dependency manifest,
+install dependencies, then copy the application code. That keeps the dependency-install layer
+cached when only the code changes.
+
+Follow-up Question:
+
+What is the difference between an image layer and the container writable layer?
+
+## Senior
+
+### 1. Why avoid modifying a running production container?
+
+Question:
+
+Why should we avoid modifying a running Docker container directly in production?
+
+中文解析:
+
+因为改动只作用于该容器的可写层，而不是原镜像；不可复现、不可审计、难以回滚。正确做法是更新版本化输入、构建并验证新的不可变镜像、启动新容器、健康检查、切流量，然后移除旧容器。
+
+Standard Answer:
+
+Because the changes affect only that container's writable layer, not the original image. They are
+not reproducible or auditable and make rollback difficult. The correct approach is to update
+version-controlled inputs, build and verify a new immutable image, start a new container, run
+health checks, switch traffic, and then remove the old container.
+
+Interview Review:
+
+Strong answers name reproducibility, auditability, and rollback, and give the replace-not-mutate
+flow.
+
+Production Case:
+
+A hotfix typed into a live container disappears on the next deploy and cannot be rolled back.
+
+### 2. Why does `localhost` not reach another container, and where does state live?
+
+Question:
+
+Why does `localhost` not reach another container, and where should persistent data live?
+
+中文解析:
+
+每个容器有自己的网络命名空间，localhost 指向当前容器，所以要在共享网络上用服务 DNS 名（如 postgres:5432）而不是容器 IP。持久化数据（数据库文件、上传、向量索引）应放在卷或外部存储，而不是随容器消失的可写层。
+
+Standard Answer:
+
+Each container has its own network namespace, so `localhost` refers to the current container. On a
+shared Docker network, communicate through stable service DNS names (for example `postgres:5432`)
+rather than container IPs, which change on recreation. Persistent data — database files, uploads,
+vector indexes — must live in a volume or external storage, not the ephemeral writable layer.
+
+Interview Review:
+
+Look for the compute-vs-data lifecycle separation and least-access network membership.
+
+Production Case:
+
+A RAG backend keeps FastAPI stateless and persists PostgreSQL and vector data in volumes so app
+containers stay replaceable.
+
+### Common Weak vs Strong Answer (Day23)
+
+Weak: "A container is a lightweight VM, an image and a container are basically the same, and I edit
+the container to fix production." (misses the process/kernel model, image immutability, and
+immutable replacement)
+
+Strong: "A container is an isolated process sharing the host kernel; an image is the immutable
+artifact and a container is a replaceable instance; durable state lives in volumes; services talk
+over a network by DNS name; and I roll out changes by rebuilding and replacing, never by editing a
+running container."

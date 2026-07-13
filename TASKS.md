@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day22 — GitHub Actions Advanced
+Day23 — Docker Fundamentals
 
 Status:
 Completed
@@ -24,17 +24,73 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day22-github-actions-advanced.md
+docs/devops/day23-docker-fundamentals.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day22 GitHub Actions Advanced classroom learning.
-- [x] Build the comprehensive advanced CI/CD workflow example.
-- [x] Distinguish matrix, cache/artifact, composite/reusable, and needs/if/continue-on-error.
-- [ ] Prepare for Day23 — Docker Fundamentals.
+- [x] Complete Day23 Docker Fundamentals classroom learning.
+- [x] Write a production-oriented FastAPI Dockerfile and .dockerignore.
+- [x] Distinguish image vs container, build vs run, writable layer vs volume, localhost vs service DNS.
+- [ ] Prepare for Day24 — Docker Compose.
+
+---
+
+## Completed Day23 Tasks
+
+- [x] Complete Day23 Docker Fundamentals classroom learning.
+- [x] Generate Day23 handbook lesson using LESSON_TEMPLATE_v2.
+- [x] Explain why Docker exists (freeze the runtime; continue Day22 build-once).
+- [x] Explain a container as an isolated process (namespaces + cgroups), not a VM.
+- [x] Distinguish image (immutable template) from container (runtime instance).
+- [x] Explain image layers, the writable layer, and build-cache ordering.
+- [x] Explain the Dockerfile (FROM/WORKDIR/COPY/RUN/CMD/ENTRYPOINT) as IaC.
+- [x] Distinguish `docker build` from `docker run`.
+- [x] Explain volumes and separating compute lifecycle from data lifecycle.
+- [x] Explain networks, service DNS names, and why localhost is the current container.
+- [x] Explain immutable replacement instead of mutating a running container.
+- [x] Preserve the actual student answers and all 12 misconceptions/corrections.
+- [x] Add the FastAPI Docker example artifact (Dockerfile, .dockerignore, README).
+
+---
+
+## Completed Day23 Repository Tasks
+
+- [x] Add `docs/devops/day23-docker-fundamentals.md`.
+- [x] Add `examples/docker/fastapi/Dockerfile`, `.dockerignore`, and `README.md`.
+- [x] Update `examples/README.md`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day23 Completed).
+- [x] Update `ROADMAP.md` (Day23 Completed).
+
+---
+
+## Completed Day23 Interview Tasks
+
+- [x] Add beginner container and image-vs-container questions.
+- [x] Add intermediate build-vs-run and layer/cache questions.
+- [x] Add senior immutable-replacement and network/state questions.
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day23 Homework
+
+- [x] Complete container vs VM exercise.
+- [x] Complete image vs container exercise.
+- [x] Complete layer/cache exercise.
+- [x] Complete Dockerfile exercise.
+- [x] Complete build vs run exercise.
+- [x] Complete volume exercise.
+- [x] Complete RAG architecture design exercise.
+- [x] Complete image optimization exercise.
+- [x] Complete minimal FastAPI Dockerfile authoring exercise.
 
 ---
 
@@ -1401,12 +1457,23 @@ None.
 - [ ] Explain Workflow as Code and Everything as Code.
 - [ ] Trace the full Idea-to-Production lifecycle.
 
-### Day23 Preparation — Docker Fundamentals
+### Day24 Preparation — Docker Compose
 
-- [x] Review Day22 GitHub Actions advanced (build once, deploy immutable digest).
-- [ ] Prepare questions about Container, Image, Layer, and Dockerfile.
-- [ ] Prepare questions about Build, Run, Volume, and Network.
-- [ ] Plan a FastAPI Dockerfile example goal.
+- [x] Review Day23 Docker fundamentals (image, container, volume, network).
+- [ ] Prepare questions about multi-service definition and service dependencies.
+- [ ] Prepare questions about FastAPI + Redis + PostgreSQL together.
+- [ ] Plan a Docker Compose example goal (build on the Day23 Dockerfile).
+
+### Day23 Review
+
+- [ ] Why is a container an isolated process, not a small VM?
+- [ ] Image vs container, and does a rebuild upgrade running containers?
+- [ ] Image layer vs writable layer, and cache ordering?
+- [ ] What do FROM/WORKDIR/COPY/RUN/CMD/ENTRYPOINT do?
+- [ ] Why is build separate from run?
+- [ ] Why does durable state belong in a volume, not the writable layer?
+- [ ] Why does localhost not reach another container?
+- [ ] Why rebuild and replace instead of editing a running container?
 
 ### Day22 Review
 
@@ -1432,7 +1499,7 @@ None.
 
 - [x] Day21 — GitHub Actions Fundamentals (Completed).
 - [x] Day22 — GitHub Actions Advanced (Completed).
-- [ ] Day23 — Docker Fundamentals (Planned).
+- [x] Day23 — Docker Fundamentals (Completed).
 - [ ] Day24 — Docker Compose (Planned).
 - [ ] Day25 — Deployment Foundations (Planned).
 - [ ] Day26 — Kubernetes Foundations (Planned).
@@ -1501,3 +1568,4 @@ Purpose:
 - [x] Complete Day20 — CI/CD Foundations.
 - [x] Complete Day21 — GitHub Actions Fundamentals.
 - [x] Complete Day22 — GitHub Actions Advanced.
+- [x] Complete Day23 — Docker Fundamentals.

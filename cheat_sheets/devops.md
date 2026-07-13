@@ -239,6 +239,68 @@ Simplified: `PR -> lint+test -> tag -> build once -> push digest -> verify diges
 
 ---
 
+## Day23 Docker Fundamentals
+
+Core mental model:
+
+```text
+Dockerfile --docker build--> Image (immutable layers) --docker run--> Container (isolated process)
+                                                                        + writable layer + network
+Container --> Volume / external service = persistent state
+```
+
+Key mappings:
+
+```text
+Dockerfile      = build spec (Infrastructure as Code)
+Image           = immutable, read-only, distributable artifact
+Container       = replaceable runtime instance (process + namespaces + cgroups + shared host kernel)
+Image layer     = build/cache unit (read-only, shared)
+Writable layer  = per-container runtime state (ephemeral)
+Volume          = data lifecycle, independent of the container
+Network         = reachability via service DNS names
+```
+
+Container vs VM: a container is an isolated process sharing the host kernel (namespaces isolate
+views, cgroups limit CPU/memory); a VM boots its own guest OS + kernel.
+
+Dockerfile instructions:
+
+```text
+FROM  = base image (pin e.g. python:3.12-slim, not `latest`)
+WORKDIR = working directory
+COPY  = copy explicit build inputs
+RUN   = build-time command (build time)
+CMD / ENTRYPOINT = default runtime process (runtime)
+```
+
+Cache order (deps before code):
+
+```text
+COPY requirements.txt .   -> RUN pip install ...   -> COPY app ./app
+Cache invalidates from the first changed instruction onward; copy changing code LAST.
+```
+
+Build vs Run:
+
+```text
+docker build = make the image (does NOT start the service)
+docker run   = create + start a container from CMD/ENTRYPOINT (unless overridden)
+Host port vs container port are distinct (-p host:container).
+```
+
+Rules:
+
+- Image is immutable; containers are replaceable. Rebuilding an image does not upgrade running containers.
+- Never edit a running production container; rebuild -> verify -> start new -> health check -> switch traffic -> remove old.
+- Durable state (DB files, uploads, vector indexes) -> volumes/external storage, never the writable layer.
+- `localhost` = the current container. Reach other containers on a shared network via service DNS (`postgres:5432`), not container IPs.
+- `.dockerignore` keeps `.env`, secrets, caches, tests, notebooks out of the build context.
+- Smaller image helps transfer/deploy/scan, not app speed; optimize for smallest secure and sufficient runtime.
+- Inject secrets at runtime; never bake them into the image. Run as a non-root user.
+
+---
+
 ## Interview Phrases
 
 - "CI is a trusted quality process, not just running tests."
@@ -262,3 +324,10 @@ Simplified: `PR -> lint+test -> tag -> build once -> push digest -> verify diges
 - "`needs` orders jobs, `if` decides execution, `continue-on-error` tolerates failure — three mechanisms."
 - "Build once, deploy many: deploy the immutable digest you tested, not `:latest`."
 - "Serialize production with a concurrency group and `cancel-in-progress: false`."
+- "A container is an isolated process sharing the host kernel, not a small virtual machine."
+- "An image is immutable; a container is a replaceable runtime instance with a private writable layer."
+- "`RUN` is build time; `CMD`/`ENTRYPOINT` defines the default runtime process."
+- "Copy dependencies before application code so the install layer stays cached."
+- "Durable state belongs in a volume or external service, never the container writable layer."
+- "`localhost` means the current container; reach others by service DNS on a shared network."
+- "Never edit a running production container; rebuild, verify, replace, and keep a rollback path."

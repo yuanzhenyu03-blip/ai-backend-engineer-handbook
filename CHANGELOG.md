@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.37 — Day23 Docker Fundamentals Documentation
+
+Date: 2026-07-13
+
+### Added
+
+- Added `docs/devops/day23-docker-fundamentals.md` (LESSON_TEMPLATE_v2).
+- Added a production-oriented FastAPI Docker example: `examples/docker/fastapi/Dockerfile`, `examples/docker/fastapi/.dockerignore`, and `examples/docker/fastapi/README.md` (reproducible build/run, named-volume, and user-defined-network commands).
+- Added Day23 review material to `cheat_sheets/devops.md`.
+- Added Day23 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/README.md` to index the Day23 Docker example.
+- Updated `CURRICULUM.md` to mark Day23 completed (released lesson path + v2 template note).
+- Updated `ROADMAP.md` to mark Day23 completed.
+- Updated `PROJECT_STATUS.md` to mark Day23 completed and set Next to Day24.
+- Updated `TASKS.md` with completed Day23 tasks and Day24 preparation.
+- Updated `CHANGELOG.md` with the Day23 repository update.
+
+### Notes
+
+- Day23 explains the immutable Docker image behind Day22's "build once, deploy many": why Docker exists, a container as an isolated process (namespaces + cgroups, not a VM), image vs container, image layers vs the per-container writable layer with build-cache ordering, the Dockerfile (FROM/WORKDIR/COPY/RUN/CMD/ENTRYPOINT as IaC), build vs run, volumes (separating compute from data lifecycle), networks (service DNS, not localhost), and immutable replacement.
+- Preserved the actual classroom record, including the student's original Chinese answers and all 12 misconceptions and corrections (image "generates images", rebuild upgrading running containers, build cache vs writable layer, shared image storage, Dockerfile-vs-IaC, startup vs writable layer, `docker run` vs CMD/ENTRYPOINT, ports in the writable layer, writable layer "cannot" store data, network vs filesystem isolation, container communication default, smaller image vs performance).
+- Kept Day23 within scope: Container, Image, Layer, Dockerfile, Build, Run, Volume, Network. Production extensions (non-root user, health check, `.dockerignore`, secrets at runtime, immutable replacement) were kept proportional. Docker Compose implementation is deferred to Day24; no Compose syntax was taught.
+- Connected the lesson to FastAPI (slim base, stateless app, service DNS), Docker internals, and GitHub Actions (quality gate before build, cache-aware ordering, deploy the same immutable identity). Playwright was mentioned only in passing.
+- The Docker example is example-only (no FastAPI app exists in this repo); it contains no real secrets or `.env` credentials, uses a pinned slim base, a non-root user, and a health check, and keeps a narrow build context via `.dockerignore`.
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, `LESSON_TEMPLATE.md`, `TRAINING_WORKFLOW.md`, or any Day01–Day22 lesson.
+
+---
+
 ## v0.1.36 — Day22 Review: Correct Reusable Workflow Invocation Path
 
 Date: 2026-07-11
