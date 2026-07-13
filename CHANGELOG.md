@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.38 — Day23 Review: Docker Example & Reproducibility Corrections
+
+Date: 2026-07-13
+
+### Changed
+
+- `examples/docker/fastapi/README.md`: the PostgreSQL demo now sets `-e POSTGRES_DB=app` so the created database matches the FastAPI `DATABASE_URL`, with a note that `POSTGRES_*` init variables only apply the first time the data directory is initialized (an existing `pgdata` volume will not auto-create a new database).
+- `examples/docker/fastapi/README.md`: made the immutable-replacement flow self-consistent — it now builds and starts `app-v1`, builds `v2`, starts `app-v2` on a different temporary host port, health-checks `app-v2`, notes that traffic switching needs a reverse proxy/load balancer (zero downtime is Day25), and only then removes `app-v1`.
+- `examples/docker/fastapi/Dockerfile`: create and `chown` `/app/data` before `USER appuser` so the non-root user can write to a mounted named volume; corrected the base-image comment to describe `python:3.12-slim` as a constrained (mutable) version line, with a digest-pin option for stronger reproducibility.
+- `docs/devops/day23-docker-fundamentals.md` and `cheat_sheets/devops.md`: corrected the `python:3.12-slim` description — a constrained version line, not an immutable pin — and added the digest trade-off (reproducibility vs. deliberate security updates), consistent with Day22's immutable-digest principle.
+
+### Notes
+
+- Small-scope review fix; did not rewrite the Day23 chapter or extend into Day24 Docker Compose.
+- No real secrets or `.env` credentials were added; `example` remains a throwaway local placeholder and no image digest was invented.
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, `AGENTS.md`, or the Day23 completion status in `CURRICULUM.md`/`ROADMAP.md`/`PROJECT_STATUS.md`.
+
+---
+
 ## v0.1.37 — Day23 Docker Fundamentals Documentation
 
 Date: 2026-07-13

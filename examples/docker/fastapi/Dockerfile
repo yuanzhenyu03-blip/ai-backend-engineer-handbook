@@ -9,7 +9,12 @@
 # Lesson: docs/devops/day23-docker-fundamentals.md
 # =============================================================================
 
-# Pin a slim base line for a predictable build (not an unqualified `latest`).
+# Constrain the base to the Python 3.12 slim version LINE (more controlled than an
+# unqualified `latest`). Note: `python:3.12-slim` is still a MUTABLE tag, not an
+# immutable identity. For stronger build reproducibility, pin to a digest:
+#   FROM python:3.12-slim@sha256:<digest>
+# (use a real, verified digest; do not invent one. A digest does not auto-receive
+# security fixes, so update it deliberately.)
 FROM python:3.12-slim
 
 # Working directory inside the image/container.
@@ -23,8 +28,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code last (changes most frequently -> smallest cache busting).
 COPY app ./app
 
-# Run as a non-root user (least privilege).
+# Run as a non-root user (least privilege). Create /app/data (a common mount point
+# for a named volume) and give appuser ownership BEFORE switching users, so the
+# non-root process can write to it.
 RUN useradd --create-home --uid 10001 appuser \
+    && mkdir -p /app/data \
     && chown -R appuser:appuser /app
 USER appuser
 

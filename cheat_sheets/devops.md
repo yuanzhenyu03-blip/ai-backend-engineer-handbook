@@ -267,7 +267,8 @@ views, cgroups limit CPU/memory); a VM boots its own guest OS + kernel.
 Dockerfile instructions:
 
 ```text
-FROM  = base image (pin e.g. python:3.12-slim, not `latest`)
+FROM  = base image; constrain to a version line e.g. python:3.12-slim (not `latest`).
+        A tag is mutable; pin to a digest (python:3.12-slim@sha256:...) for reproducibility.
 WORKDIR = working directory
 COPY  = copy explicit build inputs
 RUN   = build-time command (build time)

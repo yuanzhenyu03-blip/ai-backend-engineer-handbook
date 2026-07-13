@@ -393,7 +393,17 @@ and reproducible (IaC).
 
 ### Production Example
 
-Pinning `python:3.12-slim` gives a predictable build; an unqualified `latest` can change under you.
+`python:3.12-slim` constrains the base to the Python 3.12 slim version LINE — more controlled than
+an unqualified `latest` — but it is still a MUTABLE tag, not an immutable identity:
+
+```text
+python:3.12-slim               = a constrained version line (controlled, but the tag can move)
+python:3.12-slim@sha256:<digest> = a fixed image content (stronger build reproducibility)
+```
+
+Digest pinning improves reproducibility and supply-chain determinism (consistent with Day22's
+immutable-digest principle), but a digest does not auto-receive new security fixes, so update it
+deliberately. Use a real, verified digest; never invent one.
 
 ### Framework Connection
 
