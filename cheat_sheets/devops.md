@@ -302,6 +302,49 @@ Rules:
 
 ---
 
+## Day24 Docker Compose
+
+Core:
+
+```text
+Compose Model -> Project -> Services -> Containers -> Networks -> Volumes -> Env/Secrets -> Health deps
+= a declarative, version-controlled multi-service app on ONE Docker host (not a one-time script).
+Reproducible system = reproducible images + runtime config + service relationships.
+```
+
+Key `!=` list:
+
+```text
+Started != Ready            | Health signal != Recovery
+Volume persistence != Backup| Env variable != Secret
+Bind mount != Writable layer| Image != Service specification
+Compose coordination != Multi-node cluster orchestration
+```
+
+Started vs Ready:
+
+```text
+depends_on (short)             -> waits for container START only
+depends_on: condition: service_healthy -> waits for a real healthcheck at startup
+healthcheck                    -> a probe reporting healthy/unhealthy (NOT repair/restart)
+application retry               -> bounded retry + backoff for transient runtime failures
+```
+Healthcheck timing: `start_period` (init grace) · `interval` (schedule) · `timeout` (one probe) · `retries` (fails before unhealthy). Probes: `redis-cli ping`, `pg_isready -U app -d app`.
+
+Project/Service/Image/Container: Project = boundary; Service = desired spec (exists at 0 instances); Image = immutable contents; Container = instance from Image + service spec. One service -> many containers; one image -> many services (different commands). Image change -> rebuild+recreate; config -> recreate; mounted source -> reload.
+
+Networking: only API publishes `8000:8000`; internal calls use service DNS (`redis:6379`, `postgres:5432`), never `localhost`. Segment networks (queue_network / database_network); Redis and PostgreSQL share none. Network membership != credentials/auth.
+
+Volumes: `down` keeps named volumes; `down --volumes` deletes them. Bind mount = host source; named volume = durable managed data; writable layer = ephemeral; image layer = immutable. Persistence != backup.
+
+Secrets: `.env` = plaintext interpolation source (not a Secret Manager). Compose secrets = top-level, granted per service, mounted at `/run/secrets/<name>`; the app must READ the file. Least privilege: API=postgres_password; Worker=postgres_password+openai_api_key; Postgres=postgres_password; Redis=none. Never commit `.env`/`.secrets/`/keys.
+
+Compose Spec: no top-level `version:` field. Base `compose.yaml` (portable) + `compose.dev.yaml` (bind mounts + `--reload`, dev only).
+
+Production boundary: Compose = single-host multi-service declaration + lifecycle coordination (fine for local/CI/controlled single-host with backups+TLS+monitoring). It does NOT provide multi-node scheduling, self-healing, autoscaling, rolling updates, or public TLS/secret-rotation governance — that is Kubernetes/managed (Day26-27).
+
+---
+
 ## Interview Phrases
 
 - "CI is a trusted quality process, not just running tests."
@@ -332,3 +375,10 @@ Rules:
 - "Durable state belongs in a volume or external service, never the container writable layer."
 - "`localhost` means the current container; reach others by service DNS on a shared network."
 - "Never edit a running production container; rebuild, verify, replace, and keep a rollback path."
+- "Docker Compose is a tool for defining and running multi-container applications, not a one-time script."
+- "`depends_on` orders startup, a healthcheck proves readiness, application retry handles transient failures — you need all three."
+- "Started != Ready; a running container can be unhealthy."
+- "Only the API publishes a host port; services talk over networks by DNS name, never localhost."
+- "`down` keeps named volumes; `down --volumes` deletes them; persistence is not backup."
+- "`.env` is plaintext interpolation, not a Secret Manager; Compose secrets mount at /run/secrets and the app must read them."
+- "Compose coordinates services on one host; Kubernetes reconciles desired state across a multi-node cluster."

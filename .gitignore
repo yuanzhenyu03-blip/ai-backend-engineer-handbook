@@ -12,6 +12,10 @@ env/
 .env
 .env.local
 
+# Local secret files (never commit real secrets)
+.secrets/
+*.secret
+
 # Test and lint cache
 .pytest_cache/
 .coverage

@@ -80,7 +80,7 @@ Git
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
 | Day23 | Docker Fundamentals | ✅ Completed |
-| Day24 | Docker Compose | Planned |
+| Day24 | Docker Compose | ✅ Completed |
 
 ## Production Engineering
 

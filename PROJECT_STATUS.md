@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day23 — Docker Fundamentals
+Day24 — Docker Compose
 
 Status:
 Completed
@@ -20,7 +20,7 @@ Template:
 LESSON_TEMPLATE_v2
 
 Completed Time:
-2026-07-13
+2026-07-14
 
 ---
 
@@ -49,6 +49,7 @@ Completed Time:
 - ✅ Day21 — GitHub Actions Fundamentals
 - ✅ Day22 — GitHub Actions Advanced
 - ✅ Day23 — Docker Fundamentals
+- ✅ Day24 — Docker Compose
 
 ---
 
@@ -60,29 +61,29 @@ None.
 
 ## Last Completed Lesson
 
-Day23 — Docker Fundamentals
+Day24 — Docker Compose
 
 Completed Time:
-2026-07-13
+2026-07-14
 
 Main Artifact:
-Production-oriented FastAPI Dockerfile + .dockerignore (examples/docker/fastapi/)
+Multi-service Compose example (examples/docker/compose/: compose.yaml, compose.dev.yaml, .env.example)
 
 Completed Work:
 
-- Day23 classroom learning
-- Day23 lesson document (LESSON_TEMPLATE_v2)
-- Day23 FastAPI Docker example (Dockerfile, .dockerignore, build/run/volume/network commands)
-- Day23 container/image/layer/build-run/volume/network exercises
-- Day23 devops cheat sheet update
-- Day23 devops interview notes update
-- Day23 repository status update
+- Day24 classroom learning
+- Day24 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + mental-model evolution)
+- Day24 Compose example (API + Worker + Redis + PostgreSQL, networks, healthchecks, secrets, volume)
+- Day24 started-vs-ready / project-service-image-container / network / volume / secret exercises
+- Day24 devops cheat sheet update
+- Day24 devops interview notes update
+- Day24 repository status update
 
 ---
 
 ## Next
 
-- Day24 — Docker Compose
+- Day25 — Deployment Foundations
 
 Status:
 Not started
@@ -116,6 +117,7 @@ Completed Python Foundations:
 - Day21 — GitHub Actions fundamentals, workflow as code, execution model, trigger vs runner, hosted vs self-hosted runner, job as one fresh runner, run/uses/with, checkout, quality gate, FastAPI CI
 - Day22 — GitHub Actions advanced, matrix, fail-fast, cache vs artifact, composite action vs reusable workflow, needs/if/continue-on-error, deployment pipeline, immutable digest, environment, concurrency
 - Day23 — Docker fundamentals, container as isolated process (namespaces/cgroups), image vs container, image layers vs writable layer, Dockerfile, build vs run, volumes, networks, immutable replacement
+- Day24 — Docker Compose, multi-service declaration, started vs ready (depends_on/healthcheck/retry), project/service/image/container, service DNS, network segmentation, volumes, env/secrets/business data, base + dev override, production boundary
 
 ---
 
@@ -309,6 +311,15 @@ Completed Python Foundations:
 - Separate compute lifecycle from data lifecycle using volumes.
 - Connect containers over an explicit network using service DNS names, not localhost.
 - Apply immutable replacement instead of mutating a running production container.
+- Explain why individually runnable containers do not make a reproducible system.
+- Distinguish `depends_on`, a healthcheck, and application retry (started != ready).
+- Distinguish Project, Service, Image, and Container, and decide rebuild vs recreate.
+- Write a declarative Compose model with services, networks, volumes, and secrets.
+- Use service DNS names and publish only the necessary host port.
+- Design network segmentation for least access.
+- Separate ordinary configuration, secrets, and governed business data.
+- Split a portable base file from a development override.
+- State where Compose fits in production and where a cluster is required.
 
 ---
 
@@ -477,6 +488,15 @@ Completed Python Foundations:
 - RAG architecture design exercise
 - Image optimization exercise
 - Minimal FastAPI Dockerfile authoring exercise
+- Why-a-reproducible-system exercise
+- Started-vs-ready diagnosis exercise
+- Project/service/image/container counting exercise
+- Rebuild-vs-recreate exercise
+- Compose model authoring exercise
+- Healthcheck + service_healthy exercise
+- Config/secret/business-data classification exercise
+- Compose-vs-cluster decision exercise
+- Integrated Compose stack build exercise
 
 ---
 

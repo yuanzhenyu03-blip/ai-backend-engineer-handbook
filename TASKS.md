@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day23 — Docker Fundamentals
+Day24 — Docker Compose
 
 Status:
 Completed
@@ -24,17 +24,75 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day23-docker-fundamentals.md
+docs/devops/day24-docker-compose.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day23 Docker Fundamentals classroom learning.
-- [x] Write a production-oriented FastAPI Dockerfile and .dockerignore.
-- [x] Distinguish image vs container, build vs run, writable layer vs volume, localhost vs service DNS.
-- [ ] Prepare for Day24 — Docker Compose.
+- [x] Complete Day24 Docker Compose classroom learning.
+- [x] Build the multi-service Compose example (base + dev override + .env.example).
+- [x] Distinguish started vs ready, service vs instance, env vs secret, and Compose vs cluster.
+- [ ] Prepare for Day25 — Deployment Foundations.
+
+---
+
+## Completed Day24 Tasks
+
+- [x] Complete Day24 Docker Compose classroom learning.
+- [x] Generate Day24 handbook lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + mental-model evolution).
+- [x] Explain why individually runnable containers do not make a reproducible system.
+- [x] Explain started != ready: depends_on, healthcheck, and application retry.
+- [x] Distinguish Project, Service, Image, and Container; rebuild vs recreate.
+- [x] Explain the declarative model and Compose YAML (no obsolete `version:`).
+- [x] Explain host ports, service DNS, and publishing only the API port.
+- [x] Explain network segmentation (queue/database) and least access.
+- [x] Explain volumes, `down` vs `down --volumes`, and persistence != backup.
+- [x] Separate environment configuration, secrets, and governed business data.
+- [x] Explain the local development workflow command mappings.
+- [x] Explain base + development override and the Compose production boundary.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+- [x] Add the multi-service Compose example artifact.
+
+---
+
+## Completed Day24 Repository Tasks
+
+- [x] Add `docs/devops/day24-docker-compose.md`.
+- [x] Add `examples/docker/compose/compose.yaml`, `compose.dev.yaml`, `.env.example`, and `README.md`.
+- [x] Update `examples/README.md` and `examples/docker/fastapi/README.md` (Day24 link).
+- [x] Add `.secrets/` to `.gitignore`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day24 Completed).
+- [x] Update `ROADMAP.md` (Day24 Completed).
+
+---
+
+## Completed Day24 Interview Tasks
+
+- [x] Add beginner Compose-vs-manual question (with the student's actual weak answer + correction).
+- [x] Add intermediate depends_on/healthcheck/retry and rebuild-vs-recreate questions.
+- [x] Add senior Compose-vs-Kubernetes and secrets/business-data questions.
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day24 Homework
+
+- [x] Complete why-a-reproducible-system exercise.
+- [x] Complete started-vs-ready diagnosis exercise.
+- [x] Complete project/service/image/container counting exercise.
+- [x] Complete rebuild-vs-recreate exercise.
+- [x] Complete Compose model authoring exercise.
+- [x] Complete healthcheck + service_healthy exercise.
+- [x] Complete config/secret/business-data classification exercise.
+- [x] Complete Compose-vs-cluster decision exercise.
+- [x] Complete integrated Compose stack build exercise.
 
 ---
 
@@ -1457,12 +1515,23 @@ None.
 - [ ] Explain Workflow as Code and Everything as Code.
 - [ ] Trace the full Idea-to-Production lifecycle.
 
-### Day24 Preparation — Docker Compose
+### Day25 Preparation — Deployment Foundations
 
-- [x] Review Day23 Docker fundamentals (image, container, volume, network).
-- [ ] Prepare questions about multi-service definition and service dependencies.
-- [ ] Prepare questions about FastAPI + Redis + PostgreSQL together.
-- [ ] Plan a Docker Compose example goal (build on the Day23 Dockerfile).
+- [x] Review Day24 Docker Compose (multi-service, networks, volumes, secrets).
+- [ ] Prepare questions about reverse proxy, TLS, and domain management.
+- [ ] Prepare questions about CI/CD deployment and traffic switching.
+- [ ] Prepare questions about zero-downtime reasoning.
+
+### Day24 Review
+
+- [ ] Why do individually runnable containers not make a reproducible system?
+- [ ] `depends_on` vs healthcheck vs application retry?
+- [ ] Project vs Service vs Image vs Container; rebuild vs recreate?
+- [ ] Why publish only the API port and use service DNS internally?
+- [ ] Why segment networks, and what can it NOT replace?
+- [ ] What does `down` keep vs `down --volumes`?
+- [ ] Environment variable vs secret vs governed business data?
+- [ ] Where does Compose fit in production, and where is a cluster required?
 
 ### Day23 Review
 
@@ -1500,7 +1569,7 @@ None.
 - [x] Day21 — GitHub Actions Fundamentals (Completed).
 - [x] Day22 — GitHub Actions Advanced (Completed).
 - [x] Day23 — Docker Fundamentals (Completed).
-- [ ] Day24 — Docker Compose (Planned).
+- [x] Day24 — Docker Compose (Completed).
 - [ ] Day25 — Deployment Foundations (Planned).
 - [ ] Day26 — Kubernetes Foundations (Planned).
 - [ ] Day27 — Kubernetes Workloads (Planned).
@@ -1569,3 +1638,4 @@ Purpose:
 - [x] Complete Day21 — GitHub Actions Fundamentals.
 - [x] Complete Day22 — GitHub Actions Advanced.
 - [x] Complete Day23 — Docker Fundamentals.
+- [x] Complete Day24 — Docker Compose.

@@ -1,0 +1,23 @@
+# =============================================================================
+# EXAMPLE / TEMPLATE ONLY — Day24 development override
+#
+# Contains ONLY development differences (source bind mounts + Uvicorn --reload).
+# Merge it explicitly, e.g.:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+#
+# Do NOT carry these host source mounts into production. Compose file merge and
+# Uvicorn reload are separate mechanisms.
+# Lesson: docs/devops/day24-docker-compose.md
+# =============================================================================
+
+services:
+  api:
+    # Reload the Python app after host file changes (development only).
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      # Bind mount: host-owned source visible inside the container.
+      - ../fastapi/app:/app/app
+
+  worker:
+    volumes:
+      - ../fastapi/app:/app/app

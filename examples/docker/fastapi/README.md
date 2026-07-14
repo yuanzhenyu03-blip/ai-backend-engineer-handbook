@@ -59,7 +59,8 @@ docker run --rm --network ragnet -p 8080:8000 \
 > will not create a new database — use a fresh volume (a different `-v` name) or create the
 > database manually with `psql` / a migration.
 
-> Multi-service orchestration (running these together declaratively) is Day24 — Docker Compose.
+> Multi-service orchestration (running these together declaratively) is Day24 — Docker Compose:
+> see `docs/devops/day24-docker-compose.md` and `examples/docker/compose/`.
 > This example uses individual `docker` commands only.
 
 ## Immutable replacement (never edit a running container)

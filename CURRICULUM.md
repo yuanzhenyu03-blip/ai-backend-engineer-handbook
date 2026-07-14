@@ -496,7 +496,13 @@ Topics:
 Multi-service, FastAPI + Redis, PostgreSQL, Environment, Local Development
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/devops/day24-docker-compose.md`
+
+Template:
+LESSON_TEMPLATE_v2
 
 ---
 

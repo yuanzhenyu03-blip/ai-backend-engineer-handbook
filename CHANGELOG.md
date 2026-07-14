@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.40 — Day24 Docker Compose Documentation
+
+Date: 2026-07-14
+
+### Added
+
+- Added `docs/devops/day24-docker-compose.md` (LESSON_TEMPLATE_v2; first lesson under Master Prompt v3.2 with an explicit knowledge-continuity chain and a Day23->Day24 mental-model evolution).
+- Added a multi-service Compose example: `examples/docker/compose/compose.yaml`, `compose.dev.yaml`, `.env.example`, and `README.md` (FastAPI API + Worker + Redis + PostgreSQL).
+- Added Day24 review material to `cheat_sheets/devops.md`.
+- Added Day24 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/README.md` and `examples/docker/fastapi/README.md` (replaced the Day24 future note with a link to the released lesson/example).
+- Added `.secrets/` to `.gitignore` so local Compose secret files are never committed.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day24 completed.
+- Updated `PROJECT_STATUS.md` to mark Day24 completed and set Next to Day25.
+- Updated `TASKS.md` with completed Day24 tasks and Day25 preparation.
+- Updated `CHANGELOG.md` with the Day24 repository update.
+
+### Notes
+
+- Day24 turns Day23's single reproducible container into a version-controlled multi-service system: why Compose exists, started != ready (`depends_on` short vs `condition: service_healthy`, healthchecks, and application retry), Project/Service/Image/Container and rebuild vs recreate, the declarative model and YAML, host ports/service DNS, network segmentation (queue vs database) for least access, volumes and `down --volumes`, environment vs secret vs governed business data, the local development workflow, base + development override, and the Compose production boundary vs Kubernetes.
+- Preserved the actual classroom record: the student's Chinese and English answers (including the imperfect final synthesis and the weak English attempts) and all material misconceptions and corrections, plus the YAML-evidence-over-chat-rendering correction.
+- Compose example uses the current Compose Specification (no top-level `version:`), publishes only the API host port, uses service DNS, segments networks, mounts a named `postgres_data` volume, and grants role-scoped secrets via files under a git-ignored `.secrets/` directory. No real secrets, `.env` credentials, API keys, passwords, connection strings, customer prompts, or medical data were committed.
+- Validation: `docker` is not available in this environment, so the stack was NOT started; the base and development-override Compose YAML were parsed and structurally validated, and the merged model was checked. `docker compose config` / `up` should be run in a real project that provides the Day23 Dockerfile, `requirements.txt`, an `app/` package, and the local secret files.
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, `AGENTS.md`, `interview/docker.md`, or any Day01-Day23 lesson.
+
+---
+
 ## v0.1.39 — Master Prompt v3.2: Curriculum Continuity & Update Standards
 
 Date: 2026-07-13

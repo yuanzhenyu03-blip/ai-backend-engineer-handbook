@@ -1,0 +1,135 @@
+# =============================================================================
+# EXAMPLE / TEMPLATE ONLY — Day24 (Docker Compose)
+#
+# A portable, production-style multi-service model for a local RAG/AI backend:
+#   api       - FastAPI (the only service that publishes a host port)
+#   worker    - background worker (same image as api, different command)
+#   redis     - cache / queue (internal only)
+#   postgres  - durable source of truth (internal only, named volume)
+#
+# Compose Specification style: there is intentionally NO top-level `version:`.
+#
+# This handbook repo has no runnable FastAPI app (see Day23), so this stack is a
+# TEMPLATE. `docker compose up` was NOT executed here; only `docker compose
+# config` (static model validation) is meaningful. See README.md for how to
+# supply the non-committed secret files under ./.secrets/.
+#
+# Lesson: docs/devops/day24-docker-compose.md
+# =============================================================================
+
+name: rag-app
+
+services:
+  api:
+    # `build` creates the local image; worker below reuses the SAME image.
+    build: ../fastapi
+    image: rag-app:local
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # The ONLY published host port (external entry into the project).
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      MODEL_NAME: ${MODEL_NAME}
+      # Internal traffic uses service DNS names, never localhost.
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      # Password is provided as a secret FILE. Application code must read this
+      # path; mounting a secret alone does not configure the app.
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    networks:
+      - queue_network
+      - database_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    # Probe an application endpoint, not mere process existence.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health').status==200 else 1)"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+
+  worker:
+    # Same image as api (built by the api service), different command and role.
+    image: rag-app:local
+    command: ["python", "-m", "app.worker"]
+    environment:
+      APP_ENV: ${APP_ENV}
+      LOG_LEVEL: ${LOG_LEVEL}
+      MODEL_NAME: ${MODEL_NAME}
+      REDIS_URL: redis://redis:6379/0
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      # Only the worker calls the model provider, so only it receives the key.
+      OPENAI_API_KEY_FILE: /run/secrets/openai_api_key
+    secrets:
+      - postgres_password
+      - openai_api_key
+    networks:
+      - queue_network
+      - database_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  redis:
+    image: redis:7
+    # Internal only: no published host port. No invented secret.
+    networks:
+      - queue_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    # Durable state lives in a named volume, not the writable layer.
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - database_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 3s
+      start_period: 10s
+      retries: 5
+
+# Network segmentation (least access): redis and postgres share no network.
+networks:
+  queue_network:
+  database_network:
+
+volumes:
+  postgres_data:
+
+# Secrets are top-level resources granted per service and mounted at
+# /run/secrets/<name>. The files below are NOT committed (see .gitignore);
+# create them locally as described in README.md.
+secrets:
+  postgres_password:
+    file: ./.secrets/postgres_password.txt
+  openai_api_key:
+    file: ./.secrets/openai_api_key.txt

@@ -723,3 +723,160 @@ Strong: "A container is an isolated process sharing the host kernel; an image is
 artifact and a container is a replaceable instance; durable state lives in volumes; services talk
 over a network by DNS name; and I roll out changes by rebuilding and replacing, never by editing a
 running container."
+
+---
+
+# Day24 Docker Compose Questions
+
+These questions come from the Day24 Docker Compose lesson: multi-service declaration, readiness,
+networking, volumes, secrets, and the production boundary.
+
+## Beginner
+
+### 1. What problem does Docker Compose solve?
+
+Question:
+
+What problem does Docker Compose solve, and how is it different from running multiple `docker run`
+commands manually?
+
+中文解析:
+
+手动多条 docker run 会漂移：漏参数、端口/网络/卷/环境变量不一致、启动假设藏在人脑里、新人上手慢。Compose 用一个版本化声明描述服务、网络、卷和运行配置，人人可复现同一环境。它是"定义并运行多容器应用的工具"，不是"一个多容器应用"。
+
+Student's actual attempt (preserved):
+
+> "the docker compose is a multi-container application what incloud services, networks, volumes,
+> and it's a good for team collaboration. it is a reproducibility declarative configuration"
+
+Standard Answer:
+
+Docker Compose is a tool for defining and running multi-container applications. A Compose file
+declaratively describes the services, networks, volumes, and runtime configuration. Compared with
+multiple manual `docker run` commands it reduces missing parameters and configuration drift, and
+because it is version-controlled, every team member reproduces the same environment.
+
+Follow-up Question:
+
+Why is "Compose is a multi-container application" imprecise?
+
+## Intermediate
+
+### 1. `depends_on` vs healthcheck vs application retry.
+
+Question:
+
+What is the difference between `depends_on`, a healthcheck, and application-level retry?
+
+中文解析:
+
+`depends_on`（短语法）只等依赖容器启动，不等就绪；healthcheck 用探针判断服务是否真的可用（不做修复/重启）；应用重试用有界退避处理启动中和运行时的瞬时故障。三者都要，因为"启动≠就绪"，健康的依赖之后仍可能失败。
+
+Student's actual attempt (preserved):
+
+> "the depends_on is startup order, the health check is a tool for check service readiness, and
+> application-level retry is a retry with backoff when the application meet runtime failure,
+> transient failure"
+
+Standard Answer:
+
+`depends_on` controls startup order; with the short syntax it only waits for the dependency
+container to start, not to become ready. A healthcheck tests whether a service can actually provide
+its capability (it does not repair or restart it). Application retry handles transient failures
+during and after startup, usually with bounded exponential backoff. Initial orchestration cannot
+replace runtime resilience.
+
+Follow-up Question:
+
+Can a running container be unhealthy?
+
+### 2. Rebuild vs recreate, and service vs instance.
+
+Question:
+
+When do you rebuild vs recreate, and are API and Worker (same image) two services or two instances?
+
+中文解析:
+
+镜像内容变了才 rebuild+recreate；运行时配置变了只 recreate；挂载源码变了 reload。API 和 Worker 是两个服务/角色（同一镜像不同命令）；同一个服务的副本才是多个实例。
+
+Standard Answer:
+
+Image content change -> rebuild + recreate; runtime configuration change -> recreate; mounted
+source change -> reload. API and Worker are two services/roles built from one image with different
+commands; multiple replicas of one service are the multiple instances.
+
+Follow-up Question:
+
+How can one image back two services?
+
+## Senior
+
+### 1. Compose in production vs Kubernetes.
+
+Question:
+
+When would you use Docker Compose in production, and when would you choose Kubernetes or a managed
+platform?
+
+中文解析:
+
+当业务接受单主机为单一故障域、流量可控、可接受有限停机时，可用 Compose 做小型单主机生产，但仍需备份+恢复测试、监控、TLS、密钥管理、资源限制和回滚流程。当需要多节点调度、自愈、自动扩缩、滚动更新和更高可用时选 Kubernetes/托管平台——它跨集群持续把实际状态收敛到期望状态，而 Compose 主要在一台主机上按命令协调服务。权衡是运维简单 vs 更强的自动化/弹性/伸缩。
+
+Standard Answer:
+
+I would use Compose for a small, single-host production system when the business accepts the host
+as a single failure domain — it is operationally simple — but I would still add backups,
+monitoring, TLS, secret management, resource limits, and a rollback process. I would choose
+Kubernetes or a managed platform when the system needs multi-node scheduling, self-healing,
+autoscaling, and rolling updates. Kubernetes continuously reconciles actual state to desired state
+across a cluster, while Compose coordinates services on one host when commands run. The trade-off
+is operational simplicity versus stronger automation, resilience, and scalability.
+
+Interview Review:
+
+Strong answers list the extra single-host controls and name what Compose does NOT provide
+(multi-node scheduling, reconciliation, autoscaling, rollout governance).
+
+Production Case:
+
+A small internal knowledge base runs on Compose with backups and TLS; a public 99.99% AI API needs
+a cluster.
+
+### 2. Secrets, `.env`, and governed business data.
+
+Question:
+
+How do you handle configuration, secrets, and customer data in Compose?
+
+中文解析:
+
+普通配置（APP_ENV/LOG_LEVEL）放 environment/.env；密钥（密码、OPENAI_API_KEY、含密码的 DATABASE_URL）用 Compose secrets，挂载到 /run/secrets 且应用必须读取文件；`.env` 是明文插值源不是密钥管理器，要 gitignore。客户 prompt/病历是受治理的业务数据（存储、审计、加密、留存），不是部署密钥。按最小权限授予：只有 Worker 拿 OPENAI_API_KEY。
+
+Standard Answer:
+
+Ordinary configuration (APP_ENV, LOG_LEVEL) goes in `environment`/`.env`. Secrets (passwords,
+`OPENAI_API_KEY`, a password-bearing `DATABASE_URL`) use Compose secrets, mounted at
+`/run/secrets/<name>` where the application must read the file; `.env` is a plaintext interpolation
+source, not a Secret Manager, and must be git-ignored. Customer prompts and medical records are
+governed business data (storage, audit, encryption, retention), not deployment secrets. Grant
+least privilege — only the Worker receives the OpenAI key.
+
+Interview Review:
+
+Look for classification by semantics/lifecycle (not size) and "mounting a secret alone does not
+configure the app."
+
+Production Case:
+
+The API never receives the OpenAI key because it does not call the model provider.
+
+### Common Weak vs Strong Answer (Day24)
+
+Weak: "Compose starts my containers and `depends_on` makes them ready; `.env` keeps secrets safe."
+(misses started≠ready, healthcheck vs retry, and that `.env` is plaintext)
+
+Strong: "Compose is a version-controlled declaration of a multi-service system; `depends_on` orders
+startup, a healthcheck proves readiness, and application retry handles transient failures; only the
+API is exposed, services talk by DNS, durable state lives in a named volume, and secrets are scoped
+files the app reads."

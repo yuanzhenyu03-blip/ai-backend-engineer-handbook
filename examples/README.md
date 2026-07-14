@@ -19,3 +19,6 @@ repository; copy them into a real project and adjust paths, versions, and comman
 - `docker/fastapi/` — Day23 production-oriented FastAPI `Dockerfile` + `.dockerignore` with
   reproducible build/run, named-volume, and user-defined-network commands
   (see `docs/devops/day23-docker-fundamentals.md`).
+- `docker/compose/` — Day24 multi-service Compose example (FastAPI + Worker + Redis + PostgreSQL):
+  `compose.yaml`, `compose.dev.yaml`, `.env.example` with segmented networks, healthchecks, secrets,
+  and a named volume (see `docs/devops/day24-docker-compose.md`).
