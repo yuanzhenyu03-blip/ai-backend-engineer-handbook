@@ -46,21 +46,35 @@ Lesson: `docs/devops/day24-docker-compose.md`
 Compose secrets are mounted at `/run/secrets/<name>`, and the **application must read the file**
 (for example, code reads `POSTGRES_PASSWORD_FILE` / `OPENAI_API_KEY_FILE`) — mounting a secret
 alone does not configure anything. Create the files the model references without writing any secret
-value into the repository, e.g. by prompting for them:
+value into the repository or shell history, e.g. by prompting for them:
 
 ```bash
 mkdir -p .secrets
+chmod 700 .secrets
+umask 077
 
-read -rsp "PostgreSQL password: " POSTGRES_PASSWORD
+printf 'PostgreSQL password: ' >&2
+IFS= read -rs POSTGRES_PASSWORD
+printf '\n' >&2
 printf '%s' "$POSTGRES_PASSWORD" > .secrets/postgres_password.txt
 unset POSTGRES_PASSWORD
-printf '\n'
 
-read -rsp "OpenAI API key: " OPENAI_API_KEY
+printf 'OpenAI API key: ' >&2
+IFS= read -rs OPENAI_API_KEY
+printf '\n' >&2
 printf '%s' "$OPENAI_API_KEY" > .secrets/openai_api_key.txt
 unset OPENAI_API_KEY
-printf '\n'
 ```
+
+Why this is safe and portable:
+
+- `read -s` reads without echoing the secret to the terminal.
+- It does **not** use the `-p` prompt option of `read` (the prompt is printed with `printf ... >&2`),
+  so it works in both Bash and zsh; the `-p` form fails in zsh with `read: -p: no coprocess`.
+- `chmod 700 .secrets` restricts access to the secret directory to the current user.
+- `umask 077` makes the new secret files default to owner-only read/write (`600`).
+- `printf '%s' "$VALUE"` writes the value to the file, not into the shell command text or the repo.
+- `unset` clears the temporary variable immediately after use.
 
 `.secrets/` and `.env` are git-ignored. Never commit real (or fake) passwords, API keys, private
 keys, or a `DATABASE_URL` containing a password. Least-privilege grants: `api` gets
@@ -72,10 +86,10 @@ keys, or a `DATABASE_URL` containing a password. Least-privilege grants: `api` g
 ```bash
 # 1. Prepare configuration and secrets.
 #    Copy the non-sensitive config, then create the secret files WITHOUT committing
-#    any value (see the "Secrets" section above for the interactive `read -rsp` flow).
+#    any value (see the "Secrets" section above for the portable, restrictive prompt flow).
 cp .env.example .env
-mkdir -p .secrets
-# Provide .secrets/postgres_password.txt and .secrets/openai_api_key.txt via the prompt above.
+# Create .secrets/postgres_password.txt and .secrets/openai_api_key.txt using the
+# `IFS= read -rs` flow shown in the "Secrets" section (works in Bash and zsh).
 
 # 2. Validate the resolved model WITHOUT starting anything.
 docker compose config

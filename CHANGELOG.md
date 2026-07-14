@@ -9,13 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.42 — Day24 Review: Portable, Restrictive Local Secret Setup
+
+Date: 2026-07-14
+
+### Changed
+
+- Made the local secret-file setup in `examples/docker/compose/README.md` portable across Bash and zsh and more restrictive: replaced the `read`-with-prompt-option form (which fails in zsh with `read: -p: no coprocess`) with `printf '...' >&2` + `IFS= read -rs`, and added `chmod 700 .secrets` and `umask 077` so secret files are created owner-only (`600`) in a `700` directory.
+- Updated the Commands section to reference the portable prompt flow.
+
+### Notes
+
+- Documentation-only fix; no secret value (real or fake) is present, and no course content or Compose YAML changed.
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, or any Day01-Day24 lesson body.
+
+---
+
 ## v0.1.41 — Day24 Review Fixes
 
 Date: 2026-07-14
 
 ### Changed
 
-- Removed the two placeholder secret values (an example PostgreSQL password and an example OpenAI key) from `examples/docker/compose/README.md`; the secret files are now created via interactive `read -rsp` prompts so no password or API-key value is written into the repository.
+- Removed the two placeholder secret values (an example PostgreSQL password and an example OpenAI key) from `examples/docker/compose/README.md`; the secret files are now created via an interactive prompt flow so no password or API-key value is written into the repository.
 - Restructured `docs/devops/day24-docker-compose.md` to the exact LESSON_TEMPLATE_v2 16-section order: added an explicit `# Lesson Metadata` section, moved the study-time estimate into it, promoted `Learning Objectives` to a top-level section, and removed the standalone `Estimated Study Time` section (content preserved, only relocated).
 - Added a production image contract to `examples/docker/compose/README.md`: `build:` + `rag-app:local` is local/teaching; a full local start needs `docker compose up --build` (or an explicit build) first; in production, `api` and `worker` should reference the same immutable, CI-built/verified image identity (preferably by digest) rather than rebuilding per environment.
 
