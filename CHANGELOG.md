@@ -9,6 +9,24 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.41 — Day24 Review Fixes
+
+Date: 2026-07-14
+
+### Changed
+
+- Removed the two placeholder secret values (an example PostgreSQL password and an example OpenAI key) from `examples/docker/compose/README.md`; the secret files are now created via interactive `read -rsp` prompts so no password or API-key value is written into the repository.
+- Restructured `docs/devops/day24-docker-compose.md` to the exact LESSON_TEMPLATE_v2 16-section order: added an explicit `# Lesson Metadata` section, moved the study-time estimate into it, promoted `Learning Objectives` to a top-level section, and removed the standalone `Estimated Study Time` section (content preserved, only relocated).
+- Added a production image contract to `examples/docker/compose/README.md`: `build:` + `rag-app:local` is local/teaching; a full local start needs `docker compose up --build` (or an explicit build) first; in production, `api` and `worker` should reference the same immutable, CI-built/verified image identity (preferably by digest) rather than rebuilding per environment.
+
+### Notes
+
+- Small-scope review fix; no lesson teaching content or classroom record was rewritten.
+- No real or fake secrets remain in the repository; `<digest>` is a syntax placeholder, not a secret.
+- Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, or any Day01-Day23 lesson.
+
+---
+
 ## v0.1.40 — Day24 Docker Compose Documentation
 
 Date: 2026-07-14

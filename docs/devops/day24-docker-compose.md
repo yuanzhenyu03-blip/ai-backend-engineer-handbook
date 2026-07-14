@@ -1,5 +1,7 @@
 # Lesson 24 — Docker Compose
 
+# Lesson Metadata
+
 Status: Completed
 
 Template: LESSON_TEMPLATE_v2
@@ -18,9 +20,20 @@ Next Lesson: Day25 — Deployment Foundations
 
 Engineering Artifact: A multi-service `compose.yaml` + `compose.dev.yaml` (+ `.env.example`) for a local FastAPI + Worker + Redis + PostgreSQL stack.
 
+Estimated Study Time:
+
+```text
+Reading: 120-150 minutes
+Exercises: 70-100 minutes
+Hands-on Compose authoring: 70-100 minutes
+Review: 30-45 minutes
+
+Total: 5-6 hours
+```
+
 ---
 
-## Learning Objectives
+# Learning Objectives
 
 After completing this lesson, the student should be able to:
 
@@ -128,19 +141,6 @@ Why Compose (drift -> declaration)
   -> Local development workflow
   -> Base + dev override
   -> Compose production boundary
-```
-
----
-
-# Estimated Study Time
-
-```text
-Reading: 120-150 minutes
-Exercises: 70-100 minutes
-Hands-on Compose authoring: 70-100 minutes
-Review: 30-45 minutes
-
-Total: 5-6 hours
 ```
 
 ---

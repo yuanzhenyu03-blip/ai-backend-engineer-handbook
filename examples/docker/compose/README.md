@@ -21,9 +21,21 @@ Lesson: `docs/devops/day24-docker-compose.md`
 
 - Only `api` publishes a host port (`8000:8000`); `worker`, `redis`, and `postgres` are internal.
 - `api` and `worker` share the **same** image `rag-app:local` but use different commands
-  (`uvicorn ...` vs `python -m app.worker`). The `api` service has `build:`; `worker` reuses the
-  built image, so a full-stack `up --build` (or building the image first) must create the image
-  before `worker` can start.
+  (`uvicorn ...` vs `python -m app.worker`). Two services can share one image with different
+  commands and runtime configuration.
+- **Image contract.** `build:` + `rag-app:local` is a local development / teaching setup. Before a
+  full local start, the shared image must be created with `docker compose up --build` (or an
+  explicit build), because `worker` only references the image. In **production**, do not build the
+  application image on the target server; both `api` and `worker` should reference the same
+  immutable image identity that CI already built, tested, scanned, and published — preferably by
+  digest, so the two services can never run different code versions:
+
+  ```yaml
+  image: registry.example.com/rag-app@sha256:<digest>
+  ```
+
+  `<digest>` is a syntax placeholder, not a secret. Promote the same verified artifact across
+  environments instead of rebuilding it per environment.
 - Internal traffic uses **service DNS names** (`redis:6379`, `postgres:5432`), never `localhost`.
 - Network segmentation: `queue_network` (api, worker, redis) and `database_network`
   (api, worker, postgres). Redis and PostgreSQL share no network (least access).
@@ -32,26 +44,38 @@ Lesson: `docs/devops/day24-docker-compose.md`
 ## Secrets (you supply these locally; they are not committed)
 
 Compose secrets are mounted at `/run/secrets/<name>`, and the **application must read the file**
-— mounting a secret alone does not configure anything. Create the files the model references:
+(for example, code reads `POSTGRES_PASSWORD_FILE` / `OPENAI_API_KEY_FILE`) — mounting a secret
+alone does not configure anything. Create the files the model references without writing any secret
+value into the repository, e.g. by prompting for them:
 
 ```bash
 mkdir -p .secrets
-printf '%s' 'a-strong-local-password' > .secrets/postgres_password.txt
-printf '%s' 'sk-your-local-openai-key' > .secrets/openai_api_key.txt
+
+read -rsp "PostgreSQL password: " POSTGRES_PASSWORD
+printf '%s' "$POSTGRES_PASSWORD" > .secrets/postgres_password.txt
+unset POSTGRES_PASSWORD
+printf '\n'
+
+read -rsp "OpenAI API key: " OPENAI_API_KEY
+printf '%s' "$OPENAI_API_KEY" > .secrets/openai_api_key.txt
+unset OPENAI_API_KEY
+printf '\n'
 ```
 
-`.secrets/` and `.env` are git-ignored. Never commit real passwords, API keys, or a
-`DATABASE_URL` containing a password. Least-privilege grants: `api` gets `postgres_password`;
-`worker` gets `postgres_password` + `openai_api_key`; `postgres` gets `postgres_password`; `redis`
-gets none.
+`.secrets/` and `.env` are git-ignored. Never commit real (or fake) passwords, API keys, private
+keys, or a `DATABASE_URL` containing a password. Least-privilege grants: `api` gets
+`postgres_password`; `worker` gets `postgres_password` + `openai_api_key`; `postgres` gets
+`postgres_password`; `redis` gets none.
 
 ## Commands
 
 ```bash
 # 1. Prepare configuration and secrets.
+#    Copy the non-sensitive config, then create the secret files WITHOUT committing
+#    any value (see the "Secrets" section above for the interactive `read -rsp` flow).
 cp .env.example .env
-mkdir -p .secrets && printf '%s' 'a-strong-local-password' > .secrets/postgres_password.txt \
-  && printf '%s' 'sk-your-local-openai-key' > .secrets/openai_api_key.txt
+mkdir -p .secrets
+# Provide .secrets/postgres_password.txt and .secrets/openai_api_key.txt via the prompt above.
 
 # 2. Validate the resolved model WITHOUT starting anything.
 docker compose config
