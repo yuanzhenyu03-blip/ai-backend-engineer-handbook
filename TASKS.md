@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day24 — Docker Compose
+Day25 — Deployment Foundations
 
 Status:
 Completed
@@ -24,17 +24,74 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day24-docker-compose.md
+docs/devops/day25-deployment-foundations.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day24 Docker Compose classroom learning.
-- [x] Build the multi-service Compose example (base + dev override + .env.example).
-- [x] Distinguish started vs ready, service vs instance, env vs secret, and Compose vs cluster.
-- [ ] Prepare for Day25 — Deployment Foundations.
+- [x] Complete Day25 Deployment Foundations classroom learning.
+- [x] Author the Nginx reverse-proxy/TLS example and the zero-downtime deployment/rollback runbook.
+- [x] Distinguish promote-vs-rebuild, blue-green vs Expand-Migrate-Contract, and DNS vs Nginx switching.
+- [ ] Prepare for Day26 — Kubernetes Foundations.
+
+---
+
+## Completed Day25 Tasks
+
+- [x] Complete Day25 Deployment Foundations classroom learning.
+- [x] Generate Day25 handbook lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + mental-model evolution).
+- [x] Explain the stable public entry (DNS -> Nginx :443 -> backend) and internal backend port.
+- [x] Explain the Nginx reverse proxy (listen/server_name/proxy_pass) and trusted proxy headers.
+- [x] Explain TLS (confidentiality + integrity + server authentication) and termination.
+- [x] Explain HTTP->HTTPS 308 and why redirect cannot protect an already-sent credential.
+- [x] Explain the certificate lifecycle and Nginx master/worker (reload vs restart).
+- [x] Explain build-once and promoting the exact immutable digest.
+- [x] Explain API blue-green with verify, switch, observe, drain, and rollback.
+- [x] Explain PostgreSQL Expand-Migrate-Contract and compatible worker rollout.
+- [x] Explain serialized deployment and least-privilege short-lived identity.
+- [x] Explain AI streaming (buffering vs caching, timeouts) and DNS TTL propagation.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+- [x] Add the Nginx example and deployment runbook artifacts.
+
+---
+
+## Completed Day25 Repository Tasks
+
+- [x] Add `docs/devops/day25-deployment-foundations.md`.
+- [x] Add `examples/deployment/nginx/nginx.conf.example` and `examples/deployment/README.md`.
+- [x] Update `examples/README.md`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day25 Completed).
+- [x] Update `ROADMAP.md` (Day25 Completed).
+- [x] Left `prompts/teaching-session-prompt.md` unchanged (already present in the repository).
+
+---
+
+## Completed Day25 Interview Tasks
+
+- [x] Add beginner reverse-proxy question (with the student's actual weak answer + correction).
+- [x] Add intermediate blue-green and promote-vs-rebuild questions.
+- [x] Add senior API/worker/PostgreSQL and DNS-TTL questions.
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day25 Homework
+
+- [x] Complete correct-the-reverse-proxy exercise.
+- [x] Complete HTTP->HTTPS + token question exercise.
+- [x] Complete trusted proxy headers exercise.
+- [x] Complete promote-a-digest exercise.
+- [x] Complete blue-green + drain exercise.
+- [x] Complete Expand-Migrate-Contract exercise.
+- [x] Complete streaming timeouts exercise.
+- [x] Complete DNS migration exercise.
 
 ---
 
@@ -1515,12 +1572,24 @@ None.
 - [ ] Explain Workflow as Code and Everything as Code.
 - [ ] Trace the full Idea-to-Production lifecycle.
 
-### Day25 Preparation — Deployment Foundations
+### Day26 Preparation — Kubernetes Foundations
 
-- [x] Review Day24 Docker Compose (multi-service, networks, volumes, secrets).
-- [ ] Prepare questions about reverse proxy, TLS, and domain management.
-- [ ] Prepare questions about CI/CD deployment and traffic switching.
-- [ ] Prepare questions about zero-downtime reasoning.
+- [x] Review Day25 deployment foundations (blue-green, drain, rollback, immutable digest).
+- [ ] Prepare questions about Pods, Deployments, and Services.
+- [ ] Prepare questions about ConfigMaps and Secrets.
+- [ ] Prepare questions about desired-state reconciliation vs manual blue-green.
+
+### Day25 Review
+
+- [ ] Why keep the backend port internal, and what is the stable public path?
+- [ ] What do listen / server_name / proxy_pass mean?
+- [ ] What are the three properties of TLS, and where does it terminate?
+- [ ] Why can a 308 redirect not protect an already-sent token?
+- [ ] What does an expired certificate break, and how do you reload Nginx safely?
+- [ ] Why promote the exact digest instead of rebuilding per environment?
+- [ ] Order a blue-green deploy with verify/switch/observe/drain/rollback.
+- [ ] Why is Expand-Migrate-Contract used for PostgreSQL, not blue-green?
+- [ ] Why is DNS TTL not an atomic switch?
 
 ### Day24 Review
 
@@ -1570,7 +1639,7 @@ None.
 - [x] Day22 — GitHub Actions Advanced (Completed).
 - [x] Day23 — Docker Fundamentals (Completed).
 - [x] Day24 — Docker Compose (Completed).
-- [ ] Day25 — Deployment Foundations (Planned).
+- [x] Day25 — Deployment Foundations (Completed).
 - [ ] Day26 — Kubernetes Foundations (Planned).
 - [ ] Day27 — Kubernetes Workloads (Planned).
 - [ ] Day28 — AI Backend Production Architecture (Planned).
@@ -1639,3 +1708,4 @@ Purpose:
 - [x] Complete Day22 — GitHub Actions Advanced.
 - [x] Complete Day23 — Docker Fundamentals.
 - [x] Complete Day24 — Docker Compose.
+- [x] Complete Day25 — Deployment Foundations.

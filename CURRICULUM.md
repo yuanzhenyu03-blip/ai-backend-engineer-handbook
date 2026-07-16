@@ -517,7 +517,13 @@ Topics:
 Reverse Proxy, Nginx, SSL, Domain, CI/CD Deployment, Zero Downtime
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/devops/day25-deployment-foundations.md`
+
+Template:
+LESSON_TEMPLATE_v2
 
 ---
 

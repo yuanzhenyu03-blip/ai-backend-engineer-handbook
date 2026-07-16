@@ -1,0 +1,71 @@
+# =============================================================================
+# EXAMPLE ONLY — Day25 (Deployment Foundations): Nginx reverse proxy + TLS
+#
+# Request path: Client -> api.example.com -> DNS -> Public IP -> Nginx :443 -> api:8000
+#
+# This handbook repo has no deployable app, domain, or certificate, so this file
+# is a TEACHING TEMPLATE. `example.com` is a reserved example domain; the cert
+# paths are placeholders — NO certificate, private key, secret, or credential is
+# committed. If a real Nginx binary/container is available, validate syntax with
+# `nginx -t`; otherwise do not claim it was validated.
+#
+# `api_v2` is the current blue-green target (Nginx switches between `api_v1:8000`
+# and `api_v2:8000` without publishing either backend host port).
+#
+# Lesson: docs/devops/day25-deployment-foundations.md
+# =============================================================================
+
+# ---- HTTP: redirect to HTTPS (308 preserves method and body for APIs) -------
+server {
+    listen 80;
+    server_name api.example.com;
+
+    # A 308 redirect does NOT protect a credential already sent over HTTP;
+    # clients must use HTTPS from the start. This is compatibility guidance.
+    return 308 https://$host$request_uri;
+}
+
+# ---- HTTPS: TLS terminates at Nginx; proxy to the internal FastAPI service --
+server {
+    listen 443 ssl;
+    server_name api.example.com;
+
+    # Placeholder paths only — supply real files out of band; never commit them.
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    location / {
+        # Internal service DNS name (Day24), not localhost and not a container IP.
+        proxy_pass http://api_v2:8000;
+
+        # Trusted original request context for audit, URL generation, OAuth
+        # callbacks, rate limits, and security investigation. A header is
+        # request metadata, not identity proof — pair with a trusted-proxy
+        # policy, backend isolation, and real authn/authz.
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ---- AI streaming endpoint: optimize time-to-first-token ----------------
+    # Buffering (holding chunks of THIS response) is disabled so tokens stream;
+    # caching (reusing a response for LATER requests) is off. Larger read/send
+    # timeouts allow long model responses. Do NOT disable buffering globally.
+    location /chat {
+        proxy_pass http://api_v2:8000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host              $host;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        proxy_buffering    off;   # stream chunks instead of holding the response
+        proxy_cache        off;   # do not reuse a response for later requests
+        proxy_read_timeout 300s;  # inactivity between reads from upstream
+        proxy_send_timeout 300s;  # inactivity while writing the request upstream
+        # A heartbeat resets the read-inactivity window but does NOT replace a
+        # bounded total job timeout, client-disconnect handling, or cancellation.
+    }
+}

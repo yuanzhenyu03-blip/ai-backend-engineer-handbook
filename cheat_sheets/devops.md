@@ -345,6 +345,57 @@ Production boundary: Compose = single-host multi-service declaration + lifecycle
 
 ---
 
+## Day25 Deployment Foundations
+
+Central equation:
+
+```text
+Built Artifact != Running Container != Reachable Production Service
+Successful Deployment = Verified Artifact Identity + Controlled State Transition
+                      + Real-traffic Observation + Drain + Rollback + Audit Record
+```
+
+Request path:
+
+```text
+Client -> api.example.com -> DNS -> Public IP -> Nginx :443 -> api:8000 (FastAPI)
+```
+
+Nginx reverse proxy:
+
+```text
+listen      = where Nginx receives public traffic
+server_name = which public Host/Domain matches
+proxy_pass  = which internal service handles it (http://api:8000, service DNS not localhost)
+```
+
+TLS = Confidentiality + Integrity + Server Authentication (a wrong-domain cert is rejected).
+It terminates at Nginx (Client--HTTPS-->Nginx--HTTP-->FastAPI). A reverse proxy can terminate TLS; it does not provide it automatically.
+
+`return 308 https://$host$request_uri;` — preserves method/body; does NOT protect a token already sent over HTTP. Long-lived token = longer abuse window, not safer.
+
+Certificate expiry = invalid identity (compliant clients reject -> outage), not plaintext. Update: `nginx -t && nginx -s reload` (files on disk != Nginx memory). Reload = graceful worker replacement; Restart = stop+start.
+
+Proxy context: set `Host` / `X-Real-IP` / `X-Forwarded-For` / `X-Forwarded-Proto`. A header is metadata, not identity — needs trusted proxy + normalization + backend isolation + real authn/authz.
+
+Artifact: `Tested = Scanned = Deployed`. Tag = movable reference; Digest = immutable identity; Promote (move verified artifact) != Rebuild (new artifact). Runtime differences -> service specification.
+
+Blue-Green (API): start Green (no traffic) -> verify directly -> `nginx -t` -> switch -> observe real traffic + drain Blue -> roll back / finish -> remove Blue after window. Health is necessary, not sufficient. `api_v1:8000` and `api_v2:8000` coexist (separate namespaces).
+
+Drain/retry: Traffic switch = new requests; Drain = finish in-flight; Observe = decide. Stateless container != stateless operation; safe retry needs idempotency / job-id / checkpoints.
+
+PostgreSQL = Expand-Migrate-Contract (shared durable contract): Add col -> compatible code -> backfill -> verify/end window -> Contract later. NOT blue-green.
+
+Worker: competing consumers are normal; compatible consumer first -> observe -> new producer -> drain old. Duplicates come from at-least-once delivery/retry, need idempotency.
+
+Serialized deploy: `concurrency: { group: production, cancel-in-progress: false }`. Approval = authorization; Concurrency = serialization lock. Least-privilege, short-lived, env-scoped identity; don't combine registry-pull / host-deploy / DB-migrate / Nginx-admin.
+
+Streaming (/chat): `proxy_buffering off; proxy_cache off; proxy_read_timeout/send_timeout 300s`. Buffering (this response) != Caching (later requests). Timeouts: connect / send(write req) / read(resp) / send_timeout(write to client). Heartbeat resets read window but != total job timeout.
+
+DNS: TTL expires per resolver, switch is gradual not atomic. Lower TTL one old-TTL period ahead, keep A/B during propagation, remove A after the window. DNS = coarse discovery; Nginx = precise backend switch.
+
+---
+
 ## Interview Phrases
 
 - "CI is a trusted quality process, not just running tests."
@@ -382,3 +433,10 @@ Production boundary: Compose = single-host multi-service declaration + lifecycle
 - "`down` keeps named volumes; `down --volumes` deletes them; persistence is not backup."
 - "`.env` is plaintext interpolation, not a Secret Manager; Compose secrets mount at /run/secrets and the app must read them."
 - "Compose coordinates services on one host; Kubernetes reconciles desired state across a multi-node cluster."
+- "Built artifact != running container != reachable production service."
+- "TLS = confidentiality + integrity + server authentication; a wrong-domain cert is rejected."
+- "A 308 redirect does not protect a token already sent over HTTP."
+- "Promote the exact verified image digest; do not rebuild per environment."
+- "Blue-green: start, verify, switch, observe, drain, roll back or complete; health is necessary, not sufficient."
+- "PostgreSQL uses Expand-Migrate-Contract, not blue-green; API/worker are replaceable compute."
+- "DNS TTL expires per resolver, so a DNS switch is gradual, not atomic."

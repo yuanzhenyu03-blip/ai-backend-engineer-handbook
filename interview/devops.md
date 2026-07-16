@@ -880,3 +880,151 @@ Strong: "Compose is a version-controlled declaration of a multi-service system; 
 startup, a healthcheck proves readiness, and application retry handles transient failures; only the
 API is exposed, services talk by DNS, durable state lives in a named volume, and secrets are scoped
 files the app reads."
+
+---
+
+# Day25 Deployment Foundations Questions
+
+These questions come from the Day25 Deployment Foundations lesson: reverse proxy, TLS, immutable
+promotion, blue-green, drain, schema evolution, and DNS.
+
+## Beginner
+
+### 1. What does a reverse proxy do for a production API?
+
+Question:
+
+What does a reverse proxy do for a production API?
+
+中文解析:
+
+反向代理提供稳定的公共入口，让后端保持内部，可以终止 TLS，并把请求转发到正确的后端服务。客户端只和代理的域名/URL 打交道，所以后端可以替换而不改变客户端契约。后端端口不对公网暴露。
+
+Student's actual attempt (preserved):
+
+> "there are some problem is resolved by reverse proxy, for example, it offer a public entry for
+> client, the interna backend only offer bussiness service. and the TLS is the more safer connect
+> style than http, it's easy to swtich backend replacement"
+
+Standard Answer:
+
+A reverse proxy provides a stable public entry, keeps the backends internal, can terminate TLS, and
+forwards requests to the right backend service. Because the client talks to the proxy's domain and
+URL, the backend can be replaced without changing the client's contract.
+
+Follow-up Question:
+
+Does a reverse proxy automatically provide TLS?
+
+## Intermediate
+
+### 1. Walk through a zero-downtime API deployment.
+
+Question:
+
+Walk through a zero-downtime API deployment.
+
+中文解析:
+
+晋级已审批的镜像 digest，启动 Green 但不接生产流量，直接对它做 readiness + smoke 验证，`nginx -t` 校验配置后优雅切流量。在真实流量下观察 Green 并 drain Blue 的在途请求。错误率高就把流量切回 Blue 并安全 drain v2；健康就结束回滚窗口再移除 Blue。健康检查必要但不充分。
+
+Standard Answer:
+
+I promote the approved image digest, start Green without production traffic, verify it directly with
+readiness and smoke checks, validate the Nginx config with `nginx -t`, then gracefully switch
+traffic. I observe Green under real traffic while draining Blue's in-flight requests. If the error
+rate is bad, I switch traffic back to Blue and drain v2 safely; if it is healthy, I end the rollback
+window and remove Blue.
+
+Interview Review:
+
+Say "switch traffic back to Blue," not "rollback the old container"; stress health is necessary but
+not sufficient.
+
+Follow-up Question:
+
+Why can a passing health check not prove the deployment succeeded?
+
+### 2. Promote vs rebuild, tag vs digest.
+
+Question:
+
+On deploy, do you rebuild the image on production, and what is the difference between a tag and a
+digest?
+
+中文解析:
+
+不在生产重建；晋级 CI 已构建/测试/扫描的同一个不可变 digest（Tested=Scanned=Deployed）。Tag 是可移动的人类可读引用，Digest 是不可变的制品身份。环境差异放进 Day24 的 service specification，而不是逐环境重建镜像。
+
+Standard Answer:
+
+I do not rebuild on production; I promote the same immutable digest that CI already built, tested,
+and scanned (tested = scanned = deployed). A tag is a movable, human-readable reference; a digest is
+the immutable artifact identity. Environment differences belong in the service specification, not in
+a per-environment rebuild.
+
+Follow-up Question:
+
+Why does rebuilding per environment break the integrity chain?
+
+## Senior
+
+### 1. How do API, Worker, and PostgreSQL differ during a deployment?
+
+Question:
+
+How do API, Worker, and PostgreSQL differ during a deployment?
+
+中文解析:
+
+API 和 Worker 是可替换的计算版本：API 走 blue-green，Worker 先上向后兼容的消费者。PostgreSQL schema 是共享的持久契约，用 Expand-Migrate-Contract——加列、部署双兼容代码、回填、验证，只有在回滚窗口之后的后续版本才 Contract。全程在串行化生产锁 + 最小权限短期身份 + 有界超时 + 观察 + 可记录回滚下进行。
+
+Standard Answer:
+
+API and Worker are replaceable compute versions: I blue-green the API and roll out a
+backward-compatible Worker consumer first. PostgreSQL schema is a shared durable contract, so I use
+Expand-Migrate-Contract — add the new column, deploy code compatible with both, backfill, verify,
+and only contract in a later release after the rollback window. Everything runs under a serialized
+production lock with a least-privilege short-lived identity, bounded timeouts, observation, and a
+recorded rollback path.
+
+Interview Review:
+
+The critical correction: PostgreSQL does NOT follow the API blue-green steps.
+
+Production Case:
+
+Renaming `prompt` -> `user_prompt` follows Expand -> compatible code -> backfill -> verify -> end
+rollback window -> Contract later; a destructive change would break running v1 and rollback.
+
+### 2. Why is DNS TTL not an atomic switch, and how does it differ from Nginx?
+
+Question:
+
+Why is a DNS change not atomic, and how does it differ from Nginx traffic switching?
+
+中文解析:
+
+权威 DNS 可以立即返回新值，但每个 resolver/客户端会缓存旧答案直到它自己的 TTL 到期，所以有的到 A、有的到 B——切换是渐进的。迁移前至少提前一个旧 TTL 周期降低 TTL，传播期间保持 A/B 可用、观察两者、窗口后再移除 A。DNS 做粗粒度的主机/位置发现与迁移；Nginx 在选定主机上做精确的后端切换。
+
+Standard Answer:
+
+Authoritative DNS may return the new value immediately, but each resolver/client keeps its cached old
+answer until its own TTL expires, so some clients reach Server A and others reach Server B — the
+switch is gradual. Lower the TTL at least one old-TTL period before migration, keep A and B available
+during propagation, observe both, and remove A only after the window. DNS is coarse host/location
+discovery; Nginx is precise backend traffic switching on the selected host.
+
+Follow-up Question:
+
+Why is lowering a 24h TTL five minutes before migration a mistake?
+
+### Common Weak vs Strong Answer (Day25)
+
+Weak: "Deployment means restarting the container with the new code, and a health check proves it
+worked." (misses artifact promotion, blue-green/drain/rollback, schema contracts, and observation)
+
+Strong: "Deployment is a serialized, observable, reversible production state transition that promotes
+the exact verified digest, moves traffic with blue-green + drain, evolves PostgreSQL with
+Expand-Migrate-Contract, rolls out workers compatibly, and keeps a bounded, least-privilege, recorded
+rollback path."

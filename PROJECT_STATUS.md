@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day24 — Docker Compose
+Day25 — Deployment Foundations
 
 Status:
 Completed
@@ -50,6 +50,7 @@ Completed Time:
 - ✅ Day22 — GitHub Actions Advanced
 - ✅ Day23 — Docker Fundamentals
 - ✅ Day24 — Docker Compose
+- ✅ Day25 — Deployment Foundations
 
 ---
 
@@ -61,29 +62,29 @@ None.
 
 ## Last Completed Lesson
 
-Day24 — Docker Compose
+Day25 — Deployment Foundations
 
 Completed Time:
 2026-07-14
 
 Main Artifact:
-Multi-service Compose example (examples/docker/compose/: compose.yaml, compose.dev.yaml, .env.example)
+Production request path + Nginx reverse-proxy/TLS example + zero-downtime runbook (examples/deployment/)
 
 Completed Work:
 
-- Day24 classroom learning
-- Day24 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + mental-model evolution)
-- Day24 Compose example (API + Worker + Redis + PostgreSQL, networks, healthchecks, secrets, volume)
-- Day24 started-vs-ready / project-service-image-container / network / volume / secret exercises
-- Day24 devops cheat sheet update
-- Day24 devops interview notes update
-- Day24 repository status update
+- Day25 classroom learning
+- Day25 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + mental-model evolution)
+- Day25 Nginx reverse-proxy/TLS example and deployment/rollback runbook
+- Day25 reverse-proxy / TLS / promote-digest / blue-green / Expand-Migrate-Contract / DNS exercises
+- Day25 devops cheat sheet update
+- Day25 devops interview notes update
+- Day25 repository status update
 
 ---
 
 ## Next
 
-- Day25 — Deployment Foundations
+- Day26 — Kubernetes Foundations
 
 Status:
 Not started
@@ -118,6 +119,7 @@ Completed Python Foundations:
 - Day22 — GitHub Actions advanced, matrix, fail-fast, cache vs artifact, composite action vs reusable workflow, needs/if/continue-on-error, deployment pipeline, immutable digest, environment, concurrency
 - Day23 — Docker fundamentals, container as isolated process (namespaces/cgroups), image vs container, image layers vs writable layer, Dockerfile, build vs run, volumes, networks, immutable replacement
 - Day24 — Docker Compose, multi-service declaration, started vs ready (depends_on/healthcheck/retry), project/service/image/container, service DNS, network segmentation, volumes, env/secrets/business data, base + dev override, production boundary
+- Day25 — Deployment foundations, stable public entry (DNS/Nginx/TLS), reverse proxy, HTTP->HTTPS, trusted proxy context, promote immutable digest, API blue-green + drain + rollback, Expand-Migrate-Contract, worker rollout, serialized deploy identity, AI streaming timeouts, DNS TTL
 
 ---
 
@@ -320,6 +322,16 @@ Completed Python Foundations:
 - Separate ordinary configuration, secrets, and governed business data.
 - Split a portable base file from a development override.
 - State where Compose fits in production and where a cluster is required.
+- Explain the stable public entry (Domain -> DNS -> Nginx :443 -> backend) and keeping the backend port internal.
+- Configure an Nginx reverse proxy and trusted proxy headers.
+- Explain TLS as confidentiality + integrity + server authentication, and where it terminates.
+- Redirect HTTP to HTTPS (308) and explain why it cannot protect an already-sent credential.
+- Explain the certificate lifecycle and Nginx master/worker (reload vs restart).
+- Promote one CI-verified immutable image digest instead of rebuilding per environment.
+- Perform an API blue-green switch with verify, observe, drain, and rollback.
+- Apply Expand-Migrate-Contract to a PostgreSQL schema change and roll out a worker compatibly.
+- Serialize deployment with a concurrency lock and a least-privilege short-lived identity.
+- Configure AI streaming (buffering off, correct timeouts) and reason about DNS TTL propagation.
 
 ---
 
@@ -497,6 +509,14 @@ Completed Python Foundations:
 - Config/secret/business-data classification exercise
 - Compose-vs-cluster decision exercise
 - Integrated Compose stack build exercise
+- Correct-the-reverse-proxy exercise
+- HTTP->HTTPS + token question exercise
+- Trusted proxy headers exercise
+- Promote-a-digest exercise
+- Blue-green + drain exercise
+- Expand-Migrate-Contract exercise
+- Streaming timeouts exercise
+- DNS migration exercise
 
 ---
 

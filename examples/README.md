@@ -22,3 +22,6 @@ repository; copy them into a real project and adjust paths, versions, and comman
 - `docker/compose/` — Day24 multi-service Compose example (FastAPI + Worker + Redis + PostgreSQL):
   `compose.yaml`, `compose.dev.yaml`, `.env.example` with segmented networks, healthchecks, secrets,
   and a named volume (see `docs/devops/day24-docker-compose.md`).
+- `deployment/` — Day25 deployment foundations: an example Nginx reverse-proxy/TLS config
+  (`nginx/nginx.conf.example`) and a zero-downtime blue-green deployment + rollback runbook
+  (see `docs/devops/day25-deployment-foundations.md`).

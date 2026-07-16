@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.43 — Day25 Deployment Foundations Documentation
+
+Date: 2026-07-14
+
+### Added
+
+- Added `docs/devops/day25-deployment-foundations.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day24->Day25 mental-model evolution).
+- Added `examples/deployment/nginx/nginx.conf.example` (reverse proxy + TLS termination, HTTP->HTTPS 308, trusted proxy headers, blue-green `api_v2` upstream, AI streaming location).
+- Added `examples/deployment/README.md` (request path, zero-downtime blue-green runbook, rollback, and identity notes).
+- Added Day25 review material to `cheat_sheets/devops.md`.
+- Added Day25 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/README.md` to index the Day25 deployment example.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day25 completed.
+- Updated `PROJECT_STATUS.md` to mark Day25 completed and set Next to Day26.
+- Updated `TASKS.md` with completed Day25 tasks and Day26 preparation.
+- Updated `CHANGELOG.md` with the Day25 repository update.
+
+### Notes
+
+- Day25 turns one CI-verified immutable image into a safely reachable, observable, reversible production service: stable public entry (Domain/DNS/Nginx :443), reverse proxy (listen/server_name/proxy_pass), TLS as confidentiality + integrity + server authentication (terminating at Nginx), HTTP->HTTPS 308 (and why it cannot protect an already-sent credential), certificate lifecycle and Nginx master/worker (reload vs restart), trusted proxy context (header != identity), promoting the exact immutable digest, API blue-green with verify/switch/observe/drain/rollback, PostgreSQL Expand-Migrate-Contract, compatible worker rollout, serialized deployment with a least-privilege short-lived identity, AI streaming (buffering vs caching, four timeouts, heartbeat), and non-atomic DNS TTL.
+- Preserved the actual classroom record, including the student's Chinese and English answers, the imperfect wording (for example the accidental "quantity gate" corrected to "quality gate", and the GitHub Actions `${{ }}` vs Nginx `$variable` confusion), and all material misconceptions and corrections.
+- The Nginx artifact is example-only: reserved `example.com` domain, placeholder certificate paths, no committed certificate, private key, secret, credential, or business/medical data. No GitHub Actions expressions are used in Nginx.
+- Validation: `nginx` is not available in this environment, so `nginx -t` was NOT run and no successful Nginx validation is claimed; the configuration was reviewed statically. The Markdown was checked, links to the example resolve, and no secrets are present.
+- `prompts/teaching-session-prompt.md` already exists in the repository (the separate live-teaching standard) and was left unchanged. Did not modify `prompts/master-prompt.md`, `LESSON_TEMPLATE_v2.md`, or any Day01-Day24 lesson body.
+
+---
+
 ## v0.1.42 — Day24 Review: Portable, Restrictive Local Secret Setup
 
 Date: 2026-07-14
