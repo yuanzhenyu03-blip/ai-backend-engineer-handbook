@@ -13,7 +13,9 @@ Lesson: `docs/devops/day25-deployment-foundations.md`
 ## Files
 
 - `nginx/nginx.conf.example` — reverse proxy + TLS termination, HTTP->HTTPS 308 redirect, trusted
-  proxy headers, a blue-green upstream target (`api_v2:8000`), and an AI streaming location.
+  proxy headers, a blue-green upstream target (`api_v2:8000`), and an AI streaming location. It is a
+  `server`-block **fragment** meant to be included inside an Nginx `http {}` context (e.g. dropped
+  into `/etc/nginx/conf.d/`), not a standalone main configuration.
 
 ## Request path
 
@@ -26,13 +28,44 @@ backend port is never published to the public Internet.
 
 ## Validating the Nginx config
 
-If a real Nginx binary/container is available:
+`nginx.conf.example` is a `server`-block fragment to be included inside an Nginx `http {}` context.
+It has no `events {}` / `http {}` main context, so it **cannot** be passed to `nginx -c` directly
+(`nginx -t -c nginx.conf.example` fails with `"server" directive is not allowed here`). Validation
+happens at two levels, and only the first can run inside this repository.
+
+### Repository-level static validation (runs here)
+
+Checks that do not need Nginx, certificates, or a live upstream:
+
+- the file is a `server`-block fragment (no `events {}` / `http {}` main context);
+- every `proxy_pass` sits inside a `location` context;
+- the fragment is never passed directly to `nginx -c`;
+- no real certificate, private key, or secret is committed (paths are placeholders).
+
+### Runtime Nginx validation (NOT run here)
+
+A real `nginx -t` can only succeed after ALL of the following are in place:
+
+- a complete Nginx main configuration providing `events {}` and `http {}`;
+- this fragment included inside that `http {}` (e.g. copied to `/etc/nginx/conf.d/api.conf`);
+- readable test certificate and private-key files at the `ssl_certificate` /
+  `ssl_certificate_key` paths (or the paths edited to point at test certs);
+- `api_v2` resolvable on the test network (or an explicit test substitute upstream);
+- an Nginx binary or a working Docker daemon available.
+
+Once those runtime preconditions are all satisfied, the final syntax check is simply:
 
 ```bash
-nginx -t -c /absolute/path/to/nginx.conf.example    # syntax check only
+nginx -t
 ```
 
-If Nginx is not available, do not claim `nginx -t` succeeded. In this environment it was not run.
+Do not treat the command above as already-passing in this repository — it is the command to run
+*after* the preconditions are met, not evidence of a successful run here.
+
+This environment has no local Nginx. The Docker CLI is installed, but the Docker daemon is
+unavailable. Required certificate files and a resolvable `api_v2` test upstream are also
+unavailable, so `nginx -t` was not run and no successful runtime validation is claimed. The
+fragment was reviewed statically only.
 
 ## Zero-downtime deployment runbook (blue-green)
 

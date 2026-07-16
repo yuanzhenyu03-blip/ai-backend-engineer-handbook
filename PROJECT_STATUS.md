@@ -20,7 +20,7 @@ Template:
 LESSON_TEMPLATE_v2
 
 Completed Time:
-2026-07-14
+2026-07-16
 
 ---
 
@@ -65,7 +65,7 @@ None.
 Day25 — Deployment Foundations
 
 Completed Time:
-2026-07-14
+2026-07-16
 
 Main Artifact:
 Production request path + Nginx reverse-proxy/TLS example + zero-downtime runbook (examples/deployment/)

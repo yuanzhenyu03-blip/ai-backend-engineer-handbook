@@ -250,9 +250,13 @@ proxy_pass   = which internal service handles the request
 ```
 
 ```nginx
-listen 80;
-server_name api.example.com;
-proxy_pass http://api:8000;
+server {
+    listen 80;
+    server_name api.example.com;
+    location / {
+        proxy_pass http://api:8000;
+    }
+}
 ```
 
 The student correctly reused Day24: `localhost` inside the Nginx container is the Nginx container
@@ -831,9 +835,13 @@ Question: fix the reversed block (`listen 8000; server_name api; proxy_pass http
 Expected Output:
 
 ```nginx
-listen 80;
-server_name api.example.com;
-proxy_pass http://api:8000;
+server {
+    listen 80;
+    server_name api.example.com;
+    location / {
+        proxy_pass http://api:8000;
+    }
+}
 ```
 
 Follow-up Question: why does `localhost` inside the Nginx container not reach FastAPI?

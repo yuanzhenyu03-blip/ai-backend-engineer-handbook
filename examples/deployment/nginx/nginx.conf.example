@@ -6,8 +6,16 @@
 # This handbook repo has no deployable app, domain, or certificate, so this file
 # is a TEACHING TEMPLATE. `example.com` is a reserved example domain; the cert
 # paths are placeholders — NO certificate, private key, secret, or credential is
-# committed. If a real Nginx binary/container is available, validate syntax with
-# `nginx -t`; otherwise do not claim it was validated.
+# committed.
+#
+# SCOPE: this is a `server`-block FRAGMENT, not a complete main configuration. It
+# has no `events {}` / `http {}` main context, so it CANNOT be passed directly to
+# `nginx -c`. It is meant to be INCLUDED inside an existing Nginx `http {}` block,
+# e.g. copied to `/etc/nginx/conf.d/api.conf` where the distro's `nginx.conf`
+# already provides the main context. Runtime `nginx -t` also requires readable
+# cert files and a resolvable `api_v2` upstream (or explicit test substitutes);
+# see examples/deployment/README.md. If those are unavailable, do NOT claim
+# `nginx -t` passed.
 #
 # `api_v2` is the current blue-green target (Nginx switches between `api_v1:8000`
 # and `api_v2:8000` without publishing either backend host port).
