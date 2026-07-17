@@ -9,6 +9,16 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.46 — Roadmap Status Consistency Fix
+
+Date: 2026-07-17
+
+### Changed
+
+- Fixed `ROADMAP.md` Phase 1 table: converted it to the same three-column `Status` format as Phase 2 and marked Day01-Day14 all `✅ Completed`, removing the stale `⏳ Day02` current-lesson marker. Topics and order are unchanged. Phase 2 remains Day15-Day26 Completed, Day27 and Day28 Planned. Now consistent with `CURRICULUM.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, and `AGENTS.md`.
+
+---
+
 ## v0.1.45 — Day26 Review Fixes
 
 Date: 2026-07-17

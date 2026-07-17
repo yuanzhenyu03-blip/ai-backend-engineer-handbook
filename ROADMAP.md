@@ -13,22 +13,22 @@ Estimated Duration: 100 Days
 Objective:
 Build Python engineering thinking instead of memorizing syntax.
 
-| Day | Topic |
-|------|-------------------------------|
-| ✅ Day01 | Python Object Model |
-| ⏳ Day02 | Mutable vs Immutable |
-| Day03 | Functions & Parameter Passing |
-| Day04 | Scope & LEGB |
-| Day05 | Closures |
-| Day06 | Decorators |
-| Day07 | Iterators & Generators |
-| Day08 | Exception Handling |
-| Day09 | Modules & Packages |
-| Day10 | Type Hints |
-| Day11 | Object-Oriented Programming |
-| Day12 | Context Managers |
-| Day13 | Async Programming |
-| Day14 | Mini Project + Mock Interview |
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day01 | Python Object Model | ✅ Completed |
+| Day02 | Mutable vs Immutable | ✅ Completed |
+| Day03 | Functions & Parameter Passing | ✅ Completed |
+| Day04 | Scope & LEGB | ✅ Completed |
+| Day05 | Closures | ✅ Completed |
+| Day06 | Decorators | ✅ Completed |
+| Day07 | Iterators & Generators | ✅ Completed |
+| Day08 | Exception Handling | ✅ Completed |
+| Day09 | Modules & Packages | ✅ Completed |
+| Day10 | Type Hints | ✅ Completed |
+| Day11 | Object-Oriented Programming | ✅ Completed |
+| Day12 | Context Managers | ✅ Completed |
+| Day13 | Async Programming | ✅ Completed |
+| Day14 | Mini Project + Mock Interview | ✅ Completed |
 
 Deliverables:
 
