@@ -22,8 +22,8 @@ spec:
     spec:
       containers:
         - name: postgres
-          # Non-pullable placeholder; replace with a CI-verified @sha256 digest before deploy.
-          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          # Single complete reference; accepts a full "repository@sha256:<digest>" at deploy time.
+          image: {{ .Values.postgres.image.reference | quote }}
           imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
           ports:
             - name: postgres

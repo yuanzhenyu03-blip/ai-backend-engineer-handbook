@@ -447,7 +447,7 @@ Helm       = Templates + Values + Release (render/install/revision/rollback)
 
 Ingress: not "internal vs external" — some Service types expose externally, and a normal Service does not inspect paths. Ingress RESOURCE != Ingress CONTROLLER; no controller/DNS/LB/TLS Secret -> no working data plane. Routing `/admin` != auth.
 
-HPA: does NOT create Pods; it sets desired replicas on a Deployment/StatefulSet, which reconciles Pods. CPU utilization is relative to the CPU **request** (so requests must exist). External-wait workload -> low CPU + growing queue -> scale on `queue backlog / backlog per worker` via an external/custom metrics adapter. Cap `maxReplicas` to upstream capacity; more Pods != more provider capacity and can worsen 429/cost.
+HPA: does NOT create Pods; it sets desired replicas on a Deployment/StatefulSet, which reconciles Pods. With an HPA enabled, the Deployment must OMIT `spec.replicas` (the HPA owns the count; otherwise `helm upgrade`/`kubectl apply` resets it). CPU utilization is relative to the CPU **request** (so requests must exist). External-wait workload -> low CPU + growing queue -> scale on `queue backlog / backlog per worker`, but scale the **worker Deployment that consumes the queue** (not the API/producer), via an external/custom metrics adapter. Cap `maxReplicas` to upstream capacity; more Pods != more provider capacity and can worsen 429/cost.
 
 Rolling Update: `maxSurge: 1`, `maxUnavailable: 0` -> add ready v2 under the same selector, remove v1 within limits; needs surge capacity. `/ready 200 != correct AI result != acceptable error rate/latency`. Rolling Update != rollback. Rollback = restore a previous desired revision via another controlled rollout. Deleting v2 Pods with a v2 template -> controller recreates v2.
 

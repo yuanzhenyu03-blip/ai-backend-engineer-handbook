@@ -170,12 +170,12 @@ docs/devops/day27-kubernetes-workloads.md
 
 ---
 
-### Day27 Preparation — Kubernetes Workloads
+### Day27 Preparation — Kubernetes Workloads (completed)
 
-- [ ] Read Day27 input when provided.
-- [ ] Preview Ingress (public entry), Autoscaling, Rolling Update, StatefulSet, and Helm as the Day27 scope.
-- [ ] Connect Day26 Pod/Deployment/Service/ConfigMap/Secret to Day27 workload patterns.
-- [ ] Keep Day27 topics labeled as future connections until Day27 is the current lesson.
+- [x] Read Day27 input.
+- [x] Previewed Ingress (public entry), Autoscaling, Rolling Update, StatefulSet, and Helm as the Day27 scope.
+- [x] Connected Day26 Pod/Deployment/Service/ConfigMap/Secret to Day27 workload patterns.
+- [x] Day27 delivered; topics are now the completed current lesson (see Completed Day27 Tasks above).
 
 ---
 

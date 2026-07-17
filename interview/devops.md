@@ -1258,7 +1258,9 @@ Standard Answer:
 
 A CPU-based HPA may fail because the workload is waiting on an external service instead of consuming
 CPU, so CPU stays low while requests accumulate. I would use queue backlog, preferably backlog per
-worker, and cap the replica count so scaling does not exceed the provider's rate limit.
+worker, to scale the worker Deployment that actually consumes the queue (not the API/producer), via an
+external/custom metrics adapter, and cap the replica count so scaling does not exceed the provider's
+rate limit.
 
 Follow-up Question:
 

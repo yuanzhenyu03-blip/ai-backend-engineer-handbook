@@ -117,10 +117,26 @@ def main() -> int:
             leaks.append((f, line.strip()))
     checks.append(("No secret-looking literals in any values file", not leaks))
 
-    # 8. Images use the non-pullable example.invalid placeholder
-    img_ok = (values.get("image", {}).get("repository", "").startswith("example.invalid/")
-              and values.get("postgres", {}).get("image", {}).get("repository", "").startswith("example.invalid/"))
-    checks.append(("Images use non-pullable example.invalid placeholders", img_ok))
+    # 8. Images use a single complete reference field with a non-pullable example.invalid placeholder
+    api_ref = values.get("image", {}).get("reference", "")
+    pg_ref = values.get("postgres", {}).get("image", {}).get("reference", "")
+    img_ok = api_ref.startswith("example.invalid/") and pg_ref.startswith("example.invalid/")
+    checks.append(("Images use a single .reference field with non-pullable example.invalid placeholders",
+                   img_ok))
+    # Templates render the single reference (so a deploy-time repository@sha256:<digest> swap is valid)
+    checks.append(("Deployment/StatefulSet render .Values.*.image? .reference (digest-capable)",
+                   ".Values.image.reference" in dep and ".Values.postgres.image.reference" in sts
+                   and "image.repository" not in dep and "image.tag" not in dep))
+
+    # 9. HPA vs replicas ownership: Deployment omits spec.replicas when the HPA is enabled
+    checks.append(("Deployment guards spec.replicas with `if not .Values.hpa.enabled`",
+                   "if not .Values.hpa.enabled" in dep and "replicas: {{ .Values.replicaCount }}" in dep))
+
+    # 10. Chart scope: the API HPA does NOT ship a queue-backlog/External worker metric
+    no_queue_metric = ("queueBacklog" not in hpa and "type: External" not in hpa
+                       and "queueBacklog" not in read("values.yaml"))
+    checks.append(("API HPA has no queue-backlog/External worker metric (out of Day27 chart scope)",
+                   no_queue_metric))
 
     ok = True
     for name, passed in checks:
@@ -131,9 +147,8 @@ def main() -> int:
             print(f"  possible secret literal in {f}: {val}")
 
     print("\nStatic chart validation (structure + values):", "PASS" if ok else "FAIL")
-    print("helm lint: not run (helm not installed in this environment)")
-    print("helm template: not run (helm not installed in this environment)")
-    print("Kubernetes schema/admission validation: not performed (no API server)")
+    print("helm lint/template: not run by this validation script")
+    print("Kubernetes schema/admission validation: not run by this validation script")
     print("Kubernetes/Helm runtime validation: not performed")
     return 0 if ok else 1
 

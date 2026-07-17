@@ -5,7 +5,11 @@ metadata:
   labels:
     {{- include "rag-platform.labels" . | nindent 4 }}
 spec:
+  # When the HPA is enabled it owns the desired replica count; omit spec.replicas so a
+  # `helm upgrade` does not reset the HPA-managed count back to replicaCount.
+  {{- if not .Values.hpa.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   revisionHistoryLimit: {{ .Values.revisionHistoryLimit }}
   progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds }}
   minReadySeconds: {{ .Values.minReadySeconds }}
@@ -24,8 +28,9 @@ spec:
     spec:
       containers:
         - name: api
-          # Non-pullable placeholder; replace with a CI-verified @sha256 digest before deploy.
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          # Single complete reference; accepts a full "repository@sha256:<digest>" at deploy time.
+          # Default is a non-pullable, mutable, unverified placeholder.
+          image: {{ .Values.image.reference | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           ports:
             - name: http

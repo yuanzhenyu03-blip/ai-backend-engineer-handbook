@@ -9,6 +9,27 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.48 — Day27 Review Fixes
+
+Date: 2026-07-17
+
+### Changed
+
+- Fixed image rendering in the `rag-platform` chart: replaced split `image.repository` + `image.tag` with a single `image.reference` (and `postgres.image.reference`) so a deploy-time swap to a `repository@sha256:<digest>` reference renders a valid image. Default stays a non-pullable, mutable, unverified `example.invalid` placeholder.
+- Fixed HPA vs Deployment replica ownership: the Deployment now omits `spec.replicas` when `hpa.enabled`, so a `helm upgrade` does not reset the HPA-managed replica count; when the HPA is disabled it renders `replicaCount`.
+- Fixed the queue-backlog scaling scope: removed the `queueBacklog` External metric and its Values from the API HPA (wiring it to the API would scale the producer, not the consumer). The classroom conclusion is preserved in the lesson/README/cheat sheet/interview — queue backlog/backlog-per-worker must scale the worker Deployment that consumes the queue, needs an external/custom metrics adapter, and arrives with Day28.
+- Resolved a `TASKS.md` status contradiction: the stale unchecked "Day27 Preparation — Kubernetes Workloads" block is now recorded as completed history (Day27 = Completed, Day28 = Planned/Next).
+- Added real Markdown cross-links from `docs/devops/day27-kubernetes-workloads.md` (previous lesson, engineering artifact, cheat sheet, interview, roadmap/curriculum).
+- Corrected imprecise wording: an Ingress resource declares Host/Path/TLS intent while the Ingress Controller implements routing and commonly performs TLS termination.
+- Updated `examples/kubernetes/rag-platform/validate_chart.py` to check the single image reference, the HPA-guarded `spec.replicas`, and the absence of a queue-backlog worker metric; its output no longer hardcodes "helm not installed" and instead states "helm lint/template: not run by this validation script".
+
+### Notes
+
+- Validation actually performed: `git diff --check` clean; `validate_chart.py` PASS (19 structural/values checks, including image `.reference`, HPA-guarded replicas, and no queue metric). `helm` is not installed and no Kubernetes API server is available, so `helm lint`, `helm template`, schema/admission, and all runtime validation were NOT run / NOT verified and no result is claimed.
+- Did not rewrite Day01-Day26, did not start or expand Day28, and did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`. Historical CHANGELOG entries (including the originally-correct Day27 Planned records) are unchanged.
+
+---
+
 ## v0.1.47 — Day27 Kubernetes Workloads Documentation
 
 Date: 2026-07-17

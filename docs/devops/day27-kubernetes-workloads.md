@@ -14,11 +14,15 @@ Estimated Time: 7-8 hours
 
 Prerequisite: Day26 — Kubernetes Foundations
 
-Previous Lesson: Day26 — Kubernetes Foundations
+Previous Lesson: [Day26 — Kubernetes Foundations](day26-kubernetes-foundations.md)
 
-Next Lesson: Day28 — AI Backend Production Architecture
+Next Lesson: Day28 — AI Backend Production Architecture (planned — see [ROADMAP.md](../../ROADMAP.md) and [CURRICULUM.md](../../CURRICULUM.md))
 
-Engineering Artifact: A conceptual, teaching-only Helm chart (`examples/kubernetes/rag-platform/`) that packages the Day26 workload plus Ingress, an autoscaling/v2 HPA, a Rolling Update Deployment, and a StatefulSet + headless Service, with per-environment Values and a static-only validation helper.
+Engineering Artifact: A conceptual, teaching-only Helm chart (`examples/kubernetes/rag-platform/`) that packages the Day26 workload plus Ingress, an autoscaling/v2 HPA, a Rolling Update Deployment, and a StatefulSet + headless Service, with per-environment Values and a static-only validation helper — see [examples/kubernetes/README.md](../../examples/kubernetes/README.md).
+
+DevOps Cheat Sheet: [cheat_sheets/devops.md](../../cheat_sheets/devops.md)
+
+DevOps Interview: [interview/devops.md](../../interview/devops.md)
 
 Estimated Study Time:
 
@@ -70,7 +74,7 @@ Day27: route to them at Layer 7, scale them from real pressure, replace versions
 Why a backend engineer must care:
 
 ```text
-Routing      -> Ingress terminates TLS and routes Host/Path to the right Service.
+Routing      -> an Ingress declares Host/Path/TLS intent; the Ingress Controller routes and commonly terminates TLS.
 Elasticity   -> HPA changes desired replicas from meaningful signals (often NOT CPU for AI workers).
 Availability -> Rolling Update replaces versions while keeping required capacity Ready.
 State        -> StatefulSet gives stable identity/storage — but NOT replication, failover, or backup.
@@ -325,12 +329,18 @@ Student Answer (refined signal):
 
 > "不会，我认为Queue backlog"
 
-Correct: CPU-only HPA will not react to an external-wait bottleneck. Use queue pressure:
+Correct: CPU-only HPA will not react to an external-wait bottleneck. Use queue pressure — but scale
+the workload that actually CONSUMES the queue:
 
 ```text
 Queue backlog / backlog per worker -> external or custom metric adapter -> HPA
--> worker Deployment desired replicas
+-> WORKER Deployment desired replicas (the queue consumer, NOT the API/producer)
 ```
+
+Scope note: the Day27 example chart (`examples/kubernetes/rag-platform/`) has only the stateless API,
+so its HPA scales the API on CPU and deliberately ships NO queue-backlog metric — wiring queue backlog
+to the API would scale the producer, not the consumer. The worker Deployment (a real queue consumer)
+and its backlog-driven HPA arrive with the Day28 AI Backend architecture.
 
 Production boundaries:
 
@@ -343,6 +353,9 @@ Production boundaries:
 - min/max replicas, stabilization, cost limits, upstream concurrency, error rates, and retry/backoff
   must be designed together.
 - P95 latency is often a symptom, not the correct control signal, when the provider is the bottleneck.
+- With an HPA, the Deployment must NOT hard-code `spec.replicas`; otherwise the next `helm upgrade`/
+  `kubectl apply` resets the HPA-managed count. Let the HPA own the desired replicas (the example
+  chart omits `spec.replicas` when `hpa.enabled`).
 ```
 
 Engineering Thinking:

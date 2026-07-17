@@ -13,6 +13,9 @@ spec:
     name: {{ include "rag-platform.fullname" . }}
   minReplicas: {{ .Values.hpa.minReplicas }}
   maxReplicas: {{ .Values.hpa.maxReplicas }}
+  # This HPA scales the stateless API Deployment on an API-appropriate signal (CPU).
+  # Queue-backlog scaling belongs to the queue consumer (a worker Deployment), which
+  # is out of Day27 chart scope (Day28).
   metrics:
     {{- if .Values.hpa.cpu.enabled }}
     # CPU utilization is relative to the container CPU request (defined on the Deployment).
@@ -22,16 +25,5 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.hpa.cpu.averageUtilization }}
-    {{- end }}
-    {{- if .Values.hpa.queueBacklog.enabled }}
-    # External metric: requires a custom/external metrics adapter in the cluster.
-    # This chart does NOT install Metrics Server or any adapter.
-    - type: External
-      external:
-        metric:
-          name: {{ .Values.hpa.queueBacklog.metricName }}
-        target:
-          type: AverageValue
-          averageValue: {{ .Values.hpa.queueBacklog.averageValue | quote }}
     {{- end }}
 {{- end }}
