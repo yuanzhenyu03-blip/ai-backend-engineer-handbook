@@ -1028,3 +1028,160 @@ Strong: "Deployment is a serialized, observable, reversible production state tra
 the exact verified digest, moves traffic with blue-green + drain, evolves PostgreSQL with
 Expand-Migrate-Contract, rolls out workers compatibly, and keeps a bounded, least-privilege, recorded
 rollback path."
+
+---
+
+# Day26 Kubernetes Foundations Questions
+
+These questions come from the Day26 Kubernetes Foundations lesson: desired state and reconciliation,
+Pod, Deployment, Service, ConfigMap, and Secret. Scope is Day26 only — Ingress, Autoscaling, Rolling
+Update, StatefulSet, and Helm are Day27.
+
+## Beginner
+
+### 1. What is a Pod, and why is a Pod not the same as a container?
+
+Question:
+
+What is a Pod in Kubernetes, and why is a Pod not the same as a container?
+
+中文解析:
+
+Pod 是 Kubernetes 最小的可部署/可调度单元，包含一个或多个紧耦合的容器，它们共享同一个网络命名空间和 Pod IP、可通过 localhost 通信、可挂载共享卷、共享 Pod 的生命周期/替换边界，但仍是各自独立的进程，可以独立重启。Deployment 可以管理 Pod 副本，但把 Pod 调度到节点的是调度器，不是 Deployment。
+
+Student's actual attempt (preserved):
+
+> "pod is a sevral compose of container,it depend on deployment schedual.it is the smallest deployable unit.one or more containers share common lifecycle/network in pod."
+
+Technical corrections:
+
+- Correct: smallest deployable unit; one or more containers; shared network/lifecycle boundary.
+- Incorrect: a Pod does not depend on a Deployment, and a Deployment does not schedule it to a Node.
+
+English corrections:
+
+```text
+sevral -> several ; compose of -> consists of ; container -> containers ;
+schedual -> scheduled ; depend -> depends
+```
+
+Standard Answer:
+
+A Pod is the smallest deployable unit in Kubernetes. It contains one or more tightly coupled
+containers that share the same network namespace and lifecycle. A Deployment can manage Pod replicas,
+while the Kubernetes scheduler decides which node runs each Pod.
+
+Follow-up Question:
+
+When should two containers NOT be placed in the same Pod?
+
+## Intermediate
+
+### 1. How do a Deployment and a Service keep an app available when a Pod's IP changes?
+
+Question:
+
+A Pod fails and its replacement gets a new IP address. How do a Deployment and a Service work
+together to keep the application available?
+
+中文解析:
+
+Deployment 维持期望副本数：Pod 消失就按模版创建替代 Pod（新名字、新 IP，可能新节点），它维持数量和模版而不是旧 Pod 的身份，也不负责调度。Service 通过标签选择当前的 Pod，提供稳定的 DNS 名和虚拟 IP，客户端只用 Service 名，不用追踪变化的 Pod IP。注意 selector 必须匹配 Pod 标签，且 Pod Running 不等于 Service 有可用 endpoint。
+
+Student's actual attempt (preserved):
+
+> "the deployment offer replica recovery pod,service offer stable network access"
+
+Interview Review:
+
+Correct distinction but incomplete mechanism — name the label selector and the stable DNS/VIP.
+
+Standard Answer:
+
+The Deployment maintains the desired number of replicas. If a Pod fails, it creates a replacement
+Pod. The Service selects the current Pods by their labels and provides a stable DNS name and virtual
+IP, so clients do not need to track changing Pod IP addresses.
+
+Follow-up Question:
+
+Does a running Pod guarantee the Service has matching endpoints?
+
+### 2. Image, ConfigMap, or Secret?
+
+Question:
+
+Where do `MODEL_NAME`, `LOG_LEVEL`, `OPENAI_API_KEY`, and `DATABASE_PASSWORD` belong?
+
+中文解析:
+
+`MODEL_NAME`/`LOG_LEVEL` 是非敏感运行配置，放 ConfigMap，保持同一个已验证 digest 不变（改代码/依赖才需要新镜像新 digest 走新验证）。`OPENAI_API_KEY`/`DATABASE_PASSWORD` 是敏感数据，放 Secret，且只有 API 容器引用，日志 sidecar 不给。Base64 是编码不是加密；改 ConfigMap/Secret 不会改已运行进程的环境变量，通常要替换 Pod 才生效。
+
+Standard Answer:
+
+`MODEL_NAME` and `LOG_LEVEL` go in a ConfigMap so the verified image digest stays unchanged.
+`OPENAI_API_KEY` and `DATABASE_PASSWORD` go in a Secret, referenced only by the API container. Base64
+is encoding, not encryption, and updating either object does not change an already-running process
+environment.
+
+Follow-up Question:
+
+After editing the ConfigMap, why might running Pods still show old behavior?
+
+## Senior
+
+### 1. Roll back a health-200-but-401 partial outage after a Secret rotation.
+
+Question:
+
+After a Secret rotation, one replacement Pod reads an invalid API key. Its health endpoint still
+returns 200, but AI requests routed to that Pod return 401. How would you diagnose and roll back
+without turning the partial outage into a full outage?
+
+中文解析:
+
+先冻结进一步的轮换和破坏性操作，不要删两个健康的旧 Pod（它们进程里还是正确的旧 key）。health 200 不代表业务成功，用 401 率、日志、业务指标确认故障并定位到读到新（无效）key 的那个 Pod。恢复到已知良好的旧 Secret 并验证 Secret 对象已恢复，只删除故障 Pod，让 Deployment 重建一个读到恢复后 key 的替代 Pod，跑真实 AI smoke test，观察 401/错误率/延迟/日志，记录最终状态。若在错误 Secret 还是当前值时删掉健康 Pod，所有替代都会读到错误 key，局部故障会变成全量故障。
+
+Student's actual attempt (preserved):
+
+> "the result of return 200 is not meaning logs,bussiness metric,error rate,latency process health.i would recovry old stable secrets,and then delete pod which goes wrong,deployment replace a new replica pod.the new pod recive old secrets."
+
+Interview Review:
+
+Rollback direction correct. Add: freeze rotation, verify Secret restoration, remove only the faulty
+Pod, run a real business smoke test, and observe recovery before completing.
+
+English corrections:
+
+```text
+is not meaning -> does not prove ; bussiness -> business ; metric -> metrics ;
+recovry -> restore ; goes wrong -> is faulty ; recive -> receive
+```
+
+Standard Answer:
+
+First, I would freeze further Secret rotation and avoid deleting the two healthy Pods. A 200 from the
+health endpoint does not prove real AI requests work, so I would confirm the failure through 401
+errors, logs, and business metrics. Then I would restore the previous known-good Secret and verify
+the Secret object was updated. I would delete only the faulty Pod, let the Deployment create a
+replacement, and verify it receives the restored credential. Finally, I would run a real AI smoke
+test and observe the error rate and latency before completing the rollback.
+
+Follow-up Question:
+
+Why can automated reconciliation amplify a bad desired state instead of fixing it?
+
+## Common Weak vs Strong Answer (Day26)
+
+```text
+Weak:   "A Deployment schedules three Pods and a Service load-balances them."
+Strong: "A Deployment maintains three replicas from a Pod template; the scheduler places Pods on
+        Nodes; a Service provides stable label-based discovery for the changing Pod set."
+
+Weak:   "A Secret encrypts the API key."
+Strong: "A Secret classifies sensitive data; its values are Base64-encoded, not encrypted. Real
+        safety needs encryption at rest, RBAC, isolation, selective mounting, audit, and rotation."
+
+Weak:   "Health returned 200, so the deployment succeeded."
+Strong: "Health 200 is limited evidence; I also verify provider 401 rate, business errors, latency,
+        and logs, because reconciliation enforces desired state, not business correctness."
+```

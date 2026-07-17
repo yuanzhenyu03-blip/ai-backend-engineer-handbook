@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.44 — Day26 Kubernetes Foundations Documentation
+
+Date: 2026-07-17
+
+### Added
+
+- Added `docs/devops/day26-kubernetes-foundations.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day25->Day26 mental-model evolution).
+- Added `examples/kubernetes/ai-backend-baseline.yaml` (ConfigMap `rag-api-config`, Secret template `rag-api-secrets` with placeholders only, Deployment `rag-api` with 3 replicas and a FastAPI + logging-sidecar Pod template, Service `rag-api`).
+- Added `examples/kubernetes/README.md` (object model, static-vs-runtime validation, security boundaries, and runtime limitations).
+- Added Day26 review material to `cheat_sheets/devops.md`.
+- Added Day26 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/README.md` to index the Day26 Kubernetes example.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day26 completed (Day27 left Planned).
+- Updated `PROJECT_STATUS.md` to mark Day26 completed and set Next to Day27.
+- Updated `TASKS.md` with completed Day26 tasks and Day27 preparation.
+- Updated `CHANGELOG.md` with the Day26 repository update.
+
+### Notes
+
+- Day26 moves from one-time container startup and manual deployment operations to declarative desired state and continuous reconciliation: desired state vs a one-time command (observe -> diff -> act), Pod as the smallest deployable unit of one or more tightly coupled containers (Pod != container; co-locate only shared fate), Deployment as a Pod template + replica count that recreates replicas but does not schedule (the scheduler picks the Node), Service as stable label-based discovery for changing Pods, ConfigMap as non-sensitive runtime config that keeps the verified image digest unchanged, and Secret as sensitive data requiring controlled access.
+- Preserved the actual classroom record, including the student's Chinese and English answers, the reasonable errors (for example "separate Pods imply manual operation", "Deployment schedules Pods", and Base64 `解密` corrected to `解码`), and all material misconceptions and corrections.
+- Security/scope honesty: `stringData` is plaintext in the manifest and holds placeholders only; Base64 is encoding, not encryption; a Secret is not an automatic vault. No real key, password, token, certificate, private endpoint, or verified/represented-as-verified image digest is committed; image fields are `REPLACE_*` placeholders supplied out of band. `replicas: 3` is not three business-ready replicas, and `/health` 200 is not business success.
+- Validation: static checks ran (YAML parses as four documents ConfigMap/Secret/Deployment/Service; Deployment selector == Pod template labels == Service selector `app: rag-api`; `replicas == 3`). No Kubernetes API server was available, so `kubectl` client/schema validation was NOT completed and no `kubectl apply`, Pod scheduling, image pull, container startup, ConfigMap/Secret injection, Service DNS/routing, Pod replacement, Secret rotation, business smoke test, or failure/rollback runtime result is claimed. Markdown was checked and links to the example resolve.
+- Ingress, Autoscaling, Rolling Update, StatefulSet, and Helm are labeled as Day27 future connections, not taught or validated in Day26. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`, or any Day01-Day25 lesson body.
+
+---
+
 ## v0.1.43 — Day25 Deployment Foundations Documentation
 
 Date: 2026-07-16

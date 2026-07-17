@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day25 — Deployment Foundations
+Day26 — Kubernetes Foundations
 
 Status:
 Completed
@@ -20,7 +20,7 @@ Template:
 LESSON_TEMPLATE_v2
 
 Completed Time:
-2026-07-16
+2026-07-17
 
 ---
 
@@ -51,6 +51,7 @@ Completed Time:
 - ✅ Day23 — Docker Fundamentals
 - ✅ Day24 — Docker Compose
 - ✅ Day25 — Deployment Foundations
+- ✅ Day26 — Kubernetes Foundations
 
 ---
 
@@ -62,29 +63,29 @@ None.
 
 ## Last Completed Lesson
 
-Day25 — Deployment Foundations
+Day26 — Kubernetes Foundations
 
 Completed Time:
-2026-07-16
+2026-07-17
 
 Main Artifact:
-Production request path + Nginx reverse-proxy/TLS example + zero-downtime runbook (examples/deployment/)
+Kubernetes baseline manifest (ConfigMap + Secret template + 3-replica Deployment + Service) with a static-vs-runtime validation README (examples/kubernetes/)
 
 Completed Work:
 
-- Day25 classroom learning
-- Day25 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + mental-model evolution)
-- Day25 Nginx reverse-proxy/TLS example and deployment/rollback runbook
-- Day25 reverse-proxy / TLS / promote-digest / blue-green / Expand-Migrate-Contract / DNS exercises
-- Day25 devops cheat sheet update
-- Day25 devops interview notes update
-- Day25 repository status update
+- Day26 classroom learning
+- Day26 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day25->Day26 mental-model evolution)
+- Day26 Kubernetes baseline manifest and validation/security README
+- Day26 desired-state / Pod / Deployment / Service / ConfigMap / Secret / rollback exercises
+- Day26 devops cheat sheet update
+- Day26 devops interview notes update
+- Day26 repository status update
 
 ---
 
 ## Next
 
-- Day26 — Kubernetes Foundations
+- Day27 — Kubernetes Workloads
 
 Status:
 Not started
@@ -120,6 +121,7 @@ Completed Python Foundations:
 - Day23 — Docker fundamentals, container as isolated process (namespaces/cgroups), image vs container, image layers vs writable layer, Dockerfile, build vs run, volumes, networks, immutable replacement
 - Day24 — Docker Compose, multi-service declaration, started vs ready (depends_on/healthcheck/retry), project/service/image/container, service DNS, network segmentation, volumes, env/secrets/business data, base + dev override, production boundary
 - Day25 — Deployment foundations, stable public entry (DNS/Nginx/TLS), reverse proxy, HTTP->HTTPS, trusted proxy context, promote immutable digest, API blue-green + drain + rollback, Expand-Migrate-Contract, worker rollout, serialized deploy identity, AI streaming timeouts, DNS TTL
+- Day26 — Kubernetes foundations, desired state vs one-time command, reconciliation control loop, Pod (one or more tightly coupled containers), Deployment (template + replicas, not scheduling), Service (stable label-based discovery), ConfigMap (non-sensitive config, same digest), Secret (Base64 != encryption, not an automatic vault), config/secret env not mutating running processes, health 200 != business success, reconciliation != business correctness, safe partial-outage rollback
 
 ---
 
@@ -332,6 +334,16 @@ Completed Python Foundations:
 - Apply Expand-Migrate-Contract to a PostgreSQL schema change and roll out a worker compatibly.
 - Serialize deployment with a concurrency lock and a least-privilege short-lived identity.
 - Configure AI streaming (buffering off, correct timeouts) and reason about DNS TTL propagation.
+- Distinguish a one-time command from a declared desired state that is continuously reconciled.
+- Explain a Pod as the smallest deployable unit of one or more tightly coupled containers, and when not to co-locate.
+- Explain a Deployment as a Pod template plus a replica count with controller replacement, not scheduling.
+- Explain a Service as stable label-based discovery for a changing set of Pods.
+- Separate non-sensitive runtime config (ConfigMap) from the immutable image and preserve the verified digest.
+- Classify sensitive values into a Secret and explain why Base64 is encoding, not encryption.
+- Explain why a ConfigMap/Secret change does not mutate an already-running process environment.
+- Diagnose a partial AI outage where /health returns 200 but one Pod uses an invalid rotated key.
+- Order a safe rollback that preserves healthy Pods and replaces only the faulty Pod.
+- Keep Deployment selector, Pod template labels, and Service selector consistent.
 
 ---
 
@@ -517,6 +529,17 @@ Completed Python Foundations:
 - Expand-Migrate-Contract exercise
 - Streaming timeouts exercise
 - DNS migration exercise
+- One-time-startup vs desired-state exercise
+- Pod boundary (FastAPI + sidecar) exercise
+- Three Pods vs one Deployment exercise
+- New-IP failure diagnosis exercise
+- Service with label selection exercise
+- ConfigMap vs new image exercise
+- Secret classification (Base64) exercise
+- Health-200-but-401 partial outage diagnosis exercise
+- Secret-rotation rollback ordering exercise
+- Kubernetes English interview exercise
+- Final Kubernetes mental model synthesis exercise
 
 ---
 

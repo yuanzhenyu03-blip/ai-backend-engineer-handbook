@@ -1,0 +1,101 @@
+# =============================================================================
+# EXAMPLE ONLY — Day26 (Kubernetes Foundations): AI Backend baseline
+#
+# Four objects for one RAG/FastAPI service:
+#   1. ConfigMap  rag-api-config   — non-sensitive runtime configuration
+#   2. Secret     rag-api-secrets  — sensitive values, PLACEHOLDERS ONLY
+#   3. Deployment rag-api          — 3 replicas; FastAPI + logging sidecar Pod template
+#   4. Service    rag-api          — stable discovery via label selector app: rag-api
+#
+# TEACHING TEMPLATE — NOT deployable as-is and NO runtime success is claimed:
+#   - `stringData` is PLAINTEXT in the manifest; these are placeholders. Never commit a real key,
+#     password, or token. Inject real values out of band (sealed-secrets / external Secret Manager).
+#   - Base64 in a Secret is ENCODING, not encryption.
+#   - Image fields are REPLACE_* placeholders; supply verified image digests out of band. A
+#     placeholder is not a verified image.
+#   - The logging sidecar shares the Pod/volume but does NOT receive API/database credentials.
+#   - Deployment selector == Pod template labels == Service selector (app: rag-api).
+#
+# Lesson: docs/devops/day26-kubernetes-foundations.md
+# Validation scope: examples/kubernetes/README.md
+# =============================================================================
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: rag-api-config
+data:
+  MODEL_NAME: "gpt-production-v1"
+  LOG_LEVEL: "INFO"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: rag-api-secrets
+type: Opaque
+# stringData is plaintext in the manifest. PLACEHOLDERS ONLY — replace at deploy time out of band.
+stringData:
+  OPENAI_API_KEY: "REPLACE_AT_DEPLOY_TIME"
+  DATABASE_PASSWORD: "REPLACE_AT_DEPLOY_TIME"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rag-api
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: rag-api
+  template:
+    metadata:
+      labels:
+        app: rag-api
+    spec:
+      containers:
+        # --- API container: the only workload that receives the Secret ---
+        - name: api
+          image: REPLACE_WITH_VERIFIED_IMAGE_DIGEST
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: rag-api-config
+          env:
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: rag-api-secrets
+                  key: OPENAI_API_KEY
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rag-api-secrets
+                  key: DATABASE_PASSWORD
+          volumeMounts:
+            - name: application-logs
+              mountPath: /var/log/app
+        # --- Logging sidecar: shares the Pod/volume, but NO credentials ---
+        - name: log-sidecar
+          image: REPLACE_WITH_VERIFIED_SIDECAR_IMAGE_DIGEST
+          volumeMounts:
+            - name: application-logs
+              mountPath: /var/log/app
+      volumes:
+        - name: application-logs
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-api
+spec:
+  selector:
+    app: rag-api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

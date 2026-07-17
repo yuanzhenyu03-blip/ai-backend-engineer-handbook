@@ -16,7 +16,7 @@ Phase 1 — Python Foundations
 
 ## Current Lesson
 
-Day25 — Deployment Foundations
+Day26 — Kubernetes Foundations
 
 Status:
 Completed
@@ -24,17 +24,82 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day25-deployment-foundations.md
+docs/devops/day26-kubernetes-foundations.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day25 Deployment Foundations classroom learning.
-- [x] Author the Nginx reverse-proxy/TLS example and the zero-downtime deployment/rollback runbook.
-- [x] Distinguish promote-vs-rebuild, blue-green vs Expand-Migrate-Contract, and DNS vs Nginx switching.
-- [ ] Prepare for Day26 — Kubernetes Foundations.
+- [x] Complete Day26 Kubernetes Foundations classroom learning.
+- [x] Author the Kubernetes baseline manifest (ConfigMap + Secret template + Deployment + Service) and the static-vs-runtime validation README.
+- [x] Distinguish desired state vs one-time command, Deployment-vs-scheduler, ConfigMap-vs-Secret, and health-vs-business success.
+- [ ] Prepare for Day27 — Kubernetes Workloads.
+
+---
+
+## Completed Day26 Tasks
+
+- [x] Complete Day26 Kubernetes Foundations classroom learning.
+- [x] Generate Day26 handbook lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day25->Day26 mental-model evolution).
+- [x] Explain desired state vs a one-time command and the reconciliation control loop.
+- [x] Explain a Pod as one or more tightly coupled containers (Pod != container) and the co-location boundary.
+- [x] Explain a Deployment as a Pod template + replica count that recreates replicas but does not schedule.
+- [x] Explain a Service as stable label-based discovery for changing Pods.
+- [x] Explain ConfigMap (non-sensitive config, same digest) and why storing != delivering != behavior change.
+- [x] Explain Secret (Base64 != encryption; not an automatic vault; least privilege needs RBAC/isolation/rotation).
+- [x] Explain why a ConfigMap/Secret change does not mutate an already-running process environment.
+- [x] Explain the health-200-but-401 partial outage and the safe rollback order.
+- [x] Keep Deployment selector, Pod template labels, and Service selector consistent.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+- [x] Add the Kubernetes baseline manifest and validation README artifacts.
+
+---
+
+## Completed Day26 Repository Tasks
+
+- [x] Add `docs/devops/day26-kubernetes-foundations.md`.
+- [x] Add `examples/kubernetes/ai-backend-baseline.yaml` and `examples/kubernetes/README.md`.
+- [x] Update `examples/README.md`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day26 Completed).
+- [x] Update `ROADMAP.md` (Day26 Completed, Day27 left Planned).
+
+---
+
+## Completed Day26 Interview Tasks
+
+- [x] Add beginner Pod-vs-container question (with the student's actual weak answer + technical/English corrections).
+- [x] Add intermediate Deployment+Service and image/ConfigMap/Secret questions.
+- [x] Add senior Secret-rotation rollback question (health 200 != business success).
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day26 Homework
+
+- [x] Complete one-time-startup vs desired-state exercise.
+- [x] Complete Pod boundary (FastAPI + sidecar) exercise.
+- [x] Complete three Pods vs one Deployment exercise.
+- [x] Complete new-IP failure diagnosis exercise.
+- [x] Complete Service with label selection exercise.
+- [x] Complete ConfigMap vs new image exercise.
+- [x] Complete Secret classification (Base64) exercise.
+- [x] Complete health-200-but-401 partial outage diagnosis exercise.
+- [x] Complete Secret-rotation rollback ordering exercise.
+
+---
+
+### Day27 Preparation — Kubernetes Workloads
+
+- [ ] Read Day27 input when provided.
+- [ ] Preview Ingress (public entry), Autoscaling, Rolling Update, StatefulSet, and Helm as the Day27 scope.
+- [ ] Connect Day26 Pod/Deployment/Service/ConfigMap/Secret to Day27 workload patterns.
+- [ ] Keep Day27 topics labeled as future connections until Day27 is the current lesson.
 
 ---
 
@@ -1709,3 +1774,4 @@ Purpose:
 - [x] Complete Day23 — Docker Fundamentals.
 - [x] Complete Day24 — Docker Compose.
 - [x] Complete Day25 — Deployment Foundations.
+- [x] Complete Day26 — Kubernetes Foundations.

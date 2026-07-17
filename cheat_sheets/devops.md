@@ -394,6 +394,44 @@ Streaming (/chat): `proxy_buffering off; proxy_cache off; proxy_read_timeout/sen
 
 DNS: TTL expires per resolver, switch is gradual not atomic. Lower TTL one old-TTL period ahead, keep A/B during propagation, remove A after the window. DNS = coarse discovery; Nginx = precise backend switch.
 
+## Day26 Kubernetes Foundations
+
+Core shift:
+
+```text
+Script     = execute an action once
+Kubernetes = continuously maintain a declared state
+Reconciliation: observe Actual -> diff vs Desired -> act until they converge
+```
+
+Objects:
+
+```text
+Pod        = smallest deployable/schedulable unit; one or more tightly coupled containers (Pod != container)
+Deployment = Pod template + replica count; recreates missing replicas (does NOT schedule; scheduler picks the Node)
+Service    = stable DNS/VIP for label-selected, changing Pods (selector must match Pod labels)
+ConfigMap  = non-sensitive runtime config outside the immutable image
+Secret     = sensitive values requiring controlled access
+```
+
+Ownership chain (ReplicaSet is context, not a Day26 topic): `Deployment -> ReplicaSet -> Pods -> Containers`.
+
+Pod boundary = tight coupling + co-location + shared network/volume + shared lifecycle. Needs independent scaling/release/ownership/failure-isolation -> separate workload. FastAPI + tightly coupled sidecar = one Pod; FastAPI + PostgreSQL = separate.
+
+`replicas: 3 != three business-ready replicas` (a bad template is replicated 3x; local ephemeral Pod data is not recovered). Containers in a Pod share scheduling/network/replacement but can restart independently.
+
+Service: `port: 80` (Service-facing) -> `targetPort: http` (named container port 8000). `Pod Running != Service has endpoints != business request succeeds`.
+
+Config vs image: code/deps change -> new image -> new digest -> new build/test/scan/approval. Runtime config change -> ConfigMap -> SAME verified digest. `Configuration stored != delivered != behavior changed` — env injection is read at container start, so existing Pods usually need replacement.
+
+Secret: `Base64 = encoding, NOT encryption`. A Secret is not an automatic vault: add encryption-at-rest (etcd) + least-privilege RBAC + namespace/workload isolation + selective mounting + audit + rotation + external Secret Manager. Only the API container gets the key; the log sidecar must not. `Secret updated != running process env updated` (old Pod -> old credential).
+
+Failure/rollback: `/health 200 != business success`. Partial outage (1 bad-key Pod, 401 on ~1/3 traffic): freeze rotation -> restore known-good Secret -> verify -> delete ONLY the faulty Pod -> Deployment replaces it -> AI smoke test -> observe 401/errors/latency/logs -> record. Deleting the healthy old Pods while the wrong Secret is current turns a partial outage into a full one.
+
+`Correct desired state -> automation restores service. Wrong desired state -> automation amplifies failure.`
+
+Day27 (future, not taught here): Ingress, Autoscaling, Rolling Update, StatefulSet, Helm.
+
 ---
 
 ## Interview Phrases
@@ -440,3 +478,14 @@ DNS: TTL expires per resolver, switch is gradual not atomic. Lower TTL one old-T
 - "Blue-green: start, verify, switch, observe, drain, roll back or complete; health is necessary, not sufficient."
 - "PostgreSQL uses Expand-Migrate-Contract, not blue-green; API/worker are replaceable compute."
 - "DNS TTL expires per resolver, so a DNS switch is gradual, not atomic."
+
+- "A script executes an action once; Kubernetes continuously maintains a declared state."
+- "Reconciliation observes actual state, diffs it against desired state, and acts to converge."
+- "A Pod is the smallest deployable unit of one or more tightly coupled containers; a Pod is not a container."
+- "A Deployment maintains replicas from a Pod template; the scheduler places Pods on Nodes."
+- "A Service gives a stable DNS name and virtual IP for label-selected, changing Pods."
+- "`replicas: 3` is not three business-ready replicas; a bad template is replicated three times."
+- "A ConfigMap keeps non-sensitive config out of the image so one verified digest serves many environments."
+- "Base64 is encoding, not encryption; a Kubernetes Secret is not automatically a vault."
+- "A ConfigMap or Secret change does not mutate an already-running process environment."
+- "Health 200 is not business success; reconciliation enforces desired state, not correctness."

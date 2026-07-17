@@ -536,7 +536,13 @@ Topics:
 Pod, Deployment, Service, ConfigMap, Secret
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/devops/day26-kubernetes-foundations.md`
+
+Template:
+LESSON_TEMPLATE_v2
 
 ---
 

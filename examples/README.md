@@ -25,3 +25,7 @@ repository; copy them into a real project and adjust paths, versions, and comman
 - `deployment/` — Day25 deployment foundations: an example Nginx reverse-proxy/TLS config
   (`nginx/nginx.conf.example`) and a zero-downtime blue-green deployment + rollback runbook
   (see `docs/devops/day25-deployment-foundations.md`).
+- `kubernetes/` — Day26 Kubernetes foundations: an example baseline manifest
+  (`ai-backend-baseline.yaml`) with a ConfigMap, a Secret template, a three-replica Deployment
+  (FastAPI + logging sidecar), and a Service, plus a README separating static from runtime
+  validation (see `docs/devops/day26-kubernetes-foundations.md`).
