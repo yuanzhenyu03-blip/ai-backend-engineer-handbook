@@ -69,12 +69,13 @@ hpa:
   enabled: true
   minReplicas: 3
   maxReplicas: 20
-  # CPU utilization is relative to the CPU request above. This HPA scales the
-  # stateless API Deployment, so it uses an API-appropriate signal (CPU) only.
+  # This chart supports ONE API HPA metric: CPU. `hpa.enabled` toggles whether the
+  # HPA exists; when enabled, the explicit CPU target below is ALWAYS rendered
+  # (there is no cpu.enabled switch, so the config name matches the behavior).
+  # CPU utilization is relative to the CPU request above.
   # Queue-backlog scaling belongs to the queue CONSUMER (a worker Deployment),
   # which this Day27 chart does not include; that arrives with Day28.
   cpu:
-    enabled: true
     averageUtilization: 70
 
 # ---- Stateful workload (identity/storage teaching example, NOT HA) --------

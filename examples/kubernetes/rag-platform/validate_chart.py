@@ -88,10 +88,20 @@ def main() -> int:
                    "volumeClaimTemplates" in sts))
     checks.append(("Headless Service sets clusterIP: None", "clusterIP: None" in hsvc))
 
-    # 6. CPU HPA consistency: if CPU metric can render, CPU requests exist
-    cpu_metric = bool(values.get("hpa", {}).get("cpu", {}).get("enabled"))
+    # 6. HPA metric model: when the HPA is enabled it always renders an explicit CPU metric,
+    #    a matching CPU request exists, and there is NO cpu.enabled toggle (config == behavior).
+    hpa_cfg = values.get("hpa", {}) or {}
+    hpa_enabled = bool(hpa_cfg.get("enabled"))
+    cpu_cfg = hpa_cfg.get("cpu", {}) or {}
     cpu_request = bool(values.get("resources", {}).get("requests", {}).get("cpu"))
-    checks.append(("CPU HPA has a matching CPU request defined", (not cpu_metric) or cpu_request))
+    checks.append(("values.yaml has no hpa.cpu.enabled toggle", "enabled" not in cpu_cfg))
+    checks.append(("HPA template has no .Values.hpa.cpu.enabled condition",
+                   ".Values.hpa.cpu.enabled" not in hpa))
+    checks.append(("HPA template always renders an explicit CPU Resource metric",
+                   "type: Resource" in hpa and "name: cpu" in hpa and "averageUtilization" in hpa
+                   and "metrics:" in hpa))
+    checks.append(("When the HPA is enabled, an explicit CPU target and a CPU request exist",
+                   (not hpa_enabled) or (cpu_request and cpu_cfg.get("averageUtilization") is not None)))
 
     # 7. Secret safety: sensitive values referenced, never inlined
     secret_ref_only = (

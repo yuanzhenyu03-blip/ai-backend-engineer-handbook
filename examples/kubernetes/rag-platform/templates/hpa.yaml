@@ -16,8 +16,9 @@ spec:
   # This HPA scales the stateless API Deployment on an API-appropriate signal (CPU).
   # Queue-backlog scaling belongs to the queue consumer (a worker Deployment), which
   # is out of Day27 chart scope (Day28).
+  # The HPA always renders one explicit CPU metric when enabled (no empty `metrics:`,
+  # which would otherwise let autoscaling/v2 fall back to a default 80% CPU target).
   metrics:
-    {{- if .Values.hpa.cpu.enabled }}
     # CPU utilization is relative to the container CPU request (defined on the Deployment).
     - type: Resource
       resource:
@@ -25,5 +26,4 @@ spec:
         target:
           type: Utilization
           averageUtilization: {{ .Values.hpa.cpu.averageUtilization }}
-    {{- end }}
 {{- end }}

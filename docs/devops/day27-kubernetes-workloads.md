@@ -356,6 +356,10 @@ Production boundaries:
 - With an HPA, the Deployment must NOT hard-code `spec.replicas`; otherwise the next `helm upgrade`/
   `kubectl apply` resets the HPA-managed count. Let the HPA own the desired replicas (the example
   chart omits `spec.replicas` when `hpa.enabled`).
+- An `autoscaling/v2` HPA with an empty `metrics:` silently defaults to an 80% average-CPU target, so
+  a "disable CPU" flag that leaves the HPA present is misleading. The example chart supports one API
+  metric: CPU. `hpa.enabled` toggles whether the HPA exists; when enabled, an explicit CPU target is
+  always rendered. Queue backlog belongs to a worker Deployment and remains a Day28 connection.
 ```
 
 Engineering Thinking:

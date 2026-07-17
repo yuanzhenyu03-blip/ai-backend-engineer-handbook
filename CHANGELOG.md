@@ -9,6 +9,24 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.49 — Day27 HPA Metric Fix
+
+Date: 2026-07-17
+
+### Changed
+
+- Made the `rag-platform` API HPA metric configuration explicit. Previously `hpa.cpu.enabled: false` kept the HPA but rendered an empty `metrics:`, which `autoscaling/v2` silently treats as a default 80% average-CPU target — so the switch name did not match the behavior.
+- Removed the `hpa.cpu.enabled` toggle from `values.yaml` and the `{{- if .Values.hpa.cpu.enabled }}` condition from `templates/hpa.yaml`. When `hpa.enabled` is true the HPA now always renders one explicit CPU `Resource` metric; when `hpa.enabled` is false no HPA is created and the Deployment renders `replicaCount`.
+- Updated `validate_chart.py` to assert there is no `hpa.cpu.enabled` toggle, the HPA template has no `.Values.hpa.cpu.enabled` condition, the HPA always renders an explicit CPU metric, a CPU request exists, the Deployment still guards `spec.replicas` with `if not .Values.hpa.enabled`, and the API HPA still carries no queue-backlog/External worker metric.
+- Synced `examples/kubernetes/README.md`, `docs/devops/day27-kubernetes-workloads.md`, and `cheat_sheets/devops.md` to state: the Day27 chart supports one API HPA metric (CPU); `hpa.enabled` controls whether the HPA exists; the explicit CPU target is always rendered when enabled; queue backlog belongs to a worker Deployment and remains a Day28 connection.
+
+### Notes
+
+- Validation actually performed: `git diff --check` clean; `validate_chart.py` PASS (22 structural/values checks). `helm` is not installed and no Kubernetes API server is available, so `helm lint`, `helm template`, schema/admission, and all runtime validation were NOT run / NOT verified and no result is claimed.
+- Did not rewrite Day01-Day26, did not start or expand Day28, and did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`. Historical CHANGELOG entries are unchanged.
+
+---
+
 ## v0.1.48 — Day27 Review Fixes
 
 Date: 2026-07-17

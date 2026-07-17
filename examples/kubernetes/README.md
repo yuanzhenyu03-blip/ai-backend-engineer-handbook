@@ -145,7 +145,7 @@ rag-platform/
     ├── deployment.yaml      # stateless FastAPI, RollingUpdate (maxSurge 1 / maxUnavailable 0)
     ├── service.yaml         # stable L4 access to the API Pods
     ├── ingress.yaml         # networking.k8s.io/v1 Host/Path/TLS (references a TLS Secret)
-    ├── hpa.yaml             # autoscaling/v2; scales the API Deployment on CPU (API-appropriate)
+    ├── hpa.yaml             # autoscaling/v2; always renders one explicit CPU metric when enabled
     ├── headless-service.yaml# clusterIP: None for StatefulSet identity
     └── statefulset.yaml      # PostgreSQL identity/storage ONLY (not HA)
 ```
@@ -158,13 +158,14 @@ rag-platform/
   Deployment **omits `spec.replicas`** so a `helm upgrade` does not reset the HPA-managed count;
   when the HPA is disabled the Deployment renders `replicaCount`.
 - HPA: `autoscaling/v2` with Values-driven `minReplicas`/`maxReplicas`, and it **owns the desired
-  replica count** for the API Deployment. It scales the **stateless API** on CPU utilization (an
-  API-appropriate signal that requires the CPU request, which is present) — **this chart does not
-  install Metrics Server or any adapter**. Queue-backlog / backlog-per-worker scaling is the classroom
-  conclusion for a **queue consumer**, and it must scale the **worker Deployment that actually
-  consumes the queue** via an external/custom metrics adapter. There is no worker Deployment in this
-  Day27 chart, so no queue-backlog metric is wired to the API HPA; the worker workload arrives with
-  Day28.
+  replica count** for the API Deployment. **This Day27 chart supports one API HPA metric: CPU.**
+  `hpa.enabled` controls whether the HPA exists; when enabled, the explicit CPU target is **always
+  rendered** (there is no `cpu.enabled` switch, so an empty `metrics:` never lets `autoscaling/v2`
+  fall back to a default 80% CPU target). CPU utilization requires the CPU request, which is present —
+  **this chart does not install Metrics Server or any adapter**. Queue-backlog / backlog-per-worker
+  scaling is the classroom conclusion for a **queue consumer**; it belongs to a **worker Deployment**
+  (via an external/custom metrics adapter) that this Day27 chart does not include, and it remains a
+  **Day28 connection**.
 - Ingress/Service: the Service gives stable access; the Ingress adds Host/Path/TLS. A matching
   **Ingress Controller, DNS, public load balancer, and real TLS Secret are external runtime
   prerequisites** that this chart does not create. The Ingress only routes to the Service it defines.
@@ -199,7 +200,8 @@ the HPA `scaleTargetRef` and Ingress backend use the same fullname helper as the
 the StatefulSet and headless Service share the postgres helpers; API versions are correct
 (`networking.k8s.io/v1`, `autoscaling/v2`, `apps/v1`); Rolling Update `maxSurge`/`maxUnavailable` are
 Values-driven; the StatefulSet has `volumeClaimTemplates`; the headless Service is `clusterIP: None`;
-CPU HPA has a matching CPU request; the Deployment guards `spec.replicas` with
+the HPA (when enabled) always renders one explicit CPU `Resource` metric and there is no
+`hpa.cpu.enabled` toggle; a CPU request exists; the Deployment guards `spec.replicas` with
 `if not .Values.hpa.enabled` (so the HPA owns replicas); the API HPA carries no queue-backlog/External
 worker metric; images use a single `.reference` field with the non-pullable placeholder; and sensitive
 values are referenced (not inlined). Actual output produced here:
@@ -230,11 +232,12 @@ helm template rag-platform ./examples/kubernetes/rag-platform -f .../values-prod
   | kubectl apply --dry-run=server -f -
 ```
 
-Confirm in the rendered output: with `hpa.enabled: true` the Deployment has **no** `spec.replicas`;
-with `hpa.enabled: false` the Deployment includes `replicaCount`; both images accept a full
-`repository@sha256:<digest>` reference; the HPA has **no** queue-backlog worker metric; the HPA
-`scaleTargetRef` points at the API Deployment; the Ingress backend points at the real Service; and the
-StatefulSet and headless Service names/selectors agree.
+Confirm in the rendered output: with `hpa.enabled: true` the HPA exists with one explicit CPU
+`Resource` metric (non-empty `metrics:`) and the Deployment has **no** `spec.replicas`; with
+`hpa.enabled: false` the HPA is **not** created and the Deployment includes `replicaCount`; both
+images accept a full `repository@sha256:<digest>` reference; the HPA has **no** queue-backlog worker
+metric; the HPA `scaleTargetRef` points at the API Deployment; the Ingress backend points at the real
+Service; and the StatefulSet and headless Service names/selectors agree.
 
 `helm lint` and `helm template` prove structure and rendering only. API dry-run proves schema/policy
 acceptance. None of them prove scheduling, image pulls, Ingress/DNS/TLS routing, HPA scaling, PVC
