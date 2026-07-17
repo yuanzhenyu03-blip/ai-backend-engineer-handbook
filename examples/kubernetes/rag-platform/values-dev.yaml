@@ -1,0 +1,14 @@
+# Day27 rag-platform — DEV overrides (teaching only). No real credentials here.
+replicaCount: 1
+
+ingress:
+  host: dev.api.example.com
+
+hpa:
+  minReplicas: 1
+  maxReplicas: 5
+
+postgres:
+  replicas: 1
+  storage:
+    size: 5Gi

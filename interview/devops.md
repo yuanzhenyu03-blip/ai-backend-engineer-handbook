@@ -1185,3 +1185,163 @@ Weak:   "Health returned 200, so the deployment succeeded."
 Strong: "Health 200 is limited evidence; I also verify provider 401 rate, business errors, latency,
         and logs, because reconciliation enforces desired state, not business correctness."
 ```
+
+---
+
+# Day27 Kubernetes Workloads Questions
+
+These questions come from the Day27 Kubernetes Workloads lesson: Ingress, Autoscaling (HPA), Rolling
+Update, StatefulSet, and Helm. Scope is Day27 only — the full AI Backend assembly is Day28.
+
+## Beginner
+
+### 1. What is the difference between a Kubernetes Service and an Ingress?
+
+Question:
+
+What is the difference between a Kubernetes Service and an Ingress?
+
+中文解析:
+
+Service 提供稳定的 L4 网络端点，按标签选择当前 Pod 并转发流量，客户端不用追踪变化的 Pod IP。Ingress 是 L7，按域名(Host)和路径(Path)做 HTTP/HTTPS 路由并可终止 TLS，再转给对应的 Service。区别不是"内部 vs 外部"——有些 Service 类型也能对外暴露，而普通 Service 不会检查 HTTP 路径。另外 Ingress 资源只是声明规则，真正实现要靠 Ingress Controller。
+
+Student's actual attempt (preserved):
+
+> "service avoid to use pod ip ,provide a method to switch traffic to pod.ingress provide a entry point,by using domain and path link service"
+
+English corrections:
+
+```text
+service avoid to use -> a Service avoids clients depending on ; pod ip -> Pod IP addresses ;
+provide a entry -> provides an entry / HTTP routing ; link service -> routes requests to a Service
+```
+
+Standard Answer:
+
+A Kubernetes Service provides a stable network endpoint for a group of Pods and routes traffic to
+them, so clients do not depend on changing Pod IP addresses. An Ingress provides HTTP or HTTPS routing
+based on hostnames and paths and forwards requests to the appropriate Services.
+
+Follow-up Question:
+
+Does an Ingress resource work without an Ingress Controller?
+
+## Intermediate
+
+### 1. Why can a CPU-based HPA fail on a low-CPU workload with growing queue backlog?
+
+Question:
+
+A workload has low CPU usage, but its queue backlog keeps increasing. Why might a CPU-based HPA fail,
+and what metric would you use instead?
+
+中文解析:
+
+工作负载大部分时间在等外部模型服务，CPU 很低但请求堆积，所以基于 CPU 的 HPA 不会扩容。应改用队列积压(queue backlog)，最好是每 worker 的积压，并把 maxReplicas 限制在上游(provider)容量内，否则只是把排队变成大量 429 和更高成本。外部/自定义指标需要相应的 metrics adapter，HPA 也只是改期望副本数，由 Deployment 调谐 Pod。
+
+Student's actual attempt (preserved):
+
+> "i would use the queue backlog as a metirc."
+
+English corrections:
+
+```text
+i -> I ; metirc -> metric
+```
+
+Interview Review:
+
+Metric choice correct; state the cause (external wait keeps CPU low) and cap replicas by upstream
+capacity.
+
+Standard Answer:
+
+A CPU-based HPA may fail because the workload is waiting on an external service instead of consuming
+CPU, so CPU stays low while requests accumulate. I would use queue backlog, preferably backlog per
+worker, and cap the replica count so scaling does not exceed the provider's rate limit.
+
+Follow-up Question:
+
+Does HPA create the new Pods itself?
+
+### 2. Rolling Update vs rollback vs Blue-Green.
+
+Question:
+
+Distinguish a Deployment Rolling Update, a rollback, and Blue-Green.
+
+中文解析:
+
+Rolling Update 在同一个 Service selector 下逐步加入就绪的 v2、按 `maxSurge`/`maxUnavailable` 限制移除 v1，无需手动切流量。Blue-Green 是并行整套 v1/v2 再切流量。Rollback 不是 Rolling Update，而是把期望版本恢复到旧 revision，再由另一次受控 rollout 调谐。删除 v2 Pod 不是回滚——如果模版还是 v2，控制器会再建 v2。
+
+Standard Answer:
+
+A Rolling Update gradually adds ready v2 Pods under the same Service selector and removes v1 within
+`maxSurge`/`maxUnavailable` limits, so no manual switch is needed. Blue-Green runs full parallel v1
+and v2 environments and switches traffic. A rollback restores a previous desired revision through
+another controlled rollout; deleting v2 Pods is not a rollback because the controller recreates the
+current v2 desired state.
+
+Follow-up Question:
+
+With `maxSurge: 1` and `maxUnavailable: 0`, what happens if v2 Readiness always fails?
+
+## Senior
+
+### 1. Safe release, business-failure detection, and rollback without an outage.
+
+Question:
+
+How would you safely deploy a new application version in Kubernetes, detect a business-level failure,
+and roll back without causing an outage?
+
+中文解析:
+
+用 Rolling Update，`maxUnavailable: 0` + 受控 `maxSurge`，让旧 Pod 一直可用直到新 Pod 通过 Readiness。发布中观察错误率、延迟、日志、队列压力和业务指标，而不是只看 HTTP 健康检查(Readiness 200 不等于业务正确)。出问题就停止 rollout，把 Deployment 或 Helm 恢复到上一个 revision。`helm --atomic --wait --timeout` 能在就绪失败时尝试回滚，但业务级失败仍需可观测性与部署自动化；数据库变更要向后兼容，因为 Helm 无法撤销外部副作用。
+
+Student's actual attempt (preserved):
+
+> "helm is a great method,it could automatly rollback old version application.when the old version application stable running under smoke test.Kubernetes rolling update old version step by step"
+
+Interview Review:
+
+- Correct: connect Helm revision rollback, smoke testing, and Rolling Update.
+- Incomplete: Helm does not auto-roll back every upgrade; Readiness cannot detect every business failure.
+
+English corrections:
+
+```text
+automatly -> automatically ; old version application -> the previous stable version ;
+stable running -> runs stably ; rolling update ... step by step -> gradually replaces old with new
+```
+
+Standard Answer:
+
+I would use a Rolling Update with `maxUnavailable: 0` and a controlled `maxSurge`, so old Pods stay
+available until new Pods pass Readiness. During the rollout I would monitor error rate, latency, logs,
+queue pressure, and business metrics rather than only HTTP health checks. If the new version caused a
+business failure, I would stop the rollout and restore the previous Deployment or Helm revision.
+`--atomic`, `--wait`, and a timeout help with readiness failures, but business-level rollback still
+needs observability and deployment automation, and database changes must stay backward compatible
+because Helm cannot undo every external side effect.
+
+Follow-up Question:
+
+Why is a StatefulSet with three PVCs not enough for PostgreSQL high availability?
+
+## Common Weak vs Strong Answer (Day27)
+
+```text
+Weak:   "HPA scales the Pods automatically."
+Strong: "HPA updates desired replicas on a scale target from a meaningful metric; the Deployment
+        reconciles Pods and the scheduler places them. For external-wait workloads I scale on queue
+        backlog, not CPU."
+
+Weak:   "A StatefulSet gives me three database copies."
+Strong: "A StatefulSet gives stable identity and per-Pod storage, not replication. HA needs WAL
+        replication, leader election, failover, fencing, and independent backups."
+
+Weak:   "helm template passed, so the release is safe."
+Strong: "helm lint/template prove structure and rendering; API dry-run proves schema; only runtime
+        plus business smoke tests prove user-visible correctness."
+```

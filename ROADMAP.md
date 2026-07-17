@@ -88,7 +88,7 @@ Git
 |------|-------------------------------|-----------|
 | Day25 | Deployment Foundations | ✅ Completed |
 | Day26 | Kubernetes Foundations | ✅ Completed |
-| Day27 | Kubernetes Workloads | Planned |
+| Day27 | Kubernetes Workloads | ✅ Completed |
 | Day28 | AI Backend Production Architecture | Planned |
 
 Deliverables:

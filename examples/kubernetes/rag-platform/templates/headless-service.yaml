@@ -1,0 +1,17 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "rag-platform.postgres.fullname" . }}
+  labels:
+    {{- include "rag-platform.labels" . | nindent 4 }}
+spec:
+  # Headless Service: stable network identity for StatefulSet Pods.
+  clusterIP: None
+  selector:
+    {{- include "rag-platform.postgres.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: postgres
+      port: {{ .Values.postgres.port }}
+      targetPort: postgres
+{{- end }}

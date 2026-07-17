@@ -1,0 +1,11 @@
+apiVersion: v2
+name: rag-platform
+description: >-
+  Day27 TEACHING-ONLY Helm chart for a RAG / AI Backend workload: a stateless FastAPI Deployment
+  (Rolling Update) behind a Service and Ingress, an autoscaling/v2 HPA, and a PostgreSQL StatefulSet
+  with a headless Service. Not production-ready: images are non-pullable placeholders, Secrets are
+  referenced (never inlined), and PostgreSQL is identity/storage only (no replication/failover/backup).
+type: application
+version: 0.1.0
+appVersion: "replace-with-verified-digest"
+kubeVersion: ">=1.23.0-0"

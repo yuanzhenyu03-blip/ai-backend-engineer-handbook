@@ -20,11 +20,11 @@ Current phase:
 
 Last completed lesson:
 
-* Day26 — Kubernetes Foundations
+* Day27 — Kubernetes Workloads
 
 Next lesson:
 
-* Day27 — Kubernetes Workloads
+* Day28 — AI Backend Production Architecture
 
 ---
 

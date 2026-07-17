@@ -1,0 +1,46 @@
+{{- if .Values.postgres.enabled }}
+# TEACHING EXAMPLE — stable identity + per-Pod storage ONLY.
+# This is NOT PostgreSQL high availability: no WAL/streaming replication, leader
+# election, failover, fencing, write routing, backup, or point-in-time recovery.
+# Production requires a database operator or managed service.
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "rag-platform.postgres.fullname" . }}
+  labels:
+    {{- include "rag-platform.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "rag-platform.postgres.fullname" . }}
+  replicas: {{ .Values.postgres.replicas }}
+  selector:
+    matchLabels:
+      {{- include "rag-platform.postgres.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "rag-platform.postgres.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          # Non-pullable placeholder; replace with a CI-verified @sha256 digest before deploy.
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - name: postgres
+              containerPort: {{ .Values.postgres.port }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- if .Values.postgres.storage.storageClassName }}
+        storageClassName: {{ .Values.postgres.storage.storageClassName | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.storage.size | quote }}
+{{- end }}

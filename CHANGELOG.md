@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.47 — Day27 Kubernetes Workloads Documentation
+
+Date: 2026-07-17
+
+### Added
+
+- Added `docs/devops/day27-kubernetes-workloads.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day26->Day27 mental-model evolution).
+- Added the `examples/kubernetes/rag-platform/` teaching-only Helm chart: `Chart.yaml`, base/dev/prod `values*.yaml`, `templates/` (`_helpers.tpl`, configmap, deployment with Rolling Update, service, ingress, `autoscaling/v2` hpa, headless-service, statefulset), and a static-only `validate_chart.py`.
+- Added Day27 review material to `cheat_sheets/devops.md`.
+- Added Day27 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/kubernetes/README.md` with the Day27 chart layout, validation ladder, prerequisites, and security boundaries.
+- Updated `examples/README.md` to index the Day27 Helm chart.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day27 completed (Day28 left Planned).
+- Updated `PROJECT_STATUS.md` to mark Day27 completed and set Next to Day28.
+- Updated `TASKS.md` with completed Day27 tasks and Day28 preparation.
+- Updated `README.md` and `AGENTS.md` progress markers (last completed Day27, next Day28).
+- Updated `CHANGELOG.md` with the Day27 repository update.
+
+### Notes
+
+- Day27 extends the Day26 foundation into production workload management: Ingress as L7 Host/Path/TLS routing to Services (resource declares, controller implements); HPA (`autoscaling/v2`) updating desired replicas on a scale target from meaningful pressure (CPU vs queue backlog, bounded by upstream capacity); Deployment Rolling Update with `maxSurge`/`maxUnavailable` distinguished from rollback and Blue-Green; StatefulSet stable identity + per-Pod PVC + headless Service + ordered lifecycle (explicitly NOT database replication/HA); and Helm templates vs Values vs Release with a lint/template/API/runtime validation ladder.
+- Preserved the actual classroom record, including the student's Chinese and English answers and the reasonable errors and corrections (Rolling Update called a rollback strategy; three PVCs mistaken for three data copies; Helm assumed to auto-roll back; a Blue-Green plan offered for a Rolling Update; HPA described as directly scaling Pods).
+- Security/scope honesty: the chart is teaching-only and not deployable as-is. Sensitive values are referenced via `existingSecret` (never inlined in any values file); no real credential, token, certificate, or verified/represented-as-verified image digest is committed; images use the non-pullable `example.invalid` TLD with a mutable `:replace-with-verified-digest` tag. Readiness 200 is not business success; a StatefulSet is not HA; deleting v2 Pods is not a rollback.
+- Validation: `validate_chart.py` ran and passed deterministic static checks (Chart/values YAML parse; Deployment selector == Pod template labels == Service selector via a shared helper; HPA `scaleTargetRef` and Ingress backend use the same fullname helper as the Deployment/Service; `networking.k8s.io/v1`, `autoscaling/v2`, `apps/v1`; Rolling Update `maxSurge`/`maxUnavailable`; StatefulSet `volumeClaimTemplates`; headless `clusterIP: None`; CPU HPA has a CPU request; sensitive values referenced not inlined; non-pullable images). `helm` is not installed in this environment, so `helm lint` and `helm template` were NOT run; with no Kubernetes API server, schema/admission and all runtime validation (Ingress/DNS/TLS routing, HPA scaling, Rolling Update, rollback, PVC provisioning, StatefulSet lifecycle, PostgreSQL replication/failover, backups) were NOT performed and no result is claimed.
+- Ingress Controller, DNS, load balancer, TLS material, metrics adapters, and PostgreSQL HA/backup are documented as external prerequisites, not implemented. Day28 (FastAPI/Celery/Redis/PostgreSQL/object storage/queue/monitoring/observability) is labeled a future connection. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`, or any Day01-Day26 lesson body.
+
+---
+
 ## v0.1.46 — Roadmap Status Consistency Fix
 
 Date: 2026-07-17

@@ -29,3 +29,7 @@ repository; copy them into a real project and adjust paths, versions, and comman
   (`ai-backend-baseline.yaml`) with a ConfigMap, a Secret template, a three-replica Deployment
   (FastAPI + logging sidecar), and a Service, plus a README separating static from runtime
   validation (see `docs/devops/day26-kubernetes-foundations.md`).
+- `kubernetes/rag-platform/` — Day27 Kubernetes workloads: a teaching-only Helm chart packaging the
+  workload with Ingress, an `autoscaling/v2` HPA, a Rolling Update Deployment, and a PostgreSQL
+  StatefulSet + headless Service, with per-environment Values and a static-only `validate_chart.py`
+  (see `docs/devops/day27-kubernetes-workloads.md`).

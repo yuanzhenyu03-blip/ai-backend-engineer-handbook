@@ -1,0 +1,18 @@
+# Day27 rag-platform — PROD overrides (teaching only).
+# NEVER place real credentials here; `existingSecret` references an out-of-band Secret.
+replicaCount: 3
+
+ingress:
+  host: api.example.com
+
+hpa:
+  minReplicas: 3
+  maxReplicas: 40
+
+postgres:
+  replicas: 3
+  storage:
+    size: 100Gi
+    storageClassName: fast-ssd
+
+existingSecret: rag-api-secrets

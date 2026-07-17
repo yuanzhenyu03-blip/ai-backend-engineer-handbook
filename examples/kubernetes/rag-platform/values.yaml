@@ -1,0 +1,91 @@
+# =============================================================================
+# Day27 rag-platform — BASE values (teaching only).
+# Every field here is a Value that may be overridden per environment. Real
+# credentials must NEVER live in any values file; `existingSecret` references a
+# Secret created out of band. Image references use the reserved, non-pullable
+# `example.invalid` TLD with a MUTABLE `:replace-...` tag — not verified, not
+# immutable — and must be replaced with a CI-verified @sha256 digest at deploy time.
+# =============================================================================
+
+nameOverride: ""
+fullnameOverride: ""
+
+# ---- Stateless API workload ------------------------------------------------
+image:
+  repository: example.invalid/acme/rag-api
+  tag: replace-with-verified-digest
+  pullPolicy: IfNotPresent
+
+replicaCount: 3
+
+rollingUpdate:
+  maxSurge: 1
+  maxUnavailable: 0
+minReadySeconds: 10
+progressDeadlineSeconds: 600
+revisionHistoryLimit: 5
+
+containerPort: 8000
+
+# CPU requests are required for CPU-utilization HPA to be meaningful.
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# Non-sensitive runtime config -> ConfigMap.
+config:
+  MODEL_NAME: gpt-production-v1
+  LOG_LEVEL: INFO
+
+# Sensitive values are REFERENCED, never inlined. Create this Secret out of band
+# (e.g. External Secrets / Sealed Secrets) with keys OPENAI_API_KEY, DATABASE_PASSWORD.
+existingSecret: rag-api-secrets
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: http
+
+# ---- Ingress (L7 Host/Path/TLS) -------------------------------------------
+# Requires an Ingress Controller, DNS, a public load balancer, and a real TLS
+# Secret to exist in the cluster — none are created by this chart.
+ingress:
+  enabled: true
+  className: nginx
+  host: api.example.com
+  path: /chat
+  pathType: Prefix
+  tlsSecretName: api-example-tls
+
+# ---- Autoscaling (autoscaling/v2) -----------------------------------------
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  # CPU utilization is relative to the CPU request above.
+  cpu:
+    enabled: true
+    averageUtilization: 70
+  # Optional external/custom metric (e.g. queue backlog per worker). Requires a
+  # custom/external metrics adapter in the cluster; this chart does NOT install one.
+  queueBacklog:
+    enabled: false
+    metricName: queue_backlog_per_worker
+    averageValue: "30"
+
+# ---- Stateful workload (identity/storage teaching example, NOT HA) --------
+postgres:
+  enabled: true
+  image:
+    repository: example.invalid/acme/postgres
+    tag: replace-with-verified-digest
+    pullPolicy: IfNotPresent
+  replicas: 3
+  port: 5432
+  storage:
+    size: 20Gi
+    storageClassName: ""   # "" -> cluster default StorageClass

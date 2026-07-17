@@ -432,6 +432,31 @@ Failure/rollback: `/health 200 != business success`. Partial outage (1 bad-key P
 
 Day27 (future, not taught here): Ingress, Autoscaling, Rolling Update, StatefulSet, Helm.
 
+## Day27 Kubernetes Workloads
+
+Responsibility map:
+
+```text
+Ingress    = L7 Host/Path/TLS routing to Services (resource declares; controller implements)
+Service    = stable L4 discovery/endpoints for current Pods
+HPA        = update desired replicas on a scale target from meaningful pressure
+Deployment = reconcile Pods from template + replicas; Rolling Update replaces versions
+StatefulSet= stable Pod identity + per-Pod PVC + ordered lifecycle (NOT replication/HA)
+Helm       = Templates + Values + Release (render/install/revision/rollback)
+```
+
+Ingress: not "internal vs external" — some Service types expose externally, and a normal Service does not inspect paths. Ingress RESOURCE != Ingress CONTROLLER; no controller/DNS/LB/TLS Secret -> no working data plane. Routing `/admin` != auth.
+
+HPA: does NOT create Pods; it sets desired replicas on a Deployment/StatefulSet, which reconciles Pods. CPU utilization is relative to the CPU **request** (so requests must exist). External-wait workload -> low CPU + growing queue -> scale on `queue backlog / backlog per worker` via an external/custom metrics adapter. Cap `maxReplicas` to upstream capacity; more Pods != more provider capacity and can worsen 429/cost.
+
+Rolling Update: `maxSurge: 1`, `maxUnavailable: 0` -> add ready v2 under the same selector, remove v1 within limits; needs surge capacity. `/ready 200 != correct AI result != acceptable error rate/latency`. Rolling Update != rollback. Rollback = restore a previous desired revision via another controlled rollout. Deleting v2 Pods with a v2 template -> controller recreates v2.
+
+StatefulSet: stable identity (`postgres-0/1/2`) + `volumeClaimTemplates` per-Pod PVC + headless Service (`clusterIP: None`) + ordered lifecycle. `Independent disks = identity/isolation, NOT replicated bytes`. HA needs base backup + WAL/streaming replication + leader election/promotion + fencing + write routing + independent backup/PITR.
+
+Helm: every object is a template; hosts/images/replicas/resources/HPA targets/storage/Secret refs are Values (not only ConfigMap/Secret). Validation ladder: `helm lint` (structure/syntax) -> `helm template` (render) -> API server-side dry run (schema/policy) -> runtime (scheduling/metrics/storage/readiness/business). Never commit real secrets to Values (release history/rendered manifests leak). `helm rollback N --wait --timeout`; `helm upgrade --install --atomic --wait --timeout` attempts rollback on readiness failure — NOT automatic for every upgrade, and business failure still needs observability.
+
+Day28 (future, not built here): FastAPI + Celery + Redis + PostgreSQL + object storage + queue + monitoring + observability.
+
 ---
 
 ## Interview Phrases
@@ -489,3 +514,16 @@ Day27 (future, not taught here): Ingress, Autoscaling, Rolling Update, StatefulS
 - "Base64 is encoding, not encryption; a Kubernetes Secret is not automatically a vault."
 - "A ConfigMap or Secret change does not mutate an already-running process environment."
 - "Health 200 is not business success; reconciliation enforces desired state, not correctness."
+
+- "A Service is stable L4 discovery; an Ingress is L7 Host/Path/TLS routing to Services."
+- "An Ingress resource declares routing; an Ingress Controller implements it — no controller, no data plane."
+- "HPA updates desired replicas on a scale target; the Deployment reconciles Pods."
+- "A low-CPU workload waiting on an external service needs queue-backlog scaling, not CPU."
+- "Rolling Update adds ready v2 under the same selector and removes v1 within maxSurge/maxUnavailable."
+- "maxUnavailable: 0 keeps capacity but needs surge resources and can stall the rollout."
+- "Rolling Update is version replacement; rollback restores a previous desired revision."
+- "Deleting v2 Pods is not a rollback — the controller recreates the current v2 desired state."
+- "A StatefulSet gives stable identity and per-Pod storage, not database replication or HA."
+- "Three PVCs are three independent disks, not three copies of the data."
+- "Helm separates templates from Values; helm lint/template prove structure/rendering, not production."
+- "Never put real secrets in Helm Values — release history and rendered manifests can leak them."

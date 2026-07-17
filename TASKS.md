@@ -16,7 +16,7 @@ Phase 2 — Engineering Foundations
 
 ## Current Lesson
 
-Day26 — Kubernetes Foundations
+Day27 — Kubernetes Workloads
 
 Status:
 Completed
@@ -24,17 +24,81 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day26-kubernetes-foundations.md
+docs/devops/day27-kubernetes-workloads.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day26 Kubernetes Foundations classroom learning.
-- [x] Author the Kubernetes baseline manifest (ConfigMap + Secret template + Deployment + Service) and the static-vs-runtime validation README.
-- [x] Distinguish desired state vs one-time command, Deployment-vs-scheduler, ConfigMap-vs-Secret, and health-vs-business success.
-- [ ] Prepare for Day27 — Kubernetes Workloads.
+- [x] Complete Day27 Kubernetes Workloads classroom learning.
+- [x] Author the rag-platform Helm chart (Ingress + HPA + Rolling Update Deployment + StatefulSet/headless Service) and the static-vs-runtime validation README.
+- [x] Distinguish Ingress-vs-Service, HPA-vs-controller, Rolling Update-vs-rollback-vs-Blue-Green, StatefulSet-vs-replication, and Helm static-vs-runtime validation.
+- [ ] Prepare for Day28 — AI Backend Production Architecture.
+
+---
+
+## Completed Day27 Tasks
+
+- [x] Complete Day27 Kubernetes Workloads classroom learning.
+- [x] Generate Day27 handbook lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day26->Day27 mental-model evolution).
+- [x] Explain Ingress as L7 Host/Path/TLS routing and the Ingress resource vs Ingress Controller split.
+- [x] Explain that HPA updates desired replicas on a scale target (not creating Pods directly).
+- [x] Explain CPU-vs-queue-backlog scaling and upstream capacity/429/cost limits.
+- [x] Explain Rolling Update maxSurge/maxUnavailable and distinguish strategy, rollback, and Blue-Green.
+- [x] Explain why deleting v2 Pods is not a rollback.
+- [x] Explain StatefulSet stable identity/PVC/headless Service/ordered lifecycle and why it is not database HA.
+- [x] Explain Helm templates vs Values vs Release and the lint/template/API/runtime validation ladder.
+- [x] Explain why real Secrets must never be committed to Helm Values.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+- [x] Add the rag-platform Helm chart and static-only validation helper.
+
+---
+
+## Completed Day27 Repository Tasks
+
+- [x] Add `docs/devops/day27-kubernetes-workloads.md`.
+- [x] Add the `examples/kubernetes/rag-platform/` Helm chart (Chart.yaml, values*.yaml, templates, validate_chart.py).
+- [x] Update `examples/kubernetes/README.md` (Day27 chart usage, validation layers, prerequisites, security).
+- [x] Update `examples/README.md`.
+- [x] Update `cheat_sheets/devops.md`.
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md`.
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day27 Completed).
+- [x] Update `ROADMAP.md` (Day27 Completed, Day28 left Planned).
+- [x] Update `README.md` and `AGENTS.md` progress markers.
+
+---
+
+## Completed Day27 Interview Tasks
+
+- [x] Add beginner Service-vs-Ingress question (with the student's actual weak answer + technical/English corrections).
+- [x] Add intermediate HPA-metric and Rolling-Update-vs-rollback-vs-Blue-Green questions.
+- [x] Add senior safe-release/business-failure/rollback question.
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day27 Homework
+
+- [x] Complete Service-vs-Ingress and /chat-vs-/admin routing exercises.
+- [x] Complete initial-CPU-metric and low-CPU-backlog HPA exercises.
+- [x] Complete surge-rollout and stalled-Readiness exercises.
+- [x] Complete Blue-Green-vs-Rolling-Update exercise.
+- [x] Complete Deployment+volume-vs-StatefulSet and three-PVCs exercises.
+- [x] Complete Helm templates-vs-Values, secrets-not-in-Values, and validation-ladder exercises.
+- [x] Complete Helm failed-revision recovery exercise.
+
+---
+
+### Day28 Preparation — AI Backend Production Architecture
+
+- [ ] Read Day28 input when provided.
+- [ ] Preview assembling FastAPI, Celery, Redis, PostgreSQL, object storage, queues, monitoring, and observability.
+- [ ] Connect Day27 Ingress/HPA/Rolling Update/StatefulSet/Helm to the Day28 production architecture.
+- [ ] Keep Day28 topics labeled as future connections until Day28 is the current lesson.
 
 ---
 
@@ -1718,7 +1782,7 @@ None.
 - [x] Day24 — Docker Compose (Completed).
 - [x] Day25 — Deployment Foundations (Completed).
 - [x] Day26 — Kubernetes Foundations (Completed).
-- [ ] Day27 — Kubernetes Workloads (Planned).
+- [x] Day27 — Kubernetes Workloads (Completed).
 - [ ] Day28 — AI Backend Production Architecture (Planned).
 
 ### Future Knowledge Base TODO
@@ -1787,3 +1851,4 @@ Purpose:
 - [x] Complete Day24 — Docker Compose.
 - [x] Complete Day25 — Deployment Foundations.
 - [x] Complete Day26 — Kubernetes Foundations.
+- [x] Complete Day27 — Kubernetes Workloads.

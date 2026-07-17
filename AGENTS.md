@@ -41,11 +41,11 @@ Phase 2 — Engineering Foundations
 
 Last Completed Lesson:
 
-Day26 — Kubernetes Foundations
+Day27 — Kubernetes Workloads
 
 Next Lesson:
 
-Day27 — Kubernetes Workloads
+Day28 — AI Backend Production Architecture
 
 Do not skip ahead unless explicitly instructed.
 

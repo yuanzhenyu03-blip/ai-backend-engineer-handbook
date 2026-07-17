@@ -555,7 +555,13 @@ Topics:
 Ingress, Autoscaling, Rolling Update, StatefulSet, Helm
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/devops/day27-kubernetes-workloads.md`
+
+Template:
+LESSON_TEMPLATE_v2
 
 ---
 

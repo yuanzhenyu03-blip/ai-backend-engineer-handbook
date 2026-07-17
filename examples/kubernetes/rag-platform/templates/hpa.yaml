@@ -1,0 +1,37 @@
+{{- if .Values.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "rag-platform.fullname" . }}
+  labels:
+    {{- include "rag-platform.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    # Must equal the Deployment name so HPA updates the right desired replicas.
+    name: {{ include "rag-platform.fullname" . }}
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    {{- if .Values.hpa.cpu.enabled }}
+    # CPU utilization is relative to the container CPU request (defined on the Deployment).
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.cpu.averageUtilization }}
+    {{- end }}
+    {{- if .Values.hpa.queueBacklog.enabled }}
+    # External metric: requires a custom/external metrics adapter in the cluster.
+    # This chart does NOT install Metrics Server or any adapter.
+    - type: External
+      external:
+        metric:
+          name: {{ .Values.hpa.queueBacklog.metricName }}
+        target:
+          type: AverageValue
+          averageValue: {{ .Values.hpa.queueBacklog.averageValue | quote }}
+    {{- end }}
+{{- end }}

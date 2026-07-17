@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day26 — Kubernetes Foundations
+Day27 — Kubernetes Workloads
 
 Status:
 Completed
@@ -52,6 +52,7 @@ Completed Time:
 - ✅ Day24 — Docker Compose
 - ✅ Day25 — Deployment Foundations
 - ✅ Day26 — Kubernetes Foundations
+- ✅ Day27 — Kubernetes Workloads
 
 ---
 
@@ -63,29 +64,29 @@ None.
 
 ## Last Completed Lesson
 
-Day26 — Kubernetes Foundations
+Day27 — Kubernetes Workloads
 
 Completed Time:
 2026-07-17
 
 Main Artifact:
-Kubernetes baseline manifest (ConfigMap + Secret template + 3-replica Deployment + Service) with a static-vs-runtime validation README (examples/kubernetes/)
+Teaching-only Helm chart rag-platform (Ingress + autoscaling/v2 HPA + Rolling Update Deployment + PostgreSQL StatefulSet/headless Service) with per-environment Values and a static-only validate_chart.py (examples/kubernetes/rag-platform/)
 
 Completed Work:
 
-- Day26 classroom learning
-- Day26 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day25->Day26 mental-model evolution)
-- Day26 Kubernetes baseline manifest and validation/security README
-- Day26 desired-state / Pod / Deployment / Service / ConfigMap / Secret / rollback exercises
-- Day26 devops cheat sheet update
-- Day26 devops interview notes update
-- Day26 repository status update
+- Day27 classroom learning
+- Day27 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day26->Day27 mental-model evolution)
+- Day27 rag-platform Helm chart and static-vs-runtime validation README
+- Day27 Ingress / HPA / Rolling Update / StatefulSet / Helm exercises
+- Day27 devops cheat sheet update
+- Day27 devops interview notes update
+- Day27 repository status update
 
 ---
 
 ## Next
 
-- Day27 — Kubernetes Workloads
+- Day28 — AI Backend Production Architecture
 
 Status:
 Not started
@@ -122,6 +123,7 @@ Completed Python Foundations:
 - Day24 — Docker Compose, multi-service declaration, started vs ready (depends_on/healthcheck/retry), project/service/image/container, service DNS, network segmentation, volumes, env/secrets/business data, base + dev override, production boundary
 - Day25 — Deployment foundations, stable public entry (DNS/Nginx/TLS), reverse proxy, HTTP->HTTPS, trusted proxy context, promote immutable digest, API blue-green + drain + rollback, Expand-Migrate-Contract, worker rollout, serialized deploy identity, AI streaming timeouts, DNS TTL
 - Day26 — Kubernetes foundations, desired state vs one-time command, reconciliation control loop, Pod (one or more tightly coupled containers), Deployment (template + replicas, not scheduling), Service (stable label-based discovery), ConfigMap (non-sensitive config, same digest), Secret (Base64 != encryption, not an automatic vault), config/secret env not mutating running processes, health 200 != business success, reconciliation != business correctness, safe partial-outage rollback
+- Day27 — Kubernetes workloads, Ingress L7 Host/Path/TLS routing (resource vs controller), HPA updates desired replicas on a scale target (CPU vs queue backlog, upstream limits), Rolling Update (maxSurge/maxUnavailable, strategy vs rollback vs Blue-Green), deleting v2 Pods is not a rollback, StatefulSet stable identity/PVC/headless Service/ordered lifecycle (not replication/HA), Helm templates vs Values vs Release, validation ladder (lint/template/API/runtime), never commit secrets to Values, readiness 200 != business success
 
 ---
 
@@ -344,6 +346,14 @@ Completed Python Foundations:
 - Diagnose a partial AI outage where /health returns 200 but one Pod uses an invalid rotated key.
 - Order a safe rollback that preserves healthy Pods and replaces only the faulty Pod.
 - Keep Deployment selector, Pod template labels, and Service selector consistent.
+- Explain Ingress as L7 Host/Path/TLS routing to Services and the resource-vs-controller split.
+- Explain that HPA updates desired replicas on a scale target rather than creating Pods directly.
+- Choose a meaningful scaling metric (queue backlog for external-wait workloads, not CPU) and bound it by upstream capacity.
+- Perform a Deployment Rolling Update with maxSurge/maxUnavailable and distinguish it from rollback and Blue-Green.
+- Explain why deleting v2 Pods is not a rollback and restore a known-good desired revision instead.
+- Explain StatefulSet stable identity, per-Pod PVCs, headless Service, and ordered lifecycle — and why it is not database replication/HA.
+- Separate Helm templates from environment Values across all objects and name the validation ladder.
+- Explain why real Secrets must never live in Helm Values and where release history can leak them.
 
 ---
 
@@ -540,6 +550,21 @@ Completed Python Foundations:
 - Secret-rotation rollback ordering exercise
 - Kubernetes English interview exercise
 - Final Kubernetes mental model synthesis exercise
+- Service vs Ingress layer exercise
+- /chat vs /admin routing ownership exercise
+- Initial CPU scaling metric exercise
+- Low-CPU growing-backlog HPA diagnosis exercise
+- Surge rollout (maxSurge/maxUnavailable) design exercise
+- Stalled v2 Readiness prediction exercise
+- Blue-Green vs Rolling Update comparison exercise
+- Deployment+volume vs StatefulSet exercise
+- Three-PVCs-not-three-copies exercise
+- Helm templates vs Values separation exercise
+- Secrets-not-in-Values exercise
+- Helm validation-ladder exercise
+- Helm failed-revision recovery exercise
+- Kubernetes workloads English interview exercise
+- Final Kubernetes workloads mental model synthesis exercise
 
 ---
 
