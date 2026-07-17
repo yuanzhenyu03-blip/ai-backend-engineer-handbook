@@ -206,7 +206,7 @@ maintain it." That reduces manual omission but adds control-plane and operationa
 Production Example:
 
 A node dies at 03:00. With a script, three replicas silently become two until a human notices. With
-a Deployment, the controller observes the drift and schedules a replacement Pod automatically.
+a Deployment, the Deployment/ReplicaSet controller creates a replacement Pod, and the Kubernetes scheduler (kube-scheduler) places it on a suitable Node automatically.
 
 Framework Connection:
 
@@ -330,7 +330,8 @@ Three honest limits:
 ```text
 - Deployment maintains count and template, not the identity of the old Pod
   (new name, new IP, possibly a new Node).
-- Deployment does NOT schedule Pods; the Kubernetes scheduler chooses the Node.
+- Deployment does NOT schedule Pods: the Deployment/ReplicaSet controller creates/maintains
+  Pods, and kube-scheduler assigns unscheduled Pods to Nodes.
 - replicas: 3 != three business-ready replicas
   (a bad template is replicated three times; local ephemeral Pod data is not recovered).
 ```

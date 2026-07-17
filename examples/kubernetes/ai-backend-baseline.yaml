@@ -11,8 +11,10 @@
 #   - `stringData` is PLAINTEXT in the manifest; these are placeholders. Never commit a real key,
 #     password, or token. Inject real values out of band (sealed-secrets / external Secret Manager).
 #   - Base64 in a Secret is ENCODING, not encryption.
-#   - Image fields are REPLACE_* placeholders; supply verified image digests out of band. A
-#     placeholder is not a verified image.
+#   - Image fields use syntactically valid but NON-PULLABLE placeholder references on the reserved
+#     `.invalid` TLD (RFC 2606), so they can never resolve to a real registry. The `:replace-...`
+#     TAG is a mutable placeholder — it is NOT immutable and NOT verified. Before deploying, replace
+#     each with a real, CI-verified immutable digest (registry/name@sha256:...).
 #   - The logging sidecar shares the Pod/volume but does NOT receive API/database credentials.
 #   - Deployment selector == Pod template labels == Service selector (app: rag-api).
 #
@@ -56,7 +58,8 @@ spec:
       containers:
         # --- API container: the only workload that receives the Secret ---
         - name: api
-          image: REPLACE_WITH_VERIFIED_IMAGE_DIGEST
+          # Valid OCI format, non-pullable placeholder; replace with a CI-verified @sha256 digest.
+          image: example.invalid/acme/rag-api:replace-with-verified-digest
           ports:
             - name: http
               containerPort: 8000
@@ -79,7 +82,8 @@ spec:
               mountPath: /var/log/app
         # --- Logging sidecar: shares the Pod/volume, but NO credentials ---
         - name: log-sidecar
-          image: REPLACE_WITH_VERIFIED_SIDECAR_IMAGE_DIGEST
+          # Valid OCI format, non-pullable placeholder; replace with a CI-verified @sha256 digest.
+          image: example.invalid/acme/log-sidecar:replace-with-verified-digest
           volumeMounts:
             - name: application-logs
               mountPath: /var/log/app

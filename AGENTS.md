@@ -35,17 +35,17 @@ When generating code:
 
 ## Current Progress
 
-Completed:
+Current Phase:
 
-* Python Object Model
-* Function Objects
-* References
-* == vs is
-* Mutable Default Argument
+Phase 2 — Engineering Foundations
+
+Last Completed Lesson:
+
+Day26 — Kubernetes Foundations
 
 Next Lesson:
 
-Mutable vs Immutable
+Day27 — Kubernetes Workloads
 
 Do not skip ahead unless explicitly instructed.
 

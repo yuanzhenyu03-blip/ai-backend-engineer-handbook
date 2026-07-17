@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.45 — Day26 Review Fixes
+
+Date: 2026-07-17
+
+### Changed
+
+- Fixed `TASKS.md` status consistency: `Current Phase` is now `Phase 2 — Engineering Foundations`, and the Phase 2 Roadmap marks Day26 Completed (Day27 and Day28 remain Planned), removing the Day26 Planned-vs-Completed contradiction.
+- Updated the stale repository entry points: `README.md` now shows Phase 2, last completed Day26, next Day27; `AGENTS.md` Current Progress replaces the outdated "Next Lesson: Mutable vs Immutable" with Phase 2 / Day26 completed / Day27 next (engineering and teaching rules unchanged).
+- Corrected the Deployment/scheduler responsibility in `docs/devops/day26-kubernetes-foundations.md`: the Deployment/ReplicaSet controller creates or maintains replacement Pods, and kube-scheduler assigns unscheduled Pods to Nodes (the Deployment does not schedule).
+- Replaced the invalid `REPLACE_WITH_*` image strings in `examples/kubernetes/ai-backend-baseline.yaml` with syntactically valid, non-pullable OCI references on the reserved `.invalid` TLD (`example.invalid/acme/rag-api:replace-with-verified-digest`, `example.invalid/acme/log-sidecar:replace-with-verified-digest`); comments state the `:replace-...` tag is mutable, not immutable or verified, and must be swapped for a CI-verified `@sha256` digest before deploy. Synced `examples/kubernetes/README.md`.
+- Made static validation reproducible: added `examples/kubernetes/validate_manifest.py` (PyYAML-only) and documented an isolated dependency install; the README now shows the actual PASS output.
+
+### Notes
+
+- Static validation actually run: four YAML documents (ConfigMap/Secret/Deployment/Service); Deployment selector == Pod template labels; Service selector == Pod template labels; `replicas == 3`; Service `targetPort` matches a container named port; the API container references the ConfigMap and the Secret; the logging sidecar does NOT reference the Secret — all PASS.
+- No Kubernetes API server was available, so `kubectl` schema/admission validation was NOT completed and no Kubernetes runtime result (Pod Ready, Service DNS, Secret injection, Pod replacement, rollback) is claimed.
+- Scope unchanged: Day26 is not rewritten and Day27 is not started. No real secret, key, or verified image digest is committed. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`, or any Day01-Day25 lesson body.
+
+---
+
 ## v0.1.44 — Day26 Kubernetes Foundations Documentation
 
 Date: 2026-07-17

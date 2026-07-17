@@ -5,8 +5,10 @@ ConfigMap, a Secret template, a three-replica Deployment (FastAPI + logging side
 and a Service.
 
 **Example / template only.** These are teaching manifests. They are **not deployable as-is** and no
-Kubernetes runtime success is claimed. `stringData` values are plaintext placeholders, and image
-fields are `REPLACE_*` placeholders supplied out of band. **Never** commit a real API key, password,
+Kubernetes runtime success is claimed. `stringData` values are plaintext placeholders, and the image
+fields use syntactically valid but non-pullable references on the reserved `.invalid` TLD
+(`example.invalid/acme/rag-api:replace-with-verified-digest`) whose `:replace-...` tag is mutable —
+not immutable and not verified — and must be swapped for a CI-verified `@sha256:...` digest out of band. **Never** commit a real API key, password,
 token, certificate, private endpoint, or a real/represented-as-verified image digest.
 
 Lesson: `docs/devops/day26-kubernetes-foundations.md`
@@ -37,36 +39,56 @@ Validation happens at two levels, and only the first can run inside this reposit
 
 ### Repository-level static validation (runs here)
 
-Checks that need no cluster, credentials, or images:
+`validate_manifest.py` performs these checks with no cluster, credentials, or images:
 
 - the file parses as four YAML documents with kinds ConfigMap, Secret, Deployment, Service;
 - the Deployment selector (`spec.selector.matchLabels`) equals the Pod template labels
   (`spec.template.metadata.labels`);
 - the Service selector equals the Pod template labels;
 - `spec.replicas == 3`;
-- no real credential, token, or verified image digest is committed (values are placeholders).
+- the Service `targetPort` matches a container's named port;
+- the `api` container references the ConfigMap (`envFrom.configMapRef`) and the Secret
+  (`env[].valueFrom.secretKeyRef`);
+- the `log-sidecar` does NOT reference the Secret.
 
-A local YAML parser plus explicit relationship assertions were used for exactly these checks. Example:
+It depends only on PyYAML. From this directory (`examples/kubernetes/`):
 
 ```bash
-python3 - <<'PY'
-import yaml
-docs = {d["kind"]: d for d in yaml.safe_load_all(open("ai-backend-baseline.yaml"))}
-dep, svc = docs["Deployment"], docs["Service"]
-tmpl = dep["spec"]["template"]["metadata"]["labels"]
-assert dep["spec"]["selector"]["matchLabels"] == tmpl
-assert svc["spec"]["selector"] == tmpl
-assert dep["spec"]["replicas"] == 3
-print("static checks: PASS")
-PY
+# One-time dependency (an isolated venv keeps your system Python clean):
+python3 -m venv .venv && . .venv/bin/activate && pip install pyyaml
+# Or a user-site install: python3 -m pip install --user pyyaml
+
+python3 validate_manifest.py
 ```
+
+Expected output (actually produced in this repository environment):
+
+```text
+[PASS] four documents ConfigMap/Secret/Deployment/Service
+[PASS] Deployment selector == Pod template labels
+[PASS] Service selector == Pod template labels
+[PASS] replicas == 3
+[PASS] Service targetPort matches a container named port
+[PASS] API container references ConfigMap
+[PASS] API container references Secret
+[PASS] logging sidecar does NOT reference the Secret
+
+Static YAML validation: PASS
+kubectl schema/admission validation: not completed (no Kubernetes API server)
+Kubernetes runtime validation: not performed
+```
+
+No real credential, token, or verified image digest is committed; the Secret and image references
+are placeholders (the images use the non-pullable `example.invalid` TLD with a mutable `:replace-...`
+tag).
 
 ### Runtime Kubernetes validation (NOT run here)
 
 A real `kubectl` client/schema or admission validation can only run after ALL of the following:
 
 - a reachable Kubernetes API server (or a local cluster such as kind/minikube);
-- verified image digests substituted for the `REPLACE_*` placeholders;
+- CI-verified immutable image digests (`registry/name@sha256:...`) substituted for the non-pullable
+  `example.invalid/...:replace-with-verified-digest` placeholders;
 - real Secret values injected out of band (never committed);
 - appropriate namespace, RBAC, and encryption-at-rest configuration for the Secret.
 

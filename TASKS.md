@@ -10,7 +10,7 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 1 — Python Foundations
+Phase 2 — Engineering Foundations
 
 ---
 
@@ -91,6 +91,18 @@ docs/devops/day26-kubernetes-foundations.md
 - [x] Complete Secret classification (Base64) exercise.
 - [x] Complete health-200-but-401 partial outage diagnosis exercise.
 - [x] Complete Secret-rotation rollback ordering exercise.
+
+---
+
+## Completed Day26 Review Fixes
+
+- [x] Fix `TASKS.md` Current Phase (Phase 2) and the Phase 2 Roadmap Day26 Planned-vs-Completed contradiction.
+- [x] Update `README.md` entry info (Phase 2, last completed Day26, next Day27).
+- [x] Update `AGENTS.md` Current Progress (Phase 2 / Day26 completed / Day27 next); keep rules and teaching style unchanged.
+- [x] Correct the Deployment/scheduler responsibility in the Day26 lesson (controller creates; kube-scheduler places).
+- [x] Replace invalid image strings with valid non-pullable OCI placeholders and sync the README/lesson.
+- [x] Add `examples/kubernetes/validate_manifest.py` and make the static validation reproducible with a dependency note.
+- [x] Record the Day26 review fixes in `CHANGELOG.md` (v0.1.45).
 
 ---
 
@@ -1705,7 +1717,7 @@ None.
 - [x] Day23 — Docker Fundamentals (Completed).
 - [x] Day24 — Docker Compose (Completed).
 - [x] Day25 — Deployment Foundations (Completed).
-- [ ] Day26 — Kubernetes Foundations (Planned).
+- [x] Day26 — Kubernetes Foundations (Completed).
 - [ ] Day27 — Kubernetes Workloads (Planned).
 - [ ] Day28 — AI Backend Production Architecture (Planned).
 

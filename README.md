@@ -16,11 +16,15 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 1 — Python Foundations
+* Phase 2 — Engineering Foundations
 
-Current lesson:
+Last completed lesson:
 
-* Day02 — Mutable vs Immutable
+* Day26 — Kubernetes Foundations
+
+Next lesson:
+
+* Day27 — Kubernetes Workloads
 
 ---
 
