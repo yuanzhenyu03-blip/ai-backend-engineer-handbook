@@ -102,19 +102,53 @@ Deliverables:
 
 ---
 
-# Phase 3 — Backend Foundations
+# Phase 3 — Backend Foundations (Day29-Day42)
 
-Topics:
+Objective:
+Turn the conceptual state ownership established in Day28 into an executable, failure-aware data layer:
+model durable business truth in PostgreSQL, express and verify it with SQL, preserve correctness under
+transactions and concurrency, evolve and operate the database safely, and use Redis only for transient
+caching, messaging, rate limiting, and coordination where its lifecycle/failure model fits.
 
-- PostgreSQL
-- SQL
-- Redis
-- Database Design
+Topics: PostgreSQL, SQL, Redis, Database Design.
+
+## PostgreSQL and SQL
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day29 | PostgreSQL Foundations and Durable Relational State | Planned |
+| Day30 | SQL Data Manipulation and Query Fundamentals | Planned |
+| Day31 | Relational Modeling and Data Integrity | Planned |
+| Day32 | SQL Joins, Aggregation, and Operational Queries | Planned |
+| Day33 | PostgreSQL Transactions and Atomic State Changes | Planned |
+| Day34 | Concurrency Control, MVCC, and Worker Claims | Planned |
+| Day35 | PostgreSQL Indexes and Query Planning | Planned |
+| Day36 | Schema Evolution and Safe Migrations | Planned |
+| Day37 | PostgreSQL Production Reliability | Planned |
+
+## Redis and Capstone
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day38 | Redis Foundations and Data Structures | Planned |
+| Day39 | Redis Cache Design and Consistency | Planned |
+| Day40 | Redis Messaging and Queue Semantics | Planned |
+| Day41 | Redis Coordination and Production Safety | Planned |
+| Day42 | Backend Data Design Capstone | Planned |
 
 Deliverables:
 
-- Database Project
-- SQL Exercises
+- A production-minded AI Backend Data Layer project built progressively across Day29-Day42.
+- Raw SQL schema migrations and data-integrity constraints.
+- SQL query and operational-query exercises.
+- Transactional Job + Outbox state changes and concurrency-safe worker-claim/idempotency examples.
+- Index/query-plan evidence and safe schema-evolution exercises.
+- PostgreSQL reliability and recovery runbooks.
+- Redis keyspace, cache, messaging, rate-limit, and coordination designs.
+- A final data ownership/failure/validation matrix connecting PostgreSQL, Redis, Object Storage,
+  Celery workers, and the Day28 architecture.
+
+SQLAlchemy and Alembic are Phase 4 topics; Phase 3 teaches raw PostgreSQL/SQL mental models first.
 
 ---
 

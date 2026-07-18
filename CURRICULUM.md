@@ -584,6 +584,287 @@ LESSON_TEMPLATE_v2
 
 ---
 
+## Phase 3 — Backend Foundations (Day29-Day42)
+
+Status:
+Planned / Ready (not started)
+
+Objective:
+Turn the conceptual state ownership established in Day28 into an executable, failure-aware data layer.
+Model durable business truth in PostgreSQL, express and verify it with SQL, preserve correctness under
+transactions and concurrency, evolve and operate the database safely, and use Redis only for transient
+caching, messaging, rate limiting, and coordination.
+
+Phase mental model:
+
+```text
+PostgreSQL = durable business truth and enforceable integrity
+SQL        = language for expressing, changing, joining, and verifying that truth
+Redis      = transient acceleration, messaging, and coordination
+DB Design  = ownership + relationships + constraints + access paths + failure behavior
+```
+
+Evolving artifact (created only by future live lessons, starting Day29): `projects/ai-backend-data-layer/`.
+SQLAlchemy and Alembic are Phase 4 topics; Phase 3 teaches raw PostgreSQL/SQL mental models first. Do
+not fully expand distant future lessons until they become the current lesson.
+
+---
+
+### Day29
+
+Topic:
+PostgreSQL Foundations and Durable Relational State
+
+Topics:
+Why a durable relational database exists in the Day28 architecture; PostgreSQL server/cluster/database/
+schema/table/row/column boundaries; relational state vs process memory / Redis / Object Storage / JSON-
+only storage; core types for the Job model (UUID, text, integer, boolean, `timestamptz`, bounded JSONB);
+primary key and stable business identity; `NULL` vs `NOT NULL`, defaults, DB-generated timestamps/IDs;
+`psql` connection/session model; a minimal `jobs` table for an accepted `202 + job_id`; conceptual vs
+SQL-syntax vs real PostgreSQL runtime validation.
+
+Status:
+Planned
+
+Previous Lesson:
+Day28 — AI Backend Production Architecture
+
+Next Lesson:
+Day30 — SQL Data Manipulation and Query Fundamentals
+
+Planned Engineering Artifact:
+Begin `projects/ai-backend-data-layer/` (only after the live lesson) with the first minimal raw SQL Job
+schema and a README stating ownership/validation boundaries; execute in a disposable PostgreSQL only if
+actually available, otherwise report static/conceptual validation only.
+
+Core mental model:
+
+```text
+Application object/state is temporary.
+Database row is durable business fact.
+Table schema is an enforceable contract for those facts.
+```
+
+---
+
+### Day30
+
+Topic:
+SQL Data Manipulation and Query Fundamentals
+
+Topics:
+`SELECT/FROM/WHERE/ORDER BY/LIMIT`; `INSERT/UPDATE/DELETE` and `RETURNING`; `NULL`/`IS NULL`/three-valued
+logic; explicit column lists and deterministic ordering; parameterized SQL vs injection; rows-affected
+and lost-update awareness; Job CRUD and guarded status-transition queries.
+
+Status:
+Planned
+
+---
+
+### Day31
+
+Topic:
+Relational Modeling and Data Integrity
+
+Topics:
+Entities/attributes/relationships/ownership; one-to-one/one-to-many/many-to-many; primary key vs
+business key; `NOT NULL`/`UNIQUE`/`CHECK`/foreign-key constraints; referential actions
+(`RESTRICT`/`CASCADE`/`SET NULL`); normalization vs measured denormalization; model Upload Sessions,
+Documents, Jobs, Job Attempts, Job Events, Outbox Events, and Result Artifact references (no large
+Object Storage bytes in PostgreSQL); tenant/owner and provenance boundaries.
+
+Status:
+Planned
+
+---
+
+### Day32
+
+Topic:
+SQL Joins, Aggregation, and Operational Queries
+
+Topics:
+`INNER` vs `LEFT JOIN` and missing-row meaning; join cardinality and row multiplication; `COUNT/SUM/MIN/
+MAX/AVG/GROUP BY/HAVING`; conditional aggregation; CTEs as readable decomposition; operational queries
+(Job detail, attempts/events, stuck Jobs by stage, oldest queued age, throughput, retry/terminal counts,
+affected-release provenance); correctness before optimization.
+
+Status:
+Planned
+
+---
+
+### Day33
+
+Topic:
+PostgreSQL Transactions and Atomic State Changes
+
+Topics:
+Transaction boundary (`BEGIN/COMMIT/ROLLBACK`); ACID from production failures; atomic Job + Outbox
+insert; atomic multi-table transition + append-only event; DB transaction vs external provider/Object
+Storage/Redis side effect; constraint failure and rollback; transaction size/duration (never hold one
+open during an eight-minute model call); Outbox remains at-least-once after relay publish.
+
+Status:
+Planned
+
+---
+
+### Day34
+
+Topic:
+Concurrency Control, MVCC, and Worker Claims
+
+Topics:
+Concurrent sessions and races; MVCC and snapshot visibility; isolation levels and dirty/non-repeatable/
+phantom/lost-update boundaries; `SELECT ... FOR UPDATE`; `SKIP LOCKED` worker claiming and fairness/
+starvation; optimistic vs pessimistic concurrency; DB lock vs application lease with expiry; deadlocks,
+lock ordering, timeout, retry, observability; idempotency unique constraints still required.
+
+Status:
+Planned
+
+---
+
+### Day35
+
+Topic:
+PostgreSQL Indexes and Query Planning
+
+Topics:
+Heap access and indexes as additional access structures; B-tree fundamentals; unique/composite/partial
+indexes; composite-column order by predicate/order; index support for queued claims, stale leases,
+idempotency keys, owner/history queries, unsent Outbox events; `EXPLAIN` vs `EXPLAIN ANALYZE`; sequential
+scan is not automatically wrong; index costs (writes/storage/vacuum/cache); measure with representative
+data when runtime is available.
+
+Status:
+Planned
+
+---
+
+### Day36
+
+Topic:
+Schema Evolution and Safe Migrations
+
+Topics:
+Migration as versioned state transition; forward/backward application compatibility; expand -> backfill
+-> validate -> switch -> contract; DDL/table-lock/rewrite risks; safe nullable columns/defaults/
+constraints; `NOT VALID`/validation and `CREATE INDEX CONCURRENTLY` boundaries; backfill batching/
+progress/restartability/observability; rollback vs forward fix when data changed. SQLAlchemy/Alembic
+deferred to Phase 4.
+
+Status:
+Planned
+
+---
+
+### Day37
+
+Topic:
+PostgreSQL Production Reliability
+
+Topics:
+Connection/session cost and pooling; pool sizing vs capacity; statement/lock/idle-transaction/application
+timeouts; long transactions and vacuum/autovacuum mental model; roles/least privilege/credentials;
+health/readiness vs successful business queries; backup vs replication (replication is not backup); base
+backup/WAL/PITR and restore testing; core monitoring (connections, slow queries, locks/deadlocks,
+transaction age, disk/WAL, replication lag, backup/restore evidence); managed vs self-operated.
+
+Status:
+Planned
+
+---
+
+### Day38
+
+Topic:
+Redis Foundations and Data Structures
+
+Topics:
+Redis server/database/key/value model and single-command atomicity; strings/hashes/lists/sets/sorted
+sets by access pattern; key naming/versioning/tenant namespace; TTL/expiration; memory limits and
+eviction as correctness concerns; RDB/AOF overview (Redis is not the Job source of truth); appropriate
+Day28 uses (ephemeral progress, cache, broker transport, rate-limit counters) vs inappropriate ones
+(authoritative Job lifecycle, large documents).
+
+Status:
+Planned
+
+---
+
+### Day39
+
+Topic:
+Redis Cache Design and Consistency
+
+Topics:
+Cache-aside read/write; cache key/version and serialization; TTL selection and jitter; invalidation on
+durable-state change; stampede/single-flight/stale-while-revalidate; negative caching risk; cache
+penetration and hot keys; stale cache vs PostgreSQL source of truth; hit ratio/latency/evictions/memory/
+correctness metrics; fail-open vs fail-closed by sensitivity.
+
+Status:
+Planned
+
+---
+
+### Day40
+
+Topic:
+Redis Messaging and Queue Semantics
+
+Topics:
+Lists/Pub-Sub/Streams as different models; Pub/Sub has no durable backlog/replay; Streams consumer
+groups, pending entries, ack, claim/redelivery, trimming; ordering scope and consumer concurrency;
+at-most-once vs at-least-once (idempotent consumers still required); queue transport vs durable Job
+truth; Celery broker boundary (do not hand-build a Celery replacement); poison messages, retry/dead-
+letter/quarantine at a conceptual boundary.
+
+Status:
+Planned
+
+---
+
+### Day41
+
+Topic:
+Redis Coordination and Production Safety
+
+Topics:
+Atomic command vs multi-command race; transactions and Lua only where atomic composition is required;
+fixed/sliding-window/token-bucket rate limits; lock vs lease, ownership token, expiry, safe release,
+fencing-token boundary; why a Redis lock alone cannot protect an external system from a paused/expired
+owner; idempotency and PostgreSQL constraints as the final durable-write protection; eviction/RDB/AOF/
+replication/failover data-loss windows; Redis security/isolation/auth/TLS/dangerous commands/monitoring/
+capacity; managed vs self-operated.
+
+Status:
+Planned
+
+---
+
+### Day42
+
+Topic:
+Backend Data Design Capstone
+
+Topics:
+Integrate PostgreSQL schema/constraints/queries/transactions/concurrency/indexes/migrations/operations
+with Redis cache/messaging/rate-limit/lease boundaries (durable truth stays in PostgreSQL); final data
+ownership/lifecycle map (Upload Session, Document, Job, Attempt, Event, Outbox, Result Artifact, cache
+entries, messages, large Object Storage bytes); failure matrix and recovery priority/degraded modes/
+reconciliation/data repair/verification; performance from measured plans; security/tenant/retention/
+audit; phase-level Beginner/Intermediate/Senior English system-design interview; explicit validation
+results and limitations.
+
+Status:
+Planned
+
+---
+
 ## Why This Curriculum
 
 Phase 2 follows the Software Delivery Lifecycle, not a list of tools:

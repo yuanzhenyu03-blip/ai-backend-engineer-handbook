@@ -16,7 +16,7 @@ Prerequisite: Day27 — Kubernetes Workloads
 
 Previous Lesson: [Day27 — Kubernetes Workloads](day27-kubernetes-workloads.md)
 
-Next Lesson: Phase 3 — Backend Foundations (PostgreSQL, SQL, Redis, Database Design; see [ROADMAP.md](../../ROADMAP.md) — no specific day number is assigned yet)
+Next Lesson: Day29 — PostgreSQL Foundations and Durable Relational State (Phase 3 — Backend Foundations; planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day29 lesson file does not exist yet)
 
 Engineering Artifact: A conceptual Production AI Backend Architecture Blueprint (`examples/ai-backend-architecture/`) — responsibility map, request/upload/job flows, state machines, a state/data ownership table, the outbox/idempotency boundaries, a failure/rollback/data-repair matrix, monitoring/observability signals, and an explicit validation-limitations section — see [examples/ai-backend-architecture/README.md](../../examples/ai-backend-architecture/README.md).
 

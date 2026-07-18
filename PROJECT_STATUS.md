@@ -2,10 +2,10 @@
 
 ## Current Phase
 
-Phase 2 — Engineering Foundations (Complete)
+Phase 3 — Backend Foundations (Planned / Ready — not started)
 
 Previous Phase:
-Phase 1 — Python Foundations (Complete)
+Phase 2 — Engineering Foundations (Complete)
 
 ---
 
@@ -91,10 +91,10 @@ Completed Work:
 
 ## Next
 
-- Phase 3 — Backend Foundations (PostgreSQL, SQL, Redis, Database Design)
+- Day29 — PostgreSQL Foundations and Durable Relational State (Phase 3 — Backend Foundations)
 
 Status:
-Not started (no specific day number assigned yet; see ROADMAP.md)
+Planned / Not started
 
 ---
 

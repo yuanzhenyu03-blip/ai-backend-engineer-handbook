@@ -91,12 +91,33 @@ docs/devops/day28-ai-backend-production-architecture.md
 
 ---
 
-### Phase 3 Preparation — Backend Foundations
+### Day29 Preparation — PostgreSQL Foundations and Durable Relational State
 
-- [ ] Read the first Phase 3 input when provided (no day number assigned yet; see ROADMAP.md).
-- [ ] Preview PostgreSQL, SQL, Redis, and Database Design as the Phase 3 scope.
-- [ ] Connect Day28 Job/Upload-Session/outbox/event/provenance models to Phase 3 database design.
-- [ ] Do not create the reserved future `knowledge/` structure.
+- [ ] Read the Day29 input when provided (Phase 3 — Backend Foundations; Day29 is the next lesson).
+- [ ] Re-read the Day28 lesson and the `examples/ai-backend-architecture/` blueprint (durable Job ownership).
+- [ ] Inspect the planned Day29 scope: durable relational state, core PostgreSQL types, primary key/identity, a minimal `jobs` table for `202 + job_id`.
+- [ ] Prepare a disposable local PostgreSQL validation environment only when the Day29 lesson begins; keep validation honest (conceptual/SQL-syntax/runtime are different levels).
+- [ ] Preview PostgreSQL, SQL, Redis, and Database Design as the Phase 3 scope; SQLAlchemy/Alembic are Phase 4.
+- [ ] Do not create `projects/ai-backend-data-layer/`, a Day29 lesson file, or the reserved `knowledge/` structure during planning.
+
+---
+
+### Phase 3 Roadmap (Day29-Day42) — Backend Foundations
+
+- [ ] Day29 — PostgreSQL Foundations and Durable Relational State (Planned).
+- [ ] Day30 — SQL Data Manipulation and Query Fundamentals (Planned).
+- [ ] Day31 — Relational Modeling and Data Integrity (Planned).
+- [ ] Day32 — SQL Joins, Aggregation, and Operational Queries (Planned).
+- [ ] Day33 — PostgreSQL Transactions and Atomic State Changes (Planned).
+- [ ] Day34 — Concurrency Control, MVCC, and Worker Claims (Planned).
+- [ ] Day35 — PostgreSQL Indexes and Query Planning (Planned).
+- [ ] Day36 — Schema Evolution and Safe Migrations (Planned).
+- [ ] Day37 — PostgreSQL Production Reliability (Planned).
+- [ ] Day38 — Redis Foundations and Data Structures (Planned).
+- [ ] Day39 — Redis Cache Design and Consistency (Planned).
+- [ ] Day40 — Redis Messaging and Queue Semantics (Planned).
+- [ ] Day41 — Redis Coordination and Production Safety (Planned).
+- [ ] Day42 — Backend Data Design Capstone (Planned).
 
 ---
 

@@ -9,6 +9,28 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.52 — Phase 3 Backend Foundations Curriculum Planning
+
+Date: 2026-07-18
+
+### Changed
+
+- Planned Phase 3 — Backend Foundations as a Day29-Day42 curriculum (planning only; Day28 remains the last completed lesson and no Phase 3 lesson has started).
+- Updated `ROADMAP.md`: Phase 3 heading is now `Phase 3 — Backend Foundations (Day29-Day42)` with an objective, a Day29-Day42 `Planned` table, and refined deliverables. Phase 4 receives no day numbers.
+- Updated `CURRICULUM.md`: added a Phase 3 section with the exact Day29 scope, previous/next continuity, and a planned Engineering Artifact, plus concise `Planned` Day30-Day42 entries (title + narrow topic list + status). No lesson bodies, classroom exchanges, or student answers were invented.
+- Updated `PROJECT_STATUS.md`: Current Phase is Phase 3 (Planned / Ready — not started); Next Lesson is Day29 — PostgreSQL Foundations and Durable Relational State (Planned / Not started); Day28 stays the last completed lesson.
+- Updated `TASKS.md`: replaced the generic Phase 3 preparation block with Day29 preparation tasks and added a Phase 3 Day29-Day42 roadmap with every item unchecked/Planned. Completed Day28 history is unchanged.
+- Updated `README.md` and `AGENTS.md`: Next is Day29 with its exact title; Phase 3 is planned/ready but not started; Day28 stays last completed. Engineering and teaching rules are unchanged.
+- Updated `docs/devops/day28-ai-backend-production-architecture.md`: the metadata Next Lesson now names Day29's exact planned title, linked to `CURRICULUM.md`/`ROADMAP.md` (the Day29 lesson file does not exist yet, so no broken link is created). The completed Day28 body is unchanged.
+
+### Notes
+
+- Planning only: no Phase 3 lesson document, classroom event, student answer, cheat-sheet/interview content, SQL schema, Redis design, `projects/ai-backend-data-layer/` artifact, or runtime validation was created or completed. SQLAlchemy/Alembic remain Phase 4; Phase 4 day numbers and a Day43 title were not invented.
+- Validation actually performed: `git diff --check`, Markdown structure/relative-link inspection of the modified files, and a status-consistency search. No PostgreSQL/SQL/Redis/Docker/migration/transaction/concurrency/backup-restore/integration validation was performed or claimed.
+- Did not create `docs/.../day29-*.md`, `projects/ai-backend-data-layer/`, or `knowledge/`; did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`, `interview/postgresql.md`, `interview/redis.md`, cheat sheets, examples, or projects. Historical CHANGELOG entries are unchanged.
+
+---
+
 ## v0.1.51 — Day28 Review Fixes
 
 Date: 2026-07-18

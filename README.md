@@ -24,7 +24,9 @@ Last completed lesson:
 
 Next:
 
-* Phase 3 — Backend Foundations (PostgreSQL, SQL, Redis, Database Design) — see `ROADMAP.md`
+* Day29 — PostgreSQL Foundations and Durable Relational State
+
+Phase 3 — Backend Foundations (Day29-Day42) is planned/ready but not started; see `ROADMAP.md`.
 
 ---
 
