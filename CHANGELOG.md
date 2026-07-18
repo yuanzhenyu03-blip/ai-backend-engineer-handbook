@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.53 — Phase 3 Status Consistency Fix
+
+Date: 2026-07-19
+
+### Changed
+
+- Unified the active status fields across `README.md`, `AGENTS.md`, `PROJECT_STATUS.md`, and `TASKS.md` so a new teaching session unambiguously knows the next lesson is Day29 (planned, not started) rather than re-reading the completed Day28.
+- Current Phase is now `Phase 3 — Backend Foundations (Planned / Ready — not started)` in `README.md`, `AGENTS.md`, `PROJECT_STATUS.md`, and `TASKS.md` (previously Phase 2 in three of them).
+- Current Lesson is now `Day29 — PostgreSQL Foundations and Durable Relational State` with `Status: Planned / Not started` in `PROJECT_STATUS.md` and `TASKS.md`; the Day28-only Current Lesson fields (Template/Completed Time) were removed because they already live under Last Completed Lesson.
+- `TASKS.md` Target lesson no longer points at a Day28 file for the current lesson; it states the Day29 file is not created yet (see CURRICULUM.md and ROADMAP.md), and Today's Tasks now reflect the planned/not-started Day29 state.
+- Last Completed Lesson remains `Day28 — AI Backend Production Architecture`; no adjacent duplicate Phase 3 status line remains in `README.md`/`AGENTS.md`.
+
+### Notes
+
+- Status-only fix: Phase 3 and Day29 are neither In Progress nor Completed. No Day29 lesson was started; no Day29 lesson file, SQL/Redis design, `projects/ai-backend-data-layer/`, or `knowledge/` was created; no runtime validation was performed or claimed. Day29-Day42 remain Planned.
+- Verified with `git diff --check` and a status-consistency search. Did not re-design the Phase 3 curriculum or change `CURRICULUM.md`, `ROADMAP.md`, `docs/devops/day28-ai-backend-production-architecture.md`, the protected prompt/template files, `interview/*`, `cheat_sheets/*`, `examples/*`, or `projects/*`. Historical CHANGELOG entries are unchanged.
+
+---
+
 ## v0.1.52 — Phase 3 Backend Foundations Curriculum Planning
 
 Date: 2026-07-18

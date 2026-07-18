@@ -11,16 +11,12 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day28 — AI Backend Production Architecture
+Day29 — PostgreSQL Foundations and Durable Relational State
 
 Status:
-Completed
+Planned / Not started
 
-Template:
-LESSON_TEMPLATE_v2
-
-Completed Time:
-2026-07-18
+(The Day29 lesson has not started and no Day29 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.)
 
 ---
 

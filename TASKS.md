@@ -10,31 +10,29 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 2 — Engineering Foundations
+Phase 3 — Backend Foundations (Planned / Ready — not started)
 
 ---
 
 ## Current Lesson
 
-Day28 — AI Backend Production Architecture
+Day29 — PostgreSQL Foundations and Durable Relational State
 
 Status:
-Completed
+Planned / Not started
 
 Target lesson:
-
-```text
-docs/devops/day28-ai-backend-production-architecture.md
-```
+Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day28 AI Backend Production Architecture classroom learning.
-- [x] Author the conceptual Production AI Backend Architecture Blueprint (responsibilities, state machines, ownership, outbox/idempotency, failure/data-repair, monitoring/observability).
-- [x] Distinguish request-vs-job lifecycle, PostgreSQL-truth-vs-Redis-transport, at-least-once-vs-exactly-once, and compute-rollback-vs-data-repair.
-- [x] Close Phase 2 (Day15-Day28); next is Phase 3 — Backend Foundations (see ROADMAP.md).
+- [ ] Await the Day29 input to begin Day29 — PostgreSQL Foundations and Durable Relational State (Planned / Not started).
+- [ ] Complete the Day29 Preparation checklist below before the lesson begins.
+- [ ] Do not create a Day29 lesson file, `projects/ai-backend-data-layer/`, or `knowledge/` until the live Day29 lesson runs.
+
+(Phase 2 (Day15-Day28) is complete; Day28 remains the last completed lesson. Completed Day28 tasks are recorded under "Completed Day28 Tasks" below.)
 
 ---
 
