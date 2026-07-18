@@ -16,15 +16,15 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 2 — Engineering Foundations
+* Phase 2 — Engineering Foundations (Complete)
 
 Last completed lesson:
 
-* Day27 — Kubernetes Workloads
-
-Next lesson:
-
 * Day28 — AI Backend Production Architecture
+
+Next:
+
+* Phase 3 — Backend Foundations (PostgreSQL, SQL, Redis, Database Design) — see `ROADMAP.md`
 
 ---
 

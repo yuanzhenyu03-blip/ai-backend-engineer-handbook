@@ -455,7 +455,31 @@ StatefulSet: stable identity (`postgres-0/1/2`) + `volumeClaimTemplates` per-Pod
 
 Helm: every object is a template; hosts/images/replicas/resources/HPA targets/storage/Secret refs are Values (not only ConfigMap/Secret). Validation ladder: `helm lint` (structure/syntax) -> `helm template` (render) -> API server-side dry run (schema/policy) -> runtime (scheduling/metrics/storage/readiness/business). Never commit real secrets to Values (release history/rendered manifests leak). `helm rollback N --wait --timeout`; `helm upgrade --install --atomic --wait --timeout` attempts rollback on readiness failure — NOT automatic for every upgrade, and business failure still needs observability.
 
-Day28 (future, not built here): FastAPI + Celery + Redis + PostgreSQL + object storage + queue + monitoring + observability.
+## Day28 AI Backend Production Architecture
+
+Responsibility: `FastAPI accepts/exposes. Celery executes. Queue/Redis transports. PostgreSQL owns durable truth. Object Storage owns large bytes. Monitoring detects. Observability explains.`
+
+Lifecycle: `HTTP request lifecycle != long-running job lifecycle`. Long work (e.g. 8-min embed) -> return `202 + job_id` fast, process in a Celery worker. A long `async def` in FastAPI is NOT a durable job system.
+
+State ownership: after `202`, every job state (queued/running/retry_wait/succeeded/failed_terminal/invalidated/reprocessing) is a durable commitment in **PostgreSQL** (+ metadata, checksum/version, attempt, stage, error, result ref, provenance). Redis = broker/cache (transient). Memory = request-local. Don't write a row per chunk just for a % — coarse durable checkpoints + optional cache.
+
+DB->Queue: you can't atomically write DB + broker. Naive "insert then publish" leaves `QUEUED` with no message on crash. Fix = **Transactional Outbox** (insert Job + Outbox event in one tx; relay publishes, marks sent). Still `at-least-once` (relay can publish twice) -> **idempotent processing**.
+
+Checkpoints/idempotency: durable stages `UPLOADED->PARSED->CHUNKED->EMBEDDING->INDEXED->SUCCEEDED`; atomic claim/**lease** (expiry -> recovery); idempotency key `(document_id, chunk_hash, model_version)` enforced by a DB **unique constraint + upsert**; **ACK only after result + checkpoint are durable**. Progress % = UX, not a safe checkpoint; read+upsert can race (enforce uniqueness). External call that succeeds before local write can repeat on redelivery -> use provider idempotency keys + reconciliation; never claim exactly-once across systems.
+
+Object Storage: 500 MB originals + large derived artifacts -> Object Storage (Pod disk = wrong lifetime/unshared; Redis = memory cost; PG blobs bloat I/O/backups). PG keeps metadata/pointers (key/version/checksum). Object key != authorization; scoped short-lived signed access; never log signed URLs/keys.
+
+Upload: FastAPI = control plane -> issue short-lived presigned **multipart** URL; client uploads direct to Object Storage. Client "complete" is UNTRUSTED -> verify existence/size/checksum/ownership/scan, then create Job+Outbox in one tx bound to an immutable version (avoid TOCTOU). Separate `Upload Session: INITIATED->UPLOADING->VERIFIED|FAILED|EXPIRED` from the Job.
+
+Retry: exponential backoff + **jitter** + **max attempts/deadline** (max delay alone = infinite) + classification (429 honor Retry-After | 503/timeout retry | 400/parse terminal | 401/403/config stop+alert) + global rate limiter/circuit breaker. Persist attempt_count/next_retry_at/last_error/retry_deadline/provider_request_id.
+
+Monitoring: queue depth = inventory; **oldest queued-job age** ~ SLO (user wait); combine with throughput (depth+age up + throughput ~0 = stall; + throughput normal = under capacity; depth high + age low = burst).
+
+Observability: correlate on **stable `job_id`** (job_status changes -> not an id). Scopes: trace_id (path), attempt_id/count (app-owned), broker task_id (delivery, may change), provider_request_id (provider evidence). Low-cardinality metric labels (job_id in logs/traces, not labels). `jobs.current_status` + append-only `job_events`.
+
+Failure/repair: `Compute rollback stops future damage; data repair corrects damage already persisted.` Runbook: A contain bad workers -> B restore known-good release -> C identify/quarantine by provenance -> D idempotent rebuild from immutable originals into a versioned index -> E verify (counts, model/version, RAG quality, cost) + switch alias. Immutable originals = source; embeddings/indexes = derived/rebuildable.
+
+Phase 2 complete (Day15-Day28). Phase 3 (Backend Foundations: PostgreSQL, SQL, Redis, Database Design) deepens these boundaries.
 
 ---
 
@@ -527,3 +551,14 @@ Day28 (future, not built here): FastAPI + Celery + Redis + PostgreSQL + object s
 - "Three PVCs are three independent disks, not three copies of the data."
 - "Helm separates templates from Values; helm lint/template prove structure/rendering, not production."
 - "Never put real secrets in Helm Values — release history and rendered manifests can leak them."
+
+- "The HTTP request lifecycle is not the job lifecycle: return 202 + job_id and process in a worker."
+- "PostgreSQL owns the job; Redis delivers or accelerates; Object Storage owns large bytes."
+- "You cannot atomically write a DB and a broker; use a Transactional Outbox and idempotent consumers."
+- "Assume at-least-once delivery; never claim exactly-once across independent systems."
+- "Idempotency = a stable key with a DB unique constraint and upsert, ACKing only after a durable write."
+- "An object key is not authorization; use scoped short-lived presigned access and verify checksums."
+- "Bound retries with jitter, max attempts/deadline, classification, and a circuit breaker."
+- "Oldest queued-job age is closer to the SLO than depth; interpret it with throughput."
+- "Correlate on stable job_id, not job_status; keep metric labels low-cardinality."
+- "Compute rollback stops future damage; data repair fixes what is already persisted."

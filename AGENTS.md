@@ -37,15 +37,15 @@ When generating code:
 
 Current Phase:
 
-Phase 2 — Engineering Foundations
+Phase 2 — Engineering Foundations (Complete)
 
 Last Completed Lesson:
 
-Day27 — Kubernetes Workloads
-
-Next Lesson:
-
 Day28 — AI Backend Production Architecture
+
+Next:
+
+Phase 3 — Backend Foundations (PostgreSQL, SQL, Redis, Database Design) — see ROADMAP.md
 
 Do not skip ahead unless explicitly instructed.
 

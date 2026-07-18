@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.50 — Day28 AI Backend Production Architecture Documentation
+
+Date: 2026-07-18
+
+### Added
+
+- Added `docs/devops/day28-ai-backend-production-architecture.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day27->Day28 mental-model evolution). This is the Phase 2 closing lesson.
+- Added `examples/ai-backend-architecture/README.md`: a conceptual Production AI Backend Architecture Blueprint (responsibility map, request/upload/job flows, state machines, state/data ownership table, delivery/outbox/idempotency boundaries, retry policy, failure/rollback/data-repair matrix, monitoring/observability signals, security boundaries, and validation limitations with a future runtime validation plan).
+- Added Day28 review material to `cheat_sheets/devops.md` (replacing the Day28 placeholder).
+- Added Day28 interview questions to `interview/devops.md`.
+
+### Changed
+
+- Updated `examples/README.md` to index the Day28 blueprint and `docs/README.md` to correct the stale directory tree.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day28 completed (no invented Day29/Day30 titles).
+- Updated `PROJECT_STATUS.md` to mark Day28 completed, close Phase 2 (Day15-Day28), record the conceptual artifact and validation boundary, and set Next to Phase 3 — Backend Foundations.
+- Updated `TASKS.md` with completed Day28 tasks, the Phase 2 Roadmap Day28 status, and Phase 3 preparation.
+- Updated `README.md` and `AGENTS.md` progress markers (Phase 2 complete; next Phase 3, no invented lesson number).
+- Updated `CHANGELOG.md` with the Day28 repository update.
+
+### Notes
+
+- Day28 assembles FastAPI, Celery, Redis, PostgreSQL, Object Storage, Queue, Monitoring, and Observability into one production AI Backend by defining component responsibilities and lifecycle boundaries: HTTP request lifecycle != long-running job lifecycle (return 202 + job_id, process in a Celery worker); PostgreSQL owns the durable Job truth while Redis delivers/accelerates and Object Storage owns the large bytes; the Transactional Outbox makes business state + intent-to-publish atomic but is still at-least-once, so processing must be idempotent (stable key + unique constraint/upsert, ACK after durable write, leases for exclusive ownership); presigned direct multipart upload with a verified Upload Session; bounded classified retries with backoff/jitter/circuit breaker; monitoring by queue depth vs oldest-age vs throughput; observability correlated on a stable job_id with low-cardinality metrics and append-only events; and a contain -> restore -> identify -> rebuild -> verify data-repair runbook, because compute rollback does not repair persisted data.
+- Preserved the actual classroom record, including the student's Chinese and English answers and the reasonable errors and corrections (PostgreSQL as final-state-only; DB-first alone solving DB/queue consistency; progress preventing duplicate work; job_status as a correlation id; read-then-upsert treated as exactly-once; code rollback treated as complete). The senior English answer was taught directly after the student said "我忘了", and the internally inconsistent final-summary sentence was corrected.
+- Scope/security honesty: the Day28 artifact is conceptual architecture documentation. No FastAPI/Celery/Redis/PostgreSQL/Object Storage/vector/Kubernetes/metrics/log/trace system was created or run; no static code/config/schema validation, queue redelivery, provider failure, load, smoke, rollback, or data-repair test was executed. No real secret, credential, presigned URL, or customer document is committed; at-least-once (not exactly-once) is taught, object keys are not authorization, and metric labels stay low-cardinality.
+- Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`; did not create the reserved `knowledge/` structure; did not invent Phase 3 day numbers; and did not rewrite Day01-Day27 lesson bodies.
+
+---
+
 ## v0.1.49 — Day27 HPA Metric Fix
 
 Date: 2026-07-17

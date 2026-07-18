@@ -16,7 +16,7 @@ Phase 2 — Engineering Foundations
 
 ## Current Lesson
 
-Day27 — Kubernetes Workloads
+Day28 — AI Backend Production Architecture
 
 Status:
 Completed
@@ -24,17 +24,79 @@ Completed
 Target lesson:
 
 ```text
-docs/devops/day27-kubernetes-workloads.md
+docs/devops/day28-ai-backend-production-architecture.md
 ```
 
 ---
 
 ## Today's Tasks
 
-- [x] Complete Day27 Kubernetes Workloads classroom learning.
-- [x] Author the rag-platform Helm chart (Ingress + HPA + Rolling Update Deployment + StatefulSet/headless Service) and the static-vs-runtime validation README.
-- [x] Distinguish Ingress-vs-Service, HPA-vs-controller, Rolling Update-vs-rollback-vs-Blue-Green, StatefulSet-vs-replication, and Helm static-vs-runtime validation.
-- [ ] Prepare for Day28 — AI Backend Production Architecture.
+- [x] Complete Day28 AI Backend Production Architecture classroom learning.
+- [x] Author the conceptual Production AI Backend Architecture Blueprint (responsibilities, state machines, ownership, outbox/idempotency, failure/data-repair, monitoring/observability).
+- [x] Distinguish request-vs-job lifecycle, PostgreSQL-truth-vs-Redis-transport, at-least-once-vs-exactly-once, and compute-rollback-vs-data-repair.
+- [x] Close Phase 2 (Day15-Day28); next is Phase 3 — Backend Foundations (see ROADMAP.md).
+
+---
+
+## Completed Day28 Tasks
+
+- [x] Complete Day28 AI Backend Production Architecture classroom learning.
+- [x] Generate Day28 handbook lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day27->Day28 mental-model evolution).
+- [x] Separate the FastAPI request lifecycle from the long-running Celery job lifecycle (202 + job_id).
+- [x] Assign job state/bytes to PostgreSQL (truth), Redis (deliver/cache), Object Storage (bytes), memory (transient).
+- [x] Derive the Transactional Outbox and at-least-once + idempotent processing.
+- [x] Design durable checkpoints, atomic lease, idempotency key (unique constraint/upsert), ACK after durable write.
+- [x] Design presigned direct multipart upload with an Upload Session and server-side verification.
+- [x] Design a bounded, classified retry policy with backoff, jitter, and a circuit breaker.
+- [x] Choose monitoring signals (depth/oldest-age/throughput) and stable observability correlation (job_id).
+- [x] Order the failure-containment/rollback/data-repair runbook (compute rollback != data repair).
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+- [x] Add the conceptual Production AI Backend Architecture Blueprint artifact.
+
+---
+
+## Completed Day28 Repository Tasks
+
+- [x] Add `docs/devops/day28-ai-backend-production-architecture.md`.
+- [x] Add `examples/ai-backend-architecture/README.md` (blueprint).
+- [x] Update `examples/README.md` and `docs/README.md`.
+- [x] Update `cheat_sheets/devops.md` (replace the Day28 placeholder).
+- [x] Update `interview/devops.md`.
+- [x] Update `PROJECT_STATUS.md` (Day28 completed; Phase 2 closed; next Phase 3).
+- [x] Update `TASKS.md`.
+- [x] Update `CHANGELOG.md`.
+- [x] Update `CURRICULUM.md` (Day28 Completed).
+- [x] Update `ROADMAP.md` (Day28 Completed; no invented Day29/Day30).
+- [x] Update `README.md` and `AGENTS.md` progress markers (Phase 3 next, no invented lesson).
+
+---
+
+## Completed Day28 Interview Tasks
+
+- [x] Add beginner request-vs-worker question (with the student's actual weak answer + corrections).
+- [x] Add intermediate state-ownership and DB->queue-consistency questions.
+- [x] Add senior at-least-once/idempotency question (student said "我忘了"; senior answer taught directly).
+- [x] Add Chinese explanations, English answers, and weak-vs-strong answers.
+
+---
+
+## Completed Day28 Homework
+
+- [x] Complete request-vs-worker and state-ownership exercises.
+- [x] Complete DB-first-vs-queue-first + Outbox and checkpoint/lease/idempotency exercises.
+- [x] Complete storage-choice and presigned-upload/verification exercises.
+- [x] Complete Upload-Session-vs-Job and retry-policy exercises.
+- [x] Complete queue-signals and correlation-identity exercises.
+- [x] Complete failure/rollback/data-repair runbook exercise.
+
+---
+
+### Phase 3 Preparation — Backend Foundations
+
+- [ ] Read the first Phase 3 input when provided (no day number assigned yet; see ROADMAP.md).
+- [ ] Preview PostgreSQL, SQL, Redis, and Database Design as the Phase 3 scope.
+- [ ] Connect Day28 Job/Upload-Session/outbox/event/provenance models to Phase 3 database design.
+- [ ] Do not create the reserved future `knowledge/` structure.
 
 ---
 
@@ -1783,7 +1845,7 @@ None.
 - [x] Day25 — Deployment Foundations (Completed).
 - [x] Day26 — Kubernetes Foundations (Completed).
 - [x] Day27 — Kubernetes Workloads (Completed).
-- [ ] Day28 — AI Backend Production Architecture (Planned).
+- [x] Day28 — AI Backend Production Architecture (Completed).
 
 ### Future Knowledge Base TODO
 
@@ -1852,3 +1914,5 @@ Purpose:
 - [x] Complete Day25 — Deployment Foundations.
 - [x] Complete Day26 — Kubernetes Foundations.
 - [x] Complete Day27 — Kubernetes Workloads.
+- [x] Complete Day28 — AI Backend Production Architecture.
+- [x] Complete Phase 2 — Engineering Foundations (Day15-Day28).

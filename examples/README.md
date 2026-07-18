@@ -33,3 +33,7 @@ repository; copy them into a real project and adjust paths, versions, and comman
   workload with Ingress, an `autoscaling/v2` HPA, a Rolling Update Deployment, and a PostgreSQL
   StatefulSet + headless Service, with per-environment Values and a static-only `validate_chart.py`
   (see `docs/devops/day27-kubernetes-workloads.md`).
+- `ai-backend-architecture/` — Day28 conceptual Production AI Backend Architecture Blueprint (RAG
+  ingestion): responsibility map, request/upload/job flows, state machines, a state/data ownership
+  table, outbox/idempotency boundaries, a failure/rollback/data-repair matrix, monitoring/observability
+  signals, and validation limitations (see `docs/devops/day28-ai-backend-production-architecture.md`).

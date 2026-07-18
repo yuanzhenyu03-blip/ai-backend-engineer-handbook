@@ -1347,3 +1347,142 @@ Weak:   "helm template passed, so the release is safe."
 Strong: "helm lint/template prove structure and rendering; API dry-run proves schema; only runtime
         plus business smoke tests prove user-visible correctness."
 ```
+
+---
+
+# Day28 AI Backend Production Architecture Questions
+
+These come from the Day28 lesson: FastAPI/Celery/Redis/PostgreSQL/Object Storage responsibilities,
+state ownership, the Transactional Outbox, idempotency, retries, monitoring, observability, and
+failure/data-repair. Scope is Day28 (Phase 2 close); Phase 3 deepens the durable-data topics.
+
+## Beginner
+
+### 1. Why run a long job in a Celery worker instead of the FastAPI request?
+
+Question:
+
+Why should a long-running job run in a Celery worker instead of inside the FastAPI request?
+
+中文解析:
+
+把 8 分钟的处理放在 HTTP 请求里会导致 Ingress/HTTP 超时、客户端重试、重复的模型费用，还会占满 API 容量；API Pod 被替换时内存里的处理也会丢。正确做法是 FastAPI 快速返回 `202 + job_id`，把长任务交给 Celery worker，让任务生命周期与请求生命周期解耦——客户端断开或 API Pod 重启后任务仍能继续。
+
+Student's actual attempt (preserved):
+
+> "because long time response influence next request."
+
+Interview Review: right idea (long responses hurt other requests) but incomplete/ungrammatical — add
+HTTP timeouts and lifecycle decoupling.
+
+Standard Answer:
+
+A long-running job should run in a Celery worker because keeping it inside the FastAPI request can
+cause HTTP timeouts and consume API capacity. A worker decouples the job lifecycle from the request, so
+the job can continue after the client disconnects or the API Pod restarts.
+
+Follow-up Question:
+
+After you return `202 + job_id`, where does the job's state live?
+
+## Intermediate
+
+### 1. Which component owns which state?
+
+Question:
+
+Which component owns which state: PostgreSQL, Redis, or Object Storage?
+
+中文解析:
+
+PostgreSQL 是 Job 的事实来源，保存完整生命周期状态、元数据与对象引用（`202` 之后每个状态都是持久化的业务承诺）。Redis 作为 Celery broker 负责投递任务消息、可选做高频进度缓存，是瞬时协调，不是事实来源。Object Storage 存原始 500 MB 文档与大的派生产物。进程内存只放请求级临时数据。
+
+Student's actual attempt (preserved):
+
+> "the postgresql restore state and Object Storage key ,redis restore queue and Object Storage restore document"
+
+Interview Review: correct mapping; "restore" -> "stores", and Redis is the broker (delivers), not the
+owner.
+
+Standard Answer:
+
+PostgreSQL stores durable job state, metadata, and object references. Redis acts as the Celery broker
+and delivers task messages, but it is not the source of truth for the job. Object Storage stores the
+original documents and large generated results.
+
+Follow-up Question:
+
+If you insert the Job then publish to the queue, what breaks on a crash in between, and how do you fix
+it?
+
+### 2. Database→queue consistency.
+
+Question:
+
+How do you keep PostgreSQL and the queue consistent when you accept a job?
+
+中文解析:
+
+不能原子地同时写数据库和 broker。先写 PostgreSQL 再投递，崩溃点在提交与投递之间会留下一个 `QUEUED` 但没有消息的 Job。用对账扫描器补投，或更强的 **Transactional Outbox**：一个事务里同时插入 Job 和 Outbox 事件，relay 再把未发送事件投到队列并标记已发送。Outbox 让"业务状态+投递意图"原子，但仍是 at-least-once（relay 可能重复投递），所以消费者必须幂等。
+
+Standard Answer:
+
+I persist the durable business state first, but a naive insert-then-publish still leaves a `QUEUED` row
+with no message if the process crashes in between. I use a Transactional Outbox: in one PostgreSQL
+transaction I insert the Job and an Outbox event, and a relay publishes unsent events and marks them
+sent. That makes business state and intent-to-publish atomic, but it is still at-least-once, so the
+worker must be idempotent.
+
+Follow-up Question:
+
+Given at-least-once, how do you stop a document being embedded twice?
+
+## Senior
+
+### 1. Guarantee no double embedding under at-least-once delivery.
+
+Question:
+
+Under at-least-once delivery, how do you guarantee a document is not embedded (and charged) twice?
+
+中文解析:
+
+假设 at-least-once 并让 worker 幂等。每个 embedding 用稳定 key `(job_id, chunk_hash, model_version)`，在 PostgreSQL 存持久化步骤 checkpoint，并用唯一约束或幂等 upsert 保证一次持久化写入；只有在结果与 checkpoint 落库后才 ACK 队列消息。重复投递时新 worker 发现该步骤已完成，跳过重复的模型调用与写入。对外部 provider/向量库，使用 provider 幂等 key 或稳定 vector ID，并对 dual-write 缺口做对账；绝不承诺跨独立系统的 exactly-once。
+
+Student's actual attempt (preserved):
+
+> "我忘了"
+
+Teaching note: the student blanked, so the senior answer was taught directly.
+
+Standard Answer:
+
+I would assume at-least-once delivery and make the worker idempotent. Each embedding operation would use
+a stable key based on the job ID, chunk hash, and model version. I would store durable step checkpoints
+in PostgreSQL and use a unique constraint or idempotent upsert for the embedding result. The worker
+would acknowledge the queue message only after the result and checkpoint were persisted. If the task
+were delivered again, the new worker would detect the completed step and skip the duplicate model call
+and write. For an external provider or vector store, I would also use provider idempotency keys or
+stable vector IDs where supported and reconcile remaining dual-write gaps; I would not claim exactly-once
+across independent systems.
+
+Follow-up Question:
+
+A wrong-model release already wrote 100 bad indexes and passed readiness — is rolling back the worker
+enough?
+
+## Common Weak vs Strong Answer (Day28)
+
+```text
+Weak:   "Redis holds the queued jobs and PostgreSQL holds the final result."
+Strong: "After 202 the job is a durable commitment: PostgreSQL owns the whole lifecycle; Redis only
+        brokers/caches; memory is request-local."
+
+Weak:   "I query the DB then upsert, so there are no duplicates and it's exactly-once."
+Strong: "A read-then-write can race; I enforce a unique constraint + atomic upsert and ACK after a
+        durable write. That's at-least-once with idempotent effects, not exactly-once across systems."
+
+Weak:   "We rolled back the worker, so the bad embeddings are gone."
+Strong: "Compute rollback stops future damage only; I identify affected data by provenance, invalidate
+        it, reprocess from immutable originals into a versioned index, verify, then switch the alias."
+```

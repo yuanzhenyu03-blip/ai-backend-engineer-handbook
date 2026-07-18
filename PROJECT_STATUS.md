@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 2 — Engineering Foundations (Started)
+Phase 2 — Engineering Foundations (Complete)
 
 Previous Phase:
 Phase 1 — Python Foundations (Complete)
@@ -11,7 +11,7 @@ Phase 1 — Python Foundations (Complete)
 
 ## Current Lesson
 
-Day27 — Kubernetes Workloads
+Day28 — AI Backend Production Architecture
 
 Status:
 Completed
@@ -20,7 +20,7 @@ Template:
 LESSON_TEMPLATE_v2
 
 Completed Time:
-2026-07-17
+2026-07-18
 
 ---
 
@@ -53,6 +53,7 @@ Completed Time:
 - ✅ Day25 — Deployment Foundations
 - ✅ Day26 — Kubernetes Foundations
 - ✅ Day27 — Kubernetes Workloads
+- ✅ Day28 — AI Backend Production Architecture
 
 ---
 
@@ -64,32 +65,36 @@ None.
 
 ## Last Completed Lesson
 
-Day27 — Kubernetes Workloads
+Day28 — AI Backend Production Architecture
 
 Completed Time:
-2026-07-17
+2026-07-18
 
 Main Artifact:
-Teaching-only Helm chart rag-platform (Ingress + autoscaling/v2 HPA + Rolling Update Deployment + PostgreSQL StatefulSet/headless Service) with per-environment Values and a static-only validate_chart.py (examples/kubernetes/rag-platform/)
+Conceptual Production AI Backend Architecture Blueprint (responsibility map, request/upload/job flows, state machines, state/data ownership table, outbox/idempotency boundaries, failure/rollback/data-repair matrix, monitoring/observability signals, validation limitations) at examples/ai-backend-architecture/
+
+Validation Boundary:
+Conceptual architecture reviewed in class; Markdown/link/secret checks run during the repository update; no FastAPI/Celery/Redis/PostgreSQL/Object Storage/vector/Kubernetes/metrics/log/trace system was built or run, and no runtime/data-repair validation was performed.
 
 Completed Work:
 
-- Day27 classroom learning
-- Day27 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day26->Day27 mental-model evolution)
-- Day27 rag-platform Helm chart and static-vs-runtime validation README
-- Day27 Ingress / HPA / Rolling Update / StatefulSet / Helm exercises
-- Day27 devops cheat sheet update
-- Day27 devops interview notes update
-- Day27 repository status update
+- Day28 classroom learning
+- Day28 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day27->Day28 mental-model evolution)
+- Day28 conceptual Production AI Backend Architecture Blueprint
+- Day28 request/job, state ownership, outbox, checkpoints/idempotency, upload, retry, monitoring, observability, failure/data-repair exercises
+- Day28 devops cheat sheet update
+- Day28 devops interview notes update
+- Day28 repository status update
+- Phase 2 (Day15-Day28) completed
 
 ---
 
 ## Next
 
-- Day28 — AI Backend Production Architecture
+- Phase 3 — Backend Foundations (PostgreSQL, SQL, Redis, Database Design)
 
 Status:
-Not started
+Not started (no specific day number assigned yet; see ROADMAP.md)
 
 ---
 
@@ -124,6 +129,7 @@ Completed Python Foundations:
 - Day25 — Deployment foundations, stable public entry (DNS/Nginx/TLS), reverse proxy, HTTP->HTTPS, trusted proxy context, promote immutable digest, API blue-green + drain + rollback, Expand-Migrate-Contract, worker rollout, serialized deploy identity, AI streaming timeouts, DNS TTL
 - Day26 — Kubernetes foundations, desired state vs one-time command, reconciliation control loop, Pod (one or more tightly coupled containers), Deployment (template + replicas, not scheduling), Service (stable label-based discovery), ConfigMap (non-sensitive config, same digest), Secret (Base64 != encryption, not an automatic vault), config/secret env not mutating running processes, health 200 != business success, reconciliation != business correctness, safe partial-outage rollback
 - Day27 — Kubernetes workloads, Ingress L7 Host/Path/TLS routing (resource vs controller), HPA updates desired replicas on a scale target (CPU vs queue backlog, upstream limits), Rolling Update (maxSurge/maxUnavailable, strategy vs rollback vs Blue-Green), deleting v2 Pods is not a rollback, StatefulSet stable identity/PVC/headless Service/ordered lifecycle (not replication/HA), Helm templates vs Values vs Release, validation ladder (lint/template/API/runtime), never commit secrets to Values, readiness 200 != business success
+- Day28 — AI Backend production architecture, request vs job lifecycle (202 + job_id), state ownership (PostgreSQL truth / Redis deliver / Object Storage bytes / memory transient), Transactional Outbox + at-least-once + idempotent processing, durable checkpoints/leases/idempotency keys (unique constraint/upsert, ACK after durable), presigned multipart upload + Upload Session verification, retry (backoff+jitter+max attempts/deadline+classification+circuit breaker), monitoring (depth vs oldest-age vs throughput), observability (stable job_id correlation, low-cardinality metrics, append-only events), failure containment + compute rollback != data repair (contain/restore/identify/rebuild/verify)
 
 ---
 
@@ -354,6 +360,15 @@ Completed Python Foundations:
 - Explain StatefulSet stable identity, per-Pod PVCs, headless Service, and ordered lifecycle — and why it is not database replication/HA.
 - Separate Helm templates from environment Values across all objects and name the validation ladder.
 - Explain why real Secrets must never live in Helm Values and where release history can leak them.
+- Separate the FastAPI request lifecycle from a long-running Celery job lifecycle and return 202 + job_id.
+- Assign every job state/byte to PostgreSQL (truth), Redis (deliver/cache), Object Storage (bytes), or memory (transient).
+- Explain the database-to-queue crash gap and derive the Transactional Outbox with at-least-once + idempotent processing.
+- Design durable checkpoints, atomic claim/lease, and a stable idempotency key enforced by a unique constraint/upsert, ACKing after durable write.
+- Design presigned direct multipart upload with an Upload Session and server-side verification.
+- Design a bounded, classified provider retry policy with backoff, jitter, and a circuit breaker.
+- Choose monitoring signals (queue depth vs oldest-age vs throughput) and stable observability correlation identity (job_id, not job_status).
+- Order a failure-containment/rollback/data-repair runbook and explain why compute rollback does not repair persisted data.
+- Explain at-least-once delivery, why exactly-once across independent systems is not promised, and how object keys are not authorization.
 
 ---
 
@@ -565,6 +580,19 @@ Completed Python Foundations:
 - Helm failed-revision recovery exercise
 - Kubernetes workloads English interview exercise
 - Final Kubernetes workloads mental model synthesis exercise
+- Request-vs-worker boundary exercise
+- Job state ownership assignment exercise
+- DB-first vs queue-first + Transactional Outbox derivation exercise
+- Worker crash checkpoint/lease/idempotency recovery exercise
+- 500 MB storage choice exercise
+- Presigned direct upload + verification/cleanup exercise
+- Upload Session vs Job lifecycle separation exercise
+- Provider retry (429/503, 20-min outage) design exercise
+- Queue depth vs oldest-age vs throughput interpretation exercise
+- Cross-component correlation identity exercise
+- Failure/rollback/data-repair runbook ordering exercise
+- Production architecture English interview exercise
+- Final AI Backend production architecture mental model synthesis exercise
 
 ---
 
