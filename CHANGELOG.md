@@ -9,6 +9,23 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.51 — Day28 Review Fixes
+
+Date: 2026-07-18
+
+### Changed
+
+- Corrected an impossible exactly-once implication in the Senior interview question. `docs/devops/day28-ai-backend-production-architecture.md` and `interview/devops.md` now ask how to prevent duplicate durable effects and minimize duplicate provider calls under at-least-once delivery, and what risk still remains, instead of asking to "guarantee a document is not embedded/charged twice". The Chinese explanation now states that DB unique constraint + atomic upsert + checkpoint + ACK-after-durable-write prevent duplicate durable side effects, provider idempotency keys reduce duplicate external calls, and a provider call that succeeds before the local checkpoint write can still be repeated and charged — so exactly-once across independent systems is never promised. The student's real answer ("我忘了") and the "taught directly" note are preserved.
+- Fixed a component-ownership wording error in the Day28 lesson: "each component ... owns ONE job" is replaced with "each component has ONE clear responsibility in the Job lifecycle", keeping the core model (FastAPI accepts/exposes; Celery executes; Queue/Redis transports; PostgreSQL owns the durable Job truth; Object Storage owns large bytes).
+- Distinguished the worker HPA scaling metric from SLO/diagnostic signals in the Day28 lesson: the worker HPA's primary signal is queue backlog (ideally backlog per worker); oldest queued-job age is closer to user waiting/SLO and is for alerting/diagnosis; throughput indicates progress/under-capacity; a single stuck/poison-pill job can inflate oldest age so it must not be an unqualified scale-up trigger; scaling stays bounded by provider rate limits, cost, and maxReplicas.
+- Fixed the stale Day27 metadata: the Next Lesson now links directly to the published Day28 lesson (`day28-ai-backend-production-architecture.md`) instead of describing it as planned.
+
+### Notes
+
+- No runtime validation was performed or claimed. Verified with `git diff --check`, Markdown link checks, and a secret scan of the changed files. No FastAPI/Celery/Redis/PostgreSQL/Object Storage/Kubernetes runtime was built or run. Historical CHANGELOG "Planned" records and Day26/Day27 historical future-connection notes are unchanged. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`, and did not change any student's original answer.
+
+---
+
 ## v0.1.50 — Day28 AI Backend Production Architecture Documentation
 
 Date: 2026-07-18

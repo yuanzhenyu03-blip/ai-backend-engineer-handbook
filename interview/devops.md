@@ -1435,19 +1435,19 @@ worker must be idempotent.
 
 Follow-up Question:
 
-Given at-least-once, how do you stop a document being embedded twice?
+Given at-least-once delivery, how do you prevent duplicate durable writes and reduce duplicate provider calls?
 
 ## Senior
 
-### 1. Guarantee no double embedding under at-least-once delivery.
+### 1. Prevent duplicate durable effects and minimize duplicate provider calls under at-least-once delivery.
 
 Question:
 
-Under at-least-once delivery, how do you guarantee a document is not embedded (and charged) twice?
+Under at-least-once delivery, how do you prevent duplicate durable effects and minimize duplicate provider calls, and what risk still remains?
 
 中文解析:
 
-假设 at-least-once 并让 worker 幂等。每个 embedding 用稳定 key `(job_id, chunk_hash, model_version)`，在 PostgreSQL 存持久化步骤 checkpoint，并用唯一约束或幂等 upsert 保证一次持久化写入；只有在结果与 checkpoint 落库后才 ACK 队列消息。重复投递时新 worker 发现该步骤已完成，跳过重复的模型调用与写入。对外部 provider/向量库，使用 provider 幂等 key 或稳定 vector ID，并对 dual-write 缺口做对账；绝不承诺跨独立系统的 exactly-once。
+假设 at-least-once 并让 worker 幂等。数据库唯一约束、原子 upsert、持久化 checkpoint 以及「结果与 checkpoint 落库后才 ACK」（ACK-after-durable-write）可以防止重复的持久化副作用——重复投递时新 worker 发现该步骤已完成，跳过重复写入。provider idempotency key 可以降低重复外部调用的风险。仍然存在的风险：如果 provider 调用已经成功、但在本地 checkpoint 写入前崩溃，redelivery 仍可能重复调用并重复收费；因此对外部 provider/向量库还需 provider 幂等 key 或稳定 vector ID + 对账，绝不承诺跨独立系统的 exactly-once。
 
 Student's actual attempt (preserved):
 

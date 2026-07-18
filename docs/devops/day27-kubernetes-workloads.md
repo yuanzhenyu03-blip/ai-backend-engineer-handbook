@@ -16,7 +16,7 @@ Prerequisite: Day26 — Kubernetes Foundations
 
 Previous Lesson: [Day26 — Kubernetes Foundations](day26-kubernetes-foundations.md)
 
-Next Lesson: Day28 — AI Backend Production Architecture (planned — see [ROADMAP.md](../../ROADMAP.md) and [CURRICULUM.md](../../CURRICULUM.md))
+Next Lesson: [Day28 — AI Backend Production Architecture](day28-ai-backend-production-architecture.md)
 
 Engineering Artifact: A conceptual, teaching-only Helm chart (`examples/kubernetes/rag-platform/`) that packages the Day26 workload plus Ingress, an autoscaling/v2 HPA, a Rolling Update Deployment, and a StatefulSet + headless Service, with per-environment Values and a static-only validation helper — see [examples/kubernetes/README.md](../../examples/kubernetes/README.md).
 

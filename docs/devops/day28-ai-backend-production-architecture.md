@@ -73,7 +73,7 @@ Ingress timeout -> client retry -> duplicate model cost -> unclear progress
 Why a backend engineer must care:
 
 ```text
-Responsibility -> each component (FastAPI/Celery/Redis/PostgreSQL/Object Storage) owns ONE job.
+Responsibility -> each component has ONE clear responsibility in the Job lifecycle.
 State ownership -> an accepted job is a durable business commitment, not memory or a broker message.
 Delivery       -> at-least-once + idempotent effects, because exactly-once across systems is a myth.
 Large data     -> big bytes live in Object Storage; the DB keeps metadata/pointers.
@@ -617,7 +617,12 @@ zero throughput = a stall to page on.
 
 Framework Connection:
 
-Oldest-age/throughput is what drives Day27 worker HPA sensibly (queue pressure), not raw depth.
+The worker HPA's primary scaling signal is still queue backlog (ideally backlog per worker, or an
+equivalent work-pressure metric). Oldest queued-job age is closer to user waiting/SLO and is best used
+for alerting and diagnosis; throughput shows whether the queue is still progressing or is under
+capacity. A single stuck or poison-pill job can keep oldest age rising, so it must not be used
+unqualified as a scale-up trigger. Scaling remains bounded by provider rate limits, cost, and
+maxReplicas.
 
 Exercise:
 
@@ -1099,7 +1104,8 @@ Strong Answer:
 
 Question:
 
-How do you guarantee a document is not embedded twice under at-least-once delivery?
+Under at-least-once delivery, how do you prevent duplicate durable effects and minimize duplicate
+provider calls, and what risk still remains?
 
 Actual student attempt (preserved):
 
