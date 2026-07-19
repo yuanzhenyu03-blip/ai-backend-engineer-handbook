@@ -37,15 +37,15 @@ When generating code:
 
 Current Phase:
 
-Phase 3 — Backend Foundations (Planned / Ready — not started)
+Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day28 — AI Backend Production Architecture
+Day29 — PostgreSQL Foundations and Durable Relational State
 
 Next Lesson:
 
-Day29 — PostgreSQL Foundations and Durable Relational State (Planned / Not started; see ROADMAP.md)
+Day30 — SQL Data Manipulation and Query Fundamentals (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

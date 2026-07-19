@@ -10,7 +10,7 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 3 — Backend Foundations (Planned / Ready — not started)
+Phase 3 — Backend Foundations (In Progress)
 
 ---
 
@@ -19,20 +19,84 @@ Phase 3 — Backend Foundations (Planned / Ready — not started)
 Day29 — PostgreSQL Foundations and Durable Relational State
 
 Status:
-Planned / Not started
+Completed
 
 Target lesson:
-Not created yet — see CURRICULUM.md and ROADMAP.md.
+
+```text
+docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md
+```
 
 ---
 
 ## Today's Tasks
 
-- [ ] Await the Day29 input to begin Day29 — PostgreSQL Foundations and Durable Relational State (Planned / Not started).
-- [ ] Complete the Day29 Preparation checklist below before the lesson begins.
-- [ ] Do not create a Day29 lesson file, `projects/ai-backend-data-layer/`, or `knowledge/` until the live Day29 lesson runs.
+- [x] Complete Day29 PostgreSQL Foundations and Durable Relational State classroom learning.
+- [x] Author the first minimal raw SQL Job schema and the data-layer project README.
+- [x] Distinguish durable row vs table contract, database vs schema vs session, typed columns vs JSONB, primary key vs idempotency key, and durability vs integrity.
+- [ ] Prepare for Day30 — SQL Data Manipulation and Query Fundamentals.
 
-(Phase 2 (Day15-Day28) is complete; Day28 remains the last completed lesson. Completed Day28 tasks are recorded under "Completed Day28 Tasks" below.)
+---
+
+## Completed Day29 Tasks
+
+- [x] Complete Day29 PostgreSQL Foundations and Durable Relational State classroom learning.
+- [x] Generate the Day29 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day28->Day29 mental-model evolution).
+- [x] Derive the minimum durable facts (job_id, job_status, created_at) and the write-before-202 ordering.
+- [x] Explain the PostgreSQL hierarchy and that a psql session connects to a database, not a schema.
+- [x] Distinguish PostgreSQL Schema (namespace) from table schema (definition), and public from app.
+- [x] Choose Job types/defaults (uuid/text/integer/boolean/timestamptz/bounded jsonb) and defend UUID vs integer.
+- [x] Compare typed columns with a JSONB-only Job document; separate type from relationship cardinality.
+- [x] Interpret NULL per lifecycle and show that NOT NULL accepts empty string and arbitrary text.
+- [x] Prove database-generated defaults with DEFAULT VALUES + RETURNING.
+- [x] Distinguish primary key (row identity) from idempotency key (request identity).
+- [x] Verify timestamptz as one absolute instant across UTC and Asia/Shanghai.
+- [x] Classify conceptual / syntax / runtime / integration / production validation evidence.
+- [x] Run the queud guarded data-repair drill and the restart-persistence check.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+
+---
+
+## Completed Day29 Repository Tasks
+
+- [x] Add `docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`.
+- [x] Add `projects/ai-backend-data-layer/README.md` and `sql/001_create_jobs.sql`.
+- [x] Add `cheat_sheets/postgresql.md`.
+- [x] Append Day29 questions to the existing `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (add the postgresql/ topic directory).
+- [x] Update the Day28 lesson metadata Next Lesson link to the released Day29 lesson.
+- [x] Update `CURRICULUM.md` (Day29 Completed + released lesson/artifact).
+- [x] Update `ROADMAP.md` (Day29 Completed; Day30-Day42 remain Planned).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day29 Interview Tasks
+
+- [x] Add the beginner persist-before-202 question with the student's actual attempt and correction.
+- [x] Add intermediate primary-key-vs-idempotency-key and NOT NULL questions.
+- [x] Add the senior lost-202 retry question (attempts "client produce idempotency key" and "我忘了"; answer taught directly).
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day29 Homework
+
+- [x] Complete minimum-durable-facts and types/defaults exercises.
+- [x] Complete app.jobs not-found diagnosis and public-vs-app exercises.
+- [x] Complete typed-columns-vs-JSONB and nullable-lifecycle exercises.
+- [x] Complete row-identity-vs-request-identity exercise.
+- [x] Complete DEFAULT VALUES + RETURNING and timestamptz comparison exercises.
+- [x] Complete the queud guarded repair and restart persistence exercises.
+
+---
+
+### Day30 Preparation — SQL Data Manipulation and Query Fundamentals
+
+- [ ] Read the Day30 input when provided.
+- [ ] Review the Day29 `app.jobs` schema and the project README limitations.
+- [ ] Preview SELECT/FROM/WHERE/ORDER BY/LIMIT, INSERT/UPDATE/DELETE/RETURNING, NULL three-valued logic, parameterized SQL, deterministic ordering, and guarded status transitions.
+- [ ] Keep CHECK/UNIQUE/foreign keys and relationships as Day31 scope; keep SQLAlchemy/Alembic as Phase 4.
 
 ---
 
@@ -89,20 +153,20 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ---
 
-### Day29 Preparation — PostgreSQL Foundations and Durable Relational State
+### Day29 Preparation — PostgreSQL Foundations and Durable Relational State (completed)
 
-- [ ] Read the Day29 input when provided (Phase 3 — Backend Foundations; Day29 is the next lesson).
-- [ ] Re-read the Day28 lesson and the `examples/ai-backend-architecture/` blueprint (durable Job ownership).
-- [ ] Inspect the planned Day29 scope: durable relational state, core PostgreSQL types, primary key/identity, a minimal `jobs` table for `202 + job_id`.
-- [ ] Prepare a disposable local PostgreSQL validation environment only when the Day29 lesson begins; keep validation honest (conceptual/SQL-syntax/runtime are different levels).
-- [ ] Preview PostgreSQL, SQL, Redis, and Database Design as the Phase 3 scope; SQLAlchemy/Alembic are Phase 4.
-- [ ] Do not create `projects/ai-backend-data-layer/`, a Day29 lesson file, or the reserved `knowledge/` structure during planning.
+- [x] Read the Day29 input.
+- [x] Re-read the Day28 lesson and the `examples/ai-backend-architecture/` blueprint (durable Job ownership).
+- [x] Inspected the Day29 scope: durable relational state, core PostgreSQL types, primary key/identity, a minimal `jobs` table for `202 + job_id`.
+- [x] Used a disposable local PostgreSQL 14.18 environment during the lesson and kept validation levels honest.
+- [x] Previewed PostgreSQL, SQL, Redis, and Database Design as the Phase 3 scope; SQLAlchemy/Alembic remain Phase 4.
+- [x] Day29 delivered; `projects/ai-backend-data-layer/` created by the live lesson. `knowledge/` still not created.
 
 ---
 
 ### Phase 3 Roadmap (Day29-Day42) — Backend Foundations
 
-- [ ] Day29 — PostgreSQL Foundations and Durable Relational State (Planned).
+- [x] Day29 — PostgreSQL Foundations and Durable Relational State (Completed).
 - [ ] Day30 — SQL Data Manipulation and Query Fundamentals (Planned).
 - [ ] Day31 — Relational Modeling and Data Integrity (Planned).
 - [ ] Day32 — SQL Joins, Aggregation, and Operational Queries (Planned).

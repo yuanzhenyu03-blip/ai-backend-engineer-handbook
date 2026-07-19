@@ -624,7 +624,7 @@ primary key and stable business identity; `NULL` vs `NOT NULL`, defaults, DB-gen
 SQL-syntax vs real PostgreSQL runtime validation.
 
 Status:
-Planned
+✅ Completed
 
 Previous Lesson:
 Day28 — AI Backend Production Architecture
@@ -632,10 +632,17 @@ Day28 — AI Backend Production Architecture
 Next Lesson:
 Day30 — SQL Data Manipulation and Query Fundamentals
 
-Planned Engineering Artifact:
-Begin `projects/ai-backend-data-layer/` (only after the live lesson) with the first minimal raw SQL Job
-schema and a README stating ownership/validation boundaries; execute in a disposable PostgreSQL only if
-actually available, otherwise report static/conceptual validation only.
+Released Lesson:
+`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/` — the first minimal raw SQL Job schema (`sql/001_create_jobs.sql`) plus
+a README stating ownership decisions, reproducible disposable-PostgreSQL commands, a validation matrix,
+and explicit limitations. Classroom runtime evidence came from PostgreSQL 14.18; integration and
+production validation were not performed.
 
 Core mental model:
 

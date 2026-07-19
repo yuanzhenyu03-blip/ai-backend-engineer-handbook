@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.54 — Day29 PostgreSQL Foundations and Durable Relational State
+
+Date: 2026-07-19
+
+### Added
+
+- Added `docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day28->Day29 mental-model evolution). This is the first Phase 3 lesson and creates the new `docs/postgresql/` topic directory.
+- Added `projects/ai-backend-data-layer/` — the first increment of the Production AI Backend Data Layer: `sql/001_create_jobs.sql` (the exact classroom DDL for `app.jobs`) and a README with ownership decisions, reproducible disposable-PostgreSQL commands, a validation matrix, and explicit known gaps.
+- Added `cheat_sheets/postgresql.md` (new topic cheat sheet).
+
+### Changed
+
+- Appended Day29 Beginner/Intermediate/Senior questions to the existing `interview/postgresql.md` stub (no duplicate PostgreSQL interview file was created).
+- Updated `docs/README.md` to index the new `docs/postgresql/` directory and the Day29 lesson.
+- Updated the `docs/devops/day28-ai-backend-production-architecture.md` metadata Next Lesson line to link the released Day29 lesson (the completed Day28 body is unchanged).
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day29 completed with its released lesson/artifact (Day30-Day42 remain Planned).
+- Updated `PROJECT_STATUS.md` (Phase 3 In Progress; Day29 completed with artifact + validation boundary; Next = Day30), `TASKS.md` (completed Day29 task blocks, Day29 preparation converted to history, Day30 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day29 turns Day28's conceptual ownership rule into an executable table: the Job row must be written and committed **before** FastAPI returns `202`; the row is a durable business fact and the table definition is its enforceable contract. Covers the PostgreSQL server/cluster/database/schema/table/row/column hierarchy and the `psql` session boundary (a session connects to a database; schema resolves via qualified name or `search_path`; `public` is a default namespace), Job types/defaults (uuid PK `gen_random_uuid()`, text, integer, boolean, `timestamptz` `now()`, bounded jsonb), typed columns vs a JSONB-only document, `NULL` per lifecycle, primary key vs idempotency key, `timestamptz` as one absolute instant, the validation ladder, and guarded data repair.
+- Preserved the actual classroom record, including the student's Chinese and English answers and the reasonable errors and corrections (the 202-then-row ordering, integer-vs-UUID, `public` as "public information", psql "connecting to a schema", one-to-many treated as a column type, NULL lifecycle wording, the primary-key overclaim, the validation overclaim, and `jsob`). The senior English answer was taught directly after the attempts "client produce idempotency key" and "我忘了".
+- Scope honesty: the schema is deliberately minimal. `text NOT NULL` accepted an empty string and `banana` at runtime — CHECK/UNIQUE constraints, business idempotency keys, tenant ownership, Documents/Attempts/Events/Outbox tables, foreign keys, transactions, concurrency control, indexes, migrations, roles, and backup/restore are Day30-Day37 work. SQLAlchemy/Alembic remain Phase 4. Durability is not integrity: a misspelled `queud` row is durable and unclaimable.
+- Validation: classroom runtime evidence came from a disposable PostgreSQL 14.18 cluster (DDL acceptance, `gen_random_uuid()`, `DEFAULT VALUES RETURNING`, not-null rejection, empty/`banana` acceptance, timestamptz rendering with identical epoch, a guarded `UPDATE 3` repair with RETURNING evidence, and restart persistence of all 6 rows). **This repository update did NOT re-run the SQL** — no `psql`, PostgreSQL server, or Docker daemon was available in the update environment; only Markdown/link/structure/secret checks and a static SQL review were performed. No FastAPI/Celery/Redis/Object Storage integration, transaction, concurrency, index, migration, backup/restore, replication, load, or production validation was performed or is claimed.
+- No credentials, connection strings with secrets, tokens, presigned URLs, or customer data were added; only disposable local paths. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`; did not create `knowledge/`; did not rewrite Day01-Day28 lesson bodies (the Day28 metadata Next Lesson line is the single allowed exception).
+
+---
+
 ## v0.1.53 — Phase 3 Status Consistency Fix
 
 Date: 2026-07-19

@@ -16,15 +16,15 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 3 — Backend Foundations (Planned / Ready — not started)
+* Phase 3 — Backend Foundations (In Progress)
 
 Last completed lesson:
 
-* Day28 — AI Backend Production Architecture
+* Day29 — PostgreSQL Foundations and Durable Relational State
 
 Next:
 
-* Day29 — PostgreSQL Foundations and Durable Relational State (Planned / Not started; see `ROADMAP.md`)
+* Day30 — SQL Data Manipulation and Query Fundamentals (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

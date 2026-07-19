@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 3 — Backend Foundations (Planned / Ready — not started)
+Phase 3 — Backend Foundations (In Progress)
 
 Previous Phase:
 Phase 2 — Engineering Foundations (Complete)
@@ -14,9 +14,13 @@ Phase 2 — Engineering Foundations (Complete)
 Day29 — PostgreSQL Foundations and Durable Relational State
 
 Status:
-Planned / Not started
+Completed
 
-(The Day29 lesson has not started and no Day29 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.)
+Template:
+LESSON_TEMPLATE_v2
+
+Completed Time:
+2026-07-19
 
 ---
 
@@ -50,6 +54,7 @@ Planned / Not started
 - ✅ Day26 — Kubernetes Foundations
 - ✅ Day27 — Kubernetes Workloads
 - ✅ Day28 — AI Backend Production Architecture
+- ✅ Day29 — PostgreSQL Foundations and Durable Relational State
 
 ---
 
@@ -61,33 +66,32 @@ None.
 
 ## Last Completed Lesson
 
-Day28 — AI Backend Production Architecture
+Day29 — PostgreSQL Foundations and Durable Relational State
 
 Completed Time:
-2026-07-18
+2026-07-19
 
 Main Artifact:
-Conceptual Production AI Backend Architecture Blueprint (responsibility map, request/upload/job flows, state machines, state/data ownership table, outbox/idempotency boundaries, failure/rollback/data-repair matrix, monitoring/observability signals, validation limitations) at examples/ai-backend-architecture/
+First increment of the Production AI Backend Data Layer — a minimal raw SQL Job schema (app.jobs) plus an honest validation/limitations README at projects/ai-backend-data-layer/
 
 Validation Boundary:
-Conceptual architecture reviewed in class; Markdown/link/secret checks run during the repository update; no FastAPI/Celery/Redis/PostgreSQL/Object Storage/vector/Kubernetes/metrics/log/trace system was built or run, and no runtime/data-repair validation was performed.
+Classroom runtime evidence came from a disposable PostgreSQL 14.18 cluster (DDL acceptance, database-generated defaults, NOT NULL rejection, timestamptz rendering, guarded data repair, restart persistence). The repository update did NOT re-run the SQL (no psql/PostgreSQL server/Docker daemon available). No FastAPI/Celery/Redis/Object Storage integration, transaction, concurrency, index, migration, backup/restore, or production validation was performed.
 
 Completed Work:
 
-- Day28 classroom learning
-- Day28 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day27->Day28 mental-model evolution)
-- Day28 conceptual Production AI Backend Architecture Blueprint
-- Day28 request/job, state ownership, outbox, checkpoints/idempotency, upload, retry, monitoring, observability, failure/data-repair exercises
-- Day28 devops cheat sheet update
-- Day28 devops interview notes update
-- Day28 repository status update
-- Phase 2 (Day15-Day28) completed
+- Day29 classroom learning
+- Day29 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day28->Day29 mental-model evolution)
+- Day29 minimal raw SQL Job schema and project README (projects/ai-backend-data-layer/)
+- Day29 durable-facts / hierarchy / types / JSONB / NULL-DEFAULT / identity / timestamptz / validation / data-repair exercises
+- Day29 PostgreSQL cheat sheet (new)
+- Day29 PostgreSQL interview notes (appended to the existing stub)
+- Day29 repository status update
 
 ---
 
 ## Next
 
-- Day29 — PostgreSQL Foundations and Durable Relational State (Phase 3 — Backend Foundations)
+- Day30 — SQL Data Manipulation and Query Fundamentals (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -126,6 +130,7 @@ Completed Python Foundations:
 - Day26 — Kubernetes foundations, desired state vs one-time command, reconciliation control loop, Pod (one or more tightly coupled containers), Deployment (template + replicas, not scheduling), Service (stable label-based discovery), ConfigMap (non-sensitive config, same digest), Secret (Base64 != encryption, not an automatic vault), config/secret env not mutating running processes, health 200 != business success, reconciliation != business correctness, safe partial-outage rollback
 - Day27 — Kubernetes workloads, Ingress L7 Host/Path/TLS routing (resource vs controller), HPA updates desired replicas on a scale target (CPU vs queue backlog, upstream limits), Rolling Update (maxSurge/maxUnavailable, strategy vs rollback vs Blue-Green), deleting v2 Pods is not a rollback, StatefulSet stable identity/PVC/headless Service/ordered lifecycle (not replication/HA), Helm templates vs Values vs Release, validation ladder (lint/template/API/runtime), never commit secrets to Values, readiness 200 != business success
 - Day28 — AI Backend production architecture, request vs job lifecycle (202 + job_id), state ownership (PostgreSQL truth / Redis deliver / Object Storage bytes / memory transient), Transactional Outbox + at-least-once + idempotent processing, durable checkpoints/leases/idempotency keys (unique constraint/upsert, ACK after durable), presigned multipart upload + Upload Session verification, retry (backoff+jitter+max attempts/deadline+classification+circuit breaker), monitoring (depth vs oldest-age vs throughput), observability (stable job_id correlation, low-cardinality metrics, append-only events), failure containment + compute rollback != data repair (contain/restore/identify/rebuild/verify)
+- Day29 — PostgreSQL foundations and durable relational state, write+commit the Job row before 202, server/cluster/database/schema/table/row/column boundaries, psql connects to a database (qualified name vs search_path; public is a default namespace), Job types/defaults (uuid PK gen_random_uuid, text, integer, boolean, timestamptz now(), bounded jsonb), typed columns vs JSONB-only, type vs relationship cardinality, NULL per lifecycle, NOT NULL rejects only NULL (empty/'banana' accepted), DEFAULT VALUES + RETURNING, primary key vs idempotency key, timestamptz as one absolute instant, validation ladder, durability != integrity, code rollback vs guarded data repair
 
 ---
 
@@ -365,6 +370,16 @@ Completed Python Foundations:
 - Choose monitoring signals (queue depth vs oldest-age vs throughput) and stable observability correlation identity (job_id, not job_status).
 - Order a failure-containment/rollback/data-repair runbook and explain why compute rollback does not repair persisted data.
 - Explain at-least-once delivery, why exactly-once across independent systems is not promised, and how object keys are not authorization.
+- Explain why the Job row must be committed before FastAPI returns 202.
+- Distinguish PostgreSQL server/cluster/database/schema/table/row/column and what a psql session connects to.
+- Distinguish a PostgreSQL Schema (namespace) from a table schema (definition/contract).
+- Choose Job model types/defaults and defend UUID vs integer identity with real trade-offs.
+- Explain why core facts use typed columns while JSONB stays bounded auxiliary metadata.
+- Interpret NULL per field lifecycle and state what NOT NULL does not enforce.
+- Distinguish a primary key (row identity) from an idempotency key (request identity).
+- Explain timestamptz as one absolute instant rendered in the session time zone.
+- Classify conceptual / syntax / runtime / integration / production validation evidence.
+- Repair durable-but-wrong rows with a guarded UPDATE and explain why code rollback cannot.
 
 ---
 
@@ -589,6 +604,21 @@ Completed Python Foundations:
 - Failure/rollback/data-repair runbook ordering exercise
 - Production architecture English interview exercise
 - Final AI Backend production architecture mental model synthesis exercise
+- Minimum durable facts before 202 exercise
+- PostgreSQL types/defaults selection exercise
+- app.jobs not-found diagnosis (database/schema/search_path) exercise
+- public vs app namespace exercise
+- Typed columns vs JSONB-only comparison exercise
+- Nullable lifecycle field interpretation exercise
+- Row identity vs request/idempotency identity exercise
+- psql session diagnostic checklist exercise
+- Validation-level classification exercise
+- DEFAULT VALUES + RETURNING default-proof exercise
+- timestamptz UTC vs Asia/Shanghai comparison exercise
+- queud guarded data repair exercise
+- PostgreSQL restart persistence exercise
+- PostgreSQL English interview exercise
+- Final PostgreSQL durable-state mental model synthesis exercise
 
 ---
 
