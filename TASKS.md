@@ -16,16 +16,13 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day29 — PostgreSQL Foundations and Durable Relational State
+Day30 — SQL Data Manipulation and Query Fundamentals
 
 Status:
-Completed
+Planned / Not started
 
 Target lesson:
-
-```text
-docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md
-```
+Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ---
 
@@ -160,7 +157,8 @@ docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md
 - [x] Inspected the Day29 scope: durable relational state, core PostgreSQL types, primary key/identity, a minimal `jobs` table for `202 + job_id`.
 - [x] Used a disposable local PostgreSQL 14.18 environment during the lesson and kept validation levels honest.
 - [x] Previewed PostgreSQL, SQL, Redis, and Database Design as the Phase 3 scope; SQLAlchemy/Alembic remain Phase 4.
-- [x] Day29 delivered; `projects/ai-backend-data-layer/` created by the live lesson. `knowledge/` still not created.
+- [x] Day29 delivered. The data-layer artifact was designed and runtime-validated during the live lesson,
+      then materialized in the repository during the post-class Repository Update. `knowledge/` still not created.
 
 ---
 

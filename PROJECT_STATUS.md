@@ -11,16 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day29 — PostgreSQL Foundations and Durable Relational State
+Day30 — SQL Data Manipulation and Query Fundamentals
 
 Status:
-Completed
+Planned / Not started
 
-Template:
-LESSON_TEMPLATE_v2
-
-Completed Time:
-2026-07-19
+(The Day30 lesson has not started and no Day30 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day29 details are recorded under Last Completed Lesson.)
 
 ---
 

@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.55 — Day29 Review Fixes
+
+Date: 2026-07-19
+
+### Changed
+
+- Fixed the Current Lesson contradiction: `PROJECT_STATUS.md` and `TASKS.md` now show Current Lesson = `Day30 — SQL Data Manipulation and Query Fundamentals` with `Planned / Not started`, matching `README.md`/`AGENTS.md`. The Day29 `Template`/`Completed Time` fields were removed from Current Lesson (they remain under Last Completed Lesson). `TASKS.md` Target lesson now reads "Not created yet — see CURRICULUM.md and ROADMAP.md." Day29 remains only in Completed, Last Completed Lesson, Completed Day29 Tasks, and CHANGELOG history. No Day30 lesson file was created.
+- Fixed an inaccurate PostgreSQL session description in `projects/ai-backend-data-layer/README.md` that paired "schema app" with "current_schema public" and re-introduced the "a session connects to a schema" mental model. It now states that the session connected to database `ai_backend`, the target relation was `app.jobs`, `search_path` was `"$user", public`, `current_schema()` returned `public`, and explicit qualification resolved `app.jobs` even though `app` was not in `search_path`.
+- Fixed the artifact provenance wording in `TASKS.md`: the data-layer artifact was designed and runtime-validated during the live lesson, then materialized in the repository during the post-class Repository Update (the repository files were not created during class).
+- Expanded the reproduction section in `projects/ai-backend-data-layer/README.md` so it now covers every classroom validation: schema apply, `DEFAULT VALUES RETURNING`, session diagnostics, the expected NOT NULL failure, the accepted empty-string/`banana` inserts, the UTC vs Asia/Shanghai identical-epoch check, the guarded `queud` repair with `RETURNING` evidence, and restart persistence. It uses task-specific `DAY29_PG_ROOT`/`DAY29_PGDATA` variables (never a pre-existing `PGDATA`), starts from `projects/ai-backend-data-layer/`, labels the expected-failure step explicitly, guards cleanup to this run's `mktemp` directory only, and states that the commands were authored — not executed — during the repository update.
+- Fixed the stale template rule in `docs/README.md`: Day01-Day20 lessons remain valid with the original template, and Day21 and later final lessons must follow `LESSON_TEMPLATE_v2.md`.
+
+### Notes
+
+- Review fixes only: the completed Day29 lesson content, the SQL schema, and the real student answers are unchanged. No `CHECK`/business `UNIQUE`/foreign key/relationship table was added to the Day29 schema, no SQLAlchemy/Alembic was introduced, and no Day30 lesson was created.
+- Validation actually performed: `git diff --check`, status-consistency checks, Markdown relative-link resolution, fenced-block balance, and a secret scan of the changed files. **PostgreSQL was NOT available in this repository-update environment**, so the SQL and the reproduction commands were NOT executed here; the PostgreSQL 14.18 results remain classroom evidence and are not restated as repository-update or production validation.
+- Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`; historical CHANGELOG entries are unchanged.
+
+---
+
 ## v0.1.54 — Day29 PostgreSQL Foundations and Durable Relational State
 
 Date: 2026-07-19

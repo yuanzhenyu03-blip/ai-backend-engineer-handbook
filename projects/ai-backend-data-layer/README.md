@@ -67,35 +67,137 @@ Column intent:
 
 ## Reproduce the Day29 validation (disposable PostgreSQL)
 
-These are the commands for a **throwaway local cluster**. No credentials, no shared database, no
-production connection string. Adjust paths for your machine.
+These commands recreate **every** validation performed in class, in a **throwaway local cluster**.
+No credentials, no shared database, no production connection string, no Docker.
+
+> **Status of this section:** the commands below were **authored, not executed, during the repository
+> update** — no `psql`, PostgreSQL server, or Docker daemon was available in that environment. They are
+> a **static** reproduction procedure. The results quoted under "Verified in class" came from the live
+> lesson (PostgreSQL 14.18) and are **classroom evidence only**. Run the steps yourself to reproduce them.
+
+Run from this directory:
 
 ```bash
-# 1. Create and start a disposable cluster (PostgreSQL must be installed locally).
-export PGDATA="$(mktemp -d)/data"
-initdb -D "$PGDATA" >/dev/null
-pg_ctl -D "$PGDATA" -o "-p 5433 -k /tmp" -l "$PGDATA/server.log" start
-
-# 2. Create the database and apply the schema.
-createdb -p 5433 -h /tmp ai_backend
-psql -p 5433 -h /tmp -d ai_backend -f sql/001_create_jobs.sql
-
-# 3. Prove the defaults come from the database contract (every business field omitted).
-psql -p 5433 -h /tmp -d ai_backend -c "INSERT INTO app.jobs DEFAULT VALUES RETURNING *;"
-
-# 4. Session/namespace diagnostics.
-psql -p 5433 -h /tmp -d ai_backend -c "\conninfo"
-psql -p 5433 -h /tmp -d ai_backend -c "SELECT current_database(), current_user, current_schema();"
-psql -p 5433 -h /tmp -d ai_backend -c "SHOW search_path;"
-psql -p 5433 -h /tmp -d ai_backend -c "\dt app.*"
-
-# 5. Stop and delete the cluster when finished.
-pg_ctl -D "$PGDATA" stop
-rm -rf "$(dirname "$PGDATA")"
+cd projects/ai-backend-data-layer
 ```
 
-Docker was **not** used: the Docker CLI existed during class but the daemon was not running. Do not
-present a Docker workflow as validated.
+(Or run from the repository root and replace `sql/001_create_jobs.sql` with
+`projects/ai-backend-data-layer/sql/001_create_jobs.sql`.)
+
+### 1. Start a disposable cluster
+
+Task-specific variables are used so an existing `PGDATA` is never reused or overwritten.
+
+```bash
+export DAY29_PG_ROOT="$(mktemp -d)"
+export DAY29_PGDATA="$DAY29_PG_ROOT/data"
+export DAY29_PGPORT=5433
+export DAY29_PGHOST="$DAY29_PG_ROOT/sock"
+mkdir -p "$DAY29_PGHOST"
+
+initdb -D "$DAY29_PGDATA" >/dev/null
+pg_ctl -D "$DAY29_PGDATA" -o "-p $DAY29_PGPORT -k $DAY29_PGHOST" -l "$DAY29_PG_ROOT/server.log" start
+
+alias day29psql='psql -p "$DAY29_PGPORT" -h "$DAY29_PGHOST" -d ai_backend'
+createdb -p "$DAY29_PGPORT" -h "$DAY29_PGHOST" ai_backend
+```
+
+### 2. Apply the schema
+
+```bash
+day29psql -f sql/001_create_jobs.sql
+```
+
+### 3. Database-generated defaults
+
+```bash
+day29psql -c "INSERT INTO app.jobs DEFAULT VALUES RETURNING *;"
+```
+
+Expect `queued`, `0`, `false`, `{}`, a `created_at`, and NULL for `started_at`, `finished_at`,
+`error_message`, `result_object_key`.
+
+### 4. Session / namespace diagnostics
+
+```bash
+day29psql -c "\conninfo"
+day29psql -c "SELECT current_database(), current_user, current_schema();"
+day29psql -c "SHOW search_path;"
+day29psql -c "\dn"
+day29psql -c "\dt app.*"
+```
+
+The session connects to the **database**; `app.jobs` resolves through explicit qualification even though
+`app` is not in `search_path`.
+
+### 5. NOT NULL rejects NULL — **this command is EXPECTED TO FAIL**
+
+```bash
+# EXPECTED FAILURE: null value in column "job_status" violates not-null constraint.
+# A non-zero exit code here means the constraint works. It is NOT a broken script.
+day29psql -c "INSERT INTO app.jobs (job_status) VALUES (NULL);" || echo "^ expected failure: NOT NULL works"
+```
+
+### 6. NOT NULL does NOT enforce business validity — these SUCCEED (the known gap)
+
+```bash
+day29psql -c "INSERT INTO app.jobs (job_status) VALUES ('') RETURNING job_id, job_status;"
+day29psql -c "INSERT INTO app.jobs (job_status) VALUES ('banana') RETURNING job_id, job_status;"
+```
+
+Both are accepted — durability is not integrity. A `CHECK`/enum rule is Day31 work.
+
+### 7. timestamptz is one absolute instant
+
+```bash
+day29psql -c "SET TIME ZONE 'UTC';           SELECT job_id, created_at, extract(epoch FROM created_at) AS epoch FROM app.jobs ORDER BY created_at LIMIT 1;"
+day29psql -c "SET TIME ZONE 'Asia/Shanghai'; SELECT job_id, created_at, extract(epoch FROM created_at) AS epoch FROM app.jobs ORDER BY created_at LIMIT 1;"
+```
+
+Different rendering, identical `epoch`.
+
+### 8. Guarded data repair (the `queud` drill)
+
+```bash
+# Simulate the bad release writing a misspelled status.
+day29psql -c "INSERT INTO app.jobs (job_status) SELECT 'queud' FROM generate_series(1,3);"
+
+# Baseline counts.
+day29psql -c "SELECT job_status, count(*) FROM app.jobs GROUP BY job_status ORDER BY job_status;"
+
+# GUARDED repair: narrow WHERE, and capture evidence via RETURNING.
+day29psql -c "UPDATE app.jobs SET job_status = 'queued' WHERE job_status = 'queud' RETURNING job_id;"
+
+# Post-repair counts (verify the repair scope).
+day29psql -c "SELECT job_status, count(*) FROM app.jobs GROUP BY job_status ORDER BY job_status;"
+```
+
+The reported row count plus `RETURNING` are the evidence. Never run an unguarded `UPDATE`.
+
+### 9. Restart persistence
+
+```bash
+day29psql -c "SELECT count(*) AS before_restart FROM app.jobs;"
+pg_ctl -D "$DAY29_PGDATA" -m fast restart -l "$DAY29_PG_ROOT/server.log"
+day29psql -c "SELECT count(*) AS after_restart FROM app.jobs;"
+day29psql -c "SELECT job_status, count(*) FROM app.jobs GROUP BY job_status ORDER BY job_status;"
+```
+
+This proves **local process-lifecycle persistence only** — not backup recovery, high availability, or
+crash durability under hardware failure.
+
+### 10. Clean up (deletes only the directory created by `mktemp` above)
+
+```bash
+pg_ctl -D "$DAY29_PGDATA" -m fast stop
+# Deletes ONLY this run's mktemp directory. Guarded so an unset variable cannot expand to "rm -rf /".
+[ -n "$DAY29_PG_ROOT" ] && [ -d "$DAY29_PG_ROOT" ] && rm -rf "$DAY29_PG_ROOT"
+unalias day29psql 2>/dev/null
+unset DAY29_PG_ROOT DAY29_PGDATA DAY29_PGPORT DAY29_PGHOST
+```
+
+Docker was **not** used and is **not** validated: the Docker CLI existed during class but the daemon was
+not running. Do not present a Docker workflow as verified.
 
 ---
 
@@ -126,9 +228,16 @@ present a Docker workflow as validated.
   job_ids; post-repair counts were empty=1, banana=1, queued=4.
 - PostgreSQL was stopped and restarted; all 6 rows remained (queued=4, banana=1, empty=1).
 
-Session context: database ai_backend, schema app, user yuanzhenyu,
-search_path "$user", public; current_schema public (explicit app.jobs succeeded);
-session timezone Asia/Shanghai.
+Session context:
+- The session connected to database ai_backend as user yuanzhenyu.
+- The target relation was app.jobs.
+- search_path was "$user", public.
+- current_schema() returned public.
+- Explicit qualification allowed app.jobs to resolve even though app was not in search_path.
+- Session timezone was Asia/Shanghai.
+
+(A session connects to a DATABASE, never to a schema. `app` is the namespace of the target relation,
+not "the schema the session is connected to".)
 ```
 
 **Not proven by the restart test:** backup recovery, high availability, crash durability under hardware

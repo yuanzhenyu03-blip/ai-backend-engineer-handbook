@@ -22,4 +22,5 @@ Rules:
 
 - Do not create duplicate lesson folders outside `docs/`.
 - Use lowercase kebab-case lesson file names.
-- Every final lesson should follow `LESSON_TEMPLATE.md`.
+- Day01-Day20 lessons remain valid with the original template (`LESSON_TEMPLATE.md`).
+- Day21 and later final lessons must follow `LESSON_TEMPLATE_v2.md`.
