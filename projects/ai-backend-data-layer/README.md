@@ -162,12 +162,22 @@ BEGIN
 END
 $$;
 SQL
-echo "exit status: $?   # 0 = the expected not_null_violation was observed"
 ```
+
+`day29psql` is deliberately the **last command in the block**, so the block's exit status *is* the
+verification result — nothing after it can mask a failure:
+
+| Outcome | Exit status |
+|---|---|
+| Expected `not_null_violation` (SQLSTATE 23502) | **0** |
+| NULL unexpectedly accepted (`P0001` raised by the block) | non-zero |
+| Missing table, syntax error, wrong database, connection refused | non-zero |
 
 The custom `RAISE EXCEPTION` uses SQLSTATE `P0001`, which the handler does **not** catch, so an
 unexpectedly successful INSERT reliably fails the step. Because the exception aborts the block, no row is
-left behind.
+left behind. (Do **not** append `echo "exit status: $?"` here: `echo` returns 0 and would overwrite the
+real status. If you must print it, capture `rc=$?` first, print, then `return`/`exit "$rc"` explicitly —
+never an unconditional `exit` in an interactive shell.)
 
 ### 6. NOT NULL does NOT enforce business validity — these SUCCEED (the known gap)
 
@@ -230,6 +240,11 @@ procedure — an overwritten variable could still name something important. The 
 
 If **any** check fails, cleanup is refused with a clear message and nothing is deleted or stopped.
 
+Deletion is additionally gated on PostgreSQL having actually stopped. The shell does **not** abort on a
+non-zero `pg_ctl` status by default, so the steps are chained with explicit `if`/`else` rather than
+sequential commands — a stop failure or timeout must never be followed by `rm -rf` on a data directory
+that may still be in use. Diagnostic variables are cleared **only** on full success.
+
 ```bash
 day29_cleanup_guard() {
     [ -n "${DAY29_PG_ROOT:-}" ]  || { echo "REFUSING cleanup: DAY29_PG_ROOT is unset/empty." >&2; return 1; }
@@ -248,17 +263,64 @@ day29_cleanup_guard() {
     return 0
 }
 
-if day29_cleanup_guard; then
-    pg_ctl -D "$DAY29_PGDATA" -m fast stop      # only the verified data directory
-    rm -rf -- "$DAY29_PG_ROOT"                  # only after every guard passed
-    echo "Removed disposable cluster: $DAY29_PG_ROOT"
-else
-    echo "Cleanup refused. Nothing was stopped or deleted. Inspect the variables and remove manually." >&2
-fi
+# Printed on every refusal so the cluster can be inspected and removed by hand.
+day29_report_vars() {
+    {
+        echo "  Preserved for diagnosis (NOT unset):"
+        echo "    DAY29_PG_ROOT=${DAY29_PG_ROOT:-<unset>}"
+        echo "    DAY29_PGDATA=${DAY29_PGDATA:-<unset>}"
+        echo "    DAY29_PGPORT=${DAY29_PGPORT:-<unset>}"
+        echo "    DAY29_PGHOST=${DAY29_PGHOST:-<unset>}"
+        echo "    server log:   ${DAY29_PG_ROOT:-<unset>}/server.log"
+    } >&2
+}
 
-unset -f day29psql day29_cleanup_guard 2>/dev/null
-unset DAY29_PG_ROOT DAY29_PGDATA DAY29_PGPORT DAY29_PGHOST
+day29_cleanup() {
+    # Gate 1: path identity.
+    if ! day29_cleanup_guard; then
+        echo "REFUSING cleanup: guard failed. Nothing was stopped or deleted." >&2
+        day29_report_vars
+        return 1
+    fi
+
+    # Gate 2: PostgreSQL must actually stop before anything is removed.
+    if ! pg_ctl -D "$DAY29_PGDATA" -m fast stop; then
+        echo "REFUSING delete: pg_ctl stop failed or timed out." >&2
+        echo "  The data directory may still be in use; it was NOT removed." >&2
+        day29_report_vars
+        return 1
+    fi
+
+    # Gate 3: the delete itself must succeed (and the directory must really be gone).
+    rm -rf -- "$DAY29_PG_ROOT"
+    rc=$?
+    if [ "$rc" -ne 0 ] || [ -e "$DAY29_PG_ROOT" ]; then
+        echo "REFUSING to report success: rm -rf failed (status $rc) or the path still exists." >&2
+        day29_report_vars
+        return 1
+    fi
+
+    # Only now is it true that the cluster is stopped and the directory is gone.
+    echo "Removed disposable cluster: $DAY29_PG_ROOT"
+    unset DAY29_PG_ROOT DAY29_PGDATA DAY29_PGPORT DAY29_PGHOST
+    unset -f day29psql day29_cleanup_guard day29_report_vars 2>/dev/null
+    return 0
+}
+
+day29_cleanup
 ```
+
+Cleanup outcomes:
+
+| Branch | `pg_ctl stop` | `rm -rf` | Message | Variables | Exit status |
+|---|---|---|---|---|---|
+| Guard failed | not run | not run | `REFUSING cleanup` | **preserved + printed** | non-zero |
+| Stop failed/timed out | failed | **not run** | `REFUSING delete` | **preserved + printed** | non-zero |
+| Delete failed | ok | failed / path remains | `REFUSING to report success` | **preserved + printed** | non-zero |
+| Full success | ok | ok, path gone | `Removed disposable cluster: ...` | cleared | 0 |
+
+Success is reported **only** after the directory is verifiably gone. (`day29_cleanup` itself is left
+defined; `unset -f day29_cleanup` by hand once you are done.)
 
 Docker was **not** used and is **not** validated: the Docker CLI existed during class but the daemon was
 not running. Do not present a Docker workflow as verified.

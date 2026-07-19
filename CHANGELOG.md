@@ -9,6 +9,57 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.57 — Day29 Cleanup Control-Flow Fixes
+
+Date: 2026-07-19
+
+### Changed
+
+- `projects/ai-backend-data-layer/README.md`: deletion is now gated on PostgreSQL actually stopping. The
+  previous success branch ran `pg_ctl ... stop` and `rm -rf` as sequential commands, and because the
+  shell does not abort on a non-zero `pg_ctl` status by default, a failed or timed-out stop could still
+  be followed by a recursive delete of a data directory that might still be in use. Cleanup is now a
+  `day29_cleanup` function with explicit nested control flow: the identity guard must pass, then
+  `pg_ctl -m fast stop` must succeed, then `rm -rf -- "$DAY29_PG_ROOT"` runs and its status **and** the
+  path's continued existence are both checked. A stop failure prints `REFUSING delete`, performs no
+  delete, and returns non-zero.
+- `projects/ai-backend-data-layer/README.md`: the NOT NULL step no longer ends with
+  `echo "exit status: $?"`, which returned 0 and masked the real result. `day29psql` is now the last
+  command in the block, so the block's exit status *is* the verification result (expected
+  `not_null_violation` -> 0; unexpected acceptance, missing table, syntax error, wrong database, or
+  connection failure -> non-zero). An outcome table was added, plus guidance to capture `rc=$?` and
+  restore it explicitly if the status must be printed — never an unconditional `exit` in an interactive
+  shell.
+- `projects/ai-backend-data-layer/README.md`: diagnostic variables are cleared **only** on full success.
+  Previously `unset DAY29_*` ran unconditionally, contradicting the "inspect the variables" advice. On a
+  guard failure, a stop failure, or a delete failure, `day29_report_vars` now prints
+  `DAY29_PG_ROOT`/`DAY29_PGDATA`/`DAY29_PGPORT`/`DAY29_PGHOST` and the server-log path, the variables and
+  helper functions are preserved, the directory is kept, and cleanup returns non-zero. The success
+  message is printed only after the directory is verifiably gone. A branch/outcome table documents all
+  four cases.
+
+### Notes
+
+- Validation actually performed: `git diff --check`; the README's `day29_cleanup_guard`,
+  `day29_report_vars`, and `day29_cleanup` functions were copied verbatim into a harness and
+  **executed in bash with mocked `pg_ctl` and `rm`**, covering all four branches — guard failure (no
+  stop, no delete, variables preserved, non-zero), stop failure (no delete, directory preserved,
+  variables preserved, `REFUSING delete`, no success message, non-zero), delete failure (no success
+  message, variables preserved, non-zero), and full success (success message, directory gone, all four
+  variables cleared, exit 0) — 26/26 assertions passed. The mocks only ever created and removed fresh
+  `day29-pg.XXXXXX` temporary directories; no real PostgreSQL data directory was touched. Also checked:
+  Markdown fenced-block balance, relative-link resolution, restricted file scope, and a secret scan.
+- **PostgreSQL was NOT available in this environment**, so the schema, the `DO` block, and the full
+  README procedure were **NOT executed**. The PostgreSQL 14.18 results remain classroom evidence and are
+  not restated as repository-update or production validation. No shared or production database was
+  contacted, and the mock-based control-flow test is not presented as PostgreSQL runtime validation.
+- Scope: documentation-only. `sql/001_create_jobs.sql`, the Day29 lesson, student answers,
+  `PROJECT_STATUS.md`, `TASKS.md`, `CURRICULUM.md`, and `ROADMAP.md` are unchanged; no database
+  constraints, relationship tables, or application code were added; no Day30 lesson was created; the
+  protected prompt/template files are unchanged.
+
+---
+
 ## v0.1.56 — Day29 Reproduction Safety Fixes
 
 Date: 2026-07-19
