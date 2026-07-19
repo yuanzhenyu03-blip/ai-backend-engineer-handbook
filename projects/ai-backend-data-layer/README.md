@@ -303,7 +303,9 @@ day29_cleanup() {
     # Only now is it true that the cluster is stopped and the directory is gone.
     echo "Removed disposable cluster: $DAY29_PG_ROOT"
     unset DAY29_PG_ROOT DAY29_PGDATA DAY29_PGPORT DAY29_PGHOST
-    unset -f day29psql day29_cleanup_guard day29_report_vars 2>/dev/null
+    # Remove every helper, including this function itself. Both bash and zsh allow a
+    # running function to unset its own definition; the current call still completes.
+    unset -f day29psql day29_cleanup_guard day29_report_vars day29_cleanup 2>/dev/null
     return 0
 }
 
@@ -312,15 +314,18 @@ day29_cleanup
 
 Cleanup outcomes:
 
-| Branch | `pg_ctl stop` | `rm -rf` | Message | Variables | Exit status |
+| Branch | `pg_ctl stop` | `rm -rf` | Message | Variables + helpers | Exit status |
 |---|---|---|---|---|---|
 | Guard failed | not run | not run | `REFUSING cleanup` | **preserved + printed** | non-zero |
 | Stop failed/timed out | failed | **not run** | `REFUSING delete` | **preserved + printed** | non-zero |
 | Delete failed | ok | failed / path remains | `REFUSING to report success` | **preserved + printed** | non-zero |
-| Full success | ok | ok, path gone | `Removed disposable cluster: ...` | cleared | 0 |
+| Full success | ok | ok, path gone | `Removed disposable cluster: ...` | **all cleared** (vars + 4 helpers) | 0 |
 
-Success is reported **only** after the directory is verifiably gone. (`day29_cleanup` itself is left
-defined; `unset -f day29_cleanup` by hand once you are done.)
+Success is reported **only** after the directory is verifiably gone. On full success the shell is left
+clean: all four `DAY29_*` variables and **all four helper functions** (`day29psql`,
+`day29_cleanup_guard`, `day29_report_vars`, and `day29_cleanup` itself) are removed — no manual
+follow-up step is needed. On any failure the variables **and** the helpers are kept so you can inspect
+the cluster and re-run `day29_cleanup` after fixing the cause.
 
 Docker was **not** used and is **not** validated: the Docker CLI existed during class but the daemon was
 not running. Do not present a Docker workflow as verified.

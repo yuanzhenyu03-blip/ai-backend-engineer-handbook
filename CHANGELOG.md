@@ -9,6 +9,46 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.58 — Day29 Cleanup Helper Self-Removal
+
+Date: 2026-07-19
+
+### Changed
+
+- `projects/ai-backend-data-layer/README.md`: the cleanup success branch now removes **all four** helper
+  functions in one step — `day29psql`, `day29_cleanup_guard`, `day29_report_vars`, and `day29_cleanup`
+  itself — instead of leaving `day29_cleanup` behind. Both bash and zsh allow a running function to
+  unset its own definition; the in-flight call still completes and returns 0.
+- Removed the instruction telling the reader to run `unset -f day29_cleanup` by hand after a successful
+  cleanup. The documentation now states that a full success leaves the shell clean with no manual
+  follow-up, and the outcome table's column was renamed to "Variables + helpers" with the success row
+  marked "all cleared (vars + 4 helpers)".
+- Failure behaviour is unchanged and was re-verified: on a guard failure, a stop failure, or a delete
+  failure the `DAY29_*` variables **and** all helper functions are preserved so the cluster can be
+  inspected and `day29_cleanup` can be re-run, nothing is wrongly deleted, and the exit status stays
+  non-zero.
+
+### Notes
+
+- Validation actually performed: `git diff --check`; the README's helper functions were copied verbatim
+  into a harness and **executed in bash** (GNU bash 5.1.16) — 27/27 assertions passed, covering the
+  self-unset success path (function returns 0 after unsetting itself; all four helpers and all four
+  `DAY29_*` variables gone; directory removed) and regressions for the guard-failure, stop-failure, and
+  delete-failure branches (variables and helpers preserved, no wrongful delete, non-zero status). The
+  mocks only created and removed fresh `day29-pg.XXXXXX` temporary directories.
+- **zsh verification: NOT RUN.** zsh is not installed in this environment and cannot be installed
+  (no root; `apt-get` lock is not writable and there is no pip package). The self-unset behaviour was
+  therefore confirmed in bash only.
+- **PostgreSQL was NOT available**, so the schema, the `DO` block, and the full README procedure were
+  **NOT executed**. The PostgreSQL 14.18 results remain classroom evidence; the shell mock test is not
+  presented as PostgreSQL runtime validation, and no shared or production database was contacted.
+- Scope: documentation-only. `sql/001_create_jobs.sql`, the Day29 lesson, student answers,
+  `PROJECT_STATUS.md`, `TASKS.md`, `CURRICULUM.md`, and `ROADMAP.md` are unchanged; the NOT NULL, guard,
+  stop, and delete control flow is otherwise untouched; no database capability or application code was
+  added; no Day30 lesson was created; the protected prompt/template files are unchanged.
+
+---
+
 ## v0.1.57 — Day29 Cleanup Control-Flow Fixes
 
 Date: 2026-07-19
