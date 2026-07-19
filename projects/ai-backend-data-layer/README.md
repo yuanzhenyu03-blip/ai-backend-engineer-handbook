@@ -86,19 +86,25 @@ cd projects/ai-backend-data-layer
 
 ### 1. Start a disposable cluster
 
-Task-specific variables are used so an existing `PGDATA` is never reused or overwritten.
+The temporary directory uses a **task-specific fixed prefix** (`day29-pg.XXXXXX`) so cleanup can later
+prove the path was created by this procedure. An existing `PGDATA` is never reused or overwritten.
 
 ```bash
-export DAY29_PG_ROOT="$(mktemp -d)"
+# Fixed, identifiable prefix. This mktemp template form works on both macOS and Linux.
+export DAY29_PG_ROOT="$(mktemp -d "${TMPDIR:-/tmp}/day29-pg.XXXXXX")"
 export DAY29_PGDATA="$DAY29_PG_ROOT/data"
 export DAY29_PGPORT=5433
 export DAY29_PGHOST="$DAY29_PG_ROOT/sock"
 mkdir -p "$DAY29_PGHOST"
+echo "Disposable cluster root: $DAY29_PG_ROOT"
 
 initdb -D "$DAY29_PGDATA" >/dev/null
 pg_ctl -D "$DAY29_PGDATA" -o "-p $DAY29_PGPORT -k $DAY29_PGHOST" -l "$DAY29_PG_ROOT/server.log" start
 
-alias day29psql='psql -p "$DAY29_PGPORT" -h "$DAY29_PGHOST" -d ai_backend'
+# A shell FUNCTION (not an alias) so it also works in non-interactive shells/scripts.
+# ON_ERROR_STOP=1 makes any SQL error produce a reliable non-zero exit status.
+day29psql() { psql -v ON_ERROR_STOP=1 -p "$DAY29_PGPORT" -h "$DAY29_PGHOST" -d ai_backend "$@"; }
+
 createdb -p "$DAY29_PGPORT" -h "$DAY29_PGHOST" ai_backend
 ```
 
@@ -130,13 +136,38 @@ day29psql -c "\dt app.*"
 The session connects to the **database**; `app.jobs` resolves through explicit qualification even though
 `app` is not in `search_path`.
 
-### 5. NOT NULL rejects NULL — **this command is EXPECTED TO FAIL**
+### 5. NOT NULL rejects NULL — precise assertion of the expected error
+
+This step **asserts a specific PostgreSQL error condition**, `not_null_violation` (SQLSTATE 23502). It is
+**not** "any non-zero exit counts as a pass". A nested `EXCEPTION` block catches only that one condition:
+
+- expected `not_null_violation` -> `NOTICE: PASS` and the command exits **0**;
+- the INSERT unexpectedly **succeeding** -> the block raises its own exception, so the step **fails**;
+- any other failure (missing table `undefined_table`, syntax error, connection refused, wrong database)
+  is **not** caught, propagates, and the step **fails** — it is never reported as a pass.
 
 ```bash
-# EXPECTED FAILURE: null value in column "job_status" violates not-null constraint.
-# A non-zero exit code here means the constraint works. It is NOT a broken script.
-day29psql -c "INSERT INTO app.jobs (job_status) VALUES (NULL);" || echo "^ expected failure: NOT NULL works"
+day29psql <<'SQL'
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.jobs (job_status) VALUES (NULL);
+        -- Reached only if the NOT NULL constraint did NOT reject the row.
+        RAISE EXCEPTION
+            'VALIDATION FAILED: NULL job_status was accepted; the NOT NULL constraint is missing';
+    EXCEPTION
+        WHEN not_null_violation THEN
+            RAISE NOTICE 'PASS: NULL job_status rejected with not_null_violation (SQLSTATE 23502)';
+    END;
+END
+$$;
+SQL
+echo "exit status: $?   # 0 = the expected not_null_violation was observed"
 ```
+
+The custom `RAISE EXCEPTION` uses SQLSTATE `P0001`, which the handler does **not** catch, so an
+unexpectedly successful INSERT reliably fails the step. Because the exception aborts the block, no row is
+left behind.
 
 ### 6. NOT NULL does NOT enforce business validity — these SUCCEED (the known gap)
 
@@ -186,13 +217,46 @@ day29psql -c "SELECT job_status, count(*) FROM app.jobs GROUP BY job_status ORDE
 This proves **local process-lifecycle persistence only** — not backup recovery, high availability, or
 crash durability under hardware failure.
 
-### 10. Clean up (deletes only the directory created by `mktemp` above)
+### 10. Clean up (identity-verified before any recursive delete)
+
+A non-empty variable pointing at an existing directory is **not** proof that the path belongs to this
+procedure — an overwritten variable could still name something important. The guard below therefore
+**verifies the identity of the path** before `pg_ctl stop` or `rm -rf` touches anything:
+
+1. `DAY29_PG_ROOT` matches the task-specific `day29-pg.XXXXXX` prefix created in step 1;
+2. it is not `/`, `$HOME`, or the current working directory;
+3. `DAY29_PGDATA` is exactly `$DAY29_PG_ROOT/data`;
+4. `$DAY29_PGDATA/PG_VERSION` exists (i.e. it really is a PostgreSQL data directory).
+
+If **any** check fails, cleanup is refused with a clear message and nothing is deleted or stopped.
 
 ```bash
-pg_ctl -D "$DAY29_PGDATA" -m fast stop
-# Deletes ONLY this run's mktemp directory. Guarded so an unset variable cannot expand to "rm -rf /".
-[ -n "$DAY29_PG_ROOT" ] && [ -d "$DAY29_PG_ROOT" ] && rm -rf "$DAY29_PG_ROOT"
-unalias day29psql 2>/dev/null
+day29_cleanup_guard() {
+    [ -n "${DAY29_PG_ROOT:-}" ]  || { echo "REFUSING cleanup: DAY29_PG_ROOT is unset/empty." >&2; return 1; }
+    [ -n "${DAY29_PGDATA:-}" ]   || { echo "REFUSING cleanup: DAY29_PGDATA is unset/empty." >&2; return 1; }
+    case "$DAY29_PG_ROOT" in
+        */day29-pg.??????) : ;;
+        *) echo "REFUSING cleanup: '$DAY29_PG_ROOT' does not match the day29-pg.XXXXXX prefix." >&2; return 1 ;;
+    esac
+    [ "$DAY29_PG_ROOT" != "/" ] && [ "$DAY29_PG_ROOT" != "$HOME" ] && [ "$DAY29_PG_ROOT" != "$PWD" ] \
+        || { echo "REFUSING cleanup: '$DAY29_PG_ROOT' is /, \$HOME, or the current directory." >&2; return 1; }
+    [ -d "$DAY29_PG_ROOT" ] || { echo "REFUSING cleanup: '$DAY29_PG_ROOT' is not a directory." >&2; return 1; }
+    [ "$DAY29_PGDATA" = "$DAY29_PG_ROOT/data" ] \
+        || { echo "REFUSING cleanup: DAY29_PGDATA is not \$DAY29_PG_ROOT/data." >&2; return 1; }
+    [ -f "$DAY29_PGDATA/PG_VERSION" ] \
+        || { echo "REFUSING cleanup: no PG_VERSION in '$DAY29_PGDATA' — not a cluster made by this procedure." >&2; return 1; }
+    return 0
+}
+
+if day29_cleanup_guard; then
+    pg_ctl -D "$DAY29_PGDATA" -m fast stop      # only the verified data directory
+    rm -rf -- "$DAY29_PG_ROOT"                  # only after every guard passed
+    echo "Removed disposable cluster: $DAY29_PG_ROOT"
+else
+    echo "Cleanup refused. Nothing was stopped or deleted. Inspect the variables and remove manually." >&2
+fi
+
+unset -f day29psql day29_cleanup_guard 2>/dev/null
 unset DAY29_PG_ROOT DAY29_PGDATA DAY29_PGPORT DAY29_PGHOST
 ```
 

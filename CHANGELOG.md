@@ -9,6 +9,51 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.56 — Day29 Reproduction Safety Fixes
+
+Date: 2026-07-19
+
+### Changed
+
+- Replaced the false-success NOT NULL check in `projects/ai-backend-data-layer/README.md`. The old
+  `... || echo "expected failure: NOT NULL works"` reported ANY failure (missing table, syntax error,
+  connection refused, wrong database) as a pass. The step now runs a `DO` block whose nested `EXCEPTION`
+  handler catches **only** `not_null_violation` (SQLSTATE 23502): the expected violation yields
+  `NOTICE: PASS` and exit 0; an unexpectedly successful INSERT raises its own `P0001` exception (not
+  caught) so the step fails; any other error propagates and fails. The psql helper is now a shell
+  function with `-v ON_ERROR_STOP=1`, so SQL errors produce reliable non-zero exit statuses. The
+  documentation states explicitly that this asserts a specific error condition rather than treating any
+  non-zero exit as success. No blanket `|| echo` remains in the file.
+- Hardened disposable-cluster creation and cleanup. The temporary directory is now created with a
+  task-specific fixed prefix (`mktemp -d "${TMPDIR:-/tmp}/day29-pg.XXXXXX"`, a form that works on both
+  macOS and Linux). Cleanup is gated by a `day29_cleanup_guard` function that verifies the path's
+  identity before anything is stopped or deleted: `DAY29_PG_ROOT` matches the `day29-pg.XXXXXX` prefix;
+  it is not `/`, `$HOME`, or the current directory; `DAY29_PGDATA` is exactly `$DAY29_PG_ROOT/data`; and
+  `$DAY29_PGDATA/PG_VERSION` exists. `pg_ctl -m fast stop` and `rm -rf -- "$DAY29_PG_ROOT"` run only
+  inside the guarded branch; any failed check refuses cleanup with a clear message and deletes nothing.
+  The README no longer claims that a non-empty variable plus an existing directory is sufficient proof.
+
+### Notes
+
+- Validation actually performed: `git diff --check`; the extracted `day29_cleanup_guard` function was
+  **executed in bash** against 10 adversarial cases (genuine cluster dir allowed; empty variables, `/`,
+  `$HOME`, generic `/tmp`, a wrong-prefix real cluster, a `PGDATA` pointing at `/etc`, a right-prefix
+  directory without `PG_VERSION`, and a nonexistent directory all refused) — 10/10 as expected; static
+  structural checks of the `DO` block (balanced dollar quoting, outer/inner `BEGIN`/`END`, a single
+  `WHEN not_null_violation` handler, the unexpected-success `RAISE`); Markdown fenced-block balance;
+  relative-link resolution; and a secret scan of the changed files.
+- **PostgreSQL and Docker were NOT available in this environment**, so the SQL, the `DO` block, and the
+  full README procedure were **NOT executed** here. The PostgreSQL 14.18 results remain classroom
+  evidence and are not restated as repository-update or production validation. No shared or production
+  database was contacted.
+- Scope: documentation-only changes to the reproduction procedure. The Day29 lesson content, student
+  answers, and `sql/001_create_jobs.sql` are unchanged; no `CHECK`, business `UNIQUE`, foreign key, or
+  relationship table was added; no SQLAlchemy/Alembic/FastAPI/Celery/Redis introduced; no Day30 lesson
+  created; `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, and `LESSON_TEMPLATE_v2.md`
+  are unchanged.
+
+---
+
 ## v0.1.55 — Day29 Review Fixes
 
 Date: 2026-07-19
