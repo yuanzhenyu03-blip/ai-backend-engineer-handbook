@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day30 — SQL Data Manipulation and Query Fundamentals
+Day31 — Relational Modeling and Data Integrity
 
 Status:
 Planned / Not started
@@ -32,6 +32,70 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 - [x] Author the first minimal raw SQL Job schema and the data-layer project README.
 - [x] Distinguish durable row vs table contract, database vs schema vs session, typed columns vs JSONB, primary key vs idempotency key, and durability vs integrity.
 - [ ] Prepare for Day30 — SQL Data Manipulation and Query Fundamentals.
+
+---
+
+## Completed Day30 Tasks
+
+- [x] Complete Day30 SQL Data Manipulation and Query Fundamentals classroom learning.
+- [x] Generate the Day30 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day29->Day30 mental-model evolution).
+- [x] Write the deterministic oldest-queued SELECT with explicit columns and a unique tie-breaker.
+- [x] Explain three-valued logic, IS NULL, and why `<> 'timeout'` drops no-error rows.
+- [x] Insert with database defaults and return generated facts with RETURNING.
+- [x] Explain parameter binding, the injection boundary, and what it does not solve.
+- [x] Write guarded queued->running and running->succeeded transitions with current-state predicates.
+- [x] Interpret zero returned rows without claiming the Job does not exist.
+- [x] Correct AND/OR precedence in the guarded cleanup DELETE.
+- [x] Diagnose the attempt_count lost update and compare database-side increment vs optimistic guard.
+- [x] Work through the 842-row accidental UPDATE incident and the contain->reconcile->repair order.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+
+---
+
+## Completed Day30 Repository Tasks
+
+- [x] Add `docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/002_job_crud_and_guarded_transitions.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day30 increment and validation matrix.
+- [x] Append the Day30 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day30 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day30 is now the latest PostgreSQL lesson).
+- [x] Update the Day29 lesson Next Lesson link to the released Day30 lesson.
+- [x] Update `CURRICULUM.md` (Day30 Completed; Day31 remains Planned).
+- [x] Update `ROADMAP.md` (Day30 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day30 Interview Tasks
+
+- [x] Add the beginner WHERE/affected-rows question with the student's actual attempt and English corrections.
+- [x] Add intermediate parameterized-SQL and NULL three-valued-logic questions.
+- [x] Add the senior guarded running->succeeded question (zero-row interpretation + concurrency limits).
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day30 Homework
+
+- [x] Complete deterministic SELECT and unfinished-Jobs exercises.
+- [x] Complete the `<> 'timeout'` NULL-logic exercise.
+- [x] Complete INSERT-with-defaults + RETURNING exercise.
+- [x] Complete parameter-boundary exercise.
+- [x] Complete guarded transition and zero-row interpretation exercises.
+- [x] Complete guarded DELETE precedence exercise.
+- [x] Complete attempt_count lost-update exercise.
+- [x] Complete the 842-row incident exercise.
+
+---
+
+### Day31 Preparation — Relational Modeling and Data Integrity
+
+- [ ] Read the Day31 input when provided.
+- [ ] Review the Day30 SQL pack and the guard predicates that Day31 will move into database constraints.
+- [ ] Preview entities/relationships, primary vs business keys, `NOT NULL`/`UNIQUE`/`CHECK`/foreign keys, referential actions, and normalization.
+- [ ] Preview the Documents / Job Attempts / Job Events / Outbox Events / Result Artifact model the 842-row incident showed was missing.
+- [ ] Keep transactions (Day33), concurrency/locks (Day34), indexes (Day35), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -88,9 +152,9 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ---
 
-### Day30 Preparation — SQL Data Manipulation and Query Fundamentals
+### Day30 Preparation — SQL Data Manipulation and Query Fundamentals (completed)
 
-- [ ] Read the Day30 input when provided.
+- [x] Read the Day30 input.
 - [ ] Review the Day29 `app.jobs` schema and the project README limitations.
 - [ ] Preview SELECT/FROM/WHERE/ORDER BY/LIMIT, INSERT/UPDATE/DELETE/RETURNING, NULL three-valued logic, parameterized SQL, deterministic ordering, and guarded status transitions.
 - [ ] Keep CHECK/UNIQUE/foreign keys and relationships as Day31 scope; keep SQLAlchemy/Alembic as Phase 4.
@@ -165,7 +229,7 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 ### Phase 3 Roadmap (Day29-Day42) — Backend Foundations
 
 - [x] Day29 — PostgreSQL Foundations and Durable Relational State (Completed).
-- [ ] Day30 — SQL Data Manipulation and Query Fundamentals (Planned).
+- [x] Day30 — SQL Data Manipulation and Query Fundamentals (Completed).
 - [ ] Day31 — Relational Modeling and Data Integrity (Planned).
 - [ ] Day32 — SQL Joins, Aggregation, and Operational Queries (Planned).
 - [ ] Day33 — PostgreSQL Transactions and Atomic State Changes (Planned).

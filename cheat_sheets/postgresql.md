@@ -132,6 +132,47 @@ Runbook: contain -> identify the exact affected set -> GUARDED update (narrow WH
 
 Real identification needs release/time/tenant/provenance columns — absent from the Day29 minimal schema.
 
+## Day30 SQL Data Manipulation and Query Fundamentals
+
+Clause chain: `SELECT -> FROM -> WHERE -> ORDER BY -> LIMIT`.
+
+Deterministic reads:
+
+```text
+Explicit columns (not SELECT *) = a stable query contract
+ORDER BY needs a UNIQUE tie-breaker: ORDER BY created_at ASC, job_id ASC
+Single quotes = string literal 'queued';  double quotes = IDENTIFIER
+A candidate SELECT is NOT a claim — two workers see the same rows (claiming is Day34)
+```
+
+Three-valued logic: `WHERE` keeps only **TRUE** and filters both FALSE and UNKNOWN. Any comparison with NULL is UNKNOWN, so `= NULL` never matches — use `IS NULL`. `error_message <> 'timeout'` silently **drops every no-error row**; write `error_message IS NULL OR error_message <> 'timeout'` (or the NULL-safe `IS DISTINCT FROM`, which is easy to invert by accident). A NULL *field* has contextual lifecycle meaning; UNKNOWN is the *logical result* of a comparison.
+
+Writes: `INSERT INTO app.jobs DEFAULT VALUES RETURNING ...`, or name supplied columns and omit the rest so defaults generate. **`RETURNING` returns rows/columns, not a count** — count evidence comes from the driver command result or the number of rows received.
+
+Parameters: `$1` is PostgreSQL/asyncpg style (psycopg `%s`, SQLAlchemy named binds). SQL structure stays fixed; only values bind, and a bound value is never re-parsed as SQL — even if it contains `DELETE FROM app.jobs`. Never f-string client input into SQL. Parameters bind **values only**: identifiers and `ASC`/`DESC` need a strict allowlist. Parameterization does **not** validate business rules, authorize access, enforce tenancy, or prevent logical/concurrency bugs.
+
+Guarded transitions — `WHERE` is the modification boundary and carries identity **plus** required current state:
+
+```sql
+UPDATE app.jobs SET job_status='running', started_at=now()
+WHERE job_id=$1 AND job_status='queued' RETURNING job_id, job_status, started_at;
+```
+
+`IS DISTINCT FROM 'queued'` means **NOT queued** and could restart terminal Jobs. With a primary-key predicate the contract is **1 row = applied, 0 rows = not applied** — 0 rows does **not** prove the Job is absent, so never report success.
+
+Destructive statements: `AND` binds tighter than `OR`, so `date AND empty OR banana` deletes every banana row regardless of date. Use `AND job_status IN ('', 'banana')` or parentheses. A prior `SELECT` is a preview, not proof; `DELETE ... RETURNING` is the evidence (consistent preview+delete needs a transaction, Day33).
+
+Lost update: two workers read 2, both write 3 → one increment lost. Application locks don't span Pods/Workers, and DB row locks need a transaction (Day33/34). Use a database-side computation `SET attempt_count = attempt_count + 1`, or an optimistic guard `... WHERE attempt_count = $2` where 0 rows means the stale expectation failed.
+
+Incident order (a missing `job_id` failed 842 live Jobs):
+
+```text
+contain -> preserve evidence -> identify exact affected set -> reconcile actual business state
+-> guarded repair by verified subset -> capture RETURNING/row-count -> verify recovery -> prevent recurrence
+```
+
+Don't wait first (state diverges, evidence degrades) and don't blanket-restore — some Jobs genuinely succeeded. `RETURNING` IDs prove the affected set, not each Job's real outcome. **Code rollback stops future bad writes; it repairs nothing already persisted.**
+
 ---
 
 ## Interview Phrases
@@ -147,3 +188,15 @@ Real identification needs release/time/tenant/provenance columns — absent from
 - "Durability is not integrity: a misspelled status is durable and unclaimable."
 - "Code rollback stops future bad writes; a guarded UPDATE repairs persisted facts."
 - "Never claim validation beyond the level you actually executed."
+
+- "WHERE is the modification boundary; RETURNING and affected rows are the evidence."
+- "ORDER BY without a unique tie-breaker returns an unstable page."
+- "WHERE keeps only TRUE — NULL comparisons are UNKNOWN, so use IS NULL."
+- "`<> 'timeout'` silently drops every row with no error."
+- "RETURNING returns rows, not a count."
+- "Parameters bind values only; identifiers need an allowlist."
+- "Parameterization closes the injection boundary — not authorization or concurrency."
+- "Zero rows means the transition did not apply, not that the Job does not exist."
+- "AND binds tighter than OR — parenthesize destructive predicates."
+- "Fix a lost update inside one statement: SET attempt_count = attempt_count + 1."
+- "Contain first, reconcile before repairing; code rollback never repairs persisted rows."

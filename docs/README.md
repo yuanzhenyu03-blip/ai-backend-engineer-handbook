@@ -12,7 +12,8 @@ docs/
 ├── devops/        # Day20-Day28 CI/CD, containers, deployment, Kubernetes, production architecture
 │   └── day28-ai-backend-production-architecture.md   # Phase 2 close
 ├── postgresql/    # Day29+ Phase 3 Backend Foundations
-│   └── day29-postgresql-foundations-and-durable-relational-state.md   # latest
+│   ├── day29-postgresql-foundations-and-durable-relational-state.md
+│   └── day30-sql-data-manipulation-and-query-fundamentals.md          # latest
 ├── fastapi/
 ├── playwright/
 └── n8n/

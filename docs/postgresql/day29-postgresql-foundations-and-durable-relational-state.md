@@ -16,7 +16,7 @@ Prerequisite: Day28 — AI Backend Production Architecture
 
 Previous Lesson: [Day28 — AI Backend Production Architecture](../devops/day28-ai-backend-production-architecture.md)
 
-Next Lesson: Day30 — SQL Data Manipulation and Query Fundamentals (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day30 lesson file does not exist yet)
+Next Lesson: [Day30 — SQL Data Manipulation and Query Fundamentals](day30-sql-data-manipulation-and-query-fundamentals.md)
 
 Engineering Artifact: The first increment of the Production AI Backend Data Layer — a minimal raw SQL Job schema plus an honest validation/limitations README — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

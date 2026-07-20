@@ -20,11 +20,11 @@ Current phase:
 
 Last completed lesson:
 
-* Day29 — PostgreSQL Foundations and Durable Relational State
+* Day30 — SQL Data Manipulation and Query Fundamentals
 
 Next:
 
-* Day30 — SQL Data Manipulation and Query Fundamentals (Planned / Not started; see `ROADMAP.md`)
+* Day31 — Relational Modeling and Data Integrity (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

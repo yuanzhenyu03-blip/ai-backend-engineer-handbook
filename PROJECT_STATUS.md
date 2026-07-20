@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day30 — SQL Data Manipulation and Query Fundamentals
+Day31 — Relational Modeling and Data Integrity
 
 Status:
 Planned / Not started
 
-(The Day30 lesson has not started and no Day30 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day29 details are recorded under Last Completed Lesson.)
+(The Day31 lesson has not started and no Day31 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day30 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -52,6 +52,7 @@ Day29 details are recorded under Last Completed Lesson.)
 - ✅ Day27 — Kubernetes Workloads
 - ✅ Day28 — AI Backend Production Architecture
 - ✅ Day29 — PostgreSQL Foundations and Durable Relational State
+- ✅ Day30 — SQL Data Manipulation and Query Fundamentals
 
 ---
 
@@ -63,32 +64,32 @@ None.
 
 ## Last Completed Lesson
 
-Day29 — PostgreSQL Foundations and Durable Relational State
+Day30 — SQL Data Manipulation and Query Fundamentals
 
 Completed Time:
-2026-07-19
+2026-07-20
 
 Main Artifact:
-First increment of the Production AI Backend Data Layer — a minimal raw SQL Job schema (app.jobs) plus an honest validation/limitations README at projects/ai-backend-data-layer/
+Day30 increment of the Production AI Backend Data Layer — a raw, parameterized SQL operations pack (projects/ai-backend-data-layer/sql/002_job_crud_and_guarded_transitions.sql) with explicit affected-row contracts
 
 Validation Boundary:
-Classroom runtime evidence came from a disposable PostgreSQL 14.18 cluster (DDL acceptance, database-generated defaults, NOT NULL rejection, timestamptz rendering, guarded data repair, restart persistence). The repository update did NOT re-run the SQL (no psql/PostgreSQL server/Docker daemon available). No FastAPI/Celery/Redis/Object Storage integration, transaction, concurrency, index, migration, backup/restore, or production validation was performed.
+Conceptual/manual review of the SQL semantics was completed in class. The repository update performed a static file review only (balanced syntax, guard direction, RETURNING presence, parameter usage, absence of transactions/locks/constraints/indexes, no credentials). PostgreSQL parser/runtime execution, Python-driver parameter binding, FastAPI/Celery/Object Storage integration, transaction/concurrency runtime tests, and production validation were NOT RUN — no psql/PostgreSQL server was available. Day29's PostgreSQL 14.18 classroom evidence applies to 001_create_jobs.sql only and is not Day30 runtime evidence.
 
 Completed Work:
 
-- Day29 classroom learning
-- Day29 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day28->Day29 mental-model evolution)
-- Day29 minimal raw SQL Job schema and project README (projects/ai-backend-data-layer/)
-- Day29 durable-facts / hierarchy / types / JSONB / NULL-DEFAULT / identity / timestamptz / validation / data-repair exercises
-- Day29 PostgreSQL cheat sheet (new)
-- Day29 PostgreSQL interview notes (appended to the existing stub)
-- Day29 repository status update
+- Day30 classroom learning
+- Day30 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day29->Day30 mental-model evolution)
+- Day30 parameterized SQL operations pack and project README increment
+- Day30 deterministic SELECT / NULL logic / INSERT defaults / parameter boundary / guarded transitions / DELETE precedence / lost update / 842-row incident exercises
+- Day30 PostgreSQL cheat sheet append
+- Day30 PostgreSQL interview notes append
+- Day30 repository status update
 
 ---
 
 ## Next
 
-- Day30 — SQL Data Manipulation and Query Fundamentals (Phase 3 — Backend Foundations)
+- Day31 — Relational Modeling and Data Integrity (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -128,6 +129,7 @@ Completed Python Foundations:
 - Day27 — Kubernetes workloads, Ingress L7 Host/Path/TLS routing (resource vs controller), HPA updates desired replicas on a scale target (CPU vs queue backlog, upstream limits), Rolling Update (maxSurge/maxUnavailable, strategy vs rollback vs Blue-Green), deleting v2 Pods is not a rollback, StatefulSet stable identity/PVC/headless Service/ordered lifecycle (not replication/HA), Helm templates vs Values vs Release, validation ladder (lint/template/API/runtime), never commit secrets to Values, readiness 200 != business success
 - Day28 — AI Backend production architecture, request vs job lifecycle (202 + job_id), state ownership (PostgreSQL truth / Redis deliver / Object Storage bytes / memory transient), Transactional Outbox + at-least-once + idempotent processing, durable checkpoints/leases/idempotency keys (unique constraint/upsert, ACK after durable), presigned multipart upload + Upload Session verification, retry (backoff+jitter+max attempts/deadline+classification+circuit breaker), monitoring (depth vs oldest-age vs throughput), observability (stable job_id correlation, low-cardinality metrics, append-only events), failure containment + compute rollback != data repair (contain/restore/identify/rebuild/verify)
 - Day29 — PostgreSQL foundations and durable relational state, write+commit the Job row before 202, server/cluster/database/schema/table/row/column boundaries, psql connects to a database (qualified name vs search_path; public is a default namespace), Job types/defaults (uuid PK gen_random_uuid, text, integer, boolean, timestamptz now(), bounded jsonb), typed columns vs JSONB-only, type vs relationship cardinality, NULL per lifecycle, NOT NULL rejects only NULL (empty/'banana' accepted), DEFAULT VALUES + RETURNING, primary key vs idempotency key, timestamptz as one absolute instant, validation ladder, durability != integrity, code rollback vs guarded data repair
+- Day30 — SQL data manipulation and query fundamentals, clause chain SELECT/FROM/WHERE/ORDER BY/LIMIT, explicit columns and a unique ORDER BY tie-breaker, three-valued logic (WHERE keeps only TRUE; IS NULL; why `<> 'timeout'` drops no-error rows), INSERT with database defaults + RETURNING (rows not a count), parameterized SQL and the injection boundary (values only; identifiers need an allowlist; it does not authorize or fix concurrency), WHERE as the modification boundary with current-state guards, zero rows means the transition did not apply, AND/OR precedence in destructive statements, lost-update awareness (database-side increment or expected-old-value guard), and the contain->evidence->identify->reconcile->guarded repair->verify incident order
 
 ---
 
@@ -377,6 +379,16 @@ Completed Python Foundations:
 - Explain timestamptz as one absolute instant rendered in the session time zone.
 - Classify conceptual / syntax / runtime / integration / production validation evidence.
 - Repair durable-but-wrong rows with a guarded UPDATE and explain why code rollback cannot.
+- Write a deterministic SELECT with explicit columns, a filter, a unique tie-breaker, and LIMIT.
+- Explain SQL three-valued logic and why WHERE discards both FALSE and UNKNOWN.
+- Use IS NULL correctly and include no-error rows explicitly instead of losing them to `<>`.
+- Insert with database defaults and return generated facts with RETURNING.
+- Explain what parameterized SQL prevents and the three things it does not solve.
+- Write guarded state transitions with identity plus current-state predicates.
+- Interpret zero returned rows honestly without claiming the row does not exist.
+- Correct AND/OR precedence in destructive statements and use RETURNING as evidence.
+- Diagnose a lost update and fix it with a database-side increment or an expected-old-value guard.
+- Order an incident response: contain, preserve evidence, identify, reconcile, repair, verify.
 
 ---
 
@@ -616,6 +628,19 @@ Completed Python Foundations:
 - PostgreSQL restart persistence exercise
 - PostgreSQL English interview exercise
 - Final PostgreSQL durable-state mental model synthesis exercise
+- Deterministic oldest-queued SELECT exercise
+- Unfinished Jobs IS NULL exercise
+- Why NULL rows vanish from `<> 'timeout'` exercise
+- INSERT provider_metadata with defaults + RETURNING exercise
+- Parameter binding / injection boundary exercise
+- Guarded queued->running transition exercise
+- Zero-row interpretation exercise
+- Guarded DELETE with AND/OR precedence exercise
+- attempt_count lost-update exercise
+- Guarded running->succeeded exercise
+- 842-row accidental UPDATE incident exercise
+- SQL data manipulation English interview exercise
+- Final SQL manipulation mental model synthesis exercise
 
 ---
 

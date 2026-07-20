@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.59 — Day30 SQL Data Manipulation and Query Fundamentals
+
+Date: 2026-07-20
+
+### Added
+
+- Added `docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day29->Day30 mental-model evolution).
+- Added `projects/ai-backend-data-layer/sql/002_job_crud_and_guarded_transitions.sql` — a raw, parameterized SQL operations pack: INSERT with database defaults + `RETURNING`, the deterministic oldest-queued candidate `SELECT`, NULL-aware reads, guarded `queued -> running` and `running -> succeeded` transitions, a database-side `attempt_count` increment, an optimistic expected-value update, and a guarded cleanup `DELETE`. Every statement carries an explicit affected-row contract.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day30 increment (statement table, contracts and boundaries) and a separate Day30 validation matrix.
+- Appended a Day30 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day30 Beginner/Intermediate/Senior questions to `interview/postgresql.md` (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day30 is the latest PostgreSQL lesson, and pointed the Day29 lesson's Next Lesson at the released Day30 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day30 completed with its released lesson/artifact (Day31 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day30 last completed with artifact + validation boundary; Current/Next is Day31 Planned / Not started), `TASKS.md` (completed Day30 blocks, Day30 preparation converted to history, Day31 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day30 turns the Day29 durable Job row into precise reads and guarded writes: the clause chain `SELECT -> FROM -> WHERE -> ORDER BY -> LIMIT`; explicit columns and a unique `ORDER BY` tie-breaker for deterministic pages; SQL three-valued logic (`WHERE` keeps only TRUE, so `error_message <> 'timeout'` silently drops every no-error row); `INSERT ... DEFAULT VALUES` / explicit column lists with `RETURNING`; parameterized SQL as the injection boundary; `WHERE` as the modification boundary with current-state guards; zero rows meaning the transition did not apply; `AND`/`OR` precedence in destructive statements; lost-update awareness; and the contain -> preserve evidence -> identify -> reconcile -> guarded repair -> verify incident order after a broad `UPDATE` wrongly failed 842 live Jobs.
+- Preserved the actual classroom record, including the student's Chinese and English answers and the reasonable errors and corrections (`SELECT *` with no tie-breaker, `status`/`create_at` and double-quoted `queued`, `<>` treated as text-only, `INSERT DEFAULT INTO`, the f-string assumption before parameters were taught, `IS DISTINCT FROM 'queued'` as an inverted transition guard, `RETURNING` mistaken for a count, unparenthesized `AND`/`OR` in `DELETE`, locking proposed first for the lost update, waiting-first incident response, and the blanket restore of all 841 rows).
+- Scope honesty: the candidate `SELECT` is explicitly **not** a concurrency-safe claim. The artifact deliberately contains no transactions, locks (`FOR UPDATE`/`SKIP LOCKED`), `CHECK`/`UNIQUE`/foreign keys, indexes, Job Event/Attempt tables, ORM, or migration framework — those are Day31-Day35 and Phase 4. The 842-row incident also documents that exact business-outcome reconstruction may be impossible because the current schema has no Job Event/Attempt history or release/tenant/provenance model.
+- Validation: conceptual/manual review of the SQL semantics was completed **in class**; the repository update performed a **static file review only** (balanced parentheses/quotes, 11 statements, every DML carries `RETURNING`, guards use `= 'queued'`/`= 'running'`, the `DELETE` uses `IN (...)`, only `$1`/`$2`/`$3` parameters, no transactions/locks/constraints/indexes/DDL, no credentials) plus Markdown fence balance, relative-link resolution, and a secret scan. **PostgreSQL parser/runtime execution, Python-driver parameter binding, FastAPI/Celery/Object Storage integration, transaction/concurrency runtime tests, and production validation were NOT RUN** — no `psql` or PostgreSQL server was available in the repository-update environment. Day29's PostgreSQL 14.18 classroom evidence applies to `001_create_jobs.sql` only and is **not** relabelled as Day30 runtime evidence.
+- No Day31 lesson was created. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`; did not create a second project or duplicate cheat-sheet/interview files; no credentials, connection strings, shared-database commands, or production data were added.
+
+---
+
 ## v0.1.58 — Day29 Cleanup Helper Self-Removal
 
 Date: 2026-07-19

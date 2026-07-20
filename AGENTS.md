@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day29 — PostgreSQL Foundations and Durable Relational State
+Day30 — SQL Data Manipulation and Query Fundamentals
 
 Next Lesson:
 
-Day30 — SQL Data Manipulation and Query Fundamentals (Planned / Not started; see ROADMAP.md)
+Day31 — Relational Modeling and Data Integrity (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

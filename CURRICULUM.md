@@ -665,7 +665,26 @@ logic; explicit column lists and deterministic ordering; parameterized SQL vs in
 and lost-update awareness; Job CRUD and guarded status-transition queries.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day29 — PostgreSQL Foundations and Durable Relational State
+
+Next Lesson:
+Day31 — Relational Modeling and Data Integrity
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/002_job_crud_and_guarded_transitions.sql` — a raw, parameterized SQL
+operations pack (INSERT with defaults + RETURNING, deterministic candidate SELECT, NULL-aware reads,
+guarded queued->running and running->succeeded transitions, database-side and optimistic attempt_count
+updates, guarded cleanup DELETE) with explicit affected-row contracts. No transactions, locks,
+constraints, or indexes (Day31-Day35)
 
 ---
 

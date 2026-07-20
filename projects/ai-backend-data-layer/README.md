@@ -4,9 +4,11 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day29 — the first minimal raw SQL Job schema.**
+Current increment: **Day30 — a raw, parameterized SQL operations pack** on top of the Day29 schema.
 
-Lesson: [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
+Lessons:
+- Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
+- Day30 (operations): [`docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`](../../docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md)
 
 ---
 
@@ -16,7 +18,8 @@ Lesson: [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-st
 projects/ai-backend-data-layer/
 ├── README.md
 └── sql/
-    └── 001_create_jobs.sql
+    ├── 001_create_jobs.sql                        # Day29: the durable Job schema
+    └── 002_job_crud_and_guarded_transitions.sql   # Day30: parameterized reads + guarded writes
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -62,6 +65,46 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day30 increment — parameterized reads and guarded writes
+
+`sql/002_job_crud_and_guarded_transitions.sql` is a **reference pack of statement templates**, not a
+migration and not a runnable script: `$1`/`$2`/`$3` must be bound by an application or driver.
+
+| # | Statement | Purpose | Expected affected rows |
+|---|---|---|---|
+| 1 | `INSERT ... (provider_metadata) VALUES ($1::jsonb) RETURNING ...` | create a Job; PostgreSQL generates the rest | exactly 1 |
+| 1b | `INSERT ... DEFAULT VALUES RETURNING ...` | all-defaults variant | exactly 1 |
+| 2 | deterministic queued `SELECT` | 20 oldest queued candidates | 0..20 (read) |
+| 3a | `WHERE finished_at IS NULL` | unfinished Jobs | 0..N (read) |
+| 3b | `WHERE error_message IS NULL OR error_message <> 'timeout'` | errors other than timeout, keeping no-error rows | 0..N (read) |
+| 3c | `WHERE error_message IS DISTINCT FROM 'timeout'` | NULL-safe alternative | 0..N (read) |
+| 4a | guarded `queued -> running` | worker start | **0 or 1** |
+| 4b | guarded `running -> succeeded` (+ `result_object_key`) | worker completion | **0 or 1** |
+| 5a | `SET attempt_count = attempt_count + 1` | database-side increment (no lost update) | 0 or 1 |
+| 5b | `... WHERE attempt_count = $2` | optimistic expected-value guard | 0 or 1 |
+| 6 | guarded cleanup `DELETE ... IN ('', 'banana')` | remove pre-cutoff test rows | 0..N (reconcile first) |
+
+Contracts and boundaries encoded in the file:
+
+- **`WHERE` is the modification boundary.** Every transition carries both the identity (`$1`) and the
+  required current state, so a terminal Job can never be restarted.
+- **Zero rows means the transition did not apply** — it does **not** prove the Job is absent. The caller
+  must not report success.
+- **`RETURNING` returns rows, not a count.** Affected-row count evidence comes from the driver's command
+  result or the number of rows received.
+- **The candidate `SELECT` is not a claim.** Two workers see the same rows; concurrency-safe claiming
+  (`FOR UPDATE`, `SKIP LOCKED`) is Day34 and is deliberately absent.
+- **`$1` is PostgreSQL/asyncpg-style.** psycopg uses `%s`, SQLAlchemy uses named binds. Adapt the
+  placeholder spelling; never build SQL from client input with string formatting.
+- **Parameters bind values only** — identifiers and `ASC`/`DESC` require a strict allowlist.
+- **`AND` binds tighter than `OR`**, so the cleanup uses `IN ('', 'banana')` instead of an
+  unparenthesized chain that would delete every `banana` row regardless of date.
+
+Deliberately **not** in this file: transactions, locking, `CHECK`/`UNIQUE`/foreign keys, indexes, Job
+Event/Attempt tables, ORM, and any migration framework (Day31-Day35 and Phase 4).
 
 ---
 
@@ -342,6 +385,22 @@ not running. Do not present a Docker workflow as verified.
 | Re-run during this repository update | **NOT RUN** | no `psql`/PostgreSQL server/Docker daemon was available in the repository-update environment |
 | Application integration (FastAPI/Celery) | **NOT DONE** | no service was created or connected |
 | Production validation | **NOT DONE** | no deployment, HA, backup/restore, or load evidence |
+
+### Day30 (`002_job_crud_and_guarded_transitions.sql`)
+
+| Level | Day30 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | clause chain, NULL logic, parameter boundary, guarded transitions, affected rows, lost update, incident order |
+| Static file review | **Done (repository update)** | balanced parens/quotes; 11 statements; every DML has `RETURNING`; guards use `= 'queued'` / `= 'running'`; `DELETE` uses `IN (...)`; only `$1`/`$2`/`$3` parameters; no transactions, locks, constraints, indexes, or DDL; no credentials |
+| PostgreSQL parser / syntax execution | **NOT RUN** | no `psql`/PostgreSQL server was available in class or in the repository-update environment |
+| Real disposable-PostgreSQL behavior | **NOT RUN** | — |
+| Python-driver parameter binding | **NOT RUN** | no application or driver was executed |
+| FastAPI / Celery / Object Storage integration | **NOT RUN** | — |
+| Transaction / concurrency runtime test | **NOT RUN** | outside Day30 scope (Day33/Day34) |
+| Production validation | **NOT RUN** | — |
+
+> The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
+> **not** evidence for the Day30 statements.
 
 ### Verified in class (PostgreSQL 14.18, disposable cluster)
 

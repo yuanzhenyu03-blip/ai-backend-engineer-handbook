@@ -117,7 +117,7 @@ Topics: PostgreSQL, SQL, Redis, Database Design.
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
 | Day29 | PostgreSQL Foundations and Durable Relational State | ✅ Completed |
-| Day30 | SQL Data Manipulation and Query Fundamentals | Planned |
+| Day30 | SQL Data Manipulation and Query Fundamentals | ✅ Completed |
 | Day31 | Relational Modeling and Data Integrity | Planned |
 | Day32 | SQL Joins, Aggregation, and Operational Queries | Planned |
 | Day33 | PostgreSQL Transactions and Atomic State Changes | Planned |

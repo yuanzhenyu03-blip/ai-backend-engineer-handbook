@@ -161,3 +161,146 @@ Weak:   "The schema ran locally, so it's production ready."
 Strong: "Executed DDL proves acceptance in that PostgreSQL version. It is not application integration
         and not production evidence; a process restart proves process-lifecycle persistence only."
 ```
+
+---
+
+# Day30 SQL Data Manipulation and Query Fundamentals Questions
+
+From the Day30 lesson: deterministic reads, NULL/three-valued logic, parameterized SQL and the injection
+boundary, `WHERE` as the modification boundary, guarded transitions, affected-row evidence, lost updates,
+and incident recovery.
+
+Lesson: `docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`
+
+## Beginner
+
+### 1. Why does `WHERE` matter in `UPDATE`/`DELETE`, and how do you verify what happened?
+
+Question:
+
+Why does the `WHERE` clause matter in an `UPDATE` or `DELETE`, and how do you verify what happened?
+
+中文解析:
+
+`WHERE` 定义了修改边界——它决定了究竟哪些行被改变，而这些改变是持久化的、没有撤销键。验证方式有两个：驱动返回的**受影响行数**，以及 `RETURNING` 返回的**实际行**。对主键条件的状态转换，契约通常是"恰好 1 行"；如果实际行数与预期不符（例如本课事故中预期 1 行却影响了 842 行），必须当作失败处理，不能上报成功。注意 `RETURNING` 返回的是行本身，不是计数。
+
+Student's actual attempt (preserved):
+
+> "the where define bondary of modify,because the affected rows is durable state and backend engineer could compare the diffrent between expended result and fact result by check the affect rows."
+
+Interview Review: 概念正确（边界 + 用受影响行数比对预期）。英文需修正：`bondary` → boundary，`diffrent` → difference，`expended` → expected，`affect rows` → affected rows。
+
+Standard Answer:
+
+The `WHERE` clause defines the boundary of the modification: it decides exactly which rows are changed.
+Because those changes are durable, I verify the result by checking the number of affected rows and by
+using `RETURNING` to see the rows the statement actually produced. If the affected-row count does not
+match what I expected — for example one row for a primary-key transition — I treat it as a failure and do
+not report success.
+
+Follow-up Question:
+
+What does zero affected rows tell you about a guarded transition?
+
+## Intermediate
+
+### 1. What does parameterized SQL protect against, and what does it not solve?
+
+Question:
+
+What does parameterized SQL protect against, and what does it **not** solve?
+
+中文解析:
+
+参数化让 SQL 结构固定、值单独绑定，值永远不会被重新解析为 SQL 结构——这就是注入边界。即使 JSON 里含引号或 `DELETE FROM app.jobs` 文本，它仍只是数据。但它**不解决**：业务规则校验、鉴权与租户归属、逻辑错误与并发错误。另外参数只能绑定**值**，不能绑定表名/列名/`ASC|DESC`，动态标识符必须用严格白名单。占位符写法因驱动而异（asyncpg `$1`、psycopg `%s`、SQLAlchemy 命名绑定），不变的是代码与数据分离——绝不能用 f-string 拼接客户端输入。
+
+Student's actual attempt (preserved):
+
+> "it help to avoid affect use sql injection and parameterized SQL is bonded values,it can not effect the structure of sql.it also can resolve these problems,for example,parameterized sql can't constrait input"
+
+Interview Review: 核心正确（绑定值不改变 SQL 结构 = 注入边界）；最后一句表达不清但方向对（不能约束输入）。
+
+Standard Answer:
+
+Parameterized SQL keeps the statement structure fixed and sends the client values separately, so a value
+is never re-parsed as SQL. That closes the injection boundary. It does not validate business rules,
+authorize the request, enforce tenant ownership, or prevent logical and concurrency bugs. Parameters also
+bind values only — table names, column names, and sort direction need a strict allowlist instead.
+
+Follow-up Question:
+
+Two workers both read `attempt_count = 2` and both write 3. What happened, and how do you fix it without
+a lock?
+
+### 2. Why do rows disappear from `error_message <> 'timeout'`?
+
+Question:
+
+An operations query filters `WHERE error_message <> 'timeout'` but Jobs with no error are missing. Why?
+
+中文解析:
+
+SQL 是三值逻辑。`NULL <> 'timeout'` 的结果是 `UNKNOWN`，而 `WHERE` 只保留 `TRUE`，`FALSE` 和 `UNKNOWN` 都会被过滤掉，所以"没有错误"的行全部消失。要显式包含它们：`WHERE error_message IS NULL OR error_message <> 'timeout'`；PostgreSQL 的 `IS DISTINCT FROM 'timeout'` 是 NULL 安全的等价写法，但更容易被误写反（本课的状态转换守卫就踩过这个坑）。另外 `<>` 不是只比较文本，它适用于任何可比较类型。
+
+Standard Answer:
+
+SQL uses three-valued logic. Comparing NULL with anything yields UNKNOWN, and `WHERE` keeps only TRUE, so
+rows whose `error_message` is NULL are filtered out along with the FALSE rows. To include them I write
+`WHERE error_message IS NULL OR error_message <> 'timeout'`, or use the NULL-safe
+`IS DISTINCT FROM 'timeout'`.
+
+## Senior
+
+### 1. Guarded `running -> succeeded`: zero rows and the remaining concurrency limit.
+
+Question:
+
+Write a guarded `running -> succeeded` transition. What does zero rows mean, and what concurrency
+limitation remains?
+
+中文解析:
+
+`WHERE` 同时携带身份和当前状态：`WHERE job_id = $1 AND job_status = 'running'`，设置 `finished_at = now()` 与 `result_object_key = $2`（Object Storage 引用，不是字节），并用 `RETURNING` 作为证据。因为 `job_id` 是主键，结果只能是 1 行（转换发生）或 0 行（未发生）。**0 行不能推断 Job 不存在**——它可能处于其他状态，所以绝不能上报成功。剩余限制是并发：两个 worker 可能同时操作同一行；事后再 `SELECT` 诊断也可能读到已被改变的状态。要精确分类需要事务与行锁（Day33/Day34）。
+
+Student's actual attempt (preserved):
+
+> "where is the most important endpoint,the first need to limit job_id,and limit  job_status equal running.if the result return zero rows,it means all rows is not modify. i think the concurrency limitation is probobly two work concurrency modify the same row."
+
+Interview Review: 守卫写法与 0 行解读都正确，并发直觉（两个 worker 改同一行）也对。需要收紧结论：0 行只证明**转换未发生**，不证明 Job 不存在。
+
+Standard Answer:
+
+I would guard the update with both the identity and the current state: `WHERE job_id = $1 AND job_status
+= 'running'`, set `finished_at = now()` and the result reference, and use `RETURNING` as evidence. Since
+`job_id` is the primary key, I get one row if the transition applied and zero rows if it did not. Zero
+rows does not prove the Job is missing — it may exist in another state, so I would not report success.
+The remaining limitation is concurrency: two workers can act on the same Job, and a follow-up `SELECT`
+can be stale because the row may change between statements. Making that classification exact requires a
+transaction and row locking, which is a later topic.
+
+Follow-up Question:
+
+A broad `UPDATE` just marked 842 running Jobs as failed. What is your first action, and why not wait?
+
+## Common Weak vs Strong Answer (Day30)
+
+```text
+Weak:   "The update returned zero rows, so that Job doesn't exist."
+Strong: "Zero rows means the guarded transition did not apply. The Job may exist in another state, so I
+        don't report success; diagnosing the current state needs a separate query and, to be exact, a
+        transaction."
+
+Weak:   "We use parameterized SQL, so the endpoint is secure."
+Strong: "Parameter binding closes the injection boundary because values are never parsed as SQL
+        structure. Authorization, tenant ownership, business validation, and concurrency are still my
+        responsibility, and identifiers need an allowlist."
+
+Weak:   "RETURNING gives me the number of affected rows."
+Strong: "RETURNING gives the actual rows the statement produced; the count comes from the driver's
+        command result or the number of rows I received."
+
+Weak:   "We rolled back the release, so the 842 wrongly failed Jobs are fixed."
+Strong: "Code rollback only stops future bad writes. I contain first, preserve the RETURNING evidence,
+        identify the affected set, reconcile each Job's real outcome against worker logs, provider
+        status and result objects, then repair verified subsets with guarded statements."
+```
