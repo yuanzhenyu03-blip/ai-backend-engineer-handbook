@@ -1154,8 +1154,12 @@ WHERE is the modification boundary; deterministic ordering is part of the query 
 RETURNING plus affected rows is the durable evidence that a guarded operation actually occurred.
 
 Most important production risk:
-A missing predicate has no undo. One absent `job_id` turned a 1-row fix into 842 wrongly failed Jobs,
-and code rollback repaired none of them. Reconcile before repairing — some Jobs genuinely succeeded.
+Once committed, a broad `UPDATE` has no automatic undo. Inside an open transaction an erroneous
+statement can still be rolled back with `ROLLBACK` (transaction boundaries are Day33), but after
+`COMMIT` nothing reverses it automatically — and rolling back application code only stops future bad
+writes, it does not repair committed rows. One absent `job_id` turned a 1-row fix into 842 wrongly
+failed Jobs, and only a guarded data repair fixes them. Reconcile before repairing — some Jobs
+genuinely succeeded.
 
 Most important framework/AI connection:
 Workers move Jobs queued -> running -> succeeded through guarded current-state predicates, with

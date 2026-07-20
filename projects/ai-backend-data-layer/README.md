@@ -73,19 +73,22 @@ Column intent:
 `sql/002_job_crud_and_guarded_transitions.sql` is a **reference pack of statement templates**, not a
 migration and not a runnable script: `$1`/`$2`/`$3` must be bound by an application or driver.
 
-| # | Statement | Purpose | Expected affected rows |
+A `SELECT` returns **result rows** and does not affect rows; only `INSERT`/`UPDATE`/`DELETE` carry an
+**affected-row** contract. The table states which applies to each statement.
+
+| # | Statement | Purpose | Expected row contract |
 |---|---|---|---|
-| 1 | `INSERT ... (provider_metadata) VALUES ($1::jsonb) RETURNING ...` | create a Job; PostgreSQL generates the rest | exactly 1 |
-| 1b | `INSERT ... DEFAULT VALUES RETURNING ...` | all-defaults variant | exactly 1 |
-| 2 | deterministic queued `SELECT` | 20 oldest queued candidates | 0..20 (read) |
-| 3a | `WHERE finished_at IS NULL` | unfinished Jobs | 0..N (read) |
-| 3b | `WHERE error_message IS NULL OR error_message <> 'timeout'` | errors other than timeout, keeping no-error rows | 0..N (read) |
-| 3c | `WHERE error_message IS DISTINCT FROM 'timeout'` | NULL-safe alternative | 0..N (read) |
-| 4a | guarded `queued -> running` | worker start | **0 or 1** |
-| 4b | guarded `running -> succeeded` (+ `result_object_key`) | worker completion | **0 or 1** |
-| 5a | `SET attempt_count = attempt_count + 1` | database-side increment (no lost update) | 0 or 1 |
-| 5b | `... WHERE attempt_count = $2` | optimistic expected-value guard | 0 or 1 |
-| 6 | guarded cleanup `DELETE ... IN ('', 'banana')` | remove pre-cutoff test rows | 0..N (reconcile first) |
+| 1 | `INSERT ... (provider_metadata) VALUES ($1::jsonb) RETURNING ...` | create a Job; PostgreSQL generates the rest | **affected rows: exactly 1** |
+| 1b | `INSERT ... DEFAULT VALUES RETURNING ...` | all-defaults variant | **affected rows: exactly 1** |
+| 2 | deterministic queued `SELECT` | 20 oldest queued candidates | result rows: 0..20 |
+| 3a | `WHERE finished_at IS NULL` | unfinished Jobs | result rows: 0..N |
+| 3b | `WHERE error_message IS NULL OR error_message <> 'timeout'` | errors other than timeout, keeping no-error rows | result rows: 0..N |
+| 3c | `WHERE error_message IS DISTINCT FROM 'timeout'` | NULL-safe alternative | result rows: 0..N |
+| 4a | guarded `queued -> running` | worker start | **affected rows: 0 or 1** |
+| 4b | guarded `running -> succeeded` (+ `result_object_key`) | worker completion | **affected rows: 0 or 1** |
+| 5a | `SET attempt_count = attempt_count + 1` | database-side increment (no lost update) | **affected rows: 0 or 1** |
+| 5b | `... WHERE attempt_count = $2` | optimistic expected-value guard | **affected rows: 0 or 1** |
+| 6 | guarded cleanup `DELETE ... IN ('', 'banana')` | remove pre-cutoff test rows | **affected rows: 0..N** (reconcile first) |
 
 Contracts and boundaries encoded in the file:
 
@@ -94,7 +97,8 @@ Contracts and boundaries encoded in the file:
 - **Zero rows means the transition did not apply** — it does **not** prove the Job is absent. The caller
   must not report success.
 - **`RETURNING` returns rows, not a count.** Affected-row count evidence comes from the driver's command
-  result or the number of rows received.
+  result or the number of rows received. A `SELECT` result count is **not** evidence of a data change —
+  only `INSERT`/`UPDATE`/`DELETE` affect rows.
 - **The candidate `SELECT` is not a claim.** Two workers see the same rows; concurrency-safe claiming
   (`FOR UPDATE`, `SKIP LOCKED`) is Day34 and is deliberately absent.
 - **`$1` is PostgreSQL/asyncpg-style.** psycopg uses `%s`, SQLAlchemy uses named binds. Adapt the

@@ -12,9 +12,14 @@
 --     PostgreSQL PREPARE). psycopg normally uses %s and SQLAlchemy uses named
 --     binds. Adapt the PLACEHOLDER SPELLING to your driver; the invariant is
 --     code/data separation, never string-building SQL from client input.
---   * Every statement states its EXPECTED AFFECTED ROWS contract. If the real
---     count differs, the caller must treat it as a failure and must NOT report
---     success.
+--   * Every statement states its expected row contract. The two are NOT the same:
+--       SELECT                  -> returns RESULT ROWS; it does not affect rows,
+--                                  so no affected-row contract applies.
+--       INSERT / UPDATE / DELETE -> AFFECT rows; the affected-row contract applies,
+--                                  and a mismatch must be treated as a failure
+--                                  (the caller must NOT report success).
+--     RETURNING yields the actual rows/columns produced by a statement — never a
+--     count. Affected-row counts come from the driver's command result.
 --
 -- DELIBERATE DAY30 SCOPE (NOT added here):
 --   no transactions, no locking (SELECT FOR UPDATE / SKIP LOCKED), no CHECK /
@@ -48,7 +53,7 @@ RETURNING job_id, job_status, attempt_count, cancel_requested, created_at;
 --
 --    NOT A CLAIM: two workers running this see the SAME rows. A concurrency-safe
 --    claim needs locking (Day34), which is intentionally absent here.
---    Expected affected rows: 0..20 (a read).
+--    Expected RESULT ROWS: 0..20 (a read; SELECT does not affect rows).
 -- -----------------------------------------------------------------------------
 SELECT job_id, job_status, attempt_count, created_at
 FROM app.jobs
@@ -62,7 +67,7 @@ LIMIT 20;
 --    A comparison with NULL yields UNKNOWN, and WHERE keeps only TRUE.
 -- -----------------------------------------------------------------------------
 
--- 3a. Jobs that have not finished. Expected affected rows: 0..N (a read).
+-- 3a. Jobs that have not finished. Expected RESULT ROWS: 0..N (a read).
 SELECT job_id, job_status, attempt_count, finished_at
 FROM app.jobs
 WHERE finished_at IS NULL;
@@ -70,7 +75,7 @@ WHERE finished_at IS NULL;
 -- 3b. Errors other than 'timeout', INCLUDING rows with no recorded error.
 --     Without the IS NULL branch, every no-error row would be filtered out,
 --     because NULL <> 'timeout' is UNKNOWN (not TRUE).
---     Expected affected rows: 0..N (a read).
+--     Expected RESULT ROWS: 0..N (a read).
 SELECT job_id, job_status, error_message
 FROM app.jobs
 WHERE error_message IS NULL
@@ -78,6 +83,7 @@ WHERE error_message IS NULL
 
 -- 3c. NULL-safe alternative. Equivalent to 3b for this predicate, but easier to
 --     invert by mistake — see the transition guard in section 4.
+--     Expected RESULT ROWS: 0..N (a read).
 SELECT job_id, job_status, error_message
 FROM app.jobs
 WHERE error_message IS DISTINCT FROM 'timeout';
@@ -150,7 +156,7 @@ RETURNING job_id, attempt_count;
 --    between statements. DELETE ... RETURNING is the evidence of what was
 --    actually removed. Making preview and delete consistent needs a transaction
 --    (Day33).
---    Expected affected rows: 0..N — compare against the reconciled expectation
+--    Expected AFFECTED ROWS: 0..N — compare against the reconciled expectation
 --    before treating the cleanup as correct.
 -- -----------------------------------------------------------------------------
 DELETE FROM app.jobs

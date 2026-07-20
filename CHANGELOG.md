@@ -9,6 +9,24 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.60 — Day30 Review Fixes
+
+Date: 2026-07-20
+
+### Changed
+
+- Fixed a `TASKS.md` Current Sprint contradiction. `Today's Tasks` still listed completed Day29 items plus "Prepare for Day30" while Current Lesson was already Day31; it now points only at the Day31 Preparation block, with a note that Day29/Day30 work lives in the Completed and Preparation-history sections. The "Day30 Preparation (completed)" block no longer carries unchecked items: reviewing the Day29 `app.jobs` schema and project README limitations, previewing the Day30 SQL scope, and keeping Day31 constraints / Day33 transactions / Day34 concurrency / Phase 4 ORM out of scope are recorded as done, matching what the live lesson actually covered. Day30 now appears only in Completed/History, Day31 stays Planned / Not started, and no Day31 lesson was created.
+- Corrected result-row vs affected-row terminology. `SELECT` returns **result rows** and does not affect rows; only `INSERT`/`UPDATE`/`DELETE` carry an affected-row contract. In `projects/ai-backend-data-layer/sql/002_job_crud_and_guarded_transitions.sql` the SELECT comments now read "Expected RESULT ROWS" (including a contract line added for statement 3c), the DML comments keep "Expected AFFECTED ROWS", and the file header explains both contracts and restates that `RETURNING` yields rows, never a count. In `projects/ai-backend-data-layer/README.md` the statement table header became "Expected row contract" with each row labelled "result rows" or "affected rows", plus an explicit note that a `SELECT` result count is not evidence of a data change. The SQL business semantics, parameters, and guards were not touched.
+- Replaced the absolute "a missing predicate has no undo" claim with the correct transaction boundary. The Day30 lesson and the `interview/postgresql.md` Chinese explanation now state that an erroneous statement can still be rolled back with `ROLLBACK` **before** `COMMIT` (full transaction boundaries remain Day33), that once committed there is **no automatic undo**, and that rolling back application code stops future bad writes without repairing committed rows — only a guarded data repair does. No transaction syntax, artifact, or Day33 material was added.
+
+### Notes
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check; confirmation that no Day31 lesson exists; status consistency (Current Lesson = Day31 Planned / Not started, Last Completed = Day30, no Day30 preparation task remaining in Today's Tasks); terminology checks (no `SELECT` labelled with affected rows; every DML labelled with affected rows; `RETURNING` still defined as rows not a count); rollback-wording checks; Markdown fence balance; relative-link resolution; secret scan; and a re-check that the SQL guards, parameters, statement count, and Day30 scope are unchanged.
+- **PostgreSQL was NOT available**, so the SQL was **NOT executed**: no parser/runtime validation, no Python-driver binding, no application integration, and no production validation. Static text/structure review only. No shared or production database was contacted.
+- Scope: documentation and terminology only. `001_create_jobs.sql`, Day29 classroom content, and the Day30 student answers are unchanged; no transactions, locks, `CHECK`/`UNIQUE`/foreign keys, indexes, ORM, or migrations were added; `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, the root `README.md`, and `AGENTS.md` needed no changes; the protected prompt/template files are unchanged.
+
+---
+
 ## v0.1.59 — Day30 SQL Data Manipulation and Query Fundamentals
 
 Date: 2026-07-20

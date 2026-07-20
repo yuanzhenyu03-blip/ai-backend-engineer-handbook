@@ -28,10 +28,10 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [x] Complete Day29 PostgreSQL Foundations and Durable Relational State classroom learning.
-- [x] Author the first minimal raw SQL Job schema and the data-layer project README.
-- [x] Distinguish durable row vs table contract, database vs schema vs session, typed columns vs JSONB, primary key vs idempotency key, and durability vs integrity.
-- [ ] Prepare for Day30 — SQL Data Manipulation and Query Fundamentals.
+- [ ] Prepare for Day31 — Relational Modeling and Data Integrity (see the Day31 Preparation block below).
+
+(Day29 and Day30 are complete; their work is recorded under the Completed Day29/Day30 sections and the
+corresponding Preparation history blocks.)
 
 ---
 
@@ -155,9 +155,9 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 ### Day30 Preparation — SQL Data Manipulation and Query Fundamentals (completed)
 
 - [x] Read the Day30 input.
-- [ ] Review the Day29 `app.jobs` schema and the project README limitations.
-- [ ] Preview SELECT/FROM/WHERE/ORDER BY/LIMIT, INSERT/UPDATE/DELETE/RETURNING, NULL three-valued logic, parameterized SQL, deterministic ordering, and guarded status transitions.
-- [ ] Keep CHECK/UNIQUE/foreign keys and relationships as Day31 scope; keep SQLAlchemy/Alembic as Phase 4.
+- [x] Reviewed the Day29 `app.jobs` schema and the project README limitations.
+- [x] Previewed SELECT/FROM/WHERE/ORDER BY/LIMIT, INSERT/UPDATE/DELETE/RETURNING, NULL three-valued logic, parameterized SQL, deterministic ordering, and guarded status transitions.
+- [x] Kept CHECK/UNIQUE/foreign keys and relationships as Day31 scope, transactions as Day33, concurrency/locks as Day34, and SQLAlchemy/Alembic as Phase 4.
 
 ---
 
