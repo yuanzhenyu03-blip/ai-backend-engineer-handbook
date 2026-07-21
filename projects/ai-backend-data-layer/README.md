@@ -104,6 +104,7 @@ jobs             N <-> N documents          (via job_documents, tenant-aware)
 | Counter sanity | `CHECK (attempt_count >= 0)` | — |
 | Terminal coherence | `CHECK (job_status <> 'succeeded' OR finished_at IS NOT NULL)` | a row CHECK sees only **this row**; it cannot assert a child Artifact exists (Day33) |
 | One Document per session | `UNIQUE (upload_session_id)` on `documents` | FK + UNIQUE = one-to-one, recorded on the later-created row |
+| Same-tenant Document provenance | composite FK `(tenant_id, upload_session_id)` -> `upload_sessions` | a single-column FK would only prove the session **exists**; this proves Document and session share a tenant |
 | Same-tenant links | composite FKs `(tenant_id, job_id)` / `(tenant_id, document_id)` | plain FKs prove existence only, not shared ownership |
 | Event provenance | composite FK `(job_id, attempt_id)` -> `job_attempts` | a non-NULL Attempt must belong to the **same** Job; NULL stays optional under MATCH SIMPLE |
 | Evidence retention | `ON DELETE RESTRICT` everywhere | Attempts/Events/Artifacts hold audit and cost evidence that `CASCADE` would erase |
@@ -115,45 +116,224 @@ both without a composite constraint would allow contradictory ownership. Denorma
 `jobs.result_object_key` (Day29) is now a **legacy** single-artifact pointer superseded by
 `result_artifacts`. This file does **not** drop it — removing a column applications still read is Day36.
 
-### Validation commands (authored here, **NOT executed**)
+### Validation script (runnable in psql; **NOT executed during this repository update**)
 
-No `psql` or PostgreSQL server was available during this repository update, so the statements below were
-**not run**. Run them yourself against a **disposable** cluster (see the Day29 reproduction section for
-a guarded disposable-cluster setup). Expected outcomes name the exact SQLSTATE.
+No `psql` or PostgreSQL server was available in the repository-update environment, so the script below
+was **authored, not run**. It is written to be **copy-paste runnable** against a **disposable** cluster
+(see the Day29 reproduction section for a guarded disposable-cluster setup).
+
+Two rules make it a real test rather than a decorative one:
+
+- **Fixed test UUIDs**, not driver placeholders. `$1`/`$2` are *driver* parameters; pasting them into
+  `psql` produces `ERROR: there is no parameter $1`.
+- **Each expected failure asserts its specific condition.** A nested `EXCEPTION` block catches only the
+  expected `unique_violation` / `check_violation` / `foreign_key_violation`. If the illegal statement
+  unexpectedly **succeeds**, the block raises its own `P0001` and the script fails. Any other error
+  (missing table, typo, wrong database) propagates and fails. "Any error = pass" would hide real bugs.
 
 ```bash
-# Apply order on a FRESH, EMPTY database:
-day29psql -f sql/001_create_jobs.sql
-day29psql -f sql/003_relational_modeling_and_data_integrity.sql
+# Apply order on a FRESH, EMPTY database. ON_ERROR_STOP makes SQL errors exit non-zero.
+psql -v ON_ERROR_STOP=1 -f sql/001_create_jobs.sql
+psql -v ON_ERROR_STOP=1 -f sql/003_relational_modeling_and_data_integrity.sql
+
+# Then run the validation script below (save it as /tmp/day31_validate.sql):
+psql -v ON_ERROR_STOP=1 -f /tmp/day31_validate.sql
 ```
+
+#### Positive path — fixed UUIDs, all statements must succeed
 
 ```sql
--- Positive path: a tenant, a session, a document, a job, an attempt.
-INSERT INTO app.tenants (tenant_slug) VALUES ('acme') RETURNING tenant_id;
-INSERT INTO app.upload_sessions (tenant_id, object_key)
-VALUES ($1, 'tenants/acme/uploads/doc-1') RETURNING upload_session_id;
-INSERT INTO app.documents (tenant_id, upload_session_id, object_key)
-VALUES ($1, $2, 'tenants/acme/documents/doc-1') RETURNING document_id;
-INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES ($1, 'req-001') RETURNING job_id;
-INSERT INTO app.job_attempts (job_id, attempt_number) VALUES ($3, 1) RETURNING attempt_id;
+-- Tenants
+INSERT INTO app.tenants (tenant_id, tenant_slug) VALUES
+    ('11111111-1111-1111-1111-111111111111', 'tenant-a'),
+    ('22222222-2222-2222-2222-222222222222', 'tenant-b');
+
+-- Upload sessions (one per tenant)
+INSERT INTO app.upload_sessions (upload_session_id, tenant_id, object_key) VALUES
+    ('33333333-3333-3333-3333-333333333333',
+     '11111111-1111-1111-1111-111111111111', 'tenant-a/uploads/doc-1'),
+    ('44444444-4444-4444-4444-444444444444',
+     '22222222-2222-2222-2222-222222222222', 'tenant-b/uploads/doc-1');
+
+-- Documents (each bound to its OWN tenant's session)
+INSERT INTO app.documents (document_id, tenant_id, upload_session_id, object_key) VALUES
+    ('55555555-5555-5555-5555-555555555555',
+     '11111111-1111-1111-1111-111111111111',
+     '33333333-3333-3333-3333-333333333333', 'tenant-a/documents/doc-1'),
+    ('66666666-6666-6666-6666-666666666666',
+     '22222222-2222-2222-2222-222222222222',
+     '44444444-4444-4444-4444-444444444444', 'tenant-b/documents/doc-1');
+
+-- Jobs (Day31-compatible: tenant + client request identity are REQUIRED)
+INSERT INTO app.jobs (job_id, tenant_id, idempotency_key) VALUES
+    ('77777777-7777-7777-7777-777777777777',
+     '11111111-1111-1111-1111-111111111111', 'req-001'),
+    ('88888888-8888-8888-8888-888888888888',
+     '22222222-2222-2222-2222-222222222222', 'req-002');
+
+-- Attempt 1 of Tenant-A's Job
+INSERT INTO app.job_attempts (attempt_id, job_id, attempt_number) VALUES
+    ('99999999-9999-9999-9999-999999999999',
+     '77777777-7777-7777-7777-777777777777', 1);
+
+-- Same-tenant Job <-> Document link
+INSERT INTO app.job_documents (tenant_id, job_id, document_id) VALUES
+    ('11111111-1111-1111-1111-111111111111',
+     '77777777-7777-7777-7777-777777777777',
+     '55555555-5555-5555-5555-555555555555');
+
+-- A DIFFERENT tenant may reuse the same idempotency key (scope includes tenant_id)
+INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES
+    ('22222222-2222-2222-2222-222222222222', 'req-001');
 ```
 
-Negative cases — each must fail with the stated SQLSTATE:
+#### Expected-failure cases — each asserts its own SQLSTATE
 
-| Case | Statement | Expected failure |
-|---|---|---|
-| Duplicate attempt number | second `INSERT ... (job_id, attempt_number) VALUES ($3, 1)` | `23505 unique_violation` |
-| Non-positive attempt | `INSERT ... VALUES ($3, 0)` | `23514 check_violation` |
-| Missing parent Job | `INSERT INTO app.job_attempts (job_id, attempt_number) VALUES (gen_random_uuid(), 1)` | `23503 foreign_key_violation` |
-| Delete a Job that has Attempts | `DELETE FROM app.jobs WHERE job_id = $3` | `23503 foreign_key_violation` (RESTRICT) |
-| Same-tenant duplicate idempotency key | second `INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES ($1, 'req-001')` | `23505 unique_violation` |
-| Different tenant reuses the key | `INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES ($other_tenant, 'req-001')` | **succeeds** |
-| Illegal status | `UPDATE app.jobs SET job_status = 'banana' WHERE job_id = $3` | `23514 check_violation` |
-| Cross-tenant Job-Document link | `INSERT INTO app.job_documents (tenant_id, job_id, document_id) VALUES ($tenantA, $jobA, $documentB)` | `23503 foreign_key_violation` |
-| Event pointing at another Job's Attempt | `INSERT INTO app.job_events (job_id, attempt_id, event_type) VALUES ($otherJob, $attempt, 'x')` | `23503 foreign_key_violation` |
+```sql
+-- 1. Duplicate (job_id, attempt_number) -> 23505 unique_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.job_attempts (job_id, attempt_number)
+        VALUES ('77777777-7777-7777-7777-777777777777', 1);
+        RAISE EXCEPTION 'VALIDATION FAILED: duplicate attempt_number was accepted';
+    EXCEPTION WHEN unique_violation THEN
+        RAISE NOTICE 'PASS: duplicate (job_id, attempt_number) rejected (23505)';
+    END;
+END $$;
 
-Assert the **specific** SQLSTATE rather than "any error" — a missing table or a typo would otherwise be
-reported as a passing integrity test.
+-- 2. Non-positive attempt_number -> 23514 check_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.job_attempts (job_id, attempt_number)
+        VALUES ('77777777-7777-7777-7777-777777777777', 0);
+        RAISE EXCEPTION 'VALIDATION FAILED: attempt_number = 0 was accepted';
+    EXCEPTION WHEN check_violation THEN
+        RAISE NOTICE 'PASS: non-positive attempt_number rejected (23514)';
+    END;
+END $$;
+
+-- 3. Attempt for a non-existent Job -> 23503 foreign_key_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.job_attempts (job_id, attempt_number)
+        VALUES ('00000000-0000-0000-0000-0000000000ff', 1);
+        RAISE EXCEPTION 'VALIDATION FAILED: attempt for a missing Job was accepted';
+    EXCEPTION WHEN foreign_key_violation THEN
+        RAISE NOTICE 'PASS: missing parent Job rejected (23503)';
+    END;
+END $$;
+
+-- 4. Deleting a Job that still has an Attempt -> 23503 (ON DELETE RESTRICT)
+DO $$
+BEGIN
+    BEGIN
+        DELETE FROM app.jobs WHERE job_id = '77777777-7777-7777-7777-777777777777';
+        RAISE EXCEPTION 'VALIDATION FAILED: deleting a Job with an Attempt was accepted';
+    EXCEPTION WHEN foreign_key_violation THEN
+        RAISE NOTICE 'PASS: deleting a Job with Attempts restricted (23503)';
+    END;
+END $$;
+
+-- 5. Same-tenant duplicate idempotency key -> 23505 unique_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.jobs (tenant_id, idempotency_key)
+        VALUES ('11111111-1111-1111-1111-111111111111', 'req-001');
+        RAISE EXCEPTION 'VALIDATION FAILED: duplicate tenant idempotency key was accepted';
+    EXCEPTION WHEN unique_violation THEN
+        RAISE NOTICE 'PASS: same-tenant duplicate idempotency key rejected (23505)';
+    END;
+END $$;
+
+-- 6. Illegal job_status -> 23514 check_violation
+DO $$
+BEGIN
+    BEGIN
+        UPDATE app.jobs SET job_status = 'banana'
+        WHERE job_id = '77777777-7777-7777-7777-777777777777';
+        RAISE EXCEPTION 'VALIDATION FAILED: job_status = banana was accepted';
+    EXCEPTION WHEN check_violation THEN
+        RAISE NOTICE 'PASS: illegal job_status rejected (23514)';
+    END;
+END $$;
+
+-- 7. Cross-tenant Job <-> Document link -> 23503 foreign_key_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.job_documents (tenant_id, job_id, document_id)
+        VALUES ('11111111-1111-1111-1111-111111111111',
+                '77777777-7777-7777-7777-777777777777',
+                '66666666-6666-6666-6666-666666666666');   -- Tenant B's Document
+        RAISE EXCEPTION 'VALIDATION FAILED: cross-tenant Job-Document link was accepted';
+    EXCEPTION WHEN foreign_key_violation THEN
+        RAISE NOTICE 'PASS: cross-tenant Job-Document link rejected (23503)';
+    END;
+END $$;
+
+-- 8. Event pointing at ANOTHER Job's Attempt -> 23503 foreign_key_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.job_events (job_id, attempt_id, event_type)
+        VALUES ('88888888-8888-8888-8888-888888888888',   -- Tenant B's Job
+                '99999999-9999-9999-9999-999999999999',   -- Tenant A's Job's Attempt
+                'status_changed');
+        RAISE EXCEPTION 'VALIDATION FAILED: event referencing another Job''s Attempt was accepted';
+    EXCEPTION WHEN foreign_key_violation THEN
+        RAISE NOTICE 'PASS: event -> foreign Job Attempt rejected (23503)';
+    END;
+END $$;
+
+-- 9. Cross-tenant Upload Session -> Document -> 23503 foreign_key_violation
+--    (Tenant B Document claiming Tenant A's Upload Session.)
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.documents (tenant_id, upload_session_id, object_key)
+        VALUES ('22222222-2222-2222-2222-222222222222',   -- Tenant B
+                '33333333-3333-3333-3333-333333333333',   -- Tenant A's session
+                'tenant-b/documents/stolen');
+        RAISE EXCEPTION 'VALIDATION FAILED: cross-tenant Upload Session -> Document was accepted';
+    EXCEPTION WHEN foreign_key_violation THEN
+        RAISE NOTICE 'PASS: cross-tenant Upload Session -> Document rejected (23503)';
+    END;
+END $$;
+
+-- 10. A second Document for the SAME Upload Session -> 23505 unique_violation
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.documents (tenant_id, upload_session_id, object_key)
+        VALUES ('11111111-1111-1111-1111-111111111111',
+                '33333333-3333-3333-3333-333333333333',
+                'tenant-a/documents/second');
+        RAISE EXCEPTION 'VALIDATION FAILED: a second Document for one Upload Session was accepted';
+    EXCEPTION WHEN unique_violation THEN
+        RAISE NOTICE 'PASS: one Upload Session -> at most one Document (23505)';
+    END;
+END $$;
+
+-- 11. The ORIGINAL Day30 INSERT is incompatible after 003 -> 23502 not_null_violation
+--     This asserts the documented incompatibility rather than advertising it as current usage.
+DO $$
+BEGIN
+    BEGIN
+        INSERT INTO app.jobs (provider_metadata) VALUES ('{}'::jsonb);
+        RAISE EXCEPTION 'VALIDATION FAILED: pre-Day31 Job INSERT was accepted after 003';
+    EXCEPTION WHEN not_null_violation THEN
+        RAISE NOTICE 'PASS: pre-Day31 Job INSERT rejected after 003 (23502); use statement 1c';
+    END;
+END $$;
+```
+
+Every block prints `PASS: ...` on the expected outcome. Because `psql -v ON_ERROR_STOP=1` is used and no
+trailing `echo` follows, the script's exit status **is** the validation result: a mis-typed table, a
+missing constraint, or an illegal statement that unexpectedly succeeds all make it exit non-zero.
 
 ### Day31 known gaps (deliberate)
 
@@ -173,13 +353,23 @@ Future RLS, production roles/permissions, backups, HA, performance, deployment
 `sql/002_job_crud_and_guarded_transitions.sql` is a **reference pack of statement templates**, not a
 migration and not a runnable script: `$1`/`$2`/`$3` must be bound by an application or driver.
 
+> **Schema compatibility (added by the Day31 update).** Statements **1** and **1b** create a Job
+> without a tenant or a client request identity. They are valid only against the **Day29 base
+> schema**; after `003` they fail with `23502 not_null_violation`. Statement **1c** is the
+> Day31-compatible form — it supplies `tenant_id` and `idempotency_key` explicitly. After Day31
+> there is **no** legal `DEFAULT VALUES` way to create a Job, because tenant ownership and request
+> identity cannot be defaulted by the database. Statements 1/1b are preserved as the real Day30
+> classroom record, not advertised as current usage; 1c is a **Day31 compatibility increment**, not
+> something taught in the Day30 class.
+
 A `SELECT` returns **result rows** and does not affect rows; only `INSERT`/`UPDATE`/`DELETE` carry an
 **affected-row** contract. The table states which applies to each statement.
 
 | # | Statement | Purpose | Expected row contract |
 |---|---|---|---|
-| 1 | `INSERT ... (provider_metadata) VALUES ($1::jsonb) RETURNING ...` | create a Job; PostgreSQL generates the rest | **affected rows: exactly 1** |
-| 1b | `INSERT ... DEFAULT VALUES RETURNING ...` | all-defaults variant | **affected rows: exactly 1** |
+| 1 | `INSERT ... (provider_metadata) VALUES ($1::jsonb) RETURNING ...` | create a Job (**Day29 schema only**; `23502` after `003`) | **affected rows: exactly 1** |
+| 1b | `INSERT ... DEFAULT VALUES RETURNING ...` | all-defaults variant (**Day29 schema only**; `23502` after `003`) | **affected rows: exactly 1** |
+| 1c | `INSERT ... (tenant_id, idempotency_key, provider_metadata) ... RETURNING ...` | **Day31-compatible** Job creation (added by the Day31 update) | **affected rows: exactly 1** (or `23505` on a duplicate request) |
 | 2 | deterministic queued `SELECT` | 20 oldest queued candidates | result rows: 0..20 |
 | 3a | `WHERE finished_at IS NULL` | unfinished Jobs | result rows: 0..N |
 | 3b | `WHERE error_message IS NULL OR error_message <> 'timeout'` | errors other than timeout, keeping no-error rows | result rows: 0..N |
@@ -513,8 +703,8 @@ not running. Do not present a Docker workflow as verified.
 | Conceptual / manual review | **Done (in class)** | entities, cardinality, identity vs business key, referential actions, normalization, tenant integrity, incident reconciliation |
 | Student SQL static review | **Done (in class)** | minimum `job_attempts` DDL reviewed; syntax corrections recorded |
 | Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, selected tests)** | a **reduced** validation schema — not this full file — accepted the core DDL and rejected duplicate `(job_id, attempt_number)`, non-positive `attempt_number`, a missing parent Job, deleting a Job with an Attempt, a same-tenant duplicate idempotency key, an invalid `job_status`, and a cross-tenant Job-Document link; a different tenant reused the key successfully; one valid Attempt remained. Cluster stopped and the temporary directory removed. |
-| Final artifact static review | **Done (repository update)** | balanced syntax; 15 statements; DDL dependency order valid after `001`; every composite FK has a matching candidate key; `result_artifacts` has no `job_id` column; all 11 FKs use `ON DELETE RESTRICT`; 23 named constraints; no transactions/locks/explicit indexes/DROP/RLS/roles; legacy `result_object_key` retained; no credentials |
-| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment. The reduced classroom test is **not** proof that every table in this file applies cleanly. |
+| Final artifact static review | **Done (repository update)** | balanced syntax; DDL dependency order valid after `001`; every composite FK has a matching candidate key (including `documents` -> `upload_sessions` on `(tenant_id, upload_session_id)`); `result_artifacts` has no `job_id` column; all FKs use `ON DELETE RESTRICT`; named constraints throughout; no transactions/locks/explicit indexes/DROP/RLS/roles; legacy `result_object_key` retained; no credentials |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment (nor for the tenant-aware `documents` composite FK added afterwards). The reduced classroom test is **not** proof that every table in this file applies cleanly, and it did **not** cover the cross-tenant Upload Session -> Document case. |
 | Application integration | **NOT DONE** | no FastAPI/Celery/driver/Redis/Provider/Object Storage was exercised |
 | Transactions / concurrency / migration safety | **NOT DONE** | Day33/Day34/Day36 |
 | Production validation | **NOT DONE** | no RLS, roles, backups, HA, performance, or deployment evidence |

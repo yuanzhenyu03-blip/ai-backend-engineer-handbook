@@ -587,7 +587,7 @@ LESSON_TEMPLATE_v2
 ## Phase 3 — Backend Foundations (Day29-Day42)
 
 Status:
-Planned / Ready (not started)
+In Progress
 
 Objective:
 Turn the conceptual state ownership established in Day28 into an executable, failure-aware data layer.

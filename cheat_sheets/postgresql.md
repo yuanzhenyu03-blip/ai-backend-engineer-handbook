@@ -212,6 +212,8 @@ outbox_events   = what MUST be published (durable intent; PostgreSQL owns it, Qu
 
 Optional event provenance: composite FK `(job_id, attempt_id) -> job_attempts(job_id, attempt_id)` guarantees a non-NULL Attempt belongs to the same Job; under default `MATCH SIMPLE` a NULL `attempt_id` leaves it unenforced.
 
+Same-tenant provenance generalizes: `documents` uses composite FK `(tenant_id, upload_session_id) -> upload_sessions` so a Tenant-B Document cannot claim a Tenant-A Upload Session, while `UNIQUE (upload_session_id)` still gives one-session-one-Document. **A single-column FK only proves the parent exists.**
+
 Tenant isolation — two different questions:
 
 ```text

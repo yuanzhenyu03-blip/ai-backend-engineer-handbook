@@ -99,9 +99,10 @@ CREATE TABLE app.documents (
     tenant_id         uuid        NOT NULL
                                   REFERENCES app.tenants(tenant_id)
                                   ON DELETE RESTRICT,
-    upload_session_id uuid        NOT NULL
-                                  REFERENCES app.upload_sessions(upload_session_id)
-                                  ON DELETE RESTRICT,
+    -- No single-column FK here: it would only prove the session EXISTS. The
+    -- tenant-aware composite FK below additionally proves the Document and its
+    -- Upload Session belong to the SAME tenant.
+    upload_session_id uuid        NOT NULL,
     object_key        text        NOT NULL,
     content_type      text,
     size_bytes        bigint,
@@ -111,6 +112,14 @@ CREATE TABLE app.documents (
     -- One Upload Session produces AT MOST ONE Document.
     CONSTRAINT documents_upload_session_unique
         UNIQUE (upload_session_id),
+
+    -- Same-tenant provenance: rejects a Tenant-B Document claiming a Tenant-A
+    -- Upload Session (23503 foreign_key_violation). Requires the
+    -- upload_sessions_tenant_id_unique candidate key.
+    CONSTRAINT documents_upload_session_same_tenant_fk
+        FOREIGN KEY (tenant_id, upload_session_id)
+        REFERENCES app.upload_sessions(tenant_id, upload_session_id)
+        ON DELETE RESTRICT,
 
     -- Candidate key enabling tenant-aware composite foreign keys (section 9).
     CONSTRAINT documents_tenant_id_unique
@@ -333,7 +342,7 @@ CREATE TABLE app.job_documents (
 -- Relationship summary
 --
 --   tenants        1 -> N upload_sessions, documents, jobs
---   upload_sessions 1 -> 0..1 documents          (FK + UNIQUE = one-to-one)
+--   upload_sessions 1 -> 0..1 documents          (composite FK + UNIQUE = same-tenant one-to-one)
 --   jobs           1 -> N job_attempts, job_events, outbox_events
 --   job_attempts   1 -> N result_artifacts
 --   jobs           N <-> N documents             (via job_documents)

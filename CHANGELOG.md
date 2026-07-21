@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.62 — Day31 Review Fixes
+
+Date: 2026-07-21
+
+### Changed
+
+- **Tenant provenance for Documents.** `app.documents` referenced `tenant_id` and `upload_session_id` with two independent foreign keys, which proved only that each value existed — a Tenant-B Document could claim a Tenant-A Upload Session. The single-column `upload_session_id` foreign key was removed and replaced with a tenant-aware composite foreign key `(tenant_id, upload_session_id) -> app.upload_sessions(tenant_id, upload_session_id) ON DELETE RESTRICT`, backed by the existing `upload_sessions_tenant_id_unique` candidate key. `UNIQUE (upload_session_id)` is retained so one Upload Session still produces at most one Document. Synced to the Day31 lesson (Concept 4), the project README rules table, the cheat sheet, the artifact comments/relationship summary, and the validation matrix, plus a new expected-failure case.
+- **Day30 statement pack compatibility.** `003` adds `tenant_id` and `idempotency_key` as `NOT NULL` columns with no default, so the original Day30 `INSERT INTO app.jobs (provider_metadata) ...` and `INSERT INTO app.jobs DEFAULT VALUES ...` fail with `23502 not_null_violation` after `003`. Rather than rewriting the Day30 classroom record, statements 1 and 1b are now explicitly marked **Day29 base schema only**, and a clearly labelled **Day31 compatibility increment** (statement 1c) supplies `tenant_id`, `idempotency_key`, and `provider_metadata` explicitly. The file header and the README statement table, compatibility note, parameter documentation, and validation boundary were updated. The docs state that after Day31 there is **no** legal `DEFAULT VALUES` way to create a Job, because tenant ownership and client request identity cannot be defaulted by the database, and that 1c was **not** taught in the Day30 class.
+- **Runnable validation.** The README validation section used driver placeholders (`$1`, `$tenantA`, `$jobA`, `$documentB`) that produce `ERROR: there is no parameter $1` when pasted into `psql`. It is now a copy-paste runnable script using **fixed test UUIDs**, applied with `psql -v ON_ERROR_STOP=1`. Every expected failure is a nested `DO` block that catches **only** its specific condition (`unique_violation`, `check_violation`, `foreign_key_violation`, `not_null_violation`), raises its own `P0001` if the illegal statement unexpectedly succeeds, and lets any other error propagate — so a missing table or typo can never be reported as a pass. No trailing `echo` masks the exit status. All previously listed cases are retained and three were added: cross-tenant Upload Session -> Document, a second Document for one Upload Session, and an assertion that the pre-Day31 Job INSERT is now rejected with `23502`.
+- **Phase 3 status.** `CURRICULUM.md` still read `Planned / Ready (not started)` while Day29-Day31 are complete and Day32 is the current lesson; it now reads `In Progress`. Day32 remains `Planned` and no Day32 lesson was created.
+
+### Notes
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check; Markdown fence balance; relative-link resolution; secret scan; a placeholder scan confirming no `$1`/`$tenantA`-style tokens remain in the runnable validation script; SQL static review of DDL dependency order and composite-FK/candidate-key pairing (including the new `documents` -> `upload_sessions` composite key); and status consistency across Curriculum, Roadmap, Project Status, Tasks, README, and AGENTS.
+- **PostgreSQL runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available in the repository-update environment, so `001` -> `003`, the positive path, the expected-failure blocks, and the Day31-compatible Job INSERT were **not executed**. The reduced Day31 classroom evidence (PostgreSQL 14.18) is **not** reused as proof of the corrected artifact, and it never covered the cross-tenant Upload Session -> Document case introduced here.
+- Scope: no transactions, locks, indexes, RLS, ORM, or Alembic were added; `001_create_jobs.sql` and the Day29/Day30 lesson bodies are unchanged; the protected prompt/template files are unchanged; no credentials, connection strings, signed URLs, or production data were added.
+
+---
+
 ## v0.1.61 — Day31 Relational Modeling and Data Integrity
 
 Date: 2026-07-21

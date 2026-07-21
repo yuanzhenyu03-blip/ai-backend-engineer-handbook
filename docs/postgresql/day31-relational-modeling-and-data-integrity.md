@@ -404,9 +404,18 @@ provenance naturally:
 
 ```sql
 documents.upload_session_id NOT NULL
-    REFERENCES upload_sessions(upload_session_id)
 UNIQUE (upload_session_id)
+
+-- Tenant-aware provenance: a single-column FK would only prove the session EXISTS.
+FOREIGN KEY (tenant_id, upload_session_id)
+    REFERENCES upload_sessions(tenant_id, upload_session_id)
+    ON DELETE RESTRICT
 ```
+
+The same reasoning that fixes cross-tenant Job-Document links (Concept 9) applies here: a plain
+`upload_session_id` foreign key lets a Tenant-B Document claim a Tenant-A Upload Session. The composite
+foreign key rejects it with `23503`, while `UNIQUE (upload_session_id)` still enforces "one session
+produces at most one Document".
 
 Cardinality mental model:
 
