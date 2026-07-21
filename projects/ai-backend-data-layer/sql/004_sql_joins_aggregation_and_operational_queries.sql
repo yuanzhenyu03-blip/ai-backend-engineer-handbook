@@ -45,6 +45,15 @@
 --    INNER JOIN would DROP queued Jobs that no Worker has claimed yet — exactly
 --    the backlog an operations dashboard must show. The NULL Attempt columns are
 --    meaningful evidence ("no Attempt row exists"), not corrupt data.
+--
+--    SCOPE: this is the general operational Job-Attempt view. It filters on
+--    tenant_id ONLY, so it returns queued, running, succeeded, failed and
+--    cancelled Jobs. It is NOT a backlog-only query.
+--
+--    For a queue-only backlog view, the caller adds the status predicate
+--    explicitly:
+--
+--      AND j.job_status = 'queued'
 -- -----------------------------------------------------------------------------
 SELECT
     j.job_id,
@@ -194,43 +203,86 @@ WHERE j.tenant_id  = $1
 --
 --     GRAIN: one row per currently-queued Job.
 --
---     Uses the Day31 job_events history rather than a new column: the latest
---     event with to_status = 'queued' is when this Job entered its current queued
---     stage. This distinguishes a first-time queued Job from one that was requeued
---     after a failure, which query 4 deliberately cannot do.
+--     Uses the Day31 job_events history rather than a new column, and reports the
+--     STATE OF THE EVIDENCE rather than always producing a number.
 --
---     queued_since_source makes the fallback explicit and auditable:
---       'job_events'  -> a recorded queued transition was found
---       'jobs.created_at' -> no queued event exists, so acceptance time is used
---                            and the age is an UPPER BOUND, not the stage age.
+--     WHY THE LATEST EVENT, NOT THE LATEST 'queued' EVENT.
+--     Pre-filtering to to_status = 'queued' and then taking the newest match is
+--     WRONG. Consider:
 --
---     Completeness limit: this is only as truthful as the write paths that record
---     transitions. Day31 does not enforce that every queued transition emits an
---     event, so a missing event is not proof that no transition happened.
+--       queued  @ t1
+--       running @ t2
+--       failed  @ t3
+--       ... the Job is queued again, but THAT queued event was never written
+--
+--     A pre-filtered query happily returns t1 and presents a multi-hour
+--     "queued stage age" for a Job that was requeued moments ago. The stale row is
+--     real, but it does not describe the CURRENT stage. So this CTE selects each
+--     Job's LATEST event of any kind, and only accepts it as the current
+--     queued-stage start when its to_status is actually 'queued'.
+--
+--     event_history_status classifies the evidence:
+--       recorded_queued_transition
+--           The latest event IS a queued transition. queued_since = that instant,
+--           and queued_stage_age is meaningful.
+--       no_event_history_acceptance_fallback
+--           NO events exist at all for this Job. jobs.created_at is used as an
+--           ACCEPTANCE-TIME fallback: the age is an UPPER BOUND on the queued
+--           stage, never the precise stage age.
+--       event_history_inconsistent
+--           Events exist, jobs.job_status says 'queued', but the latest event is
+--           NOT a queued transition. Current state and recorded history disagree,
+--           or the history is incomplete. queued_since and queued_stage_age are
+--           deliberately left NULL — this query will not fall back to an older
+--           queued event and will not manufacture a precise-looking age.
+--           latest_event_at / latest_event_to_status are still returned so the
+--           inconsistency itself is inspectable.
+--
+--     Completeness limit: nothing in Day31 enforces that every transition emits an
+--     event. Event history completeness is a WRITE-PATH convention, NOT a schema
+--     guarantee. A missing event is therefore not proof that no transition
+--     happened, and event_history_inconsistent is a signal to investigate — not a
+--     verdict about what the Worker did.
 -- -----------------------------------------------------------------------------
-WITH latest_queued_event AS (
+WITH latest_event AS (
     SELECT DISTINCT ON (e.job_id)
         e.job_id,
-        e.occurred_at
+        e.occurred_at,
+        e.to_status,
+        e.event_id
     FROM app.job_events AS e
-    WHERE e.to_status = 'queued'
     ORDER BY e.job_id, e.occurred_at DESC, e.event_id DESC
 )
 SELECT
     j.job_id,
-    j.created_at                                             AS accepted_at,
-    q.occurred_at                                            AS queued_since_event_at,
-    COALESCE(q.occurred_at, j.created_at)                    AS queued_since,
-    CASE WHEN q.occurred_at IS NOT NULL
-         THEN 'job_events'
-         ELSE 'jobs.created_at'
-    END                                                      AS queued_since_source,
-    now() - COALESCE(q.occurred_at, j.created_at)            AS current_queued_stage_age
+    j.created_at                                    AS accepted_at,
+    le.occurred_at                                  AS latest_event_at,
+    le.to_status                                    AS latest_event_to_status,
+    CASE
+        WHEN le.to_status = 'queued' THEN le.occurred_at
+        WHEN le.job_id IS NULL       THEN j.created_at   -- acceptance fallback
+        ELSE NULL                                        -- inconsistent: no honest value
+    END                                             AS queued_since,
+    CASE
+        WHEN le.to_status = 'queued' THEN 'job_events'
+        WHEN le.job_id IS NULL       THEN 'jobs.created_at'
+        ELSE NULL
+    END                                             AS queued_since_source,
+    CASE
+        WHEN le.to_status = 'queued' THEN now() - le.occurred_at
+        WHEN le.job_id IS NULL       THEN now() - j.created_at   -- UPPER BOUND
+        ELSE NULL
+    END                                             AS queued_stage_age,
+    CASE
+        WHEN le.to_status = 'queued' THEN 'recorded_queued_transition'
+        WHEN le.job_id IS NULL       THEN 'no_event_history_acceptance_fallback'
+        ELSE 'event_history_inconsistent'
+    END                                             AS event_history_status
 FROM app.jobs AS j
-LEFT JOIN latest_queued_event AS q ON q.job_id = j.job_id
+LEFT JOIN latest_event AS le ON le.job_id = j.job_id
 WHERE j.tenant_id  = $1
   AND j.job_status = 'queued'
-ORDER BY queued_since ASC, j.job_id ASC;
+ORDER BY queued_since ASC NULLS FIRST, j.job_id ASC;
 
 
 -- -----------------------------------------------------------------------------

@@ -753,8 +753,8 @@ Day33 — PostgreSQL Transactions and Atomic State Changes
 Released Engineering Artifact:
 `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` — a read-only
 operational query pack over the Day31 model (twelve parameterized statements in ten query groups, each with an explicit result
-grain contract, deterministic `ORDER BY`, and a tenant predicate): queue backlog with zero-Attempt Jobs
-preserved, per-Job Attempt/Event summaries via CTE pre-aggregation, conditional aggregation with `FILTER`,
+grain contract, deterministic `ORDER BY`, and a tenant predicate): an operational Job-Attempt view that
+preserves zero-Attempt Jobs, per-Job Attempt/Event summaries via CTE pre-aggregation, conditional aggregation with `FILTER`,
 NULL-aware recorded-cost reporting with completeness columns, stage-aware stuck candidates via
 `DISTINCT ON`, half-open throughput windows, release-provenance affected sets, and read-only incident
 evidence. Contains no DML, transactions, locks, indexes, `EXPLAIN`, or migrations (Day33-Day36)

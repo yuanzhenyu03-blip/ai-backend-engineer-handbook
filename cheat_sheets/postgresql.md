@@ -274,7 +274,25 @@ HAVING -> filters GROUPS AFTER aggregation   (COUNT(...) >= $2)
 
 Queue health: `COUNT(*)`, `MIN(created_at)`, `now() - MIN(created_at)`. Empty queue returns count `0` and **NULL** age — "no backlog" and "no data" must not render identically.
 
-**Name the metric after the clock it uses.** `jobs.created_at` is **acceptance** time, not current queued-stage entry. For `queued -> running -> failed -> queued`, `created_at` charges the earlier lifecycle to the current wait, so the honest names are `oldest_accepted_at` / `accepted_age_of_oldest_currently_queued_job`. For the true stage age, take the latest `job_events` row with `to_status = 'queued'` (no schema change — Day31 already records `to_status` and `occurred_at`), and label the fallback source. A missing Event is not proof no transition happened.
+**Name the metric after the clock it uses.** `jobs.created_at` is **acceptance** time, not current queued-stage entry. For `queued -> running -> failed -> queued`, `created_at` charges the earlier lifecycle to the current wait, so the honest names are `oldest_accepted_at` / `accepted_age_of_oldest_currently_queued_job`. For the true stage age, use `job_events` — but **do not pre-filter**. Selecting "the latest event WHERE `to_status = 'queued'`" returns a stale `t1` for a Job that went `queued -> running -> failed -> queued` when the second queued Event was never written, and presents it as a multi-hour stage age. Select each Job's **latest event of any kind**, then accept it only if `to_status = 'queued'`:
+
+```sql
+SELECT DISTINCT ON (e.job_id) e.job_id, e.occurred_at, e.to_status, e.event_id
+FROM app.job_events AS e
+ORDER BY e.job_id, e.occurred_at DESC, e.event_id DESC   -- no to_status filter
+```
+
+Three honest outcomes, not one number:
+
+```text
+recorded_queued_transition            -> queued_since = latest event; age meaningful
+no_event_history_acceptance_fallback  -> no events at all; created_at used; age is an UPPER BOUND
+event_history_inconsistent            -> events exist but latest is not queued while job_status is
+                                         -> queued_since / queued_stage_age stay NULL
+                                         -> never substitute an older queued Event
+```
+
+Event-history completeness is a **write-path convention, not a schema guarantee** (no schema change — Day31 already records `to_status` and `occurred_at`). A missing Event is not proof no transition happened.
 
 **CTE pre-aggregation** is the structural fix for two children: collapse each child to one row per `job_id` first, then `LEFT JOIN` the summaries one-to-one. `COUNT(DISTINCT ...)` repairs counts but leaves `SUM` multiplied, and `SUM(DISTINCT ...)` is wrong outright (two Attempts may legitimately cost the same).
 

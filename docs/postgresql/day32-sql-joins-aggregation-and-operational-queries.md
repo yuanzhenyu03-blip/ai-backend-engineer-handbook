@@ -199,10 +199,18 @@ Query contract (grain):
   One row = one Job-Attempt combination.
   0 Attempts -> ONE row, Attempt columns NULL.
   N Attempts -> N rows.
+
+Scope: tenant_id ONLY. This is the general operational Job-Attempt view, so it
+returns queued, running, succeeded, failed and cancelled Jobs. It is NOT
+backlog-only — a queue-only view adds `AND j.job_status = 'queued'` explicitly.
 ```
 
 The NULL Attempt columns are **meaningful operational evidence** — "no Attempt row exists" — not
 corrupt data. A report that hides zero-Attempt Jobs hides the queue.
+
+One naming discipline follows from the scope line: a query filtered on tenant alone must not be labelled
+a "backlog view" anywhere it is documented. The status predicate is what makes a view backlog-only, and
+if it is not in the SQL, it must not be in the prose.
 
 Engineering Thinking:
 
@@ -426,14 +434,56 @@ Query 4  -> keep the simple one-row summary, but NAME it for what it measures:
             This is a valid BACKLOG signal (how long ago the oldest unfinished request
             arrived, which is what the customer feels) but it is NOT the queued-stage age.
 
-Query 4b -> derive the current queued-stage entry from the LATEST job_events row with
-            to_status = 'queued', falling back to created_at with the source labelled.
+Query 4b -> derive the current queued-stage entry from job_events, and report the STATE
+            OF THE EVIDENCE rather than always producing a number.
             No schema change: Day31 already records to_status and occurred_at.
 ```
 
-Query 4b's completeness limit must travel with it: it is only as truthful as the write paths that record
-transitions, and Day31 does not enforce that every queued transition emits an Event. A missing Event is
-not proof that no transition happened.
+Query 4b hides a trap worth stating on its own, because the obvious implementation is wrong. Selecting
+"the latest event **where** `to_status = 'queued'`" filters first and picks second. Consider:
+
+```text
+queued  @ t1
+running @ t2
+failed  @ t3
+... the Job is queued again, but THAT queued event was never written
+```
+
+The pre-filtered query returns `t1` — a real row — and presents a multi-hour "queued stage age" for a Job
+that was requeued moments ago. The fix is to select each Job's **latest event of any kind**, then accept
+it as the stage start **only if** its `to_status` is actually `queued`:
+
+```sql
+WITH latest_event AS (
+    SELECT DISTINCT ON (e.job_id) e.job_id, e.occurred_at, e.to_status, e.event_id
+    FROM app.job_events AS e
+    ORDER BY e.job_id, e.occurred_at DESC, e.event_id DESC   -- NO to_status filter here
+)
+```
+
+That yields three honest outcomes rather than one confident number:
+
+```text
+recorded_queued_transition            latest event IS queued
+                                      -> queued_since = that instant, age is meaningful
+
+no_event_history_acceptance_fallback  NO events exist at all
+                                      -> jobs.created_at used; the age is an UPPER BOUND
+
+event_history_inconsistent            events exist, job_status says queued, but the
+                                      latest event is NOT queued
+                                      -> queued_since and queued_stage_age stay NULL
+                                      -> no older queued event is substituted
+```
+
+The third case is the important one. Current state and recorded history disagree, or the history is
+incomplete — and the correct output is an admission, not an estimate. `latest_event_at` and
+`latest_event_to_status` are still returned so the inconsistency itself can be inspected.
+
+Query 4b's completeness limit must travel with it: nothing in Day31 enforces that every transition emits
+an Event. Event-history completeness is a **write-path convention, not a schema guarantee**. A missing
+Event is not proof that no transition happened, so `event_history_inconsistent` is a signal to
+investigate, never a verdict about what the Worker did.
 
 Engineering Thinking:
 
