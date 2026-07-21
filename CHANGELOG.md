@@ -9,6 +9,23 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.63 — Day31 Validation Isolation and Connection Target
+
+Date: 2026-07-21
+
+### Changed
+
+- **Test 9 now exercises the constraint it claims to test.** The cross-tenant Upload Session -> Document case reused session `33333333-...`, which the positive path had already consumed. PostgreSQL checks the unique index during the row insert, before the foreign-key trigger fires, so the statement raised `23505 documents_upload_session_unique` instead of the intended `23503`. That escaped Test 9's `foreign_key_violation`-only handler, aborted the script under `ON_ERROR_STOP=1`, and silently skipped Tests 10 and 11. The positive path now creates a third Tenant-A Upload Session (`aaaaaaaa-...`) that is deliberately left **without** a Document, and Test 9 uses it — so `documents_upload_session_same_tenant_fk` is the only rule that can reject the row. Test 10 keeps using `33333333-...` (already has a Document, same tenant) so `documents_upload_session_unique` is the rule under test. Both blocks still catch exactly one condition, raise their own `P0001` if the illegal statement unexpectedly succeeds, and let any other error propagate.
+- **Validation commands now target the disposable cluster explicitly.** The apply and validation steps used a bare `psql`, which does not read `DAY29_PGHOST`/`DAY29_PGPORT` and would either fail to connect or silently connect to the operator's default PostgreSQL. They now use the Day29 `day29psql` helper (disposable socket, disposable port, database `ai_backend`, `ON_ERROR_STOP=1`), with the helper definition shown inline, an explicit prerequisite that the Day29 disposable-cluster startup runs first, and a documented fallback requiring host/port/database on every command. The README states that these must never run against a shared, development, or production database.
+
+### Notes
+
+- Validation actually performed: `git diff --check`; changed-file scope (README + CHANGELOG only); protected-file check; Markdown fence balance; relative-link resolution; secret scan; a placeholder scan confirming no unbound `$1`/`$tenantA`-style pseudo-parameters inside any code fence; and a static review of the script's logic — session `aaaaaaaa-...` is created and never consumed by a Document, Test 9 references only that session, Test 10 references the already-consumed session within the same tenant, Tests 1-11 are present and correctly ordered, and all 11 `DO` blocks each declare exactly one exception handler with a matching unexpected-success guard.
+- **PostgreSQL runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available, so the disposable cluster was not started, `001` -> `003` was not applied, and Tests 1-11 were not executed. Test 9/10/11 outcomes are therefore **unverified at runtime**; the constraint-ordering reasoning behind this fix is static analysis. No cluster was created, so no cleanup was required, and no shared or production database was contacted. The reduced Day31 classroom evidence is not reused as proof of this corrected script.
+- Scope: README and CHANGELOG only. No SQL schema constraint was changed, no Day31 classroom answer was altered, no Day32 lesson was created and Day32 remains Planned, and no transactions, locks, indexes, RLS, ORM, or Alembic were added. The protected prompt/template files are unchanged and no credentials, real connection strings, or production data were added.
+
+---
+
 ## v0.1.62 — Day31 Review Fixes
 
 Date: 2026-07-21

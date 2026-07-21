@@ -131,14 +131,31 @@ Two rules make it a real test rather than a decorative one:
   unexpectedly **succeeds**, the block raises its own `P0001` and the script fails. Any other error
   (missing table, typo, wrong database) propagates and fails. "Any error = pass" would hide real bugs.
 
+**Connect through the Day29 disposable helper — never a bare `psql`.** Complete the Day29
+disposable-cluster startup first (section "Reproduce the Day29 validation"), which defines:
+
+```text
+day29psql() { psql -v ON_ERROR_STOP=1 -p "$DAY29_PGPORT" -h "$DAY29_PGHOST" -d ai_backend "$@"; }
+```
+
+That helper already carries the disposable **socket** (`$DAY29_PGHOST`), the disposable **port**
+(`$DAY29_PGPORT`), the database **`ai_backend`**, and **`ON_ERROR_STOP=1`**. A bare `psql` does **not**
+read `DAY29_PGHOST`/`DAY29_PGPORT`, so it would either fail to connect or silently connect to your
+default PostgreSQL — never run these against a shared, development, or production database.
+
 ```bash
-# Apply order on a FRESH, EMPTY database. ON_ERROR_STOP makes SQL errors exit non-zero.
-psql -v ON_ERROR_STOP=1 -f sql/001_create_jobs.sql
-psql -v ON_ERROR_STOP=1 -f sql/003_relational_modeling_and_data_integrity.sql
+# Run from projects/ai-backend-data-layer/ AFTER the Day29 disposable cluster is running.
+# Apply order on the FRESH, EMPTY disposable database:
+day29psql -f sql/001_create_jobs.sql
+day29psql -f sql/003_relational_modeling_and_data_integrity.sql
 
 # Then run the validation script below (save it as /tmp/day31_validate.sql):
-psql -v ON_ERROR_STOP=1 -f /tmp/day31_validate.sql
+day29psql -f /tmp/day31_validate.sql
 ```
+
+If you deliberately do **not** use `day29psql`, pass the disposable host, port and database explicitly on
+every command (`psql -v ON_ERROR_STOP=1 -h <disposable-socket> -p <disposable-port> -d ai_backend -f ...`).
+Never rely on the default connection.
 
 #### Positive path — fixed UUIDs, all statements must succeed
 
@@ -148,12 +165,19 @@ INSERT INTO app.tenants (tenant_id, tenant_slug) VALUES
     ('11111111-1111-1111-1111-111111111111', 'tenant-a'),
     ('22222222-2222-2222-2222-222222222222', 'tenant-b');
 
--- Upload sessions (one per tenant)
+-- Upload sessions.
+--   3333... Tenant A -> WILL receive a Document below (used by Test 10)
+--   4444... Tenant B -> WILL receive a Document below
+--   aaaa... Tenant A -> intentionally left WITHOUT a Document, reserved for Test 9 so the
+--                       cross-tenant case is rejected by the composite FK (23503) and NOT by
+--                       documents_upload_session_unique (23505).
 INSERT INTO app.upload_sessions (upload_session_id, tenant_id, object_key) VALUES
     ('33333333-3333-3333-3333-333333333333',
      '11111111-1111-1111-1111-111111111111', 'tenant-a/uploads/doc-1'),
     ('44444444-4444-4444-4444-444444444444',
-     '22222222-2222-2222-2222-222222222222', 'tenant-b/uploads/doc-1');
+     '22222222-2222-2222-2222-222222222222', 'tenant-b/uploads/doc-1'),
+    ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+     '11111111-1111-1111-1111-111111111111', 'tenant-a/uploads/doc-2-unused');
 
 -- Documents (each bound to its OWN tenant's session)
 INSERT INTO app.documents (document_id, tenant_id, upload_session_id, object_key) VALUES
@@ -291,26 +315,34 @@ END $$;
 
 -- 9. Cross-tenant Upload Session -> Document -> 23503 foreign_key_violation
 --    (Tenant B Document claiming Tenant A's Upload Session.)
+--    Uses the UNUSED Tenant-A session aaaa... on purpose: session 3333... already has a
+--    Document, so PostgreSQL would raise documents_upload_session_unique (23505) during the
+--    index insert BEFORE the foreign-key trigger ran. That would escape this handler, abort
+--    the script, and silently skip Tests 10 and 11. With an unused session, the ONLY rule that
+--    can reject this row is documents_upload_session_same_tenant_fk.
 DO $$
 BEGIN
     BEGIN
         INSERT INTO app.documents (tenant_id, upload_session_id, object_key)
         VALUES ('22222222-2222-2222-2222-222222222222',   -- Tenant B
-                '33333333-3333-3333-3333-333333333333',   -- Tenant A's session
+                'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',   -- Tenant A's UNUSED session
                 'tenant-b/documents/stolen');
         RAISE EXCEPTION 'VALIDATION FAILED: cross-tenant Upload Session -> Document was accepted';
     EXCEPTION WHEN foreign_key_violation THEN
-        RAISE NOTICE 'PASS: cross-tenant Upload Session -> Document rejected (23503)';
+        RAISE NOTICE 'PASS: cross-tenant Upload Session -> Document rejected by documents_upload_session_same_tenant_fk (23503)';
     END;
 END $$;
 
 -- 10. A second Document for the SAME Upload Session -> 23505 unique_violation
+--     Deliberately uses session 3333..., which ALREADY has a Document, and stays within
+--     Tenant A so the composite FK is satisfied and documents_upload_session_unique is the
+--     rule under test.
 DO $$
 BEGIN
     BEGIN
         INSERT INTO app.documents (tenant_id, upload_session_id, object_key)
-        VALUES ('11111111-1111-1111-1111-111111111111',
-                '33333333-3333-3333-3333-333333333333',
+        VALUES ('11111111-1111-1111-1111-111111111111',   -- same tenant: composite FK satisfied
+                '33333333-3333-3333-3333-333333333333',   -- session that already has a Document
                 'tenant-a/documents/second');
         RAISE EXCEPTION 'VALIDATION FAILED: a second Document for one Upload Session was accepted';
     EXCEPTION WHEN unique_violation THEN
@@ -331,7 +363,7 @@ BEGIN
 END $$;
 ```
 
-Every block prints `PASS: ...` on the expected outcome. Because `psql -v ON_ERROR_STOP=1` is used and no
+Every block prints `PASS: ...` on the expected outcome. Because `day29psql` carries `ON_ERROR_STOP=1` and no
 trailing `echo` follows, the script's exit status **is** the validation result: a mis-typed table, a
 missing constraint, or an illegal statement that unexpectedly succeeds all make it exit non-zero.
 
@@ -704,7 +736,7 @@ not running. Do not present a Docker workflow as verified.
 | Student SQL static review | **Done (in class)** | minimum `job_attempts` DDL reviewed; syntax corrections recorded |
 | Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, selected tests)** | a **reduced** validation schema — not this full file — accepted the core DDL and rejected duplicate `(job_id, attempt_number)`, non-positive `attempt_number`, a missing parent Job, deleting a Job with an Attempt, a same-tenant duplicate idempotency key, an invalid `job_status`, and a cross-tenant Job-Document link; a different tenant reused the key successfully; one valid Attempt remained. Cluster stopped and the temporary directory removed. |
 | Final artifact static review | **Done (repository update)** | balanced syntax; DDL dependency order valid after `001`; every composite FK has a matching candidate key (including `documents` -> `upload_sessions` on `(tenant_id, upload_session_id)`); `result_artifacts` has no `job_id` column; all FKs use `ON DELETE RESTRICT`; named constraints throughout; no transactions/locks/explicit indexes/DROP/RLS/roles; legacy `result_object_key` retained; no credentials |
-| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment (nor for the tenant-aware `documents` composite FK added afterwards). The reduced classroom test is **not** proof that every table in this file applies cleanly, and it did **not** cover the cross-tenant Upload Session -> Document case. |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment, including for the tenant-aware `documents` composite FK and the corrected Test 9/Test 10 isolation. The reduced classroom test is **not** proof that every table applies cleanly, and it never covered the cross-tenant Upload Session -> Document case. Tests 1-11 have been reviewed statically (constraint targeting, single-condition handlers, ordering) but **not executed**. |
 | Application integration | **NOT DONE** | no FastAPI/Celery/driver/Redis/Provider/Object Storage was exercised |
 | Transactions / concurrency / migration safety | **NOT DONE** | Day33/Day34/Day36 |
 | Production validation | **NOT DONE** | no RLS, roles, backups, HA, performance, or deployment evidence |
