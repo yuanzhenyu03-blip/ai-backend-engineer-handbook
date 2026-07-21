@@ -14,7 +14,8 @@ docs/
 ├── postgresql/    # Day29+ Phase 3 Backend Foundations
 │   ├── day29-postgresql-foundations-and-durable-relational-state.md
 │   ├── day30-sql-data-manipulation-and-query-fundamentals.md
-│   └── day31-relational-modeling-and-data-integrity.md                # latest
+│   ├── day31-relational-modeling-and-data-integrity.md
+│   └── day32-sql-joins-aggregation-and-operational-queries.md         # latest
 ├── fastapi/
 ├── playwright/
 └── n8n/

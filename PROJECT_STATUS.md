@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day32 — SQL Joins, Aggregation, and Operational Queries
+Day33 — PostgreSQL Transactions and Atomic State Changes
 
 Status:
 Planned / Not started
 
-(The Day32 lesson has not started and no Day32 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day31 details are recorded under Last Completed Lesson.)
+(The Day33 lesson has not started and no Day33 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day32 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -54,6 +54,7 @@ Day31 details are recorded under Last Completed Lesson.)
 - ✅ Day29 — PostgreSQL Foundations and Durable Relational State
 - ✅ Day30 — SQL Data Manipulation and Query Fundamentals
 - ✅ Day31 — Relational Modeling and Data Integrity
+- ✅ Day32 — SQL Joins, Aggregation, and Operational Queries
 
 ---
 
@@ -65,32 +66,32 @@ None.
 
 ## Last Completed Lesson
 
-Day31 — Relational Modeling and Data Integrity
+Day32 — SQL Joins, Aggregation, and Operational Queries
 
 Completed Time:
 2026-07-21
 
 Main Artifact:
-Day31 relational target schema (projects/ai-backend-data-layer/sql/003_relational_modeling_and_data_integrity.sql) — tenants, upload_sessions, documents, extended jobs, job_attempts, job_events, outbox_events, result_artifacts, and a tenant-aware job_documents junction table
+Day32 operational query pack (projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql) — ten read-only, parameterized query groups over the Day31 model, each with an explicit result-grain contract, deterministic ORDER BY, and a tenant predicate
 
 Validation Boundary:
-Conceptual/manual review of the complete relational model was done in class, and a REDUCED classroom validation schema was executed on PostgreSQL 14.18 where selected constraints behaved correctly (duplicate (job_id, attempt_number) rejected, non-positive attempt_number rejected, missing parent Job rejected, deleting a Job with an Attempt restricted, same-tenant duplicate idempotency key rejected, different-tenant key reuse accepted, invalid job_status rejected, cross-tenant Job-Document link rejected). An earlier attempt failed at cluster start with shmget: Operation not permitted — environment evidence, not a SQL result. The FULL Day31 artifact in this repository was NOT executed: no psql/PostgreSQL server was available during the repository update, so only a static file review was performed. Transactions (Day33), locking/MVCC (Day34), indexes (Day35), safe migration of populated tables (Day36), RLS/roles, backups, HA, performance, and production deployment remain unproven.
+Conceptual/manual reasoning and query construction were done in class, and a REDUCED classroom validation schema was executed on PostgreSQL 14.18 where the taught behaviours were reproduced (INNER JOIN dropping a zero-Attempt Job while LEFT JOIN preserved it, 3 Attempts x 4 Events returning 12 rows, COUNT(*) = 1 vs COUNT(attempt_id) = 0 for a zero-Attempt Job, FILTER counting only failed Attempts, SUM/AVG skipping NULL cost with completeness exposed, HAVING filtering groups after aggregation, DISTINCT ON selecting the current Attempt deterministically, and a half-open window excluding the upper-bound row). The FULL Day32 artifact in this repository was NOT executed: no psql/PostgreSQL server was available during the repository update, so only a static file review was performed (balanced parentheses, 11 statements, every referenced column present in 001 + 003, a GRAIN contract per statement, no DML/transactions/locks/indexes/EXPLAIN, no credentials). The reduced classroom evidence is not reused as proof of this file. Atomicity (Day33), locking/MVCC (Day34), indexes and execution plans (Day35), safe migration of populated tables (Day36), RLS/roles, performance, and production deployment remain unproven.
 
 Completed Work:
 
-- Day31 classroom learning
-- Day31 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day30->Day31 mental-model evolution)
-- Day31 relational target schema and project README increment
-- Day31 entity/cardinality, key-scope, referential-action, CHECK, normalization, state-vs-history-vs-outbox, many-to-many, tenant-integrity, and failed-constraint-deployment exercises
-- Day31 PostgreSQL cheat sheet append
-- Day31 PostgreSQL interview notes append
-- Day31 repository status update
+- Day32 classroom learning
+- Day32 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day31->Day32 mental-model evolution)
+- Day32 read-only operational query pack and project README increment
+- Day32 join-choice, row-multiplication, NULL-aware counting, honest cost reporting, CTE pre-aggregation, stage-aware stuck detection, and incident-evidence exercises
+- Day32 PostgreSQL cheat sheet append
+- Day32 PostgreSQL interview notes append
+- Day32 repository status update
 
 ---
 
 ## Next
 
-- Day32 — SQL Joins, Aggregation, and Operational Queries (Phase 3 — Backend Foundations)
+- Day33 — PostgreSQL Transactions and Atomic State Changes (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -132,6 +133,7 @@ Completed Python Foundations:
 - Day29 — PostgreSQL foundations and durable relational state, write+commit the Job row before 202, server/cluster/database/schema/table/row/column boundaries, psql connects to a database (qualified name vs search_path; public is a default namespace), Job types/defaults (uuid PK gen_random_uuid, text, integer, boolean, timestamptz now(), bounded jsonb), typed columns vs JSONB-only, type vs relationship cardinality, NULL per lifecycle, NOT NULL rejects only NULL (empty/'banana' accepted), DEFAULT VALUES + RETURNING, primary key vs idempotency key, timestamptz as one absolute instant, validation ladder, durability != integrity, code rollback vs guarded data repair
 - Day30 — SQL data manipulation and query fundamentals, clause chain SELECT/FROM/WHERE/ORDER BY/LIMIT, explicit columns and a unique ORDER BY tie-breaker, three-valued logic (WHERE keeps only TRUE; IS NULL; why `<> 'timeout'` drops no-error rows), INSERT with database defaults + RETURNING (rows not a count), parameterized SQL and the injection boundary (values only; identifiers need an allowlist; it does not authorize or fix concurrency), WHERE as the modification boundary with current-state guards, zero rows means the transition did not apply, AND/OR precedence in destructive statements, lost-update awareness (database-side increment or expected-old-value guard), and the contain->evidence->identify->reconcile->guarded repair->verify incident order
 - Day31 — Relational modeling and data integrity, entities/attributes/relationships and ownership, when a repeated fact becomes its own entity, primary key vs foreign key vs business key, uniqueness SCOPE (UNIQUE(job_id, attempt_number), UNIQUE(tenant_id, idempotency_key) because a retry brings a new job_id), referential actions as retention policy (RESTRICT protects audit/cost evidence; CASCADE erases it), one-to-many FK placement and one-to-one via FK+UNIQUE, many-to-many junction tables carrying relationship attributes, CHECK as the legal-state boundary and what a row CHECK cannot see, normalizing Result Artifacts with derivable provenance, current state vs append-oriented job_events vs durable outbox_events intent, tenant-aware composite foreign keys, integrity vs authorization, and deploying a UNIQUE constraint onto committed duplicates
+- Day32 — SQL joins, aggregation and operational queries, defining the result grain before writing the query, choosing INNER vs LEFT JOIN from what a missing row MEANS (a zero-Attempt Job is the backlog, and NULL child columns are evidence), join cardinality and row multiplication (3 Attempts x 4 Events = 12 rows; 0 Attempts + 4 Events = 4 rows, not 0), COUNT(*) counting result rows vs COUNT(child_pk) counting existence, conditional aggregation with FILTER and why moving the condition into WHERE collapses LEFT into INNER, WHERE before grouping vs HAVING after aggregation, MIN/MAX for oldest queued age and the NULL-vs-zero empty-queue distinction, SUM/AVG over incomplete cost as a claim about RECORDED facts (recorded_* naming plus completeness; never COALESCE(SUM(cost),0) on a billing page), CTE pre-aggregation as the structural fix for two independent children (DISTINCT patches counts, not SUM), stage-aware stuck detection using the current Attempt clock with a DISTINCT ON tie-breaker producing classified CANDIDATES not verdicts, half-open [start, end) windows vs BETWEEN double-counting, recorded release provenance beating time correlation for an affected set, and rollback stopping future bad writes without repairing committed rows or undoing published outbox events
 
 ---
 

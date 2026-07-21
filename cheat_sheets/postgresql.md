@@ -231,6 +231,79 @@ Testing constraints: assert the **specific** SQLSTATE — `23505` unique_violati
 
 ---
 
+## Day32 SQL Joins, Aggregation, and Operational Queries
+
+Start with the **result grain**: one row = one *what*? Every later choice follows from that sentence, and a query without a stated grain has an unreviewable meaning.
+
+Join choice is driven by what a **missing row means**:
+
+```text
+INNER JOIN = only matching combinations   -> absence is DISCARDED
+LEFT  JOIN = all left rows preserved      -> absence is EVIDENCE (child columns NULL)
+```
+
+A queued Job with no Attempt row vanishes under `INNER JOIN` — which hides exactly the backlog operations needs. NULL Attempt columns mean "no Attempt row exists", not corrupt data.
+
+**Cardinality and row multiplication.** A join returns every matching *combination*, not a step-by-step filter:
+
+```text
+Attempts  Events  Rows (Job preserved via LEFT JOIN)
+0         0       1    <- NULL-extended row still counts
+0         4       4    <- the NULL-extended row matches EVERY Event
+3         0       3
+3         4       12   <- 3 x 4, NOT 4 and NOT 0
+```
+
+Two **independent** one-to-many children must never be joined in one aggregating statement.
+
+`COUNT` semantics after `LEFT JOIN`:
+
+```text
+COUNT(*)            = result ROWS, including the NULL-extended row  -> 1 for a zero-Attempt Job
+COUNT(a.attempt_id) = non-NULL child identities                     -> 0 for a zero-Attempt Job
+```
+
+Conditional aggregation keeps the condition **inside** the aggregate: `COUNT(a.attempt_id) FILTER (WHERE a.error_code IS NOT NULL)`, portably `SUM(CASE WHEN ... THEN 1 ELSE 0 END)`. Moving that predicate into `WHERE` deletes successful Attempts **and** the placeholder row — silently collapsing `LEFT JOIN` into `INNER JOIN`.
+
+```text
+WHERE  -> filters INPUT rows BEFORE grouping (tenant, status, raw time)
+HAVING -> filters GROUPS AFTER aggregation   (COUNT(...) >= $2)
+```
+
+**NULL is unknown, not zero.** `SUM`/`AVG` skip NULL, so they describe **recorded** facts: `AVG` divides only by reporting Attempts. Name columns `recorded_total_cost_micros` / `recorded_average_cost_micros` and publish completeness (`COUNT(cost_micros)` beside `COUNT(attempt_id)`). `COALESCE(SUM(cost_micros), 0)` turns "unknown" into the billing claim "it cost nothing" — reject it.
+
+Queue health: `COUNT(*)`, `MIN(created_at)`, `now() - MIN(created_at)`. Empty queue returns count `0` and **NULL** age — "no backlog" and "no data" must not render identically.
+
+**CTE pre-aggregation** is the structural fix for two children: collapse each child to one row per `job_id` first, then `LEFT JOIN` the summaries one-to-one. `COUNT(DISTINCT ...)` repairs counts but leaves `SUM` multiplied, and `SUM(DISTINCT ...)` is wrong outright (two Attempts may legitimately cost the same).
+
+**Stage-aware clocks.** `jobs.started_at` = customer-facing elapsed time including retries; the **current Attempt's** `started_at` = the execution hanging now. Select the current Attempt deterministically:
+
+```sql
+SELECT DISTINCT ON (a.job_id) ...
+FROM app.job_attempts AS a
+ORDER BY a.job_id, a.attempt_number DESC, a.attempt_id DESC   -- Day30 tie-breaker rule
+```
+
+Anomaly classes are **candidates, not verdicts**: `running_without_attempt`, `running_with_finished_current_attempt`, `running_attempt_over_threshold`, `running_within_threshold`. A long-running Attempt proves only that **no completion was recorded**.
+
+**Half-open windows** `[start, end)`: `finished_at >= $2 AND finished_at < $3`. `BETWEEN` counts a boundary row in two consecutive windows, so hourly totals exceed the daily total. Also state which timestamp defines membership — `finished_at` = completed in window, `created_at` = arrived in window.
+
+**Provenance beats time correlation.** `e.metadata ->> 'worker_release_id' = $2` gives the exact affected set; a time window is a proxy that over- and under-collects at both edges. Provenance must be **written before** the incident — no query can recover what was never recorded.
+
+**Rollback boundaries (restated in SQL):**
+
+```text
+Rollback  -> stops FUTURE bad writes
+Rollback !-> repairs committed rows
+Rollback !-> undoes provider charges, emails, or PUBLISHED outbox events
+```
+
+Incident evidence is read-only by design: attempt evidence + artifact existence + outbox publication state + an `evidence_class` classification. Published outbox rows mean downstream systems already consumed bad data — fixing the database alone leaves consumers wrong.
+
+Scope note: Day32 queries are written for **meaning only** — no indexes, `EXPLAIN`, transactions, locks or DML. Atomicity is Day33, concurrency Day34, indexes Day35 — and none of them rescue a wrong grain.
+
+---
+
 ## Interview Phrases
 
 - "The Job row is committed before 202; 202 acknowledges an existing durable commitment."
@@ -269,3 +342,19 @@ Testing constraints: assert the **specific** SQLSTATE — `23505` unique_violati
 - "Composite foreign keys enforce same-tenant relationships; they never authorize a reader."
 - "A failed ADD CONSTRAINT protects nothing — reconcile the committed duplicates first."
 - "Assert the specific SQLSTATE; 'any error' would pass on a typo."
+
+- "Define the result grain first: one row = one what?"
+- "Choose the join from what a MISSING row means — INNER discards absence, LEFT preserves it."
+- "A join returns combinations, not a filtered sequence: 3 Attempts x 4 Events = 12 rows."
+- "A zero-Attempt Job joined to 4 Events returns 4 rows, not 0 — the NULL-extended row matches all."
+- "COUNT(*) counts rows; COUNT(child_pk) counts existence."
+- "FILTER narrows an aggregate; WHERE narrows the input set — and collapses LEFT into INNER."
+- "WHERE filters rows before grouping; HAVING filters groups after aggregation."
+- "NULL is unknown, not zero — SUM and AVG describe records, not reality."
+- "COALESCE(SUM(cost), 0) turns 'we do not know' into 'it cost nothing' on a billing page."
+- "Pre-aggregate each child in a CTE, then join one-to-one; DISTINCT patches counts, not SUM."
+- "Match the clock to the stage: Job clock is the SLA, current-Attempt clock is the hang."
+- "Time windows are half-open [start, end) — BETWEEN double-counts boundary rows."
+- "Recorded provenance is the affected set; a time window is a proxy you must disclose."
+- "No completion recorded is not the same as the provider call being dead."
+- "Rollback stops future bad writes; committed rows and published outbox events remain."

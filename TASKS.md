@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day32 — SQL Joins, Aggregation, and Operational Queries
+Day33 — PostgreSQL Transactions and Atomic State Changes
 
 Status:
 Planned / Not started
@@ -28,10 +28,66 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day32 — SQL Joins, Aggregation, and Operational Queries (see the Day32 Preparation block below).
+- [ ] Prepare for Day33 — PostgreSQL Transactions and Atomic State Changes (see the Day33 Preparation block below).
 
-(Day29-Day31 are complete; their work is recorded under the Completed Day29/Day30/Day31 sections and
-the corresponding Preparation history blocks.)
+(Day29-Day32 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32 sections
+and the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day32 Tasks
+
+- [x] Complete Day32 SQL Joins, Aggregation, and Operational Queries classroom learning.
+- [x] Generate the Day32 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day31->Day32 mental-model evolution).
+- [x] Define the result grain of a query before writing it.
+- [x] Choose INNER vs LEFT JOIN from what a missing row means, and keep zero-Attempt Jobs visible.
+- [x] Correct the row-multiplication misconception (3 Attempts x 4 Events = 12 rows; 0 Attempts + 4 Events = 4 rows).
+- [x] Distinguish COUNT(*) from COUNT(child_pk) after a LEFT JOIN.
+- [x] Learn FILTER conditional aggregation and why moving the condition into WHERE collapses LEFT into INNER.
+- [x] Place aggregate thresholds in HAVING and tenant/status predicates in WHERE.
+- [x] Report oldest queued age with MIN and distinguish an empty queue (NULL) from missing data.
+- [x] Treat SUM/AVG over NULL cost as recorded facts, and reject COALESCE(SUM(cost_micros), 0).
+- [x] Apply CTE pre-aggregation to two independent one-to-many children.
+- [x] Select the current Attempt deterministically with DISTINCT ON and classify stuck candidates.
+- [x] Use half-open [start, end) throughput windows instead of BETWEEN.
+- [x] Scope an affected set with recorded release provenance rather than a time window.
+- [x] Explain why rollback does not repair committed rows or undo published outbox events.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+
+---
+
+## Completed Day32 Repository Tasks
+
+- [x] Add `docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day32 increment, query contracts, validation reproduction, and limitations.
+- [x] Append the Day32 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day32 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day32 is now the latest PostgreSQL lesson).
+- [x] Update the Day31 lesson Next Lesson link to the released Day32 lesson.
+- [x] Update `CURRICULUM.md` (Day32 Completed; Day33 remains Planned).
+- [x] Update `ROADMAP.md` (Day32 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day32 Interview Tasks
+
+- [x] Add the beginner INNER vs LEFT JOIN and COUNT(*) questions with the student's actual attempts.
+- [x] Add intermediate row-multiplication, FILTER-vs-WHERE, and WHERE-vs-HAVING questions.
+- [x] Add the senior incomplete-cost, stage-aware stuck, and post-rollback questions.
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day32 Homework
+
+- [x] Complete the zero-Attempt preservation and row-count prediction exercises.
+- [x] Complete the FILTER conditional-aggregation exercise.
+- [x] Complete the honest cost-reporting exercise with completeness columns.
+- [x] Complete the CTE pre-aggregation exercise.
+- [x] Complete the stage-aware stuck-candidate exercise with DISTINCT ON.
+- [x] Complete the read-only incident-evidence exercise.
 
 ---
 
@@ -93,13 +149,24 @@ the corresponding Preparation history blocks.)
 
 ---
 
-### Day32 Preparation — SQL Joins, Aggregation, and Operational Queries
+### Day33 Preparation — PostgreSQL Transactions and Atomic State Changes
 
-- [ ] Read the Day32 input when provided.
-- [ ] Review the Day31 relational model and the foreign keys/cardinalities Day32 will query.
-- [ ] Preview INNER vs LEFT JOIN and missing-row meaning, join cardinality and row multiplication, COUNT/SUM/MIN/MAX/AVG/GROUP BY/HAVING, conditional aggregation, and CTEs.
-- [ ] Preview the operational queries the 842-row incident needed: Job detail, attempts/events, stuck Jobs by stage, oldest queued age, throughput, retry/terminal counts, provenance.
-- [ ] Keep transactions (Day33), concurrency/locks (Day34), indexes (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day33 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` and note which evidence each query assumes was written at all.
+- [ ] Preview BEGIN/COMMIT/ROLLBACK, ACID from production failures, and the atomic Job + Outbox insert.
+- [ ] Preview why a database transaction cannot cover an external provider, Object Storage, or Redis side effect.
+- [ ] Preview transaction size and duration, and why one must never stay open during an eight-minute model call.
+- [ ] Keep concurrency/locks (Day34), indexes and execution plans (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day32 Preparation — SQL Joins, Aggregation, and Operational Queries (completed)
+
+- [x] Read the Day32 input.
+- [x] Reviewed the Day31 relational model and the foreign keys/cardinalities Day32 queries.
+- [x] Previewed INNER vs LEFT JOIN and missing-row meaning, join cardinality and row multiplication, COUNT/SUM/MIN/MAX/AVG/GROUP BY/HAVING, conditional aggregation, and CTEs.
+- [x] Previewed the operational queries the 842-row incident needed: Job detail, attempts/events, stuck Jobs by stage, oldest queued age, throughput, retry/terminal counts, provenance.
+- [x] Kept transactions (Day33), concurrency/locks (Day34), indexes (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -299,7 +366,7 @@ the corresponding Preparation history blocks.)
 - [x] Day29 — PostgreSQL Foundations and Durable Relational State (Completed).
 - [x] Day30 — SQL Data Manipulation and Query Fundamentals (Completed).
 - [x] Day31 — Relational Modeling and Data Integrity (Completed).
-- [ ] Day32 — SQL Joins, Aggregation, and Operational Queries (Planned).
+- [x] Day32 — SQL Joins, Aggregation, and Operational Queries (Completed).
 - [ ] Day33 — PostgreSQL Transactions and Atomic State Changes (Planned).
 - [ ] Day34 — Concurrency Control, MVCC, and Worker Claims (Planned).
 - [ ] Day35 — PostgreSQL Indexes and Query Planning (Planned).

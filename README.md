@@ -21,10 +21,11 @@ Current phase:
 Last completed lesson:
 
 * Day31 — Relational Modeling and Data Integrity
+* Day32 — SQL Joins, Aggregation, and Operational Queries
 
 Next:
 
-* Day32 — SQL Joins, Aggregation, and Operational Queries (Planned / Not started; see `ROADMAP.md`)
+* Day33 — PostgreSQL Transactions and Atomic State Changes (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

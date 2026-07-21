@@ -22,7 +22,8 @@ projects/ai-backend-data-layer/
 └── sql/
     ├── 001_create_jobs.sql                              # Day29: the durable Job schema
     ├── 002_job_crud_and_guarded_transitions.sql         # Day30: parameterized reads + guarded writes (reference pack, not DDL)
-    └── 003_relational_modeling_and_data_integrity.sql   # Day31: relational target schema + constraints
+    ├── 003_relational_modeling_and_data_integrity.sql   # Day31: relational target schema + constraints
+    └── 004_sql_joins_aggregation_and_operational_queries.sql  # Day32: read-only operational query pack (not DDL)
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -68,6 +69,85 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day32 increment — read-only operational queries
+
+`sql/004_sql_joins_aggregation_and_operational_queries.sql` is a **read-only reference pack of
+parameterized query templates**, not DDL and not a runnable script: `$1`/`$2`/`$3` are driver or
+`PREPARE` placeholders, **not** psql `\set` variables. It reads the Day31 model, so the apply order is
+`001_create_jobs.sql` -> `003_...sql`, then bind and execute these queries.
+
+Every statement declares its **result grain** in a comment before the SQL, because the grain is the
+meaning of the answer:
+
+| # | Query | Grain | Notes |
+|---|---|---|---|
+| 1 | Queue backlog with Attempt context | one row per Job-Attempt combination | `LEFT JOIN` keeps zero-Attempt Jobs; NULL Attempt columns mean "no Attempt row exists" |
+| 2 | Job detail with current Attempt | one row per Job | `DISTINCT ON` selects the latest Attempt deterministically |
+| 3 | Per-Job Attempt counts with conditional aggregation | one row per Job | `COUNT(a.attempt_id)` + `FILTER (WHERE a.error_code IS NOT NULL)`; `HAVING` applies the retry threshold |
+| 4 | Tenant queue health summary | exactly one row | `COUNT(*)`, `MIN`/`MAX(created_at)`, `now() - MIN(created_at)`; an empty queue returns count `0` and **NULL** age |
+| 5 | Per-Job recorded cost with completeness | one row per Job | `recorded_total_cost_micros` / `recorded_average_cost_micros` beside `cost_reported_attempts`; deliberately **not** `COALESCE(..., 0)` |
+| 6 | Per-Job Attempt + Event + cost summary | one row per Job | two CTEs pre-aggregate each child, so both joins are one-to-one and cannot multiply |
+| 7 | Stage-aware stuck **candidates** | one row per `running` Job | current-Attempt clock; `anomaly_class` classifies, it does not conclude |
+| 8 | Completed-in-window throughput | one row per terminal status | half-open `[start, end)`; membership defined by `finished_at` |
+| 9 | Affected set by release provenance | one row per Job | `e.metadata ->> 'worker_release_id' = $2`, not a time-window proxy |
+| 10 | Incident evidence per Job | one row per Job | Attempt + artifact + outbox-publication evidence with an `evidence_class`; contains **no** repair |
+
+### Rules encoded
+
+```text
+LEFT JOIN where absence is evidence      -> a queued Job with no Attempt is the backlog, not noise
+COUNT(child_pk), never COUNT(*)          -> COUNT(*) counts rows including the NULL-extended one
+FILTER inside the aggregate              -> a WHERE predicate on a child collapses LEFT into INNER
+WHERE before grouping / HAVING after     -> tenant + status in WHERE, thresholds in HAVING
+recorded_* naming + completeness columns -> SUM/AVG describe RECORDS; NULL is unknown, not zero
+CTE pre-aggregation per child            -> two independent 1:N children otherwise multiply (3 x 4 = 12)
+DISTINCT ON + attempt_id tie-breaker     -> Day30 determinism rule; ties must not pick arbitrarily
+half-open [start, end)                   -> BETWEEN double-counts boundary rows across windows
+metadata ->> 'worker_release_id'         -> recorded provenance beats time correlation
+deterministic ORDER BY on every query    -> stable, reviewable, paginable output
+tenant_id = $1 on every tenant-scoped read -> AUTHORIZATION comes from server context, never the client
+```
+
+> **What this pack deliberately does not contain:** no `INSERT`/`UPDATE`/`DELETE`, no transactions, no
+> locks (`FOR UPDATE`/`SKIP LOCKED`), no indexes, no `EXPLAIN`, no migrations, and no ORM. Those are
+> Day33-Day36 and Phase 4. It is written for **meaning**, with no consideration of execution cost.
+
+### Scope honesty
+
+These queries produce **evidence and candidates, never verdicts**. Query 7 shows that no completion has
+been *recorded* — not that a Provider call is dead. Query 10 classifies incident evidence and performs no
+repair, because rollback stops future bad writes and does not undo committed rows, Provider charges, or
+**already-published** outbox events.
+
+### Validation reproduction (**NOT executed during this repository update**)
+
+```bash
+# Requires the Day29 disposable cluster (see "Reproduce the Day29 validation" below) and
+# 001 -> 003 applied to the FRESH, EMPTY disposable database.
+# These are TEMPLATES: bind $1/$2/$3 with a driver, or wrap them in PREPARE/EXECUTE.
+# Pasting them straight into psql yields: ERROR: there is no parameter $1
+
+day29psql -c "PREPARE backlog (uuid) AS
+  SELECT j.job_id, a.attempt_id
+  FROM app.jobs AS j
+  LEFT JOIN app.job_attempts AS a ON a.job_id = j.job_id
+  WHERE j.tenant_id = \$1
+  ORDER BY j.created_at ASC, j.job_id ASC, a.attempt_number ASC;
+EXECUTE backlog ('11111111-1111-1111-1111-111111111111');"
+```
+
+### Day32 known gaps (deliberate)
+
+```text
+Day33  were these facts written ATOMICALLY? (Job + Event + Outbox in one transaction)
+Day34  MVCC, locking, SKIP LOCKED, leases -> turns a stuck CANDIDATE into proof
+Day35  measured indexes and execution plans for exactly these access paths
+Day36  safe schema evolution under these queries
+Future RLS/roles as real authorization, backups, HA, performance, deployment
+```
 
 ---
 
@@ -370,7 +450,7 @@ missing constraint, or an illegal statement that unexpectedly succeeds all make 
 ### Day31 known gaps (deliberate)
 
 ```text
-Day32  joins/aggregation over these relationships
+Day32  joins/aggregation over these relationships (delivered: sql/004_...sql)
 Day33  atomic Job + Event + Outbox changes in one transaction
 Day34  MVCC, locking, SKIP LOCKED, leases, concurrency-safe claims
 Day35  measured indexes for these access paths
@@ -728,6 +808,19 @@ not running. Do not present a Docker workflow as verified.
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
 
+### Day32 (`004_sql_joins_aggregation_and_operational_queries.sql`)
+
+| Level | Day32 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | result grain, join choice from missing-row meaning, cardinality and multiplication, NULL-aware counting, `FILTER` vs `WHERE`, `WHERE` vs `HAVING`, incomplete-cost honesty, CTE pre-aggregation, stage-aware clocks, half-open windows, provenance, evidence vs verdict |
+| Student SQL static review | **Done (in class)** | student join/aggregate answers reviewed; the row-multiplication misconception (answered as 4 rows, then 0 rows) corrected to 12, and the zero-Attempt + 4-Event case corrected to 4 |
+| Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, selected checks)** | a **reduced** validation schema — not this full file — reproduced: `INNER JOIN` dropping a zero-Attempt Job while `LEFT JOIN` preserved it; 3 Attempts x 4 Events returning 12 rows; `COUNT(*) = 1` vs `COUNT(attempt_id) = 0`; `FILTER` counting only failed Attempts; `SUM`/`AVG` skipping NULL cost with completeness exposed; `HAVING` filtering groups after aggregation; `DISTINCT ON` selecting the current Attempt; a half-open window excluding the upper-bound row. Cluster stopped and the temporary directory removed. |
+| Final artifact static review | **Done (repository update)** | balanced parentheses (61/61); 11 statements; every aliased column present in `001` + `003`; a `GRAIN` contract declared per statement; a deterministic `ORDER BY` on every result-returning query; `tenant_id` predicate on every tenant-scoped read; no `INSERT`/`UPDATE`/`DELETE`/`BEGIN`/`COMMIT`/`FOR UPDATE`/`CREATE INDEX`/`EXPLAIN`/`DROP`; no `SUM(DISTINCT ...)`; recorded cost not wrapped in `COALESCE`; no credentials |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment, so no statement in this file was parsed or executed by PostgreSQL. The reduced classroom evidence is **not** reused as proof of this file, and it never covered queries 9 and 10 (release provenance and incident evidence). |
+| Application integration | **NOT DONE** | no FastAPI/Celery/driver/Redis/Provider/Object Storage was exercised |
+| Atomicity / concurrency / performance | **NOT DONE** | Day33/Day34/Day35 |
+| Production validation | **NOT DONE** | no RLS, roles, backups, HA, performance, or deployment evidence |
+
 ### Day31 (`003_relational_modeling_and_data_integrity.sql`)
 
 | Level | Day31 status | Evidence |
@@ -780,6 +873,7 @@ failure, or production reliability. It showed local process-lifecycle persistenc
 Day30  SELECT/INSERT/UPDATE/DELETE/RETURNING, NULL logic, parameterized SQL, guarded transitions
 Day31  CHECK (valid job_status, attempt_count >= 0), UNIQUE business/idempotency key, tenant ownership,
        Documents / Job Attempts / Job Events / Outbox Events / Result Artifact refs, foreign keys
+Day32  joins/aggregation and operational queries (delivered: sql/004_...sql)
 Day33  transactions (atomic Job + Outbox insert)
 Day34  concurrency-safe claims (FOR UPDATE / SKIP LOCKED), leases, idempotency enforcement
 Day35  indexes and query plans

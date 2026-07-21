@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.64 — Day32 SQL Joins, Aggregation, and Operational Queries
+
+Date: 2026-07-21
+
+### Added
+
+- Added `docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day31->Day32 mental-model evolution).
+- Added `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` — a **read-only** operational query pack over the Day31 model: ten parameterized query groups, each declaring an explicit result-grain contract, with a deterministic `ORDER BY` and a `tenant_id` predicate on every tenant-scoped read. Covers queue backlog with zero-Attempt Jobs preserved, Job detail with the current Attempt via `DISTINCT ON`, conditional aggregation with `FILTER` plus a `HAVING` retry threshold, tenant queue health with `MIN`/`MAX`, NULL-aware recorded-cost reporting with completeness columns, CTE pre-aggregation across two independent children, stage-aware stuck **candidates**, half-open throughput windows, release-provenance affected sets, and read-only incident evidence.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day32 increment: the query/grain table, the encoded rules, an explicit statement of what the pack deliberately omits, a scope-honesty note that these queries produce evidence and candidates rather than verdicts, an authored (not executed) `PREPARE`/`EXECUTE` reproduction, Day32 known gaps, and a separate Day32 validation matrix.
+- Appended a Day32 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day32 Beginner/Intermediate/Senior questions to `interview/postgresql.md`, preserving the student's real answers verbatim — including both incorrect row-multiplication attempts and the two `不知道` responses (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day32 is the latest PostgreSQL lesson, and pointed the Day31 lesson's Next Lesson at the released Day32 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day32 completed with its released lesson/artifact (Day33 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day32 last completed with artifact + validation boundary; Current/Next is Day33 Planned / Not started), `TASKS.md` (completed Day32 blocks, Day32 preparation converted to history, Day33 preparation added), `README.md`, and `AGENTS.md`.
+
+### Learning Notes
+
+- Day32 turns the Day31 model into answers, and its central claim is that **correct constraints do not produce correct answers**: the same legal rows support many result shapes, so the **grain** you choose is the meaning of the answer. Joins are chosen from what a missing row *means* — `INNER JOIN` discards a zero-Attempt Job, which is exactly the backlog operations needs to see. A join returns **combinations**, so two independent one-to-many children multiply (3 Attempts x 4 Events = 12 rows), and a zero-Attempt Job joined to 4 Events returns **4** rows, not 0, because the NULL-extended row matches every Event. `COUNT(*)` counts result rows; `COUNT(child_pk)` counts existence. `FILTER` narrows an aggregate while `WHERE` narrows the input set — moving a child predicate into `WHERE` silently collapses `LEFT` into `INNER`. NULL is **unknown, not zero**, so `SUM`/`AVG` describe recorded facts and `COALESCE(SUM(cost_micros), 0)` converts ignorance into a billing claim. CTE pre-aggregation is the structural fix for multiplication (`DISTINCT` patches counts but not `SUM`). Stuck detection uses the **current Attempt's** clock with a `DISTINCT ON` tie-breaker and emits classified candidates, because a long-running Attempt proves only that no completion was **recorded**. Windows are half-open `[start, end)`, affected sets come from recorded provenance rather than time correlation, and rollback stops future bad writes without repairing committed rows or undoing already-published outbox events.
+- Two student misconceptions are preserved verbatim rather than smoothed over: the join answered as "4 rows" and then "0 rows", both rooted in a **sequential-filter** mental model instead of a combination product. Two `不知道` answers (`FILTER`, and the two-children fix) are also preserved, and the concepts were taught directly from them.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day33 lesson exists and Day33 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; Markdown fence balance; relative-link resolution; status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; SQL static review of `004` (balanced parentheses 61/61, 11 statements, every aliased column present in `001` + `003`, a `GRAIN` contract per statement, a deterministic `ORDER BY` per result-returning query, no DML/transactions/locks/indexes/`EXPLAIN`/`DROP`, no `SUM(DISTINCT ...)`, recorded cost not `COALESCE`-wrapped); and a secret scan.
+- **PostgreSQL runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available in the repository-update environment, so no statement in `004` was parsed or executed by PostgreSQL. Classroom evidence is reported separately and at its true level: a **reduced** validation schema on **PostgreSQL 14.18** reproduced the taught behaviours (`INNER` dropping vs `LEFT` preserving a zero-Attempt Job; 3 x 4 = 12 rows; `COUNT(*) = 1` vs `COUNT(attempt_id) = 0`; `FILTER` counting only failed Attempts; `SUM`/`AVG` skipping NULL cost; `HAVING` filtering after aggregation; `DISTINCT ON` selecting the current Attempt; a half-open window excluding the upper-bound row). That reduced evidence is **not** reused as proof of the file in this repository, and it never covered queries 9 and 10. No cluster was created during the repository update, so no cleanup was required, and no shared or production database was contacted.
+- Scope: no Day33 lesson was created; no transactions, locks, indexes, `EXPLAIN`, RLS, ORM, or Alembic were added; no DML was added to the Day32 artifact; no Day29-Day31 classroom answer or artifact behaviour was altered; the protected prompt/template files are unchanged; and no credentials, real connection strings, signed URLs, or production data were added.
+
+---
+
 ## v0.1.63 — Day31 Validation Isolation and Connection Target
 
 Date: 2026-07-21

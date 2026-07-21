@@ -736,7 +736,28 @@ MAX/AVG/GROUP BY/HAVING`; conditional aggregation; CTEs as readable decompositio
 affected-release provenance); correctness before optimization.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day31 — Relational Modeling and Data Integrity
+
+Next Lesson:
+Day33 — PostgreSQL Transactions and Atomic State Changes
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` — a read-only
+operational query pack over the Day31 model (ten parameterized query groups, each with an explicit result
+grain contract, deterministic `ORDER BY`, and a tenant predicate): queue backlog with zero-Attempt Jobs
+preserved, per-Job Attempt/Event summaries via CTE pre-aggregation, conditional aggregation with `FILTER`,
+NULL-aware recorded-cost reporting with completeness columns, stage-aware stuck candidates via
+`DISTINCT ON`, half-open throughput windows, release-provenance affected sets, and read-only incident
+evidence. Contains no DML, transactions, locks, indexes, `EXPLAIN`, or migrations (Day33-Day36)
 
 ---
 

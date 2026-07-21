@@ -447,3 +447,268 @@ Weak:   "The constraint tests passed, so the schema is correct."
 Strong: "They prove the executed invariants in the executed schema. Atomicity, concurrency, migration
         safety, performance, and production correctness are all still unproven."
 ```
+
+---
+
+# Day32 SQL Joins, Aggregation, and Operational Queries Questions
+
+From the Day32 lesson: result grain, `INNER` vs `LEFT JOIN`, join cardinality and row multiplication,
+NULL-aware counting, `FILTER` vs `WHERE`, `WHERE` vs `HAVING`, `SUM`/`AVG` over incomplete data, CTE
+pre-aggregation, stage-aware stuck detection, half-open windows, release provenance, and why an
+operational query produces evidence rather than a verdict.
+
+Lesson: `docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`
+
+Query pack: `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql`
+
+## Beginner
+
+### 1. `INNER JOIN` vs `LEFT JOIN` on an operations dashboard.
+
+Question:
+
+Your queue dashboard joins `jobs` to `job_attempts` with `INNER JOIN`, and queued Jobs are missing from
+the output. Explain why, and what you would change.
+
+中文解析:
+
+`INNER JOIN` 只返回**两侧都匹配**的组合。刚创建、尚未被 Worker 取走的 Job 在 `job_attempts` 里还没有任何行，
+所以整行被丢弃——而这恰恰是运维最需要看到的积压。改成 `LEFT JOIN` 后每个 Job 都保留一行，Attempt 列为 NULL。
+这里的 NULL 是**有意义的运维证据**（"不存在 Attempt 行"），不是脏数据。判断标准是：**缺失本身是否是信息**。
+
+Student's actual attempt (preserved):
+
+> "因为使用INNER JOIN，所以查询的时候是两个表都存在job_id条件才成立，而刚创建但尚未被 Worker 处理，代表这个时候app.job_attempts还没有数据写入选择left join"
+
+Assessment: correct, including the reason. To strengthen it, state the resulting grain explicitly.
+
+Strong answer:
+
+> "`INNER JOIN` returns only matching combinations, so a Job with zero Attempts disappears — which hides
+> the backlog. I would use `LEFT JOIN`, giving a grain of one row per Job-Attempt combination, where a
+> zero-Attempt Job produces exactly one row with NULL Attempt columns. That NULL means 'no Attempt row
+> exists', which is the operational signal we are looking for."
+
+### 2. What does `COUNT(*)` count after a `LEFT JOIN`?
+
+Question:
+
+After `LEFT JOIN app.job_attempts` and `GROUP BY j.job_id`, what do `COUNT(*)` and
+`COUNT(a.attempt_id)` return for a Job with zero Attempts?
+
+中文解析:
+
+`COUNT(*)` 统计的是**结果行数**，包含外连接补 NULL 的那一行，所以是 `1`；`COUNT(a.attempt_id)` 只统计
+**非 NULL** 的子表标识，所以是 `0`。要回答"这个 Job 到底有几次 Attempt"，永远数子表的键。
+
+Strong answer:
+
+> "`COUNT(*) = 1` and `COUNT(a.attempt_id) = 0`. `COUNT(*)` counts result rows, and the NULL-extended
+> outer-join row is still a row. `COUNT(child_pk)` counts non-NULL child identities, which is what
+> 'how many Attempts exist' actually means."
+
+## Intermediate
+
+### 1. Why can joining two child tables corrupt an aggregate?
+
+Question:
+
+A Job has 3 Attempts and 4 Events. You join both in one statement to report counts and total cost. How
+many rows do you get, and what breaks?
+
+中文解析:
+
+join 返回的是**所有匹配组合**，不是逐步过滤：3 x 4 = 12 行。每个 Attempt 的 `cost_micros` 被重复 4 次，
+`SUM` 直接放大 4 倍，`COUNT` 同样失真。结构性修复是**先各自聚合成每个 Job 一行的 CTE，再一对一 join**。
+`COUNT(DISTINCT ...)` 只能修复计数，`SUM` 仍然是错的，而 `SUM(DISTINCT ...)` 本身就是错的——两次 Attempt
+完全可能花费相同金额。
+
+Student's actual attempts (preserved):
+
+> "返回4行，因为先是查询出来三条job—attempt的结果集。再连接查询，有4过 job events，没查到的Attempts就用null代替"
+
+> "返回0条，因为结果集job- attempt匹配到0条，再用这个结果集去匹配event结果还是0"
+
+Assessment: both incorrect, and the shared root cause matters more than the numbers — the mental model
+was a **sequential filter** rather than a combination product. Corrected in class to 12 rows, plus the
+zero-Attempt case where 0 Attempts and 4 Events yields **4** rows, not 0, because the NULL-extended Job
+row matches every Event.
+
+Strong answer:
+
+> "Twelve rows — a join returns every matching combination, and the database has no idea which Event
+> belongs to which Attempt because that relationship was never modelled. `SUM(cost_micros)` is therefore
+> multiplied by the Event count. I would pre-aggregate each child in its own CTE to one row per job_id,
+> then `LEFT JOIN` those summaries, which are one-to-one and cannot multiply."
+
+### 2. `FILTER` vs moving the condition into `WHERE`.
+
+Question:
+
+You need per-Job `total_attempts` and `failed_attempts`. Why not just add
+`WHERE a.error_code IS NOT NULL`?
+
+中文解析:
+
+`WHERE` 过滤的是**进入聚合前的输入行**。把这个条件放进 `WHERE` 会删掉所有成功的 Attempt 行，也会删掉零
+Attempt Job 的那一行占位行——等于把 `LEFT JOIN` 悄悄退化成 `INNER JOIN`。正确做法是把条件放进聚合内部：
+`COUNT(a.attempt_id) FILTER (WHERE a.error_code IS NOT NULL)`，可移植写法是
+`SUM(CASE WHEN a.error_code IS NOT NULL THEN 1 ELSE 0 END)`。
+
+Student's actual attempt (preserved):
+
+> "不知道"
+
+Assessment: `FILTER` was unknown and taught directly. The durable rule: `WHERE` shapes the input set,
+`FILTER` shapes one aggregate.
+
+Strong answer:
+
+> "`WHERE` removes input rows before grouping, so it would drop successful Attempts and the zero-Attempt
+> placeholder row — collapsing the `LEFT JOIN` into an `INNER JOIN` and destroying the denominator of my
+> failure rate. `FILTER` applies the condition to a single aggregate while leaving the row set intact."
+
+### 3. `WHERE` vs `HAVING` for a retry threshold.
+
+Question:
+
+Return only Jobs that retried at least twice. Where does `COUNT(a.attempt_id) >= 2` go, and where does
+`tenant_id = $1` go?
+
+中文解析:
+
+聚合结果在分组之后才存在，所以计数阈值必须放 `HAVING`。而租户、状态、原始时间等谓词应尽量放 `WHERE`，
+让无关行**根本不进入聚合**——既更正确也更省。
+
+Student's actual attempt (preserved):
+
+> "HAVING"
+
+Assessment: correct.
+
+Strong answer:
+
+> "`HAVING COUNT(a.attempt_id) >= 2`, because the aggregate does not exist until after grouping.
+> `WHERE j.tenant_id = $1` stays in `WHERE` so other tenants' rows never enter the aggregation at all."
+
+## Senior
+
+### 1. A finance report sums `cost_micros` and some values are NULL.
+
+Question:
+
+Is the total correct? Would you wrap it in `COALESCE(SUM(cost_micros), 0)`?
+
+中文解析:
+
+聚合函数跳过 NULL，这在机制上没错，但 NULL 的含义是**未知**，不是零——Provider 调用完全可能真的花了钱只是
+没上报。所以 `SUM` 得到的是**已记录成本**，`AVG` 的分母也只是**上报过的 Attempt**。诚实做法：列名写成
+`recorded_total_cost_micros` / `recorded_average_cost_micros`，并在旁边发布完整度
+（`COUNT(cost_micros)` 对比 `COUNT(attempt_id)`）。`COALESCE(..., 0)` 把"我们不知道"升级成"它没花钱"
+这个自信断言，而这个断言会直接进入计费决策。
+
+Student's actual attempts (preserved):
+
+> "SUM(cost_micros)如果有null值就会跳过。AVG(cost_micros)也是同理，跳过null值再进行计算"
+
+> (on COALESCE) "不可以"
+
+Assessment: mechanically correct on NULL skipping, and correct to reject `COALESCE`. The addition made in
+class was the engineering consequence — the number is a claim about your **records**, so it must be named
+that way.
+
+Strong answer:
+
+> "It is the total of recorded costs, not incurred costs. NULL means unknown, not zero, and `AVG` divides
+> only by the Attempts that reported. I would name the columns `recorded_*` and publish
+> `cost_reported_attempts` beside `total_attempts` so the reader sees completeness. I would not use
+> `COALESCE(..., 0)` — that converts ignorance into a confident claim that it cost nothing, on a page
+> someone bills from."
+
+### 2. Stuck-Job detection: which clock, and what does the row prove?
+
+Question:
+
+Find Jobs stuck in `running`. Do you use `jobs.started_at` or the current Attempt's `started_at`? Does a
+long-running Attempt prove the provider call is dead?
+
+中文解析:
+
+`jobs.started_at` 衡量的是**含重试的整体耗时**（面向客户 SLA），当前 Attempt 的 `started_at` 衡量的是
+**此刻真正挂住的那次执行**（面向诊断）。选"当前 Attempt"需要确定性规则：
+`DISTINCT ON (job_id) ... ORDER BY job_id, attempt_number DESC, attempt_id DESC`——`attempt_id` 兜底
+正是 Day30 的确定性排序规则。输出必须是**候选分类**而非结论：行只能证明**没有记录到完成**，Worker 可能还
+活着、Provider 可能只是慢、也可能是完成写入本身失败了。
+
+Student's actual attempts (preserved):
+
+> "app.job_attempts的started_at"
+
+> (on whether it proves the call is dead) "不能"
+
+Assessment: both correct, including the harder epistemic point.
+
+Strong answer:
+
+> "The current Attempt's `started_at`, selected with `DISTINCT ON (job_id)` ordered by `attempt_number
+> DESC, attempt_id DESC` so ties are deterministic. And no — the row proves only that no completion was
+> recorded. I classify candidates as `running_without_attempt`,
+> `running_with_finished_current_attempt`, `running_attempt_over_threshold`, or
+> `running_within_threshold`, and only external verification distinguishes a slow provider from a dead
+> one."
+
+### 3. After a bad release is rolled back, is the data correct?
+
+Question:
+
+A bad worker release ran for 90 minutes and was rolled back. How do you scope the damage, and is the data
+now correct?
+
+中文解析:
+
+回滚只停止**后续错误写入**，既不修复已提交的行，也无法撤销外部副作用（Provider 扣费、已发出的邮件、已发布的
+outbox 事件）。确定影响范围要用**已记录的溯源**：`e.metadata ->> 'worker_release_id' = $2`。时间窗口只是
+代理，两端都会误收误漏——时间相关性不是因果。溯源必须在事故**之前**就写入，查询只能读到被写下来的东西。
+Day32 的产物是只读的：Attempt 证据、Artifact 是否存在、outbox 是否已发布，以及一个 `evidence_class` 分类
+——**没有任何 UPDATE**。已发布的 outbox 行意味着下游已经消费了错误数据，只修数据库并不能让消费者恢复正确。
+
+Student's actual attempts (preserved):
+
+> "使用job_events的metadata去查询"
+
+> "回滚只是把版本还原到之前的版本，并没有修复已经处理的数据"
+
+Assessment: both correct, and the second is the sentence the whole lesson builds toward.
+
+Strong answer:
+
+> "No. Rollback stops future bad writes; it does not repair committed rows or undo external side effects
+> like provider charges and published outbox events. I scope the damage with recorded provenance —
+> `metadata ->> 'worker_release_id'` — rather than a time window, which over- and under-collects at both
+> edges. Then I produce read-only evidence per Job: Attempt counts and failures, whether result artifacts
+> exist, and whether outbox events were already published. Repair is a separate, deliberate, audited
+> operation, and downstream consumers of published bad data are a third track again."
+
+## Common Weak vs Strong Answer (Day32)
+
+```text
+Weak:   "I'll join jobs, attempts and events and count them."
+Strong: "Two independent one-to-many children multiply: 3 attempts x 4 events = 12 rows, so SUM and
+        COUNT are both wrong. I pre-aggregate each child in a CTE to one row per job_id, then join."
+
+Weak:   "COUNT(*) tells me how many attempts each job has."
+Strong: "COUNT(*) counts result rows including the NULL-extended outer-join row, so a zero-attempt job
+        returns 1. COUNT(a.attempt_id) returns 0, which is the real answer."
+
+Weak:   "SUM(cost_micros) is the total cost."
+Strong: "It's the total of RECORDED cost. NULL is unknown, not zero, so I name it recorded_total and
+        publish how many attempts actually reported."
+
+Weak:   "This job has been running 30 minutes, so the provider call failed."
+Strong: "It proves no completion was RECORDED. The worker may be alive, the provider slow, or the
+        completion write may have failed. It's a candidate, not a verdict."
+
+Weak:   "We rolled back, so we're fine."
+Strong: "Rollback stops future bad writes only. Committed rows, provider charges and published outbox
+        events all persist — and published events mean downstream already consumed bad data."
+```
