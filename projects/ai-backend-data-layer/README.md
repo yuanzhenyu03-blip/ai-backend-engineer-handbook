@@ -4,13 +4,15 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day31 — a relational target schema** with enforceable ownership, cardinality,
-identity, tenant boundaries, and provenance.
+Current increment: **Day32 — a read-only operational query pack** that turns the Day31 relational model
+into grain-correct evidence: preserved missing relationships, multiplication-free aggregation,
+stage-aware anomaly candidates, and provenance-scoped incident classification.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
 - Day30 (operations): [`docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`](../../docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md)
 - Day31 (relational model): [`docs/postgresql/day31-relational-modeling-and-data-integrity.md`](../../docs/postgresql/day31-relational-modeling-and-data-integrity.md)
+- Day32 (operational queries): [`docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`](../../docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md)
 
 ---
 
@@ -84,16 +86,18 @@ meaning of the answer:
 
 | # | Query | Grain | Notes |
 |---|---|---|---|
-| 1 | Queue backlog with Attempt context | one row per Job-Attempt combination | `LEFT JOIN` keeps zero-Attempt Jobs; NULL Attempt columns mean "no Attempt row exists" |
-| 2 | Job detail with current Attempt | one row per Job | `DISTINCT ON` selects the latest Attempt deterministically |
+| 1 | Job detail with optional Attempt rows | one row per Job-Attempt combination (0 Attempts -> one row, Attempt columns NULL) | `LEFT JOIN` keeps zero-Attempt Jobs visible; NULL Attempt columns mean "no Attempt row exists". This is the queue/backlog view. |
+| 2a | Job-Attempt detail | one row per Job-Attempt combination | kept **separate** from 2b on purpose — joining both children in one statement multiplies rows |
+| 2b | Job-Event detail | one row per Job-Event combination | same reason; combine only via pre-aggregated summaries (query 6) |
 | 3 | Per-Job Attempt counts with conditional aggregation | one row per Job | `COUNT(a.attempt_id)` + `FILTER (WHERE a.error_code IS NOT NULL)`; `HAVING` applies the retry threshold |
-| 4 | Tenant queue health summary | exactly one row | `COUNT(*)`, `MIN`/`MAX(created_at)`, `now() - MIN(created_at)`; an empty queue returns count `0` and **NULL** age |
-| 5 | Per-Job recorded cost with completeness | one row per Job | `recorded_total_cost_micros` / `recorded_average_cost_micros` beside `cost_reported_attempts`; deliberately **not** `COALESCE(..., 0)` |
-| 6 | Per-Job Attempt + Event + cost summary | one row per Job | two CTEs pre-aggregate each child, so both joins are one-to-one and cannot multiply |
-| 7 | Stage-aware stuck **candidates** | one row per `running` Job | current-Attempt clock; `anomaly_class` classifies, it does not conclude |
-| 8 | Completed-in-window throughput | one row per terminal status | half-open `[start, end)`; membership defined by `finished_at` |
-| 9 | Affected set by release provenance | one row per Job | `e.metadata ->> 'worker_release_id' = $2`, not a time-window proxy |
-| 10 | Incident evidence per Job | one row per Job | Attempt + artifact + outbox-publication evidence with an `evidence_class`; contains **no** repair |
+| 4 | Tenant queue health by **acceptance** time | exactly one row | `COUNT(*)`, `MIN`/`MAX(created_at)`, `now() - MIN(created_at)` named `oldest_accepted_at` / `accepted_age_of_oldest_currently_queued_job`. `created_at` is acceptance, **not** current queued-stage entry. Empty queue returns count `0` and **NULL** age. |
+| 4b | Current queued-**stage** age | one row per currently-queued Job | derives stage entry from the latest `job_events` row with `to_status = 'queued'`; `queued_since_source` labels the `jobs.created_at` fallback. Only as truthful as the write paths that record transitions. |
+| 5 | Per-Job recorded cost with completeness | one row per Job | `recorded_total_cost_micros` / `recorded_average_cost_micros` beside `cost_reported_attempts`; cost values deliberately **not** `COALESCE(..., 0)` |
+| 6 | Per-Job Attempt + Event + cost summary | one row per Job | two CTEs pre-aggregate each child, so both joins are one-to-one and cannot multiply. Real **counts** are `COALESCE(..., 0)`; **cost** stays NULL. |
+| 7 | Stage-aware stuck **candidates** | one row per `running` Job | current-Attempt clock selected with `DISTINCT ON (job_id) ... ORDER BY job_id, attempt_number DESC, attempt_id DESC`; `anomaly_class` classifies, it does not conclude |
+| 8 | Terminal throughput in a half-open window | **exactly one summary row** | half-open `[start, end)` on `finished_at`, **plus** `job_status IN ('succeeded','failed','cancelled')` so that `terminal_jobs = succeeded_jobs + failed_jobs + cancelled_jobs` by construction |
+| 9 | Affected set by release provenance | one row per Job | `SELECT DISTINCT e.job_id ... WHERE e.metadata ->> 'worker_release_id' = $2`; not a time-window proxy, and completeness is not schema-enforced |
+| 10 | Incident evidence per Job | one row per Job | read-only **classification**: Attempt + artifact + outbox-publication evidence with an `evidence_class`. Real counts `COALESCE` to 0; cost stays NULL. Contains **no** repair. |
 
 ### Rules encoded
 
@@ -814,12 +818,13 @@ not running. Do not present a Docker workflow as verified.
 |---|---|---|
 | Conceptual / manual review | **Done (in class)** | result grain, join choice from missing-row meaning, cardinality and multiplication, NULL-aware counting, `FILTER` vs `WHERE`, `WHERE` vs `HAVING`, incomplete-cost honesty, CTE pre-aggregation, stage-aware clocks, half-open windows, provenance, evidence vs verdict |
 | Student SQL static review | **Done (in class)** | student join/aggregate answers reviewed; the row-multiplication misconception (answered as 4 rows, then 0 rows) corrected to 12, and the zero-Attempt + 4-Event case corrected to 4 |
-| Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, selected checks)** | a **reduced** validation schema — not this full file — reproduced: `INNER JOIN` dropping a zero-Attempt Job while `LEFT JOIN` preserved it; 3 Attempts x 4 Events returning 12 rows; `COUNT(*) = 1` vs `COUNT(attempt_id) = 0`; `FILTER` counting only failed Attempts; `SUM`/`AVG` skipping NULL cost with completeness exposed; `HAVING` filtering groups after aggregation; `DISTINCT ON` selecting the current Attempt; a half-open window excluding the upper-bound row. Cluster stopped and the temporary directory removed. |
-| Final artifact static review | **Done (repository update)** | balanced parentheses (61/61); 11 statements; every aliased column present in `001` + `003`; a `GRAIN` contract declared per statement; a deterministic `ORDER BY` on every result-returning query; `tenant_id` predicate on every tenant-scoped read; no `INSERT`/`UPDATE`/`DELETE`/`BEGIN`/`COMMIT`/`FOR UPDATE`/`CREATE INDEX`/`EXPLAIN`/`DROP`; no `SUM(DISTINCT ...)`; recorded cost not wrapped in `COALESCE`; no credentials |
-| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment, so no statement in this file was parsed or executed by PostgreSQL. The reduced classroom evidence is **not** reused as proof of this file, and it never covered queries 9 and 10 (release provenance and incident evidence). |
-| Application integration | **NOT DONE** | no FastAPI/Celery/driver/Redis/Provider/Object Storage was exercised |
-| Atomicity / concurrency / performance | **NOT DONE** | Day33/Day34/Day35 |
-| Production validation | **NOT DONE** | no RLS, roles, backups, HA, performance, or deployment evidence |
+| Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, listed checks only)** | a **reduced** validation schema — not this full file — executed a **reduced** Day32 validation schema with representative data and PASSED exactly these checks: LEFT JOIN zero-Attempt placeholder row; `COUNT(*)` vs `COUNT(attempt_id)` for a zero-Attempt Job; 3 Attempts x 4 Events = 12 rows; conditional aggregation 3 total / 2 failed; cost evidence 2 reported / SUM 400 / AVG 200; independent Attempt/Event CTE pre-aggregation; `running_attempt_over_threshold` classification; `running_without_attempt` classification; one succeeded Job in the last-hour throughput window; release-provenance `DISTINCT` affected set; final marker `DAY32_RUNTIME_VALIDATION_PASS`. An earlier bootstrap failed at cluster start with `shmget: Operation not permitted` (environment evidence, not a SQL result). Cluster stopped and the temporary directory removed. |
+| Reduced-run coverage limits | **Explicit** | **Not** executed or proven by that run: `HAVING` group filtering; `DISTINCT ON` selection of the current Attempt — the classroom used the greatest `attempt_number` path, **not** the artifact's `DISTINCT ON` form; a half-open window excluding a row placed exactly on the upper bound — only a single last-hour succeeded throughput sample was run, with no boundary row created or asserted; the explicit terminal-status allowlist; queries 4b, 5 and 10; and execution against the full Day31 `001` + `003` schema. Release provenance **was** covered representatively, which still does not prove the final repository query 9 as written. |
+| Final artifact static review | **Done (repository update + review)** | balanced parentheses (69/69); 12 statements; every aliased column present in `001` + `003`; a `GRAIN` contract declared per statement; a deterministic `ORDER BY` on every result-returning query; `tenant_id` predicate on every tenant-scoped read; query 8 restricted to terminal states; real count columns `COALESCE`d to 0 in queries 6 and 10 while cost stays NULL; no `INSERT`/`UPDATE`/`DELETE`/`BEGIN`/`COMMIT`/`FOR UPDATE`/`CREATE INDEX`/`EXPLAIN`/`DROP`; no `SUM(DISTINCT ...)`; no credentials |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment or during this review, so no statement in this file has been parsed or executed by PostgreSQL. The reduced classroom evidence is **not** reused as proof of this file. |
+| Application integration | **NOT RUN** | no FastAPI/Celery/driver/Redis/Provider/Object Storage was exercised |
+| Atomicity / concurrency / performance | **NOT RUN** | Day33/Day34/Day35 |
+| Production validation | **NOT RUN** | no RLS, roles, backups, HA, performance, or deployment evidence; release-metadata completeness is unproven |
 
 ### Day31 (`003_relational_modeling_and_data_integrity.sql`)
 

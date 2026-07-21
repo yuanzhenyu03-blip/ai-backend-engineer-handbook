@@ -18,7 +18,7 @@ Previous Lesson: [Day31 — Relational Modeling and Data Integrity](day31-relati
 
 Next Lesson: Day33 — PostgreSQL Transactions and Atomic State Changes (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day33 lesson file does not exist yet)
 
-Engineering Artifact: The Day32 operational query pack (`sql/004_sql_joins_aggregation_and_operational_queries.sql`) — ten read-only queries over the Day31 model, each with an explicit result grain — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day32 operational query pack (`sql/004_sql_joins_aggregation_and_operational_queries.sql`) — twelve read-only statements in ten query groups over the Day31 model, each with an explicit result grain — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 PostgreSQL Cheat Sheet: [cheat_sheets/postgresql.md](../../cheat_sheets/postgresql.md)
 
@@ -380,7 +380,7 @@ Exercise:
 
 Choose `WHERE` vs `HAVING` for a retry-count threshold and justify the placement of the tenant predicate.
 
-## Concept 5: `MIN`/`MAX` and Oldest Queued Age
+## Concept 5: `MIN`/`MAX`, Queue Health, and Which Clock the Metric Names
 
 Tech Lead Question:
 
@@ -392,20 +392,48 @@ Student Answer:
 
 Tech Lead Review:
 
-Correct — the oldest queued Job is the **minimum** `created_at`.
+Correct — `MIN` selects the earliest timestamp, which is what "oldest" requires.
 
 ```text
 GRAIN: exactly one summary row (no join, so COUNT(*) is safe here).
 
 COUNT(*)         = queued demand count
-MIN(created_at)  = oldest queued Job timestamp
-MAX(created_at)  = newest queued Job timestamp
-now() - MIN(...) = oldest queued age
+MIN(created_at)  = earliest ACCEPTANCE time among currently-queued Jobs
+MAX(created_at)  = latest ACCEPTANCE time among currently-queued Jobs
+now() - MIN(...) = age of the oldest ACCEPTED still-queued Job
 ```
 
 The edge case that matters operationally: with **no** queued Jobs the query returns count `0` and
 **NULL** for `MIN`/`MAX`/age. A dashboard must render "no backlog" differently from "no data" — they are
 completely different facts, and conflating them hides an outage.
+
+The correction that matters conceptually: `jobs.created_at` is the **acceptance** timestamp, not the
+moment the Job entered its **current** queued stage. Consider a Job that went
+
+```text
+queued -> running -> failed -> queued
+```
+
+It was accepted hours ago but re-entered the queue a minute ago. Using `created_at` charges the entire
+earlier lifecycle to the current queued wait.
+
+There are two honest options, and the artifact ships both:
+
+```text
+Query 4  -> keep the simple one-row summary, but NAME it for what it measures:
+            oldest_accepted_at
+            accepted_age_of_oldest_currently_queued_job
+            This is a valid BACKLOG signal (how long ago the oldest unfinished request
+            arrived, which is what the customer feels) but it is NOT the queued-stage age.
+
+Query 4b -> derive the current queued-stage entry from the LATEST job_events row with
+            to_status = 'queued', falling back to created_at with the source labelled.
+            No schema change: Day31 already records to_status and occurred_at.
+```
+
+Query 4b's completeness limit must travel with it: it is only as truthful as the write paths that record
+transitions, and Day31 does not enforce that every queued transition emits an Event. A missing Event is
+not proof that no transition happened.
 
 Engineering Thinking:
 
@@ -414,15 +442,18 @@ Always ask what an empty input renders as. NULL-vs-zero is a UI correctness prob
 Production Example:
 
 A panel showing "oldest queued age: —" during a metrics outage looks identical to a healthy empty queue
-unless the count is shown beside it.
+unless the count is shown beside it. And a requeued Job reported as "waiting 4 hours" triggers an
+escalation for a queue that is actually one minute deep.
 
 Framework Connection:
 
-This is Day28's oldest-queued-age SLO signal, now expressed as a real query.
+This is Day28's oldest-queued-age SLO signal, now expressed as a real query — and the naming fix is what
+keeps the SLO honest across retries.
 
 Exercise:
 
-Write the queue-health summary and state what an empty queue returns.
+Write the queue-health summary, state what an empty queue returns, and name the metric after the clock it
+actually uses.
 
 ## Concept 6: `SUM`/`AVG` over Incomplete Cost Data
 
@@ -433,11 +464,21 @@ Finance wants per-Job total and average `cost_micros`. Some Attempts have `cost_
 
 Student Answer:
 
-> "SUM(cost_micros)如果有null值就会跳过。AVG(cost_micros)也是同理，跳过null值再进行计算"
+> "sum代表总共开销，AVG代表平均开销。NULL不参与平均数的分母，null代表未知，就是根本没有开销"
 
 Tech Lead Review:
 
-Mechanically correct — SQL aggregates skip NULL. The engineering question is what that *means*.
+The mechanics are right and the denominator observation is sharp — NULL genuinely does not count toward
+`AVG`'s divisor. But the last clause contains the day's most expensive error: 「null代表未知」 and
+「根本没有开销」 are **contradictory**, and only the first is true.
+
+```text
+For costs 100, 300, NULL:
+  SUM = 400      AVG = 200      (NULL excluded from both, including AVG's denominator)
+
+NULL = unknown / not recorded
+NULL != 0
+```
 
 ```text
 SUM ignores NULL -> the total is the total of RECORDED costs, not of incurred costs.
@@ -445,8 +486,8 @@ AVG ignores NULL in BOTH numerator and denominator
     -> average over ATTEMPTS THAT REPORTED, not over all Attempts.
 ```
 
-NULL here means **unknown**, not zero. A provider call may well have cost money and simply failed to
-report it. So the honest column names are `recorded_total_cost_micros` and
+A Provider call may well have cost real money and simply failed to report it. Reading NULL as "no cost"
+turns missing evidence into a financial claim. So the honest column names are `recorded_total_cost_micros` and
 `recorded_average_cost_micros`, published beside a completeness signal:
 
 ```sql
@@ -456,14 +497,14 @@ SUM(a.cost_micros)    AS recorded_total_cost_micros,
 AVG(a.cost_micros)    AS recorded_average_cost_micros
 ```
 
-Asked directly whether wrapping the sum in `COALESCE(SUM(a.cost_micros), 0)` is acceptable for a finance
-report, the student answered:
+Asked whether a partial sum may be published as `total_job_cost`, the student answered:
 
-> "不可以"
+> "不能，因为真实的成本不可知"
 
-Correct. `COALESCE(..., 0)` converts "we do not know" into the confident claim "it cost nothing," and
-that claim reaches a billing decision. Render the NULL, or render the completeness ratio — do not
-manufacture a zero.
+Correct, and this answer repairs the slip above — the cost is *unknowable from these records*, which is
+exactly why it may not be named as a total. The same reasoning rejects `COALESCE(SUM(a.cost_micros), 0)`:
+it converts "we do not know" into the confident claim "it cost nothing," and that claim reaches a billing
+decision. Render the NULL, or render the completeness count — do not manufacture a zero.
 
 Engineering Thinking:
 
@@ -484,16 +525,18 @@ Write the per-Job cost query with completeness columns, and justify rejecting `C
 Tech Lead Question:
 
 One query must return, per Job: Attempt count, Event count, and total recorded cost. Joining both
-children multiplies rows. What is the fix?
+children multiplies rows. Which design do you choose —
+(A) one flat join with `COUNT(DISTINCT ...)`, or
+(B) aggregate each child separately by `job_id` first, then join the summaries?
 
 Student Answer:
 
-> "不知道"
+> "选B"
 
 Tech Lead Review:
 
-This is the structural answer to Concept 2. **Aggregate each child to one row per Job first, then join
-the already-collapsed summaries.**
+Correct choice. **Aggregate each child to one row per Job first, then join the already-collapsed
+summaries.**
 
 ```sql
 WITH attempt_summary AS (
@@ -523,6 +566,11 @@ The tempting shortcut — `COUNT(DISTINCT a.attempt_id)` and `COUNT(DISTINCT e.e
 join — does deduplicate the counts, but `SUM(a.cost_micros)` remains multiplied, and `SUM(DISTINCT ...)`
 is wrong outright because two Attempts may legitimately cost the same amount.
 
+One caution attached to the right answer, because it resurfaced in the final synthesis: a CTE is a
+**readability and decomposition** mechanism. It does not by itself produce one row per Job — the
+`GROUP BY job_id` **inside** each CTE establishes that grain. A CTE is not universally "best," and it is
+not a performance claim.
+
 Engineering Thinking:
 
 Fix the grain, not the symptom. `DISTINCT` patches a count; pre-aggregation removes the multiplication.
@@ -545,12 +593,19 @@ Find Jobs stuck in `running`. Which clock do you use — `jobs.started_at` or th
 
 Student Answer:
 
-> "app.job_attempts的started_at"
+> "当前 Attempt 的 started_at，因为jobs的created_at是持久化state创建的时间，在jobs写入的时候就已经创建了，不代表worker那个时候已经认领了"
 
 Tech Lead Review:
 
-Correct, and it is the more subtle choice. `jobs.started_at` measures the whole Job including retries; the
-**current Attempt's** `started_at` measures the execution that is actually hanging right now.
+Correct, and the reasoning is the valuable part: `jobs.created_at` records when the **row was persisted**,
+not when a Worker **claimed** the work. A Job accepted two hours ago but claimed thirty seconds ago is not
+a two-hour running Job.
+
+```text
+queued age   -> Job acceptance / queued-entry time
+running age  -> current (latest) Attempt.started_at
+terminal     -> finished_at or terminal Event
+```
 
 Selecting "the current Attempt" needs a deterministic rule, not a guess:
 
@@ -572,13 +627,18 @@ running_attempt_over_threshold         -> Attempt exceeds the threshold interval
 running_within_threshold               -> normal
 ```
 
-Asked whether a long-running Attempt proves the provider call is dead, the student answered:
+Asked what to do with a `running` Job that has no Attempt row at all, the student answered:
 
-> "不能"
+> "单独标记为异常，因为可能是卡住了"
 
-Correct. The row proves only that **no completion has been recorded**. The worker may be alive, the
-provider may be slow, or the completion write may have failed. Only external verification distinguishes
-these — which is the Day28 boundary restated in SQL.
+Tech Lead correction: flagging it separately is right; 「卡住了」 is a conclusion the row cannot support.
+`running_without_attempt` is a **relationship/coherence anomaly** — it may be a partial multi-table write,
+a legacy path, or a repair error. Likewise, a threshold breach yields **suspected** candidates only. Real
+proof of a dead Worker needs Day34 lease/heartbeat/ownership evidence; Day33 is what prevents the
+atomicity gap that produces this anomaly in the first place.
+
+Thresholds are operational policy, not constants: they must reflect long AI Provider runtimes and the
+SLA you actually promised.
 
 Engineering Thinking:
 
@@ -595,34 +655,57 @@ Feeds the Day28 stuck-Job runbook; the threshold is a parameter, never a hardcod
 
 Exercise:
 
-Write the stage-aware stuck query with `DISTINCT ON` and classify the four anomaly cases.
+Select the current Attempt deterministically and classify the anomaly cases.
+
+Note on the artifact: the classroom query used the greatest `attempt_number` as the current Attempt,
+explicitly documenting that Day31 enforces positivity and per-Job uniqueness but **not** monotonic
+creation order. The repository artifact expresses the same intent with `DISTINCT ON (job_id) ... ORDER BY
+job_id, attempt_number DESC, attempt_id DESC`, adding the Day30 tie-breaker so equal `attempt_number`
+values cannot select arbitrarily. That artifact form was **not** the form executed in class.
 
 ## Concept 9: Throughput Windows and Half-open Boundaries
 
 Tech Lead Question:
 
-Report Jobs completed in a time window. What boundary convention do you use?
+Measure successful throughput for the last hour. Do you count Jobs by `created_at` or by `finished_at`?
 
 Student Answer:
 
-> "使用左闭右开的窗口"
+> "最近一小时 finished_at 且状态为 succeeded的job是，finished_at代表已经完成了这个job，具有更多的数据细节。统计最近一小时 created_at，如果job还没结束，就无法统计吞吐量"
 
 Tech Lead Review:
 
-Correct — half-open `[start, end)`.
+Correct, with the right justification. `created_at` measures accepted **demand**; a Job accepted inside
+the window but still running has produced no throughput. Completion is what throughput counts, so the
+predicate is `finished_at` **plus** the terminal status.
+
+Two additions were made in class, neither of which the student proposed.
+
+First, the **window convention**. Use an explicit half-open window `[window_start, window_end)`:
 
 ```sql
 AND j.finished_at >= $2::timestamptz      -- inclusive lower bound
 AND j.finished_at <  $3::timestamptz      -- EXCLUSIVE upper bound
 ```
 
-With `BETWEEN` (inclusive on both ends), a Job finishing exactly at the boundary instant is counted in
-**two** consecutive windows. Daily totals then exceed the true total, and the discrepancy is small enough
-to survive review for months.
+With `BETWEEN` (inclusive at both ends), a Job finishing exactly at the boundary instant is counted in
+**two** consecutive windows, so hourly totals exceed the daily total by an amount small enough to survive
+review for months.
 
-The other half of correctness is which timestamp defines membership. `finished_at` answers "completed in
-this window"; `created_at` answers "arrived in this window." They are different reports and must not be
-mixed under one label.
+Second, a **status filter is not optional**. A `finished_at` window alone is not a terminal filter: a
+non-terminal row carrying an anomalous `finished_at` — a partial write, a repair error, a legacy path —
+lands inside the window and is silently counted as throughput. The artifact therefore restricts the
+status explicitly, which makes the arithmetic true by construction:
+
+```sql
+AND j.job_status IN ('succeeded', 'failed', 'cancelled')   -- TERMINAL states only
+-- so that: terminal_jobs = succeeded_jobs + failed_jobs + cancelled_jobs
+```
+
+There is one coherence limit to state openly: Day31 guarantees only that `succeeded` implies
+`finished_at IS NOT NULL`. Other terminal states may carry a NULL finish time, in which case they fall
+outside this window entirely — and that absence must be surfaced by a separate coherence report, never
+read as zero throughput.
 
 Engineering Thinking:
 
@@ -635,34 +718,40 @@ signature.
 
 Exercise:
 
-Write the completed-in-window query with half-open bounds and state which timestamp defines membership.
+Define successful throughput from `finished_at` rather than `created_at`, then add the half-open window
+and the explicit terminal-status allowlist.
 
 ## Concept 10: Release Provenance and the Affected Set
 
 Tech Lead Question:
 
-A bad worker release ran for 90 minutes. How do you find exactly the Jobs it touched?
+A bad Worker release ran for 90 minutes. Can you identify the affected Jobs from the deployment time?
 
 Student Answer:
 
-> "使用job_events的metadata去查询"
+> "必须在处理时持久化明确的 release provenance，因为根据部署时间并不能代表受影响的job全是部署新版本后启动的，有可能是老版本的job"
 
 Tech Lead Review:
 
-Correct, and it is the strongest available answer because it uses **recorded provenance** rather than
-inference:
+Exactly right, and the reason is the rolling deployment. Old and new Workers **coexist**: a
+pre-deployment Job may be picked up by the new release, a post-deployment Job may be picked up by the old
+one, and a single Job's retries may span both. Deployment time is correlation, never authoritative
+provenance.
+
+The honest source available today is the bounded `job_events.metadata`, with `DISTINCT` forming a
+one-row-per-Job membership set:
 
 ```sql
-AND e.metadata ->> 'worker_release_id' = $2
+SELECT DISTINCT e.job_id
+FROM app.job_events AS e
+WHERE e.metadata ->> 'worker_release_id' = $2
 ```
 
-The alternative — a time window over `started_at` — is only a proxy. It sweeps in Jobs that overlapped
-the window but ran on the previous release, and misses Jobs whose provenance is real but whose timestamps
-fall outside your assumed boundary. Time correlation is not causation.
-
-This works only if the worker actually writes `worker_release_id` into event metadata. If provenance was
-never recorded, no query can recover it — you fall back to the time window and must state the imprecision
-explicitly in the incident record.
+Two limits must be stated with the result. Its reliability depends on **every** relevant write path
+recording truthful metadata, and the Day31 schema does not enforce that completeness — a missing key is
+not proof the release did not touch the Job. And this is deliberately a **temporary** evidence source:
+typed per-Attempt or per-execution provenance is a schema-evolution decision owned by Day36, not a silent
+Day32 alteration of populated tables.
 
 Engineering Thinking:
 
@@ -675,7 +764,8 @@ that will be wrong at both edges.
 
 Framework Connection:
 
-Day31 defined `metadata` as a JSONB column; Day32 turns it into an audit capability.
+Day31 defined `metadata` as a bounded JSONB column; Day32 uses it as interim audit evidence while naming
+its enforcement gap.
 
 Exercise:
 
@@ -685,15 +775,22 @@ Write the affected-set query keyed on release provenance and explain why a time 
 
 Tech Lead Question:
 
-A release was rolled back. Are the Jobs it already processed now correct?
+Sixty Jobs carry the faulty release's provenance. Can you bulk-update them back to `queued`?
 
 Student Answer:
 
-> "回滚只是把版本还原到之前的版本，并没有修复已经处理的数据"
+> "不能，因为Provider 已成功、已生成 Result Artifact、 已经 succeeded等批量更新回queued可能会增加额外成本。"
+
+Follow-up question: a Job has `finished_at IS NULL` and zero Artifacts. Does that prove the Provider did
+nothing?
+
+Student Answer:
+
+> "不对，因为可能还在调用过程中"
 
 Tech Lead Review:
 
-Exactly right, and this is the sentence the whole day builds toward.
+Both correct, and together they are the sentence the whole day builds toward.
 
 ```text
 Rollback  -> stops FUTURE bad writes
@@ -701,9 +798,28 @@ Rollback !-> repairs committed rows
 Rollback !-> undoes external side effects (provider charges, emails, webhooks)
 ```
 
-Committed rows stay committed. Money already spent stays spent. Repair is a **separate, deliberate,
-audited operation** — and Day32 does not perform it. The Day32 artifact is read-only by design; it
-produces evidence:
+Committed rows stay committed. Money already spent stays spent. And the in-flight case generalizes:
+`finished_at IS NULL` with zero Artifacts may mean the request is still running, that it **succeeded with
+a lost response**, or that the Worker crashed before persisting local evidence. Symmetrically,
+`published_at IS NULL` may mean "never sent" **or** "sent, then crashed before write-back" — transport
+state is not authoritative proof of external non-delivery. A PostgreSQL transaction cannot atomically
+include an external Provider call; that boundary carries into Day33.
+
+The safe order is therefore:
+
+```text
+rollback / contain future bad writes
+-> identify affected set from explicit provenance
+-> preserve evidence
+-> pre-aggregate DB evidence without row multiplication
+-> reconcile Provider status, Worker logs, Object Storage, Outbox, client-visible result
+-> quarantine unknown external outcomes
+-> guarded repair / requeue of VERIFIED SAFE subsets only
+-> verify affected rows and downstream behaviour
+```
+
+Repair is a **separate, deliberate, audited operation** — and Day32 does not perform it. The Day32
+artifact is read-only by design; it produces evidence:
 
 ```text
 attempt_evidence  -> per-Job Attempt counts, failure counts, recorded cost
@@ -817,23 +933,36 @@ collapses the `LEFT JOIN` into an `INNER JOIN`.
 
 Why it matters: your failure-rate denominator quietly loses every healthy Job.
 
-## Misconception 5: "A long-running Attempt proves the provider call is dead"
+## Misconception 5: "A CTE is best, and one CTE row means one Job"
 
-Wrong: no completion after 30 minutes means the call failed.
+Wrong (from the final synthesis): 「使用CTE是最好的方式，就表示一行就代表一个job」.
 
-Right: it proves only that **no completion has been recorded**. Worker alive, provider slow, or the
-completion write failed — all produce the identical row.
+Right: a CTE is a **readability and decomposition** mechanism. The `GROUP BY job_id` inside it is what
+establishes one-row-per-Job grain. A CTE is not universally best and carries no performance guarantee.
 
-Why it matters: acting on the wrong branch double-charges the customer or cancels healthy work.
+Why it matters: believing the CTE itself supplies the grain means you will eventually write one without
+the `GROUP BY` and reintroduce the multiplication you were avoiding.
 
-## Misconception 6: "Rollback fixes the data"
+## Misconception 6: "Rolling back causes successful Jobs to be retried"
 
-Wrong: reverting the release restores correctness.
+Wrong (from the final synthesis): 「直接rollback会导致很多已经成功的，已经有产出的进行重试」.
 
-Right: rollback stops future bad writes. Committed rows, provider charges, and published outbox events
-all persist.
+Right: application rollback only stops future bad-code execution — it retries nothing. What causes
+repeated Provider work and wasted cost is the **blind bulk requeue** an operator performs afterwards.
+Committed facts need reconciliation and guarded repair.
 
-Why it matters: teams close incidents that are still actively wrong downstream.
+Why it matters: misattributing the cost to "rollback" makes teams hesitate to roll back, which is the one
+action that reliably stops the bleeding.
+
+## Misconception 7: "A `running` Job with no Attempt is simply stuck"
+
+Wrong: 「可能是卡住了」 — treat it as a hung Worker.
+
+Right: it is a **coherence anomaly candidate**. It may be a partial multi-table write, a legacy path, or a
+repair error. Day32 detects it, Day33 removes the atomicity gap that creates it, and Day34 adds the
+lease/heartbeat evidence that could prove a Worker is actually dead.
+
+Why it matters: "restart the Worker" does not fix a half-committed write, and may create a second one.
 
 ---
 
@@ -944,6 +1073,63 @@ are not.
 
 ---
 
+## Validation evidence for these exercises
+
+State the level, never the level above it.
+
+```text
+1. Conceptual / manual reasoning              DONE (in class)
+   Query grain, join choice, cardinality, NULL semantics, provenance, evidence-vs-verdict.
+
+2. Reduced-schema PostgreSQL 14.18 runtime    DONE (listed checks ONLY)
+   A disposable cluster ran a REDUCED validation schema with representative data.
+   PASSED:
+     LEFT JOIN zero-Attempt placeholder row
+     COUNT(*) vs COUNT(attempt_id) for a zero-Attempt Job
+     3 Attempts x 4 Events = 12 rows
+     Conditional aggregation: 3 total / 2 failed
+     Cost evidence: 2 reported / SUM 400 / AVG 200
+     Independent Attempt/Event CTE pre-aggregation
+     running_attempt_over_threshold classification
+     running_without_attempt classification
+     One succeeded Job in the last-hour throughput window
+     Release-provenance DISTINCT affected set
+     Final marker: DAY32_RUNTIME_VALIDATION_PASS
+   An earlier bootstrap failed at cluster start with
+     FATAL: could not create shared memory segment: Operation not permitted / shmget
+   which is ENVIRONMENT evidence, not a SQL failure. The cluster was stopped afterwards.
+
+   NOT executed or proven by that run:
+     HAVING group filtering
+     DISTINCT ON current-Attempt selection
+       (the classroom used the greatest attempt_number path, NOT the artifact's DISTINCT ON form)
+     A half-open window excluding a row placed EXACTLY on the upper bound
+       (only one last-hour succeeded sample ran; no boundary row was created or asserted)
+     The explicit terminal-status allowlist
+     Queries 4b, 5 and 10
+     Execution against the full Day31 001 + 003 schema
+   Release provenance WAS covered representatively — which still does not prove the
+   final repository query 9 as written.
+
+3. Final 004 file static review                DONE (repository update + review)
+   Balanced parentheses, statement count, every referenced column present in 001 + 003,
+   a GRAIN contract per statement, deterministic ORDER BY, tenant predicate, no
+   DML/transactions/locks/indexes/EXPLAIN, no SUM(DISTINCT), no credentials.
+
+4. Final 004 file PostgreSQL runtime           NOT RUN
+   No psql or PostgreSQL server was available. No statement in the repository file has
+   been parsed or executed by PostgreSQL. Reduced classroom evidence is NOT reused here.
+
+5. Application integration                     NOT RUN
+   No FastAPI/driver/Celery/Provider/Object Storage/Outbox path was exercised.
+
+6. Production validation                       NOT RUN
+   No data volume, EXPLAIN plan, index, RLS, role, backup, HA, or deployment evidence.
+   Release-metadata completeness is likewise unproven.
+```
+
+---
+
 # Relevant Framework Connections
 
 ## FastAPI
@@ -992,48 +1178,66 @@ part teams forget.
 
 # English Interview
 
-## Q1: Explain the difference between `INNER JOIN` and `LEFT JOIN` in an operational dashboard.
+Three questions were answered aloud. The student's real words are preserved verbatim, including the
+grammar, because the correction targets the **content**, not the fluency.
 
-Student Answer (recorded):
+## Beginner: `INNER JOIN` vs `LEFT JOIN`
 
-> "INNER JOIN only returns rows when both tables have a matching job_id. So a job that was just created
-> and has no attempt row will disappear from the dashboard. LEFT JOIN keeps every job and fills the
-> attempt columns with NULL. For a queue dashboard we need LEFT JOIN, because a job with no attempts is
-> exactly the problem we want to see."
+Student answer (actual):
 
-Feedback: technically accurate and correctly framed around operational meaning. Strengthen it by naming
-the grain explicitly — "one row per Job-Attempt combination, and NULL means no Attempt row exists."
+> "inner join means two tables common result. left join means left result show two tables all rows.not only common result.there are other result.beacause use inner join appear the incompleted result"
 
-## Q2: Why can joining two child tables in one query corrupt an aggregate?
+Correction: the operational instinct is right — `INNER JOIN` did produce an incomplete result. Two
+technical fixes. `INNER JOIN` returns matching **combinations**, not simply "common rows". And `LEFT JOIN`
+does **not** return every row from both tables: it preserves every row from the **left** table plus
+matching right rows, and unmatched right-side columns become NULL.
 
-Model answer:
+Strong spoken answer:
 
-> "A join returns every matching combination. If a job has three attempts and four events, joining both
-> in one statement returns twelve rows, so `COUNT` and `SUM` are multiplied. The fix is to aggregate each
-> child to one row per job in a CTE first, then join those summaries — one-to-one joins cannot multiply.
-> `COUNT(DISTINCT ...)` repairs the counts but leaves `SUM` wrong."
+> "An INNER JOIN returns only rows that have matching records in both tables. A LEFT JOIN preserves every
+> row from the left table and returns matching rows from the right table. If no match exists, the
+> right-side columns are null. I would use a LEFT JOIN in an operational Job query because a queued Job
+> may not have an Attempt yet, but it must still appear in the report."
 
-## Q3: A finance report sums `cost_micros` and some values are NULL. Is the total correct?
+## Intermediate: three Attempts and four Events
 
-Model answer:
+Student answer (actual):
 
-> "It is the total of recorded costs, not of incurred costs. NULL means unknown, not zero. I would name
-> the column `recorded_total_cost_micros` and publish `COUNT(cost_micros)` beside `COUNT(attempt_id)` so
-> the reader sees completeness. I would not wrap it in `COALESCE(..., 0)`, because that turns unknown
-> into a confident claim that it cost nothing."
+> "beacause a job has three attempts ,every attempts matching four events.so the result is 12."
 
-## Q4: After rolling back a bad release, is the data correct?
+Correction: the cardinality and the reason are both correct — this is the concept the student got wrong
+in Chinese earlier in the session and has now internalized. What is missing is the **safe design**:
+pre-aggregate Attempts and Events separately by `job_id`, then join the summaries to Jobs.
 
-Model answer:
+Strong spoken answer:
 
-> "No. Rollback stops future bad writes. It does not repair committed rows and cannot undo external side
-> effects like provider charges or published outbox events. I would first identify the affected set using
-> recorded release provenance in event metadata, then produce read-only evidence per job — attempts,
-> artifacts, and whether outbox events were already published — and treat repair as a separate audited
-> operation."
+> "A Job with three Attempts and four Events produces twelve rows because each Attempt matches all four
+> Events. If I aggregate that multiplied result directly, the query can overcount Attempts, Events, and
+> Provider costs. I would aggregate Attempts and Events separately by job_id, usually in two CTEs, and
+> then join those one-row-per-Job summaries back to the Jobs table."
+
+## Senior: investigating after a faulty release
+
+Student answer (actual):
+
+> "beacause there are some other reason,we need to sperate all kinds of job status,some job had already appear success.some job made provider had already produce artificate.so we should according outbox delivery state,object storage's reasult artificate,and work event to guraded repair"
+
+Correction: the classification instinct and the guarded-repair direction are both right. Add four things:
+Provider reconciliation, explicit release provenance for the affected set, the client-visible result, the
+ambiguity of a NULL `published_at`, and quarantine for unknown external outcomes.
+
+Strong spoken answer:
+
+> "Rolling back the release only stops future writes from the faulty code. It does not repair committed
+> Jobs or undo external side effects. Some Jobs may have already succeeded, the Provider may have charged
+> us, Result Artifacts may already exist, and Outbox messages may already have been published. I would
+> identify the affected set using explicit release provenance, classify the Jobs using Attempts, Events,
+> Artifacts, Outbox state, Provider status, and client-visible results, and then apply guarded repairs
+> only to verified subsets. Jobs with an unknown external outcome should be quarantined for
+> reconciliation instead of being retried blindly."
 
 Key vocabulary: `result grain`, `row multiplication`, `conditional aggregation`, `completeness`,
-`half-open window`, `provenance`, `affected set`, `evidence versus verdict`.
+`half-open window`, `provenance`, `affected set`, `quarantine`, `evidence versus verdict`.
 
 ---
 
@@ -1062,37 +1266,53 @@ Key vocabulary: `result grain`, `row multiplication`, `conditional aggregation`,
    DISTINCT patches counts; it does not fix SUM.
 
 8. Match the CLOCK to the STAGE you are diagnosing.
-   Job clock = customer SLA. Current-Attempt clock = the hang happening now.
+   acceptance (jobs.created_at) != current queued-stage entry != Attempt.started_at != finished_at.
+   Name the metric after the clock it actually uses.
 
-9. Time windows are half-open [start, end).
-   BETWEEN double-counts boundary rows across adjacent windows.
+9. Time windows are half-open [start, end), AND the status allowlist is explicit.
+   BETWEEN double-counts boundary rows; a finished_at window alone is not a terminal filter.
 
 10. Recorded PROVENANCE beats time correlation.
     A release id in metadata is the affected set. A time window is a proxy you must disclose.
 
 11. Queries produce EVIDENCE and CANDIDATES, not verdicts.
-    "No completion recorded" != "the provider call is dead."
+    running_without_attempt is a COHERENCE anomaly, not proof a Worker died.
+    finished_at IS NULL + zero Artifacts does not prove the Provider did nothing.
 
 12. Rollback stops FUTURE bad writes.
     It does not repair committed rows or undo provider charges and published outbox events.
 ```
 
-Chinese synthesis (student, end of session):
+## Student Final Chinese Mental Model (verbatim)
 
-> "JOIN是用于表与表之间的连接，如果使用INNER JOIN那么就是要求两张表都存在同样的数据才行，LEFT
-> JOIN是以左表为准，右表没有的就用NULL填充。所以要看缺失的行代表什么意思，如果缺失本身就是需要看到的信息就要用
-> LEFT JOIN。聚合函数遇到NULL会跳过，所以SUM和AVG算出来的是已经记录的数据，不是真实发生的全部数据。查询只
-> 能告诉我数据库里记录了什么，不能证明外部真实发生了什么，回滚也只是停止后面的错误写入，已经提交的数据和已经
-> 花掉的钱都还在。"
+Initial synthesis:
 
-Targeted corrections applied during review:
+> "从join的结果来看，使用CTE是最好的方式，就表示一行就代表一个job。发生错误发布后，直接rollback会导致很多已经成功的，已经有产出的进行重试，这样会导致成本浪费。"
 
-1. "两张表都存在同样的数据" is imprecise — `INNER JOIN` matches on the **join predicate**, and returns every
-   matching combination, not one row per match.
-2. The synthesis omits **row multiplication**, which is the day's most expensive failure mode. Add: two
-   independent one-to-many children in one statement multiply the result.
-3. "跳过NULL" is mechanically right but should carry the engineering consequence: the number is a claim
-   about your **records**, so it must be named and published as such.
+Targeted correction (Tech Lead):
+
+1. A CTE does **not** guarantee grain — pre-aggregation with `GROUP BY job_id` does. A CTE is a
+   readability mechanism, not a correctness or performance guarantee.
+2. Rollback does **not** cause retry. Blind bulk requeue **after** rollback does. The cost belongs to the
+   operator action, not to the rollback.
+
+Student completion, after the correction:
+
+> "因为，要展示所有的job_id就算没有attempt，防止缺失。不同的时间戳是不同的checkpoint，可以通过不同时间戳进行各自event的业务判断。因为只有明确的版本才能追溯、和正确修复"
+
+## Final Durable Interpretation (Tech Lead synthesis, not a student quote)
+
+The following is the reviewed engineering model the session ended on. It is written by the Tech Lead as
+the durable takeaway — it is **not** a transcript of what the student said:
+
+```text
+Preserve Jobs with missing Attempts so operational reports do not hide backlog or coherence gaps.
+Use stage-specific timestamps because acceptance, queueing, execution, and completion are different
+lifecycle checkpoints. Pre-aggregate each one-to-many child to the intended grain before combining
+metrics. Use explicit release provenance to define the affected set. Rollback stops future bad writes;
+reconcile external and committed evidence before guarded repair or retry.
+```
+
 
 ---
 

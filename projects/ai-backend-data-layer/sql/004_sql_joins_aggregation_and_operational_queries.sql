@@ -154,22 +154,83 @@ ORDER BY failed_attempts DESC, j.job_id ASC;
 
 
 -- -----------------------------------------------------------------------------
--- 4. Queue health for one tenant.
+-- 4. Queue health for one tenant, measured by ACCEPTANCE time.
 --
 --    GRAIN: exactly one summary row. COUNT(*) is safe here because the query
 --    reads app.jobs only — there is no join and therefore no multiplication.
+--
+--    LIFECYCLE HONESTY — read the column names literally.
+--    jobs.created_at is the ACCEPTANCE timestamp: when the API committed the Job
+--    row. It is NOT the moment the Job entered its CURRENT queued stage. A Job
+--    that went queued -> running -> failed -> queued was accepted long before it
+--    re-entered the queue, so created_at over-reports the current queued wait.
+--
+--    These columns are therefore named for what they actually measure:
+--      oldest_accepted_at
+--      accepted_age_of_oldest_currently_queued_job
+--    This is a valid BACKLOG-AGE signal (how long ago the oldest still-unfinished
+--    request was accepted, which is what the customer experiences), but it is
+--    explicitly NOT the precise current queued-stage age.
+--
+--    For the precise current queued-stage age, derive the latest transition INTO
+--    'queued' from app.job_events (see query 4b) — no schema change required,
+--    because Day31 already records to_status and occurred_at.
 --
 --    An EMPTY queue returns count 0 with NULL oldest/newest/age. A dashboard must
 --    render "no backlog" differently from "no data" — they are not the same fact.
 -- -----------------------------------------------------------------------------
 SELECT
     COUNT(*)                        AS queued_jobs,
-    MIN(j.created_at)               AS oldest_queued_at,
-    MAX(j.created_at)               AS newest_queued_at,
-    now() - MIN(j.created_at)       AS oldest_queued_age
+    MIN(j.created_at)               AS oldest_accepted_at,
+    MAX(j.created_at)               AS newest_accepted_at,
+    now() - MIN(j.created_at)       AS accepted_age_of_oldest_currently_queued_job
 FROM app.jobs AS j
 WHERE j.tenant_id  = $1
   AND j.job_status = 'queued';
+
+
+-- -----------------------------------------------------------------------------
+-- 4b. Current queued-STAGE age, derived from recorded transitions.
+--
+--     GRAIN: one row per currently-queued Job.
+--
+--     Uses the Day31 job_events history rather than a new column: the latest
+--     event with to_status = 'queued' is when this Job entered its current queued
+--     stage. This distinguishes a first-time queued Job from one that was requeued
+--     after a failure, which query 4 deliberately cannot do.
+--
+--     queued_since_source makes the fallback explicit and auditable:
+--       'job_events'  -> a recorded queued transition was found
+--       'jobs.created_at' -> no queued event exists, so acceptance time is used
+--                            and the age is an UPPER BOUND, not the stage age.
+--
+--     Completeness limit: this is only as truthful as the write paths that record
+--     transitions. Day31 does not enforce that every queued transition emits an
+--     event, so a missing event is not proof that no transition happened.
+-- -----------------------------------------------------------------------------
+WITH latest_queued_event AS (
+    SELECT DISTINCT ON (e.job_id)
+        e.job_id,
+        e.occurred_at
+    FROM app.job_events AS e
+    WHERE e.to_status = 'queued'
+    ORDER BY e.job_id, e.occurred_at DESC, e.event_id DESC
+)
+SELECT
+    j.job_id,
+    j.created_at                                             AS accepted_at,
+    q.occurred_at                                            AS queued_since_event_at,
+    COALESCE(q.occurred_at, j.created_at)                    AS queued_since,
+    CASE WHEN q.occurred_at IS NOT NULL
+         THEN 'job_events'
+         ELSE 'jobs.created_at'
+    END                                                      AS queued_since_source,
+    now() - COALESCE(q.occurred_at, j.created_at)            AS current_queued_stage_age
+FROM app.jobs AS j
+LEFT JOIN latest_queued_event AS q ON q.job_id = j.job_id
+WHERE j.tenant_id  = $1
+  AND j.job_status = 'queued'
+ORDER BY queued_since ASC, j.job_id ASC;
 
 
 -- -----------------------------------------------------------------------------
@@ -244,7 +305,7 @@ SELECT
     j.created_at,
     COALESCE(s.attempt_count, 0)          AS attempt_count,        -- a real count: 0 is true
     COALESCE(s.failed_attempt_count, 0)   AS failed_attempt_count,
-    s.cost_reported_attempts,
+    COALESCE(s.cost_reported_attempts, 0) AS cost_reported_attempts,  -- a real count: 0 is true
     s.recorded_total_cost_micros,          -- left NULL when nothing was recorded
     s.max_attempt_number,
     COALESCE(v.event_count, 0)            AS event_count,
@@ -325,6 +386,13 @@ ORDER BY c.started_at ASC NULLS FIRST, j.job_id ASC;
 --    The window is half-open so adjacent windows never double-count a row landing
 --    exactly on the boundary.
 --
+--    TERMINAL SCOPE IS EXPLICIT. A finished_at window alone is NOT a terminal
+--    filter: a non-terminal row carrying an anomalous finished_at (a partial
+--    write, a repair error, a legacy path) would land inside the window and be
+--    counted as throughput. The job_status allowlist below makes the identity
+--      terminal_jobs = succeeded_jobs + failed_jobs + cancelled_jobs
+--    true by construction rather than by assumption.
+--
 --    Day31 guarantees only that `succeeded` implies finished_at IS NOT NULL.
 --    Other terminal states may carry NULL finished_at; those rows simply fall
 --    outside this window and MUST be surfaced by a separate coherence report
@@ -339,6 +407,7 @@ SELECT
         FILTER (WHERE j.job_status = 'succeeded')                     AS avg_successful_duration
 FROM app.jobs AS j
 WHERE j.tenant_id    = $1
+  AND j.job_status IN ('succeeded', 'failed', 'cancelled')   -- TERMINAL states only
   AND j.finished_at >= $2::timestamptz      -- inclusive lower bound
   AND j.finished_at <  $3::timestamptz;     -- EXCLUSIVE upper bound
 
@@ -440,7 +509,7 @@ SELECT
     j.finished_at,
     COALESCE(ae.attempt_count, 0)            AS attempt_count,
     COALESCE(ae.provider_calls_recorded, 0)  AS provider_calls_recorded,
-    ae.cost_reported_attempts,
+    COALESCE(ae.cost_reported_attempts, 0) AS cost_reported_attempts,  -- a real count: 0 is true
     ae.recorded_total_cost_micros,           -- NULL = no cost evidence recorded
     COALESCE(ar.artifact_count, 0)           AS artifact_count,
     COALESCE(ob.outbox_rows, 0)              AS outbox_rows,

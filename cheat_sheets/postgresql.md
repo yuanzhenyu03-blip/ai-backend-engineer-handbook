@@ -274,6 +274,8 @@ HAVING -> filters GROUPS AFTER aggregation   (COUNT(...) >= $2)
 
 Queue health: `COUNT(*)`, `MIN(created_at)`, `now() - MIN(created_at)`. Empty queue returns count `0` and **NULL** age — "no backlog" and "no data" must not render identically.
 
+**Name the metric after the clock it uses.** `jobs.created_at` is **acceptance** time, not current queued-stage entry. For `queued -> running -> failed -> queued`, `created_at` charges the earlier lifecycle to the current wait, so the honest names are `oldest_accepted_at` / `accepted_age_of_oldest_currently_queued_job`. For the true stage age, take the latest `job_events` row with `to_status = 'queued'` (no schema change — Day31 already records `to_status` and `occurred_at`), and label the fallback source. A missing Event is not proof no transition happened.
+
 **CTE pre-aggregation** is the structural fix for two children: collapse each child to one row per `job_id` first, then `LEFT JOIN` the summaries one-to-one. `COUNT(DISTINCT ...)` repairs counts but leaves `SUM` multiplied, and `SUM(DISTINCT ...)` is wrong outright (two Attempts may legitimately cost the same).
 
 **Stage-aware clocks.** `jobs.started_at` = customer-facing elapsed time including retries; the **current Attempt's** `started_at` = the execution hanging now. Select the current Attempt deterministically:
@@ -284,11 +286,20 @@ FROM app.job_attempts AS a
 ORDER BY a.job_id, a.attempt_number DESC, a.attempt_id DESC   -- Day30 tie-breaker rule
 ```
 
-Anomaly classes are **candidates, not verdicts**: `running_without_attempt`, `running_with_finished_current_attempt`, `running_attempt_over_threshold`, `running_within_threshold`. A long-running Attempt proves only that **no completion was recorded**.
+Anomaly classes are **candidates, not verdicts**: `running_without_attempt`, `running_with_finished_current_attempt`, `running_attempt_over_threshold`, `running_within_threshold`. `running_without_attempt` is a **coherence** anomaly (partial multi-table write, legacy path, repair error), not proof a Worker died — that needs Day34 lease/heartbeat evidence. Thresholds are operational policy reflecting long AI Provider runtimes, never constants.
 
-**Half-open windows** `[start, end)`: `finished_at >= $2 AND finished_at < $3`. `BETWEEN` counts a boundary row in two consecutive windows, so hourly totals exceed the daily total. Also state which timestamp defines membership — `finished_at` = completed in window, `created_at` = arrived in window.
+**Half-open windows** `[start, end)`: `finished_at >= $2 AND finished_at < $3`. `BETWEEN` counts a boundary row in two consecutive windows, so hourly totals exceed the daily total. Also state which timestamp defines membership — `finished_at` = completed in window, `created_at` = arrived (accepted demand) in window.
 
-**Provenance beats time correlation.** `e.metadata ->> 'worker_release_id' = $2` gives the exact affected set; a time window is a proxy that over- and under-collects at both edges. Provenance must be **written before** the incident — no query can recover what was never recorded.
+**A `finished_at` window is not a terminal filter.** A non-terminal row with an anomalous `finished_at` (partial write, repair error, legacy path) lands in the window and is counted as throughput. Add the allowlist explicitly so the arithmetic is true by construction:
+
+```sql
+AND j.job_status IN ('succeeded', 'failed', 'cancelled')
+-- terminal_jobs = succeeded_jobs + failed_jobs + cancelled_jobs
+```
+
+Day31 guarantees only that `succeeded` implies `finished_at IS NOT NULL`; other terminal states may carry NULL finish time, fall outside the window, and need a separate coherence report — never read as zero throughput.
+
+**Provenance beats time correlation.** During a rolling deployment old and new Workers coexist, so a pre-deployment Job may run on the new release and vice versa; one Job's retries may span both. `SELECT DISTINCT e.job_id ... WHERE e.metadata ->> 'worker_release_id' = $2` is the honest interim source. Two limits ship with the result: Day31 does not enforce that every write path records truthful metadata (a missing key is not proof of non-involvement), and typed per-execution provenance is a **Day36** schema-evolution decision, not a silent Day32 alteration.
 
 **Rollback boundaries (restated in SQL):**
 
@@ -298,7 +309,9 @@ Rollback !-> repairs committed rows
 Rollback !-> undoes provider charges, emails, or PUBLISHED outbox events
 ```
 
-Incident evidence is read-only by design: attempt evidence + artifact existence + outbox publication state + an `evidence_class` classification. Published outbox rows mean downstream systems already consumed bad data — fixing the database alone leaves consumers wrong.
+Incident evidence is read-only by design: attempt evidence + artifact existence + outbox publication state + an `evidence_class` classification. `finished_at IS NULL` with zero Artifacts does **not** prove the Provider did nothing — the call may be in flight, may have succeeded with a lost response, or the Worker may have crashed before persisting evidence. `published_at IS NULL` may mean "never sent" **or** "sent, then crashed before write-back". Rollback retries nothing; **blind bulk requeue** is what repeats Provider work and cost.
+
+Real counts may be `COALESCE(..., 0)` — a zero-Attempt Job genuinely has `cost_reported_attempts = 0`. Cost values (`recorded_total_cost_micros`, `recorded_average_cost_micros`) must stay **NULL**, because unknown cost is not zero cost.
 
 Scope note: Day32 queries are written for **meaning only** — no indexes, `EXPLAIN`, transactions, locks or DML. Atomicity is Day33, concurrency Day34, indexes Day35 — and none of them rescue a wrong grain.
 

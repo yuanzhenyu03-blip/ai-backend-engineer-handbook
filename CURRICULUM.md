@@ -752,12 +752,21 @@ Day33 — PostgreSQL Transactions and Atomic State Changes
 
 Released Engineering Artifact:
 `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` — a read-only
-operational query pack over the Day31 model (ten parameterized query groups, each with an explicit result
+operational query pack over the Day31 model (twelve parameterized statements in ten query groups, each with an explicit result
 grain contract, deterministic `ORDER BY`, and a tenant predicate): queue backlog with zero-Attempt Jobs
 preserved, per-Job Attempt/Event summaries via CTE pre-aggregation, conditional aggregation with `FILTER`,
 NULL-aware recorded-cost reporting with completeness columns, stage-aware stuck candidates via
 `DISTINCT ON`, half-open throughput windows, release-provenance affected sets, and read-only incident
 evidence. Contains no DML, transactions, locks, indexes, `EXPLAIN`, or migrations (Day33-Day36)
+
+Validation Limits:
+Reduced-schema PostgreSQL 14.18 classroom runtime covered only the listed checks (LEFT JOIN placeholder
+row, COUNT(*) vs COUNT(child pk), 3x4=12, conditional aggregation, cost completeness, CTE
+pre-aggregation, two running-anomaly classifications, one last-hour succeeded throughput sample, and a
+release-provenance DISTINCT set). It did NOT cover HAVING group filtering, DISTINCT ON current-Attempt
+selection (the classroom used the greatest attempt_number path), an exact upper-bound boundary row, the
+terminal-status allowlist, or queries 4b/5/10. Final 004 file PostgreSQL runtime: NOT RUN. Application
+integration: NOT RUN. Production validation: NOT RUN.
 
 ---
 
