@@ -304,3 +304,146 @@ Strong: "Code rollback only stops future bad writes. I contain first, preserve t
         identify the affected set, reconcile each Job's real outcome against worker logs, provider
         status and result objects, then repair verified subsets with guarded statements."
 ```
+
+---
+
+# Day31 Relational Modeling and Data Integrity Questions
+
+From the Day31 lesson: entities and cardinality, primary vs foreign vs business key, uniqueness scope,
+referential actions, `CHECK` boundaries, normalization, tenant-aware composite foreign keys, integrity
+vs authorization, and deploying a constraint onto committed duplicates.
+
+Lesson: `docs/postgresql/day31-relational-modeling-and-data-integrity.md`
+
+## Beginner
+
+### 1. Primary key vs foreign key.
+
+Question:
+
+What is the difference between a primary key and a foreign key in a relational database?
+
+中文解析:
+
+主键唯一标识表中的每一行，值必须唯一且**不能为 NULL**——它回答"这一行是谁"。外键引用**另一张表（或同一张表）**的主键或唯一候选键，强制参照完整性：子行不能引用不存在的父行——它回答"这一行属于哪个父级"。注意外键不是"来自另一个 schema 的列"，与 schema 命名空间无关。
+
+Student's actual attempt (preserved):
+
+> "primary key means same value can't insert twice,foreign key means column comes from othrer schema"
+
+Interview Review: 识别了主键的唯一性，但遗漏了"不能为 NULL"和"标识行"；外键的定义有误——它引用的是另一张表的主键/唯一键，与 schema 无关。英文：`othrer` → other。
+
+Standard Answer:
+
+A primary key uniquely identifies each row in a table. Its values must be unique and cannot be null. A
+foreign key references a primary or unique key in another table and enforces referential integrity, so a
+child row cannot reference a parent row that does not exist.
+
+Follow-up Question:
+
+If `job_id` is already a primary key, why is a separate uniqueness rule still needed?
+
+## Intermediate
+
+### 1. Why both `UNIQUE(tenant_id, idempotency_key)` and a primary key on `job_id`?
+
+Question:
+
+Why do we need both `UNIQUE(tenant_id, idempotency_key)` and a primary key on `job_id`?
+
+中文解析:
+
+`job_id` 主键唯一标识**数据库行**，但它阻止不了重复的**业务请求**——因为客户端重试时会生成一个**新的 job_id**，两行都是合法的唯一行。真正需要约束的是"同一租户内的同一次客户端请求"，所以用 `UNIQUE (tenant_id, idempotency_key)`。把 `tenant_id` 放进作用域，是为了让**不同租户可以复用同一个 idempotency key**。核心区分：行身份 vs 业务操作身份。
+
+Student's actual attempt (preserved):
+
+> "because UNIQUE (tenant_id, idempotency_key) means tenant_id bond on idempotency_key,the consist can't appear more than once in table.the truth is that a tenant can't request twice in same job_id.there are some problems,for example,different tenant_id also could bond idempotency_key."
+
+Interview Review: 识别了组合作用域唯一性和跨租户可复用，方向正确。关键纠正：重试会产生**不同的 job_id**，这正是需要独立业务键约束的原因。
+
+Standard Answer:
+
+The primary key on `job_id` uniquely identifies one database row. It does not prevent duplicate business
+requests because each retry can generate a new `job_id`. The unique constraint on
+`(tenant_id, idempotency_key)` identifies a client request within one tenant and prevents that request
+from creating multiple Jobs. Different tenants may reuse the same idempotency key because the uniqueness
+scope includes `tenant_id`.
+
+Follow-up Question:
+
+You need to add that constraint to a table that already contains two duplicate Jobs. What do you do first?
+
+### 2. Choosing a referential action for audit-bearing children.
+
+Question:
+
+`job_attempts` stores Provider request IDs, errors, and cost. Which `ON DELETE` action do you choose?
+
+中文解析:
+
+选 `ON DELETE RESTRICT`。`SET NULL` 在 `job_id NOT NULL` 上根本不可行；`CASCADE` 语法上可行，但它意味着一次误删父 Job 就会**连带抹掉审计与成本证据**——正是事故复盘最需要的数据。参照动作表达的是**生命周期与保留策略**，不是便利设置。`CASCADE` 适用于子行没有独立保留价值、且业务明确要整体删除聚合的场景；`SET NULL` 只适用于孤儿行仍有业务含义且外键列可空。
+
+Standard Answer:
+
+I would use `ON DELETE RESTRICT`. `SET NULL` is impossible because `job_id` is `NOT NULL`, and `CASCADE`
+would let one accidental parent deletion erase the Provider, error, and cost evidence needed for audits
+and incident reconstruction. The referential action encodes lifecycle and retention policy: `CASCADE` is
+appropriate only when the child has no independent retention value, and `SET NULL` only when an orphaned
+child is still meaningful.
+
+## Senior
+
+### 1. Tenant isolation with separate foreign keys.
+
+Question:
+
+Why are separate Job and Document foreign keys insufficient for tenant isolation, and how would you
+enforce the rule in PostgreSQL?
+
+中文解析:
+
+两个独立外键只各自证明 Job 存在、Document 存在，**都不检查两者是否属于同一租户**——所以 Tenant-A 的 Job 可以合法地关联 Tenant-B 的 Document。做法：在中间表加 `tenant_id`，在父表上建租户感知的候选键 `UNIQUE (tenant_id, job_id)` 与 `UNIQUE (tenant_id, document_id)`，然后从中间表用**复合外键** `(tenant_id, job_id)`、`(tenant_id, document_id)` 引用它们——同一个 `tenant_id` 必须同时满足两个引用，跨租户关联会被 PostgreSQL 拒绝（`23503`）。但必须区分：这是**写入时的关系完整性**，不是**授权**。读取仍需带上从**已认证的服务端上下文**导出的租户谓词（`WHERE tenant_id = $1 AND ...`），RLS/角色是后续的纵深防御。
+
+Student's actual attempt (preserved):
+
+> "it must add some constraint about uniquely identifies (Tenant_id,job_id),(Tenant_id,document_id) on sperate table,we can create a inner table"
+
+Interview Review: 技术方向正确。用词纠正：junction/association table（不是 "inner table"）、separate（拼写）、父表**复合候选键**、租户感知的**复合外键**。
+
+Standard Answer:
+
+Separate foreign keys only prove that the Job and Document exist. They do not prove that both rows belong
+to the same tenant. I would add `tenant_id` to the junction table, define unique tenant-and-resource keys
+on the parent tables, and use composite foreign keys from `(tenant_id, job_id)` and
+`(tenant_id, document_id)`. PostgreSQL will then reject any cross-tenant relationship. This enforces
+relational integrity, but request authorization still requires tenant-scoped queries or database
+row-level security.
+
+Follow-up Question:
+
+Do those composite foreign keys stop a `SELECT` from returning another tenant's rows?
+
+## Common Weak vs Strong Answer (Day31)
+
+```text
+Weak:   "The child table's job_id is the primary key, so each Job has its attempts."
+Strong: "That would mean at most ONE Attempt per Job. The Attempt needs its own attempt_id primary key,
+        a job_id foreign key, and UNIQUE (job_id, attempt_number) for the business rule."
+
+Weak:   "job_id is unique, so a retried request can't create a duplicate Job."
+Strong: "A retry generates a new job_id, so row identity can't help. The business key
+        (tenant_id, idempotency_key) is what prevents duplicate requests."
+
+Weak:   "We have composite foreign keys, so tenants are isolated."
+Strong: "Those enforce relationship integrity at write time. A SELECT without a tenant predicate still
+        returns other tenants' rows — authorization needs a server-derived tenant scope or RLS."
+
+Weak:   "The duplicate Job was created later, so roll it back."
+Strong: "ROLLBACK only applies before COMMIT. Both rows are committed, and the newer one may hold the
+        Provider calls and the client-visible job_id. I reconcile the evidence, choose the canonical
+        Job, repair verified subsets, then add the constraint."
+
+Weak:   "The constraint tests passed, so the schema is correct."
+Strong: "They prove the executed invariants in the executed schema. Atomicity, concurrency, migration
+        safety, performance, and production correctness are all still unproven."
+```

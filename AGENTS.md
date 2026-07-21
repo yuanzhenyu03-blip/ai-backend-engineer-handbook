@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day30 — SQL Data Manipulation and Query Fundamentals
+Day31 — Relational Modeling and Data Integrity
 
 Next Lesson:
 
-Day31 — Relational Modeling and Data Integrity (Planned / Not started; see ROADMAP.md)
+Day32 — SQL Joins, Aggregation, and Operational Queries (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

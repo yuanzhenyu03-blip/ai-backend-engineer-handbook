@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day31 — Relational Modeling and Data Integrity
+Day32 — SQL Joins, Aggregation, and Operational Queries
 
 Status:
 Planned / Not started
@@ -28,10 +28,78 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day31 — Relational Modeling and Data Integrity (see the Day31 Preparation block below).
+- [ ] Prepare for Day32 — SQL Joins, Aggregation, and Operational Queries (see the Day32 Preparation block below).
 
-(Day29 and Day30 are complete; their work is recorded under the Completed Day29/Day30 sections and the
-corresponding Preparation history blocks.)
+(Day29-Day31 are complete; their work is recorded under the Completed Day29/Day30/Day31 sections and
+the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day31 Tasks
+
+- [x] Complete Day31 Relational Modeling and Data Integrity classroom learning.
+- [x] Generate the Day31 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day30->Day31 mental-model evolution).
+- [x] Decide when a repeated fact becomes its own entity (job_attempts) instead of columns or a JSONB array.
+- [x] Distinguish primary key, foreign key, and business key, and design scoped uniqueness.
+- [x] Derive UNIQUE (tenant_id, idempotency_key) from the fact that a retry produces a new job_id.
+- [x] Choose ON DELETE RESTRICT for audit/cost-bearing children and explain when CASCADE/SET NULL apply.
+- [x] Place one-to-many foreign keys correctly and model optional one-to-one with FK + UNIQUE.
+- [x] Translate the status allowlist into a CHECK and identify what a row CHECK cannot assert.
+- [x] Normalize Result Artifacts to attempt_id and keep job_id derivable.
+- [x] Separate jobs.job_status, job_events history, and outbox_events publication intent.
+- [x] Model many-to-many Job <-> Document with a junction table carrying relationship attributes.
+- [x] Enforce same-tenant relationships with composite foreign keys and distinguish integrity from authorization.
+- [x] Work through deploying a UNIQUE constraint onto committed duplicate Jobs.
+- [x] Write and correct the minimum app.job_attempts DDL.
+- [x] Preserve the real student answers and all material misconceptions/corrections.
+
+---
+
+## Completed Day31 Repository Tasks
+
+- [x] Add `docs/postgresql/day31-relational-modeling-and-data-integrity.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/003_relational_modeling_and_data_integrity.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day31 increment, apply order, key rules, validation commands, and a separate Day31 validation matrix.
+- [x] Append the Day31 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day31 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day31 is now the latest PostgreSQL lesson).
+- [x] Update the Day30 lesson Next Lesson link to the released Day31 lesson.
+- [x] Update `CURRICULUM.md` (Day31 Completed; Day32 remains Planned).
+- [x] Update `ROADMAP.md` (Day31 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day31 Interview Tasks
+
+- [x] Add the beginner primary-key vs foreign-key question with the student's actual attempt and corrections.
+- [x] Add intermediate business-key and referential-action questions.
+- [x] Add the senior tenant-isolation question (composite FKs vs authorization).
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day31 Homework
+
+- [x] Complete entity-vs-columns and duplicate-child-insert exercises.
+- [x] Complete scoped-uniqueness and tenant-idempotency exercises.
+- [x] Complete referential-action and FK-placement exercises.
+- [x] Complete CHECK allowlist and succeeded-invariant exercises.
+- [x] Complete Result Artifact normalization exercises.
+- [x] Complete state/history/outbox separation and many-to-many exercises.
+- [x] Complete cross-tenant prevention and integrity-vs-authorization exercises.
+- [x] Complete the failed UNIQUE deployment incident exercise.
+- [x] Complete the job_attempts DDL authoring exercise.
+
+---
+
+### Day32 Preparation — SQL Joins, Aggregation, and Operational Queries
+
+- [ ] Read the Day32 input when provided.
+- [ ] Review the Day31 relational model and the foreign keys/cardinalities Day32 will query.
+- [ ] Preview INNER vs LEFT JOIN and missing-row meaning, join cardinality and row multiplication, COUNT/SUM/MIN/MAX/AVG/GROUP BY/HAVING, conditional aggregation, and CTEs.
+- [ ] Preview the operational queries the 842-row incident needed: Job detail, attempts/events, stuck Jobs by stage, oldest queued age, throughput, retry/terminal counts, provenance.
+- [ ] Keep transactions (Day33), concurrency/locks (Day34), indexes (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -89,13 +157,13 @@ corresponding Preparation history blocks.)
 
 ---
 
-### Day31 Preparation — Relational Modeling and Data Integrity
+### Day31 Preparation — Relational Modeling and Data Integrity (completed)
 
-- [ ] Read the Day31 input when provided.
-- [ ] Review the Day30 SQL pack and the guard predicates that Day31 will move into database constraints.
-- [ ] Preview entities/relationships, primary vs business keys, `NOT NULL`/`UNIQUE`/`CHECK`/foreign keys, referential actions, and normalization.
-- [ ] Preview the Documents / Job Attempts / Job Events / Outbox Events / Result Artifact model the 842-row incident showed was missing.
-- [ ] Keep transactions (Day33), concurrency/locks (Day34), indexes (Day35), and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [x] Read the Day31 input.
+- [x] Reviewed the Day30 SQL pack and the guard predicates that Day31 moved into database constraints.
+- [x] Previewed entities/relationships, primary vs business keys, `NOT NULL`/`UNIQUE`/`CHECK`/foreign keys, referential actions, and normalization.
+- [x] Previewed the Documents / Job Attempts / Job Events / Outbox Events / Result Artifact model the 842-row incident showed was missing.
+- [x] Kept transactions (Day33), concurrency/locks (Day34), indexes (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -230,7 +298,7 @@ corresponding Preparation history blocks.)
 
 - [x] Day29 — PostgreSQL Foundations and Durable Relational State (Completed).
 - [x] Day30 — SQL Data Manipulation and Query Fundamentals (Completed).
-- [ ] Day31 — Relational Modeling and Data Integrity (Planned).
+- [x] Day31 — Relational Modeling and Data Integrity (Completed).
 - [ ] Day32 — SQL Joins, Aggregation, and Operational Queries (Planned).
 - [ ] Day33 — PostgreSQL Transactions and Atomic State Changes (Planned).
 - [ ] Day34 — Concurrency Control, MVCC, and Worker Claims (Planned).

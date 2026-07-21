@@ -701,7 +701,26 @@ Documents, Jobs, Job Attempts, Job Events, Outbox Events, and Result Artifact re
 Object Storage bytes in PostgreSQL); tenant/owner and provenance boundaries.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day31-relational-modeling-and-data-integrity.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day30 — SQL Data Manipulation and Query Fundamentals
+
+Next Lesson:
+Day32 — SQL Joins, Aggregation, and Operational Queries
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/003_relational_modeling_and_data_integrity.sql` — the relational
+target schema (tenants, upload_sessions, documents, extended jobs, job_attempts, job_events,
+outbox_events, result_artifacts, job_documents) with scoped uniqueness, CHECK allowlists,
+`ON DELETE RESTRICT`, and tenant-aware composite foreign keys. Runnable after `001_create_jobs.sql` on a
+fresh empty database; it is NOT a safe migration for populated tables (Day36)
 
 ---
 

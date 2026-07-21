@@ -4,11 +4,13 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day30 — a raw, parameterized SQL operations pack** on top of the Day29 schema.
+Current increment: **Day31 — a relational target schema** with enforceable ownership, cardinality,
+identity, tenant boundaries, and provenance.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
 - Day30 (operations): [`docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`](../../docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md)
+- Day31 (relational model): [`docs/postgresql/day31-relational-modeling-and-data-integrity.md`](../../docs/postgresql/day31-relational-modeling-and-data-integrity.md)
 
 ---
 
@@ -18,8 +20,9 @@ Lessons:
 projects/ai-backend-data-layer/
 ├── README.md
 └── sql/
-    ├── 001_create_jobs.sql                        # Day29: the durable Job schema
-    └── 002_job_crud_and_guarded_transitions.sql   # Day30: parameterized reads + guarded writes
+    ├── 001_create_jobs.sql                              # Day29: the durable Job schema
+    ├── 002_job_crud_and_guarded_transitions.sql         # Day30: parameterized reads + guarded writes (reference pack, not DDL)
+    └── 003_relational_modeling_and_data_integrity.sql   # Day31: relational target schema + constraints
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -65,6 +68,103 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day31 increment — relational model and enforceable integrity
+
+`sql/003_relational_modeling_and_data_integrity.sql` turns the single Day29 Job row into a relational
+model. **Apply order on a fresh, empty database:** `001_create_jobs.sql` -> `003_...sql`
+(`002_...sql` is a statement reference pack, not DDL).
+
+> **Not a production migration.** The `ALTER TABLE app.jobs ADD COLUMN ... NOT NULL` statements have no
+> default, so they succeed only while `app.jobs` is **empty**. Against existing rows they raise
+> `23502 not_null_violation` and would need an expand -> backfill -> validate -> switch -> contract
+> sequence. That mechanic is **Day36** and is deliberately not attempted here; no tenant or idempotency
+> values are invented for historical rows.
+
+### Entities and relationships
+
+```text
+tenants          1 -> N  upload_sessions, documents, jobs
+upload_sessions  1 -> 0..1 documents        (FK + UNIQUE = optional one-to-one)
+jobs             1 -> N  job_attempts, job_events, outbox_events
+job_attempts     1 -> N  result_artifacts
+jobs             N <-> N documents          (via job_documents, tenant-aware)
+```
+
+### Key rules encoded
+
+| Rule | Constraint | Why |
+|---|---|---|
+| Request identity | `UNIQUE (tenant_id, idempotency_key)` on `jobs` | a retry gets a **new** `job_id`, so a `job_id` rule cannot stop duplicate business requests; different tenants may reuse a key |
+| Attempt numbering | `UNIQUE (job_id, attempt_number)` | scoped to the Job — a global `UNIQUE(attempt_number)` would stop Job B from having its own Attempt 1 |
+| Attempt sanity | `CHECK (attempt_number > 0)` | positive ordinals only |
+| Legal states | `CHECK (job_status IN ('queued','running','succeeded','failed','cancelled'))` | `NOT NULL` accepts `''` and `banana`; `CHECK` guards every write path |
+| Counter sanity | `CHECK (attempt_count >= 0)` | — |
+| Terminal coherence | `CHECK (job_status <> 'succeeded' OR finished_at IS NOT NULL)` | a row CHECK sees only **this row**; it cannot assert a child Artifact exists (Day33) |
+| One Document per session | `UNIQUE (upload_session_id)` on `documents` | FK + UNIQUE = one-to-one, recorded on the later-created row |
+| Same-tenant links | composite FKs `(tenant_id, job_id)` / `(tenant_id, document_id)` | plain FKs prove existence only, not shared ownership |
+| Event provenance | composite FK `(job_id, attempt_id)` -> `job_attempts` | a non-NULL Attempt must belong to the **same** Job; NULL stays optional under MATCH SIMPLE |
+| Evidence retention | `ON DELETE RESTRICT` everywhere | Attempts/Events/Artifacts hold audit and cost evidence that `CASCADE` would erase |
+
+`result_artifacts` stores **`attempt_id` only** — `job_id` is derivable through `job_attempts`. Storing
+both without a composite constraint would allow contradictory ownership. Denormalize only for a
+**measured** problem, and then constrain the duplicate.
+
+`jobs.result_object_key` (Day29) is now a **legacy** single-artifact pointer superseded by
+`result_artifacts`. This file does **not** drop it — removing a column applications still read is Day36.
+
+### Validation commands (authored here, **NOT executed**)
+
+No `psql` or PostgreSQL server was available during this repository update, so the statements below were
+**not run**. Run them yourself against a **disposable** cluster (see the Day29 reproduction section for
+a guarded disposable-cluster setup). Expected outcomes name the exact SQLSTATE.
+
+```bash
+# Apply order on a FRESH, EMPTY database:
+day29psql -f sql/001_create_jobs.sql
+day29psql -f sql/003_relational_modeling_and_data_integrity.sql
+```
+
+```sql
+-- Positive path: a tenant, a session, a document, a job, an attempt.
+INSERT INTO app.tenants (tenant_slug) VALUES ('acme') RETURNING tenant_id;
+INSERT INTO app.upload_sessions (tenant_id, object_key)
+VALUES ($1, 'tenants/acme/uploads/doc-1') RETURNING upload_session_id;
+INSERT INTO app.documents (tenant_id, upload_session_id, object_key)
+VALUES ($1, $2, 'tenants/acme/documents/doc-1') RETURNING document_id;
+INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES ($1, 'req-001') RETURNING job_id;
+INSERT INTO app.job_attempts (job_id, attempt_number) VALUES ($3, 1) RETURNING attempt_id;
+```
+
+Negative cases — each must fail with the stated SQLSTATE:
+
+| Case | Statement | Expected failure |
+|---|---|---|
+| Duplicate attempt number | second `INSERT ... (job_id, attempt_number) VALUES ($3, 1)` | `23505 unique_violation` |
+| Non-positive attempt | `INSERT ... VALUES ($3, 0)` | `23514 check_violation` |
+| Missing parent Job | `INSERT INTO app.job_attempts (job_id, attempt_number) VALUES (gen_random_uuid(), 1)` | `23503 foreign_key_violation` |
+| Delete a Job that has Attempts | `DELETE FROM app.jobs WHERE job_id = $3` | `23503 foreign_key_violation` (RESTRICT) |
+| Same-tenant duplicate idempotency key | second `INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES ($1, 'req-001')` | `23505 unique_violation` |
+| Different tenant reuses the key | `INSERT INTO app.jobs (tenant_id, idempotency_key) VALUES ($other_tenant, 'req-001')` | **succeeds** |
+| Illegal status | `UPDATE app.jobs SET job_status = 'banana' WHERE job_id = $3` | `23514 check_violation` |
+| Cross-tenant Job-Document link | `INSERT INTO app.job_documents (tenant_id, job_id, document_id) VALUES ($tenantA, $jobA, $documentB)` | `23503 foreign_key_violation` |
+| Event pointing at another Job's Attempt | `INSERT INTO app.job_events (job_id, attempt_id, event_type) VALUES ($otherJob, $attempt, 'x')` | `23503 foreign_key_violation` |
+
+Assert the **specific** SQLSTATE rather than "any error" — a missing table or a typo would otherwise be
+reported as a passing integrity test.
+
+### Day31 known gaps (deliberate)
+
+```text
+Day32  joins/aggregation over these relationships
+Day33  atomic Job + Event + Outbox changes in one transaction
+Day34  MVCC, locking, SKIP LOCKED, leases, concurrency-safe claims
+Day35  measured indexes for these access paths
+Day36  safe evolution/backfill/removal of the legacy result_object_key column
+Future RLS, production roles/permissions, backups, HA, performance, deployment
+```
 
 ---
 
@@ -405,6 +505,19 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day31 (`003_relational_modeling_and_data_integrity.sql`)
+
+| Level | Day31 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | entities, cardinality, identity vs business key, referential actions, normalization, tenant integrity, incident reconciliation |
+| Student SQL static review | **Done (in class)** | minimum `job_attempts` DDL reviewed; syntax corrections recorded |
+| Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, selected tests)** | a **reduced** validation schema — not this full file — accepted the core DDL and rejected duplicate `(job_id, attempt_number)`, non-positive `attempt_number`, a missing parent Job, deleting a Job with an Attempt, a same-tenant duplicate idempotency key, an invalid `job_status`, and a cross-tenant Job-Document link; a different tenant reused the key successfully; one valid Attempt remained. Cluster stopped and the temporary directory removed. |
+| Final artifact static review | **Done (repository update)** | balanced syntax; 15 statements; DDL dependency order valid after `001`; every composite FK has a matching candidate key; `result_artifacts` has no `job_id` column; all 11 FKs use `ON DELETE RESTRICT`; 23 named constraints; no transactions/locks/explicit indexes/DROP/RLS/roles; legacy `result_object_key` retained; no credentials |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available in the repository-update environment. The reduced classroom test is **not** proof that every table in this file applies cleanly. |
+| Application integration | **NOT DONE** | no FastAPI/Celery/driver/Redis/Provider/Object Storage was exercised |
+| Transactions / concurrency / migration safety | **NOT DONE** | Day33/Day34/Day36 |
+| Production validation | **NOT DONE** | no RLS, roles, backups, HA, performance, or deployment evidence |
 
 ### Verified in class (PostgreSQL 14.18, disposable cluster)
 

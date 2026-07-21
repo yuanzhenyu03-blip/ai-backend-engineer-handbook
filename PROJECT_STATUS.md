@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day31 — Relational Modeling and Data Integrity
+Day32 — SQL Joins, Aggregation, and Operational Queries
 
 Status:
 Planned / Not started
 
-(The Day31 lesson has not started and no Day31 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day30 details are recorded under Last Completed Lesson.)
+(The Day32 lesson has not started and no Day32 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day31 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -53,6 +53,7 @@ Day30 details are recorded under Last Completed Lesson.)
 - ✅ Day28 — AI Backend Production Architecture
 - ✅ Day29 — PostgreSQL Foundations and Durable Relational State
 - ✅ Day30 — SQL Data Manipulation and Query Fundamentals
+- ✅ Day31 — Relational Modeling and Data Integrity
 
 ---
 
@@ -64,32 +65,32 @@ None.
 
 ## Last Completed Lesson
 
-Day30 — SQL Data Manipulation and Query Fundamentals
+Day31 — Relational Modeling and Data Integrity
 
 Completed Time:
-2026-07-20
+2026-07-21
 
 Main Artifact:
-Day30 increment of the Production AI Backend Data Layer — a raw, parameterized SQL operations pack (projects/ai-backend-data-layer/sql/002_job_crud_and_guarded_transitions.sql) with explicit affected-row contracts
+Day31 relational target schema (projects/ai-backend-data-layer/sql/003_relational_modeling_and_data_integrity.sql) — tenants, upload_sessions, documents, extended jobs, job_attempts, job_events, outbox_events, result_artifacts, and a tenant-aware job_documents junction table
 
 Validation Boundary:
-Conceptual/manual review of the SQL semantics was completed in class. The repository update performed a static file review only (balanced syntax, guard direction, RETURNING presence, parameter usage, absence of transactions/locks/constraints/indexes, no credentials). PostgreSQL parser/runtime execution, Python-driver parameter binding, FastAPI/Celery/Object Storage integration, transaction/concurrency runtime tests, and production validation were NOT RUN — no psql/PostgreSQL server was available. Day29's PostgreSQL 14.18 classroom evidence applies to 001_create_jobs.sql only and is not Day30 runtime evidence.
+Conceptual/manual review of the complete relational model was done in class, and a REDUCED classroom validation schema was executed on PostgreSQL 14.18 where selected constraints behaved correctly (duplicate (job_id, attempt_number) rejected, non-positive attempt_number rejected, missing parent Job rejected, deleting a Job with an Attempt restricted, same-tenant duplicate idempotency key rejected, different-tenant key reuse accepted, invalid job_status rejected, cross-tenant Job-Document link rejected). An earlier attempt failed at cluster start with shmget: Operation not permitted — environment evidence, not a SQL result. The FULL Day31 artifact in this repository was NOT executed: no psql/PostgreSQL server was available during the repository update, so only a static file review was performed. Transactions (Day33), locking/MVCC (Day34), indexes (Day35), safe migration of populated tables (Day36), RLS/roles, backups, HA, performance, and production deployment remain unproven.
 
 Completed Work:
 
-- Day30 classroom learning
-- Day30 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day29->Day30 mental-model evolution)
-- Day30 parameterized SQL operations pack and project README increment
-- Day30 deterministic SELECT / NULL logic / INSERT defaults / parameter boundary / guarded transitions / DELETE precedence / lost update / 842-row incident exercises
-- Day30 PostgreSQL cheat sheet append
-- Day30 PostgreSQL interview notes append
-- Day30 repository status update
+- Day31 classroom learning
+- Day31 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day30->Day31 mental-model evolution)
+- Day31 relational target schema and project README increment
+- Day31 entity/cardinality, key-scope, referential-action, CHECK, normalization, state-vs-history-vs-outbox, many-to-many, tenant-integrity, and failed-constraint-deployment exercises
+- Day31 PostgreSQL cheat sheet append
+- Day31 PostgreSQL interview notes append
+- Day31 repository status update
 
 ---
 
 ## Next
 
-- Day31 — Relational Modeling and Data Integrity (Phase 3 — Backend Foundations)
+- Day32 — SQL Joins, Aggregation, and Operational Queries (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -130,6 +131,7 @@ Completed Python Foundations:
 - Day28 — AI Backend production architecture, request vs job lifecycle (202 + job_id), state ownership (PostgreSQL truth / Redis deliver / Object Storage bytes / memory transient), Transactional Outbox + at-least-once + idempotent processing, durable checkpoints/leases/idempotency keys (unique constraint/upsert, ACK after durable), presigned multipart upload + Upload Session verification, retry (backoff+jitter+max attempts/deadline+classification+circuit breaker), monitoring (depth vs oldest-age vs throughput), observability (stable job_id correlation, low-cardinality metrics, append-only events), failure containment + compute rollback != data repair (contain/restore/identify/rebuild/verify)
 - Day29 — PostgreSQL foundations and durable relational state, write+commit the Job row before 202, server/cluster/database/schema/table/row/column boundaries, psql connects to a database (qualified name vs search_path; public is a default namespace), Job types/defaults (uuid PK gen_random_uuid, text, integer, boolean, timestamptz now(), bounded jsonb), typed columns vs JSONB-only, type vs relationship cardinality, NULL per lifecycle, NOT NULL rejects only NULL (empty/'banana' accepted), DEFAULT VALUES + RETURNING, primary key vs idempotency key, timestamptz as one absolute instant, validation ladder, durability != integrity, code rollback vs guarded data repair
 - Day30 — SQL data manipulation and query fundamentals, clause chain SELECT/FROM/WHERE/ORDER BY/LIMIT, explicit columns and a unique ORDER BY tie-breaker, three-valued logic (WHERE keeps only TRUE; IS NULL; why `<> 'timeout'` drops no-error rows), INSERT with database defaults + RETURNING (rows not a count), parameterized SQL and the injection boundary (values only; identifiers need an allowlist; it does not authorize or fix concurrency), WHERE as the modification boundary with current-state guards, zero rows means the transition did not apply, AND/OR precedence in destructive statements, lost-update awareness (database-side increment or expected-old-value guard), and the contain->evidence->identify->reconcile->guarded repair->verify incident order
+- Day31 — Relational modeling and data integrity, entities/attributes/relationships and ownership, when a repeated fact becomes its own entity, primary key vs foreign key vs business key, uniqueness SCOPE (UNIQUE(job_id, attempt_number), UNIQUE(tenant_id, idempotency_key) because a retry brings a new job_id), referential actions as retention policy (RESTRICT protects audit/cost evidence; CASCADE erases it), one-to-many FK placement and one-to-one via FK+UNIQUE, many-to-many junction tables carrying relationship attributes, CHECK as the legal-state boundary and what a row CHECK cannot see, normalizing Result Artifacts with derivable provenance, current state vs append-oriented job_events vs durable outbox_events intent, tenant-aware composite foreign keys, integrity vs authorization, and deploying a UNIQUE constraint onto committed duplicates
 
 ---
 
@@ -389,6 +391,16 @@ Completed Python Foundations:
 - Correct AND/OR precedence in destructive statements and use RETURNING as evidence.
 - Diagnose a lost update and fix it with a database-side increment or an expected-old-value guard.
 - Order an incident response: contain, preserve evidence, identify, reconcile, repair, verify.
+- Decide when a repeated fact must become its own entity rather than columns or a JSONB array.
+- Distinguish primary key (row identity), foreign key (parent), and business key (operation identity).
+- Design scoped uniqueness and explain why a global UNIQUE would be wrong.
+- Choose a referential action as a lifecycle and evidence-retention decision.
+- Place foreign keys correctly for one-to-many and express one-to-one with FK + UNIQUE.
+- Model many-to-many with a junction table that carries relationship attributes.
+- Enforce same-tenant relationships with tenant-aware composite foreign keys.
+- Explain why foreign keys are write-time integrity and never authorization.
+- Separate current state, append-oriented history, and durable publication intent.
+- Deploy a UNIQUE constraint onto committed duplicates via containment, reconciliation, and guarded repair.
 
 ---
 
@@ -641,6 +653,26 @@ Completed Python Foundations:
 - 842-row accidental UPDATE incident exercise
 - SQL data manipulation English interview exercise
 - Final SQL manipulation mental model synthesis exercise
+- Entity vs columns vs JSONB decision exercise
+- Duplicate child insert prediction exercise
+- Scoped attempt-number uniqueness exercise
+- Referential action defence exercise
+- One-to-many FK placement exercise
+- Tenant-scoped idempotency uniqueness exercise
+- Status allowlist to CHECK exercise
+- Succeeded cross-field invariant exercise
+- Result Artifact normalization exercise
+- attempt_id-only vs redundant job_id exercise
+- State vs history vs outbox separation exercise
+- Optional one-to-one Upload Session -> Document exercise
+- Many-to-many job_documents exercise
+- Cross-tenant prevention with composite FKs exercise
+- Integrity vs authorization exercise
+- Failed UNIQUE deployment incident exercise
+- job_attempts DDL authoring exercise
+- Constraint SQLSTATE assertion exercise
+- Relational modeling English interview exercise
+- Final relational modeling mental model synthesis exercise
 
 ---
 

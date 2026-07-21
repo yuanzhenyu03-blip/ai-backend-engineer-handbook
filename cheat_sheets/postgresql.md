@@ -173,6 +173,60 @@ contain -> preserve evidence -> identify exact affected set -> reconcile actual 
 
 Don't wait first (state diverges, evidence degrades) and don't blanket-restore — some Jobs genuinely succeeded. `RETURNING` IDs prove the affected set, not each Job's real outcome. **Code rollback stops future bad writes; it repairs nothing already persisted.**
 
+## Day31 Relational Modeling and Data Integrity
+
+Key vocabulary:
+
+```text
+PRIMARY KEY  = who this row is
+FOREIGN KEY  = which parent it belongs to
+BUSINESS KEY = which business operation must not repeat
+UNIQUE       = the SCOPE in which facts cannot duplicate
+CHECK        = which final row states are legal
+RESTRICT / CASCADE / SET NULL = deletion lifecycle policy
+```
+
+Cardinality: **one-to-many** = FK on the many side. **One-to-one** = FK + `UNIQUE` (nullable FK + UNIQUE = optional one-to-one). **Many-to-many** = junction table referencing both, and the junction may carry its own attributes (`document_role`, `input_order`).
+
+Entity vs columns vs JSONB: a fact that repeats unboundedly, has its own attributes, and must be queried independently is an **entity**. `attempt_1_*`/`attempt_2_*` does not scale; a JSONB array loses typing, uniqueness, joins, and provenance.
+
+Child PK trap: `job_attempts.job_id` as PRIMARY KEY means **at most one Attempt per Job**. Attempt needs its own `attempt_id` PK + `job_id` FK. A duplicate ordinary INSERT does **not** overwrite — it fails `23505 unique_violation`.
+
+**Scope is the rule.** `UNIQUE(attempt_id)` does not stop two rows claiming attempt number 1 for one Job -> `UNIQUE (job_id, attempt_number)`. A global `UNIQUE(attempt_number)` would stop Job B from having its own Attempt 1.
+
+Request identity: a retry gets a **new job_id**, so `UNIQUE(tenant_id, job_id)` can never prevent duplicate business requests. Use `UNIQUE (tenant_id, idempotency_key)`; different tenants may reuse a key. `job_id` = row identity; `(tenant_id, idempotency_key)` = client request identity.
+
+Referential actions are **retention policy**: Attempts/Events/Artifacts hold Provider, cost and audit evidence -> `ON DELETE RESTRICT`. `CASCADE` only when the child has no independent retention value; `SET NULL` only when an orphan is meaningful **and** the FK is nullable (impossible on `NOT NULL job_id`).
+
+`CHECK` closes the Day29 gap: `NOT NULL` still accepts `''` and `banana`. `CHECK (job_status IN ('queued','running','succeeded','failed','cancelled'))` protects **every** write path (migrations, scripts, psql), not just the API. But a row CHECK sees only **this row** — it cannot assert a child Artifact exists (Day33), and it does not replace Day30 transition guards (a legal `queued` row can still be an illegal transition from `succeeded`).
+
+Normalization: `result_artifacts` stores **`attempt_id` only**; `job_id` is derivable via `job_attempts`. Storing both without a composite constraint permits contradictory ownership. Denormalize only for a **measured** problem, then constrain the duplicate.
+
+Three different things:
+
+```text
+jobs.job_status = what is true NOW      (fast API read; destroyed by each transition)
+job_events      = HOW it got there      (append-oriented history; incident reconstruction)
+outbox_events   = what MUST be published (durable intent; PostgreSQL owns it, Queue is transport)
+```
+
+Optional event provenance: composite FK `(job_id, attempt_id) -> job_attempts(job_id, attempt_id)` guarantees a non-NULL Attempt belongs to the same Job; under default `MATCH SIMPLE` a NULL `attempt_id` leaves it unenforced.
+
+Tenant isolation — two different questions:
+
+```text
+Composite FKs (tenant_id, job_id) / (tenant_id, document_id)
+    = relationship INTEGRITY at WRITE time (rejects cross-tenant links)
+Tenant-scoped query predicate, tenant_id from AUTHENTICATED server context
+    = AUTHORIZATION (who may read). FKs never authorize. RLS/roles = future work.
+```
+
+Deploying `UNIQUE` onto committed duplicates: a failed `ALTER TABLE ... ADD CONSTRAINT` protects nothing and decides nothing. Order: contain -> preserve evidence -> reconcile using Attempts/Events/Artifacts/Outbox/Provider/client-visible job_id -> choose canonical (the newer row is **not** automatically the loser) -> guarded repair -> verify no conflicts -> add constraint -> verify both directions.
+
+Rollback boundaries: `ROLLBACK` cancels **uncommitted** changes; committed rows need reconciled repair; application rollback only stops future bad writes.
+
+Testing constraints: assert the **specific** SQLSTATE — `23505` unique_violation, `23514` check_violation, `23503` foreign_key_violation (including RESTRICT) — never "any error".
+
 ---
 
 ## Interview Phrases
@@ -200,3 +254,16 @@ Don't wait first (state diverges, evidence degrades) and don't blanket-restore �
 - "AND binds tighter than OR — parenthesize destructive predicates."
 - "Fix a lost update inside one statement: SET attempt_count = attempt_count + 1."
 - "Contain first, reconcile before repairing; code rollback never repairs persisted rows."
+
+- "A primary key says who the row is; a business key says which operation must not repeat."
+- "UNIQUE is only as correct as its scope — unique within what?"
+- "A retry brings a new job_id, so only (tenant_id, idempotency_key) stops duplicate requests."
+- "One-to-many puts the foreign key on the many side; one-to-one is a foreign key plus UNIQUE."
+- "Many-to-many needs a junction table, and the relationship can carry its own attributes."
+- "ON DELETE is retention policy: CASCADE on audit-bearing children erases incident evidence."
+- "NOT NULL says the state exists; CHECK says it is legal on every write path."
+- "A row CHECK sees only this row — it cannot assert that a child row exists."
+- "Store attempt_id once and derive job_id; duplicated facts can contradict each other."
+- "Composite foreign keys enforce same-tenant relationships; they never authorize a reader."
+- "A failed ADD CONSTRAINT protects nothing — reconcile the committed duplicates first."
+- "Assert the specific SQLSTATE; 'any error' would pass on a typo."

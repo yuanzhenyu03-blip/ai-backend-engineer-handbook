@@ -20,11 +20,11 @@ Current phase:
 
 Last completed lesson:
 
-* Day30 — SQL Data Manipulation and Query Fundamentals
+* Day31 — Relational Modeling and Data Integrity
 
 Next:
 
-* Day31 — Relational Modeling and Data Integrity (Planned / Not started; see `ROADMAP.md`)
+* Day32 — SQL Joins, Aggregation, and Operational Queries (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

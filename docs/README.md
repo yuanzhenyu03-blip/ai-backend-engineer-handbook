@@ -13,7 +13,8 @@ docs/
 │   └── day28-ai-backend-production-architecture.md   # Phase 2 close
 ├── postgresql/    # Day29+ Phase 3 Backend Foundations
 │   ├── day29-postgresql-foundations-and-durable-relational-state.md
-│   └── day30-sql-data-manipulation-and-query-fundamentals.md          # latest
+│   ├── day30-sql-data-manipulation-and-query-fundamentals.md
+│   └── day31-relational-modeling-and-data-integrity.md                # latest
 ├── fastapi/
 ├── playwright/
 └── n8n/

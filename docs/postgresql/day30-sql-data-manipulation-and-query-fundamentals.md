@@ -16,7 +16,7 @@ Prerequisite: Day29 — PostgreSQL Foundations and Durable Relational State
 
 Previous Lesson: [Day29 — PostgreSQL Foundations and Durable Relational State](day29-postgresql-foundations-and-durable-relational-state.md)
 
-Next Lesson: Day31 — Relational Modeling and Data Integrity (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day31 lesson file does not exist yet)
+Next Lesson: [Day31 — Relational Modeling and Data Integrity](day31-relational-modeling-and-data-integrity.md)
 
 Engineering Artifact: The Day30 increment of the Production AI Backend Data Layer — a raw, parameterized SQL operations pack (`sql/002_job_crud_and_guarded_transitions.sql`) with explicit affected-row contracts — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

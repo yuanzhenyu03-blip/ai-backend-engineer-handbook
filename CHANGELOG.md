@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.61 — Day31 Relational Modeling and Data Integrity
+
+Date: 2026-07-21
+
+### Added
+
+- Added `docs/postgresql/day31-relational-modeling-and-data-integrity.md` (LESSON_TEMPLATE_v2; Master Prompt v3.2 knowledge-continuity chain and a Day30->Day31 mental-model evolution).
+- Added `projects/ai-backend-data-layer/sql/003_relational_modeling_and_data_integrity.sql` — the relational target schema: `tenants`, `upload_sessions`, `documents`, extended `jobs` (tenant ownership, `UNIQUE (tenant_id, idempotency_key)`, status/counter/terminal CHECKs), `job_attempts`, `job_events`, `outbox_events`, `result_artifacts`, and the tenant-aware `job_documents` junction table, with 23 named constraints and `ON DELETE RESTRICT` on all 11 foreign keys.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day31 increment: apply order, entity/relationship map, the encoded key rules, authored (not executed) positive/negative validation commands with exact SQLSTATEs, Day31 known gaps, and a separate Day31 validation matrix.
+- Appended a Day31 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day31 Beginner/Intermediate/Senior questions to `interview/postgresql.md` (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day31 is the latest PostgreSQL lesson, and pointed the Day30 lesson's Next Lesson at the released Day31 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day31 completed with its released lesson/artifact (Day32 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day31 last completed with artifact + validation boundary; Current/Next is Day32 Planned / Not started), `TASKS.md` (completed Day31 blocks, Day31 preparation converted to history, Day32 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day31 turns the Day29 durable row and the Day30 guarded statements into a relational model PostgreSQL can enforce: when a repeated fact becomes its own entity; primary key vs foreign key vs business key; the SCOPE of `UNIQUE` (`(job_id, attempt_number)`, and `(tenant_id, idempotency_key)` because a retry produces a NEW `job_id`); referential actions as retention policy (`RESTRICT` protects Provider/cost/audit evidence that `CASCADE` would erase); one-to-many FK placement and optional one-to-one via FK + `UNIQUE`; `CHECK` as the legal-state boundary and what a row CHECK cannot see; normalizing Result Artifacts so `job_id` stays derivable; separating `jobs.job_status`, `job_events`, and `outbox_events`; many-to-many junction tables with their own attributes; tenant-aware composite foreign keys; why foreign keys are write-time integrity and never authorization; and deploying a `UNIQUE` constraint onto committed duplicates.
+- Preserved the actual classroom record, including the student's Chinese and English answers and the reasonable errors and corrections (a duplicate insert believed to overwrite; `attempt_id` uniqueness assumed to stop duplicate attempt numbers; `CASCADE` chosen because `RESTRICT` blocks deletion; `work_id + job_id` proposed for request identity; the FK placed on the earlier Upload Session; composite FKs believed to block cross-tenant reads; a committed duplicate Job believed to be "rollback-able"; and the raw `job_attempts` DDL whose model was complete while the syntax was not).
+- Scope honesty: the artifact is a **target schema for a fresh database**, applied after `001_create_jobs.sql`. Its `ADD COLUMN ... NOT NULL` statements succeed only while `app.jobs` is empty and raise `23502` against existing rows; safe evolution of populated tables is **Day36** and no tenant or idempotency values were invented for historical rows. The legacy `jobs.result_object_key` column is retained, not dropped. No transactions, locking, explicit indexes, RLS, roles, or migrations were added.
+- Validation: conceptual/manual review of the complete model and static review of the student DDL were done **in class**, and a **reduced** classroom validation schema was executed on **PostgreSQL 14.18** where selected constraints behaved correctly (duplicate `(job_id, attempt_number)` rejected; non-positive `attempt_number` rejected; missing parent Job rejected; deleting a Job with an Attempt restricted; same-tenant duplicate idempotency key rejected; different-tenant key reuse accepted; invalid `job_status` rejected; cross-tenant Job-Document link rejected; one valid Attempt remained). An earlier attempt failed at cluster start with `shmget: Operation not permitted` — environment evidence, not a SQL result. **The full Day31 artifact in this repository was NOT executed**: no `psql` or PostgreSQL server was available during the repository update, so only a static file review was performed (balanced syntax, 15 statements, valid DDL dependency order after `001`, every composite FK backed by a matching candidate key, `result_artifacts` carrying no `job_id`, all FKs `RESTRICT`, no out-of-scope constructs, no credentials). The reduced classroom test is **not** proof that every table in the final file applies cleanly.
+- Day30's validation distinction is preserved unchanged: its manual/static statement review is **not** PostgreSQL runtime evidence. No Day32 lesson was created. Did not modify `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, or `LESSON_TEMPLATE_v2.md`; no second project or duplicate cheat/interview files were created; no credentials, connection strings, signed URLs, or production data were added.
+
+---
+
 ## v0.1.60 — Day30 Review Fixes
 
 Date: 2026-07-20
