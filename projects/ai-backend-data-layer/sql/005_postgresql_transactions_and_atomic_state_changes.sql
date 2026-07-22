@@ -193,14 +193,22 @@ COMMIT;
 -- -----------------------------------------------------------------------------
 -- TRANSACTION C -- COMPLETE.  Atomically persist the finished Attempt, the guarded
 -- terminal Job state, the Result Artifact reference, the append-only success
--- Event, and the Outbox publication intent -- all or nothing.
+-- Event, and -- ONLY WHEN a concrete downstream integration contract is configured
+-- -- the corresponding Outbox publication intent, all or nothing.
+--
+--   Fixed members of this atomic bundle: Attempt finish, guarded Job succeeded,
+--   Result Artifact reference, and the append-only success Event. The success Outbox
+--   intent is CONDITIONAL -- it joins the same transaction (and rolls back with it)
+--   ONLY if a real downstream consumer is configured (see the conditional INSERT
+--   below). With no consumer, no success Outbox row is created at all.
 --
 --   Integrated rollback case (classroom incident #12): if the Artifact INSERT
---   violates a constraint, the whole transaction rolls back. None of Attempt
---   finish, Job succeeded, success Event, or Outbox intent become committed facts.
---   The Provider cost and the Object Storage bytes REMAIN -- they were never in the
---   transaction. The object may be an orphan until reconciliation or a separately
---   audited compensating delete. Database rollback is not Object Storage rollback.
+--   violates a constraint, the whole transaction rolls back. None of Attempt finish,
+--   Job succeeded, or the success Event become committed facts; the conditional
+--   Outbox intent, IF enabled, rolls back with them. The Provider cost and the
+--   Object Storage bytes REMAIN -- they were never in the transaction. The object may
+--   be an orphan until reconciliation or a separately audited compensating delete.
+--   Database rollback is not Object Storage rollback.
 -- -----------------------------------------------------------------------------
 BEGIN;
 
@@ -235,7 +243,8 @@ UPDATE app.jobs
 RETURNING job_id;
 -- CONTROL-FLOW CONTRACT: 0 rows -> the Job was not running (already terminal,
 --   cancelled, wrong tenant). transition_not_applied -> ROLLBACK and STOP. Do not
---   write the Artifact/Event/Outbox rows for a completion that did not apply.
+--   write the Artifact / success Event (or any conditional Outbox) rows for a
+--   completion that did not apply.
 
 INSERT INTO app.result_artifacts (artifact_id, attempt_id, artifact_type, object_key, content_type, size_bytes, checksum)
 VALUES ($6, $2, $7, $8, $9, $10, $11);

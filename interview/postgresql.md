@@ -890,9 +890,10 @@ back. What survives?
 
 中文解析:
 
-数据库侧**都不留下**：Attempt 完成、Job 成功、成功 Event、Artifact 引用、Outbox intent 在回滚后都不是已提交
-的最终事实。留下的是数据库从未控制的东西——**Provider 费用**和**Object Storage 字节**。对象可能成为孤儿，需要
-对账或单独审计的补偿删除。数据库回滚不是 Object Storage 回滚。
+数据库侧**都不留下**：Attempt 完成、Job 成功、成功 Event、Artifact 引用，以及任何 Outbox 行（`job.succeeded`
+Outbox 是条件性的，只有配置了真实下游职责时才会加入本事务），在回滚后都不是已提交的最终事实。留下的是数据库从未
+控制的东西——**Provider 费用**和**Object Storage 字节**。对象可能成为孤儿，需要对账或单独审计的补偿删除。数据库
+回滚不是 Object Storage 回滚。
 
 Student's actual answer (preserved):
 
@@ -905,8 +906,9 @@ rollback; the external effects remain.
 
 ```text
 Weak:   "I'll insert the Job, then insert the Outbox event."
-Strong: "Both go in one transaction. A durable Job must exist iff a durable Outbox intent exists, or the
-        Relay never sees the Job and it stays queued forever."
+Strong: "At acceptance, create the Job together with its dispatch Outbox intent in one transaction, or the
+        Relay never sees the Job and it stays queued forever. It's a creation-time coupling, not a
+        permanent Job-to-Outbox equivalence — retention may archive published rows later."
 
 Weak:   "The guarded update returned zero rows, so the transaction failed."
 Strong: "Zero rows is a normal result. The transaction is fine; the app must gate on RETURNING and roll

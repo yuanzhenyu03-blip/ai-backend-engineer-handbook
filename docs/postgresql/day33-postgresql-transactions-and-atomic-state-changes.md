@@ -392,11 +392,12 @@ Provider accepts request -> Worker receives provider_request_id
 -> Worker CRASHES before Transaction C -> provider_request_id is NEVER persisted
 ```
 
-If your only handle were the returned `provider_request_id`, recovery would be blind. But because the
-pre-call key is `attempt_id` — already durable after Transaction B — reconciliation can still find or
-deduplicate the Provider call. Transaction B does **not** persist a Provider-returned id; it persists
-`attempt_id`, and that is sufficient *only if* the pre-call key is derived from it and actually sent to the
-Provider.
+If your only handle were the returned `provider_request_id`, recovery would be blind. The pre-call key —
+`attempt_id`, already durable after Transaction B — is the anchor instead, but note the precondition: its
+durability alone proves nothing to the Provider. It has external recovery value **only if** the Worker
+actually **sent** `attempt_id` (or a value derived from it) to a Provider that supports idempotency or a
+lookup mechanism. Do not assume the Provider can find the request just because `attempt_id` exists in the
+database. Transaction B does **not** persist a Provider-returned id.
 
 And if the Provider has **no** idempotency support? Then PostgreSQL cannot eliminate this unknown-outcome
 window at all. Such an Attempt must be **isolated and reconciled** — query the Provider, inspect Object
@@ -787,8 +788,9 @@ Verification: names connection hold + lock/old-snapshot, and the un-rollbackable
 After Provider success but before the Completion transaction, list what PostgreSQL can and cannot prove, and
 why blind requeue is unsafe.
 
-Verification: proves start facts + a recorded `provider_request_id`; cannot prove the external result;
-requeue may repeat cost.
+Verification: PostgreSQL proves only the start facts (Job running, Attempt/Event exist) — the Provider-returned
+`provider_request_id` is not even persisted yet; the recovery anchor is the pre-call key (`attempt_id`) *sent*
+to the Provider; PostgreSQL cannot prove the external result and a blind requeue may repeat cost.
 
 ## Exercise 7: Explain `published_at` (Advanced)
 
@@ -912,13 +914,21 @@ short transactions where the external outcome is momentarily unknown (Concepts 7
 
 ## Connection 3: Duplicate Provider work is a cost problem
 
-Because a requeue can repeat a paid Provider call, stable `provider_request_id`, a deterministic object key,
-and reconciliation are correctness *and* cost controls (Concept 8, 12).
+Because a requeue can repeat a *paid* Provider call, the controls that matter are a **pre-call idempotency /
+correlation key** (derived from the already-durable `attempt_id` and actually **sent** to the Provider when
+it supports idempotency), a deterministic object key, and reconciliation. The Provider-returned
+`provider_request_id` is only a lookup convenience — it is persisted just in Transaction C and can be lost to
+a crash before it, so it cannot be relied on as the recovery anchor. If the Provider offers no idempotency or
+lookup mechanism, PostgreSQL cannot close the unknown-outcome window: isolate and reconcile, never blind-retry
+(Concepts 8, 12).
 
 ## Connection 4: Completion is one atomic bundle
 
-Attempt finish, guarded Job terminal state, Result Artifact reference, success Event, and Outbox intent
-commit together or not at all (Concept 12).
+Attempt finish, guarded Job terminal state, Result Artifact reference, and the success Event are the **fixed**
+members of the atomic bundle — they commit together or not at all. The `job.succeeded` Outbox intent is
+**conditional**: only when a concrete downstream success-notification contract exists does it join the same
+transaction and roll back with it. When no downstream duty is defined, no success Outbox row is created
+(Concept 9, 12).
 
 ## Connection 5: The Outbox bounds what you can claim
 
@@ -963,7 +973,8 @@ Strong spoken answer:
 > request or its cost. Holding the transaction open for eight minutes would also pin a database connection
 > and potentially hold locks and an old snapshot. I would use one short transaction to record the claim,
 > Attempt, and start Event, commit it, call the Provider outside any transaction, and then use a second short
-> transaction for the completion state, result reference, Event, and Outbox intent."
+> transaction for the completion state, result reference, and Event — plus the Outbox intent only if a
+> downstream consumer is configured."
 
 ## Senior: Relay publishes, then crashes before `published_at` — what now?
 
@@ -999,7 +1010,7 @@ Key vocabulary: `transaction boundary`, `atomic commitment`, `guarded transition
 5. Zero affected rows is a NORMAL result; the application must gate on it. A SQL error is not.
 6. ACID protects data shape, not business logic; Consistency != correct transition.
 7. Never hold a transaction across an eight-minute Provider call — split into two short ones.
-8. A recorded provider_request_id proves you asked, not what happened.
+8. The recovery anchor is a PRE-CALL idempotency key made durable (attempt_id) and actually SENT to the Provider; the returned provider_request_id may be lost before Transaction C and cannot support recovery alone.
 9. The Outbox is durable intent; the Relay does not delete it or reset published_at to NULL.
 10. published_at NULL = never/in-flight/crashed-before-write-back; NOT NULL = Relay recorded a publish only.
 11. at-most-once loses; at-least-once duplicates; exactly-once is NOT disabling retries.
@@ -1044,8 +1055,12 @@ that commit is durable.
 
 The harder half is the boundary. PostgreSQL can roll back only its own rows, so the AI Provider call and the
 Object Storage write live **outside** the transaction, between one short Start transaction and one short
-Complete transaction. Across that gap the external outcome can be momentarily unknown — which is why stable
-identifiers, checkpoints, idempotency, and reconciliation are not optional extras but the design itself.
+Complete transaction. Across that gap the external outcome can be momentarily unknown — which is why the
+recovery anchor must be a **pre-call idempotency key that is already durable and was actually sent to the
+Provider** (use `attempt_id`), not the Provider-returned `provider_request_id`, which is persisted only in the
+Complete transaction and can be lost to a crash before it. If the Provider supports no such key, the window
+cannot be closed: isolate and reconcile, never blind-retry. Stable identifiers, checkpoints, idempotency, and
+reconciliation are not optional extras but the design itself.
 
 And two guardrails carry into every future lesson. Zero affected rows is a normal result the application must
 interpret, not a transaction failure. And the Outbox gives you at-least-once publication, not exactly-once —
@@ -1063,6 +1078,7 @@ idempotency makes uncertain retries safe. You need both.
 - [ ] I can explain why zero affected rows does not abort a transaction and what corrupts if it is not gated.
 - [ ] I can restructure a long transaction into two short ones around the external phase, and name the costs.
 - [ ] I can state what PostgreSQL can and cannot prove after Provider success.
+- [ ] I can explain why the pre-call idempotency key (durable `attempt_id`, actually sent to the Provider) is the recovery anchor and the returned `provider_request_id` is not.
 - [ ] I can explain the Outbox lifecycle and why the Relay does not "take" the row.
 - [ ] I can enumerate the meanings of `published_at` and the three delivery checkpoints.
 - [ ] I can correct "disabling retries gives exactly-once" and give the practical model.

@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.69 — Day33 Consistency Fixes (Codex re-review)
+
+Date: 2026-07-22
+
+### Fixed
+
+- **`provider_request_id`-as-recovery-anchor residuals purged.** Several Day33 lesson summaries still implied the Provider-returned `provider_request_id` was a recovery/dedup control, contradicting the two-identifier model established in v0.1.68. Corrected AI Backend **Connection 3** (duplicate Provider work), **Mental Model Summary #8**, **Exercise 6** verification, **Today's Takeaway**, and the **Before Next Lesson Checklist**. All now state that the recovery anchor is a **pre-call idempotency / correlation key made durable (`attempt_id`) and actually SENT to the Provider**, valid **only** when the Provider supports idempotency/lookup; the returned `provider_request_id` is a lookup convenience persisted only in Transaction C and can be lost to a crash before it, so it cannot support recovery alone. Tightened Concept 8 and the cheat sheet so durability of `attempt_id` alone is not claimed to guarantee Provider-side recovery.
+- **Unconditional-success-Outbox residuals purged.** The final SQL already left `job.succeeded` conditional, but Transaction C's header comment still called the Outbox intent a fixed member of the atomic bundle. Reworded the `005` Transaction C header and its integrated-rollback note to state that Attempt finish, guarded Job succeeded, Result Artifact, and the success Event are the **fixed** members, while the success Outbox intent joins the transaction (and rolls back with it) **only when a concrete downstream integration contract is configured** — otherwise no success Outbox row is created. Reworded lesson **AI Backend Connection 4** to match, and marked the intermediate interview strong answer's Outbox mention as conditional.
+- **Recovered two lost v0.1.68 interview edits.** A mid-script failure in the previous round meant two intended interview edits never landed: the completion-rollback Chinese explanation still read `Outbox intent 在回滚后`, and a Weak/Strong answer still read `a durable Job must exist iff a durable Outbox intent exists`. Both are now applied — the rollback note reads "any Outbox row (the `job.succeeded` Outbox is conditional)", and the Weak/Strong answer reads the creation-time coupling rather than a permanent equivalence.
+
+### Consistency
+
+- Full-repository search across all Day33 files for `stable provider_request_id`, `provider_request_id is the recovery anchor`, `Transaction B persists provider_request_id`, `every completion writes an Outbox`, `success Outbox is mandatory`, `Transaction C always includes an Outbox`, an unmarked `Attempt + Job + Artifact + Event + Outbox` bundle, and a permanent `Job exists <=> Outbox row exists`: no remaining occurrences carry the stale meaning; every surviving match is an explicit negation, a creation-time coupling, or an accurately-contextualized historical note (e.g. the reduced classroom run that tested an unconditional Outbox, now flagged as superseded by the conditional final artifact).
+- Confirmed the earlier fixes remain intact: the `AND finished_at IS NULL` Attempt-finish guard; zero-row ROLLBACK/stop/isolation; no overwrite of a finished Attempt's evidence; the Job Event vs Outbox Event distinction; the commented-out default `job.succeeded` Outbox; the stable-ids-only payload rule (no bytes, secrets, or signed URLs); the non-attributed Mental Model Evolution; the acceptance-time Job + dispatch Outbox creation-time coupling; and the NOT RUN runtime status.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); LESSON_TEMPLATE_v2 16-section order unchanged; Markdown fence balance; relative-link resolution; SQL static review of `005` (balanced parentheses, three `BEGIN`/`COMMIT` pairs, `finished_at IS NULL` guard present, `job.succeeded` INSERT still commented out, active INSERT columns present in `001` + `003`, no `FOR UPDATE`/`SKIP LOCKED`/`CREATE INDEX`/`EXPLAIN`/`DROP`/`ALTER`/ORM, no schema change); a stale-phrasing contradiction sweep; a quote-provenance check that every Day33 student quote still appears in `Day33_Repository_Update_Input.md` with exactly one `不知道`; status-file consistency; and a secret scan.
+- **Final artifact PostgreSQL Runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available. This round changed only documentation wording and SQL comments (no executable SQL statement changed), so nothing new was executed. The reduced classroom PostgreSQL 14.18 run is unchanged historical evidence and is **not** reused as proof of the final file.
+- Scope: wording/comment consistency only. No schema change, no migration, no Day34 concurrency/locks/MVCC/isolation content, no change to any student answer, and no change to the protected prompt/template files.
+
+---
+
 ## v0.1.68 — Day33 Review Fixes (Codex)
 
 Date: 2026-07-22
