@@ -16,7 +16,7 @@ Prerequisite: Day32 — SQL Joins, Aggregation, and Operational Queries
 
 Previous Lesson: [Day32 — SQL Joins, Aggregation, and Operational Queries](day32-sql-joins-aggregation-and-operational-queries.md)
 
-Next Lesson: Day34 — Concurrency Control, MVCC, and Worker Claims (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day34 lesson file does not exist yet)
+Next Lesson: [Day34 — Concurrency Control, MVCC, and Worker Claims](day34-concurrency-control-mvcc-and-worker-claims.md)
 
 Engineering Artifact: The Day33 transactional write pack (`sql/005_postgresql_transactions_and_atomic_state_changes.sql`) — three short transactions (Accept / Start / Complete) around one external phase, plus the Relay checkpoint — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

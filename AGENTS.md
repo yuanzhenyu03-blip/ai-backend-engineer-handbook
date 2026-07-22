@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day33 — PostgreSQL Transactions and Atomic State Changes
+Day34 — Concurrency Control, MVCC, and Worker Claims
 
 Next Lesson:
 
-Day34 — Concurrency Control, MVCC, and Worker Claims (Planned / Not started; see ROADMAP.md)
+Day35 — PostgreSQL Indexes and Query Planning (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

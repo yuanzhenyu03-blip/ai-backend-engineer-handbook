@@ -23,10 +23,11 @@ Last completed lesson:
 * Day31 — Relational Modeling and Data Integrity
 * Day32 — SQL Joins, Aggregation, and Operational Queries
 * Day33 — PostgreSQL Transactions and Atomic State Changes
+* Day34 — Concurrency Control, MVCC, and Worker Claims
 
 Next:
 
-* Day34 — Concurrency Control, MVCC, and Worker Claims (Planned / Not started; see `ROADMAP.md`)
+* Day35 — PostgreSQL Indexes and Query Planning (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

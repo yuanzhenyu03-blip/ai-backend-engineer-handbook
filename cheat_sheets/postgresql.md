@@ -393,6 +393,60 @@ Scope: Day33 has no `FOR UPDATE`/`SKIP LOCKED`/MVCC tuning (Day34), no indexes/`
 
 ---
 
+## Day34 Concurrency Control, MVCC, and Worker Claims
+
+**Visibility != ownership.** A plain `SELECT` shows candidates; two Read Committed sessions can both see the same queued Job. Ownership is a **lock** (transaction-local) and, once it must survive COMMIT, a **committed lease**. Never treat a candidate SELECT as a claim.
+
+**`FOR UPDATE`** requests a row lock; a conflicting locker **waits**, ordinary MVCC reads are not blocked. The lock is transaction-local (gone at COMMIT/ROLLBACK) and must never span an eight-minute Provider call.
+
+**`FOR UPDATE SKIP LOCKED`** skips rows locked by other claim transactions and takes the next **available** row — Workers spread across the queue instead of convoying on the head. Right for a queue claim, wrong for a complete report.
+
+**The claim transaction** (active `006`, Day31 schema):
+
+```text
+BEGIN
+  -> SELECT one queued candidate by tenant/status/order FOR UPDATE SKIP LOCKED
+  -> guarded queued->running UPDATE ... RETURNING            (the UNCHANGED Day33 write)
+  -> only on the 1-row path: INSERT Attempt + job_started Event
+COMMIT
+  -> THEN call the Provider, OUTSIDE any transaction
+```
+
+0 rows from the SKIP LOCKED select = no available queued Job (all locked or empty) -> back off, normal. 0 rows from the guarded UPDATE = `transition_not_applied` -> ROLLBACK/stop (Day33 gate).
+
+**`SKIP LOCKED` weakens fairness.** `ORDER BY` sorts only currently-**available** rows, so no strict FIFO and a long-held row can **starve**. Mitigate operationally: short claim transactions; monitor oldest queued age / lock waits / expired leases; a recovery sweeper. (Index proof is Day35.)
+
+**A released lock is not liveness.** After the Start COMMIT the lock is gone but Job/Attempt/Event are durable. A missing lock does not mean the Worker died; blind reclaim duplicates Attempt, Event, and Provider cost.
+
+**Row lock vs committed lease.** Row lock = transaction-local exclusion (gone at COMMIT). Lease = **committed** ownership: `claim_owner` + `lease_token` + `lease_expires_at`. These lease columns are **NOT in the Day31 schema**; adding them is a Day36 migration. In `006` they are commented/conceptual only — never active SQL.
+
+**Lease expiry is a takeover condition, not death.** A paused/partitioned Worker may resume after expiry. **Takeover writes a new `lease_token`; expiry alone does not change the token** — it invalidates ownership via the `lease_expires_at <= now()` time predicate. Completion guards current token + running + unexpired lease; a stale token returns 0 rows and rolls the Completion transaction back.
+
+**Lease duration** comes from heartbeat interval + observed pause, **not** Provider duration. For an 8-min Job with ~45s heartbeat pauses, ~2 min beats 30 s (which would false-take-over during a normal pause). Short lease = faster true-failure recovery, more false takeover; long lease = fewer false takeovers, slower recovery. Renew with PostgreSQL `now()`, not Worker clocks.
+
+**`lease_token` != Provider idempotency key.** `lease_token` = one ownership epoch, **changes on takeover**. The Provider key = the same logical external operation, **stable** (derive from durable `attempt_id`, actually **send** it to a Provider that supports idempotency/lookup). Using a new token as a new Provider key defeats idempotency and can repeat charges. No Provider support -> isolate + reconcile.
+
+**Pessimistic vs optimistic.** `FOR UPDATE SKIP LOCKED` (pessimistic reservation) spreads a **high-contention** queue. Optimistic expected-status/version guard suits **low-contention** edits; 100 Workers on the oldest Job = one winner + a retry storm. More isolation is not automatic work partitioning.
+
+**MVCC / isolation.**
+
+```text
+READ UNCOMMITTED -> treated as READ COMMITTED
+READ COMMITTED   -> NEW snapshot per statement (100 then 101 = a PHANTOM, allowed, not broken atomicity)
+REPEATABLE READ  -> one STABLE txn snapshot; conflicting writer may abort with 40001
+SERIALIZABLE     -> outcome == some serial order; also whole-txn retry on 40001
+phantom = changed PREDICATE result; non-repeatable = changed VALUE for same row;
+dirty read = uncommitted (PostgreSQL disallows); lost update = stale read-compute-write overwrite
+```
+
+Stable snapshots do **not** partition work; ownership is always explicit.
+
+**Deadlock & retry.** Reverse-order lock cycle -> PostgreSQL **detects** it, aborts one victim with `40P01` (does not wait forever, does not auto-retry). **Prevent** with a consistent global lock order (e.g. ascending `job_id`, obeyed by every writer). **Bound** ordinary waits with `lock_timeout`/`statement_timeout` (`55P03` on a lock-timeout cancel) — bounds do not replace ordering. **Retry** `40P01`/`40001` from the **application**: ROLLBACK and re-run the whole transaction, finite budget + jitter, reusing idempotent ids. `UNIQUE (job_id, attempt_number)` / `(tenant_id, idempotency_key)` still stop duplicate durable facts.
+
+Scope: Day34 adds no `CREATE INDEX`/`EXPLAIN` (Day35), no `ALTER`/migration (Day36), no ORM/Redis. Locks/leases decide ownership; UNIQUE decides identity; a stable Provider key protects the external call; none replaces another.
+
+---
+
 ## Interview Phrases
 
 - "The Job row is committed before 202; 202 acknowledges an existing durable commitment."
@@ -466,3 +520,16 @@ Scope: Day33 has no `FOR UPDATE`/`SKIP LOCKED`/MVCC tuning (Day34), no indexes/`
 - "The same outbox_event_id stops duplicate processing, not duplicate publication."
 - "A lost COMMIT response is unknown — read stable ids, do not assume rollback."
 - "A transaction pack is a write-path contract, not a schema guarantee."
+
+- "A SELECT is candidate visibility; ownership is a lock, then a committed lease."
+- "FOR UPDATE waits on a conflict; FOR UPDATE SKIP LOCKED takes the next available row."
+- "SKIP LOCKED spreads Workers across the queue but gives no strict FIFO and can starve a row."
+- "A released row lock is not liveness evidence; blind reclaim duplicates Attempt, Event, and Provider cost."
+- "A row lock is transaction-local; a committed lease (owner+token+expiry) survives COMMIT — and is Day36 schema, conceptual today."
+- "Lease expiry is a takeover condition, not death; takeover writes the new token, expiry alone does not."
+- "lease_token is one ownership epoch; the Provider idempotency key is stable per external operation — never cross them."
+- "Read Committed takes a new snapshot per statement; 100 then 101 is an allowed phantom."
+- "Stronger isolation prevents anomalies; it does not partition work across Workers."
+- "A reverse-order deadlock is detected and one victim aborts with 40P01; the application retries, not PostgreSQL."
+- "Consistent lock order prevents the cycle; lock_timeout only bounds the wait (55P03)."
+- "Locks/leases decide ownership, UNIQUE decides identity, a stable Provider key protects the external call."

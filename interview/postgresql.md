@@ -946,3 +946,199 @@ Strong: "A Job Event is internal history; an Outbox Event is a pending external 
         only when a real consumer must act (notification, webhook, billing, indexing). With no consumer
         defined it stays optional. Payload carries stable ids only -- no bytes, secrets, or signed URLs."
 ```
+
+---
+
+# Day34 Concurrency Control, MVCC, and Worker Claims Questions
+
+From the Day34 lesson: candidate visibility vs ownership, `FOR UPDATE` and `FOR UPDATE SKIP LOCKED`, the
+claim transaction around the Day33 write, fairness/starvation, a released lock as non-liveness, row lock vs
+committed lease, lease expiry/takeover/token, `lease_token` vs Provider idempotency key, MVCC snapshots and
+isolation levels, and deadlock prevention/detection/bounds/retry.
+
+Lesson: `docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`
+
+Claim pack: `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql`
+
+## Beginner
+
+### 1. Two Workers select the same queued Job — have both claimed it?
+
+Question:
+
+Two independent Read Committed Workers run `SELECT ... WHERE job_status = 'queued' LIMIT 1` and both get
+job-A. Have both claimed it?
+
+中文解析:
+
+没有。两个 Worker 只是**选中了同一个候选行**——`SELECT` 是**可见性**，不是**所有权**。已提交的 queued 行在各自
+快照里可见，但谁都没有预留它。真正决定唯一赢家的是 Day33 的守卫 UPDATE（只有一个合法的 `queued -> running`
+成功），要显式预留则用 `FOR UPDATE` 行锁。可见性不等于所有权。
+
+Student's actual answer (preserved):
+
+> "是的，因为两个work独立执行，所以都认领了"
+
+Assessment: the natural first instinct, and the misconception the lesson corrects. Both selected the same
+candidate; visibility is not ownership.
+
+Strong answer:
+
+> "No — both only selected the same candidate. A SELECT is visibility; the committed queued row is in each
+> session's snapshot but neither owns it. Day33's guarded UPDATE lets only one legal transition win, and
+> explicit ownership comes from `FOR UPDATE`."
+
+### 2. What does `FOR UPDATE SKIP LOCKED` return when job-A is locked?
+
+Question:
+
+Session A holds a lock on job-A. Session B runs the ordered queued query with `FOR UPDATE SKIP LOCKED`. What
+does it get, and how is that different from plain `FOR UPDATE`?
+
+中文解析:
+
+`FOR UPDATE SKIP LOCKED` **跳过**被锁的 job-A，取下一个可用的 job-B；普通 `FOR UPDATE` 会**等待** job-A 的锁
+释放。SKIP LOCKED 让多个 Worker 分散到未锁的行上，适合队列认领，不适合需要完整快照的报表。
+
+Student's actual answers (preserved):
+
+> (plain FOR UPDATE while job-A locked) "会等待"
+
+> (FOR UPDATE SKIP LOCKED) "会跳过当前这个锁"
+
+Assessment: both correct.
+
+## Intermediate
+
+### 1. After the Start COMMIT the lock is gone — can another Worker reclaim the Job?
+
+Question:
+
+The claim transaction committed; the row lock is released. A second Worker sees no lock. Can it reclaim the
+Job because nothing is locked?
+
+中文解析:
+
+不能。行锁是事务本地的，COMMIT 后就消失，但 Job/Attempt/Event 已经**持久化**。没有锁并不代表第一个 Worker 死了
+（它可能只是暂停或网络分区）。盲目重新认领会重复写入 Attempt、Event，甚至重复 Provider 费用和结果。要安全恢复
+所有权，需要一个**已提交的 lease**，而不是靠事务还开着的副作用。
+
+Student's actual answer (preserved):
+
+> "不能，因为数据库已经存在之前work的持久化状态了，重新认领会重复写入"
+
+Assessment: correct. A released lock is not liveness evidence.
+
+### 2. Read Committed counts 100 then 101 — is atomicity broken?
+
+Question:
+
+Under Read Committed a transaction counts 100 queued Jobs, another session commits one insert, and the next
+statement counts 101. Is atomicity broken? And would Repeatable Read let two Workers auto-split work?
+
+中文解析:
+
+没坏，这是该隔离级别**允许**的行为，但原因要说准：不是"因为已提交所以可见"，而是 **Read Committed 每条语句都取
+新快照**，所以第二次 `COUNT` 看到了新提交的行（这是 phantom）。Repeatable Read 用**稳定事务快照**，同一事务里的
+普通读不会看到那次后续提交——但稳定快照**不会**自动把不同 Job 分给不同 Worker，所有权仍需显式的锁/守卫。
+
+Student's actual answers (preserved):
+
+> (100 then 101) "是该隔离级别允许的行为，因为Transaction B提交以后已经变成持久化数据。"
+
+> (Repeatable Read without locks) "不会，因为表示两个work看到的是同一个快照，没有进行行锁，不会自动的领取不同job"
+
+Assessment: conclusions correct; the Read Committed *reason* was corrected to "new snapshot per statement,"
+and the Repeatable Read answer is right (stable snapshots do not partition work).
+
+## Senior
+
+### 1. A stale Worker resumes after takeover and tries to complete — what happens?
+
+Question:
+
+Worker 1 committed claim/token-A and called the Provider; the lease expired; Worker 2 took over with
+token-B; Worker 1 resumes and runs its Completion transaction. What happens in the database and outside it?
+
+中文解析:
+
+Worker 1 的 Completion 守卫要求**当前 token + running + 未过期 lease**；它带着旧 token-A，返回**零行**，整个
+Completion 事务回滚。但数据库回滚**不能**撤销外部副作用：已经发生的 Provider 费用和已写入 Object Storage 的字节
+仍然存在，需要对账。lease 过期只是**接管条件**，不是死亡证明；**接管**写入新 token，过期本身不改 token。
+
+Student's actual answer (preserved):
+
+> "失败，lease_token"
+
+Assessment: correct and appropriately terse — the stale completion fails on the `lease_token` guard and
+rolls back; external effects remain for reconciliation.
+
+### 2. Should the new lease token become the new Provider idempotency key?
+
+Question:
+
+On takeover you mint a new `lease_token`. Should you send it to the Provider as its idempotency key?
+
+中文解析:
+
+不能，必须把两者分开。`lease_token` 标识**一个所有权 epoch**，每次接管都变；Provider 幂等键标识**同一个逻辑外部
+操作**，必须**跨接管保持稳定**（从持久化的 `attempt_id` 派生，并实际发给支持幂等/查询的 Provider）。用新 token
+当新幂等键会让 Provider 以为是新请求，可能**重复扣费**。若 Provider 不支持幂等，lease 也救不了外部重试——只能隔离
+并对账。
+
+Student's actual answer (preserved):
+
+> "不能，要把lease_token与幂等键进行分别，因为每次接管都会生成新的token这样幂等键就不能保障防止重复调用provider"
+
+Assessment: exactly right — ownership epoch vs stable external identity.
+
+### 3. Reverse-order deadlock — what does PostgreSQL do, and how do you prevent it?
+
+Question:
+
+Transaction A locks job-A then wants job-B; Transaction B locks job-B then wants job-A. What does PostgreSQL
+do, and what is the fix?
+
+中文解析:
+
+这是**循环等待**。PostgreSQL **检测**到并中止一个牺牲者，`SQLSTATE 40P01 (deadlock_detected)`——它不会让两者
+永远等待，也**不会自动重试**你的事务。主要预防手段是**一致的全局加锁顺序**（例如都按 `job_id` 升序），这样第二个
+事务在**尚未持有**第二把锁时就等待，只有等待没有环。超时（`lock_timeout`，取消时 `55P03`）只是**边界**，不能替代
+顺序；`40P01`/`40001` 的重试由**应用**做：回滚并重试整个事务，有限次数 + 抖动，复用幂等标识。
+
+Student's actual answers (preserved):
+
+> (reverse-order) "互相等待，应该设置超时时间"
+
+> (consistent order) "不会，因为这个时候Transaction A先锁了job A，再去锁job B。而transaction B也是按照这个顺序，先锁A，而这个时候A被transaction A锁住了，所以就会等待"
+
+Assessment: the deadlock diagnosis is right but the remedy was incomplete (a timeout bounds, it does not
+prevent); the consistent-lock-order answer is exactly right.
+
+## Common Weak vs Strong Answer (Day34)
+
+```text
+Weak:   "Both Workers selected the row, so both own it."
+Strong: "Both saw the same candidate. Visibility is not ownership — Day33's guarded UPDATE picks one
+        winner, and FOR UPDATE gives explicit transaction-local ownership."
+
+Weak:   "Use optimistic concurrency; SKIP LOCKED wastes work by skipping locked rows."
+Strong: "The skipping is the point — it spreads Workers across unlocked rows. Under high contention pure
+        optimistic selection storms the oldest Job. Pessimistic FOR UPDATE SKIP LOCKED fits a busy queue."
+
+Weak:   "No row is locked, so the previous Worker is gone — reclaim it."
+Strong: "A released lock is not liveness. The committed Job/Attempt/Event persist; blind reclaim duplicates
+        Attempt, Event, and Provider cost. Recoverable ownership needs a committed lease."
+
+Weak:   "The lease expired, so the token is void and the Worker is dead."
+Strong: "Expiry is a takeover condition, not death — a paused Worker may resume. Takeover writes a NEW
+        token; expiry alone doesn't change it. Completion guards token + running + unexpired lease."
+
+Weak:   "Reuse the new lease token as the Provider idempotency key."
+Strong: "Never. The token changes per ownership epoch; the Provider key is stable per external operation,
+        derived from attempt_id and sent to a supporting Provider. Crossing them can repeat charges."
+
+Weak:   "Set a timeout to fix deadlocks."
+Strong: "PostgreSQL detects the cycle and aborts one victim with 40P01. Consistent lock order prevents it;
+        lock_timeout only bounds the wait (55P03); the application retries the whole transaction."
+```

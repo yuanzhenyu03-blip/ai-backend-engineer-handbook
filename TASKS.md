@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day34 — Concurrency Control, MVCC, and Worker Claims
+Day35 — PostgreSQL Indexes and Query Planning
 
 Status:
 Planned / Not started
@@ -28,10 +28,62 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day34 — Concurrency Control, MVCC, and Worker Claims (see the Day34 Preparation block below).
+- [ ] Prepare for Day35 — PostgreSQL Indexes and Query Planning (see the Day35 Preparation block below).
 
-(Day29-Day33 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33
+(Day29-Day34 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33/Day34
 sections and the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day34 Tasks
+
+- [x] Complete Day34 Concurrency Control, MVCC, and Worker Claims classroom learning.
+- [x] Generate the Day34 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day33->Day34 mental-model evolution).
+- [x] Explain why a candidate SELECT is visibility, not ownership.
+- [x] Use FOR UPDATE and FOR UPDATE SKIP LOCKED and build the claim transaction around the Day33 write.
+- [x] State what SKIP LOCKED does not guarantee (strict FIFO, complete snapshot, eventual service).
+- [x] Explain why a released lock is not liveness evidence and what blind reclaim duplicates.
+- [x] Distinguish a transaction-local row lock from a committed lease (owner/token/expiry).
+- [x] Treat lease expiry as a takeover condition, with takeover writing a new token and a guarded completion.
+- [x] Choose a lease duration from heartbeat + observed pause and justify it against false takeover.
+- [x] Keep lease_token separate from a stable Provider idempotency key.
+- [x] Read Read Committed vs Repeatable Read/Serializable snapshots and why isolation does not partition work.
+- [x] Diagnose a reverse-order deadlock (40P01), prevent it with a consistent lock order, and retry from the app.
+- [x] Preserve the real student answers, English answers, final Chinese synthesis, and all corrections.
+
+---
+
+## Completed Day34 Repository Tasks
+
+- [x] Add `docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day34 increment, active-vs-conceptual boundary, reproduction, and limitations.
+- [x] Append the Day34 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day34 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day34 is now the latest PostgreSQL lesson).
+- [x] Update the Day33 lesson Next Lesson link to the released Day34 lesson.
+- [x] Update `CURRICULUM.md` (Day34 Completed; Day35 remains Planned).
+- [x] Update `ROADMAP.md` (Day34 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day34 Interview Tasks
+
+- [x] Add the beginner visibility-vs-claim and SKIP LOCKED questions with the student's actual answers.
+- [x] Add intermediate released-lock and Read-Committed-phantom questions.
+- [x] Add the senior stale-completion, lease-token-vs-Provider-key, and deadlock questions.
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day34 Homework
+
+- [x] Complete the visibility-vs-claim and FOR UPDATE / SKIP LOCKED exercises.
+- [x] Complete the released-lock and lease/heartbeat-policy exercises.
+- [x] Complete the stale-owner completion and token-vs-Provider-identity exercises.
+- [x] Complete the pessimistic-vs-optimistic and Read-Committed-phantom exercises.
+- [x] Complete the deadlock / lock-order and integrated takeover/rollback exercises.
 
 ---
 
@@ -200,15 +252,26 @@ sections and the corresponding Preparation history blocks.)
 
 ---
 
-### Day34 Preparation — Concurrency Control, MVCC, and Worker Claims
+### Day35 Preparation — PostgreSQL Indexes and Query Planning
 
-- [ ] Read the Day34 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql` and note where the Relay checkpoint defers concurrent claiming.
-- [ ] Preview concurrent sessions, MVCC snapshot visibility, and isolation-level anomalies.
-- [ ] Preview `SELECT ... FOR UPDATE`, `SKIP LOCKED` worker claiming, and fairness/starvation.
-- [ ] Preview DB lock vs application lease, deadlocks, lock ordering, timeout, and retry.
-- [ ] Remember that a lock cannot repair a wrongly defined business transaction (Day33 stays the foundation).
-- [ ] Keep indexes and execution plans (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day35 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql` and note the exact claim predicates and ordering (tenant_id, job_status = 'queued', created_at, job_id).
+- [ ] Preview the access paths a busy claim hammers: the queued scan, and (once the lease exists) stale-lease and unpublished-Outbox scans.
+- [ ] Preview `EXPLAIN`/`EXPLAIN ANALYZE`, index types, and why an index is chosen by measurement, not guess.
+- [ ] Remember Day34's correctness must be settled before Day35's speed; an index cannot fix a wrong claim.
+- [ ] Keep lease-column migration (Day36), full operations (Day37), and SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day34 Preparation — Concurrency Control, MVCC, and Worker Claims (completed)
+
+- [x] Read the Day34 input.
+- [x] Reviewed `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql` and where the Relay checkpoint defers concurrent claiming.
+- [x] Previewed concurrent sessions, MVCC snapshot visibility, and isolation-level anomalies.
+- [x] Previewed `SELECT ... FOR UPDATE`, `SKIP LOCKED` worker claiming, and fairness/starvation.
+- [x] Previewed DB lock vs application lease, deadlocks, lock ordering, timeout, and retry.
+- [x] Kept a lock from being treated as a repair for a wrongly defined Day33 boundary.
+- [x] Kept indexes and execution plans (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -431,7 +494,7 @@ sections and the corresponding Preparation history blocks.)
 - [x] Day31 — Relational Modeling and Data Integrity (Completed).
 - [x] Day32 — SQL Joins, Aggregation, and Operational Queries (Completed).
 - [x] Day33 — PostgreSQL Transactions and Atomic State Changes (Completed).
-- [ ] Day34 — Concurrency Control, MVCC, and Worker Claims (Planned).
+- [x] Day34 — Concurrency Control, MVCC, and Worker Claims (Completed).
 - [ ] Day35 — PostgreSQL Indexes and Query Planning (Planned).
 - [ ] Day36 — Schema Evolution and Safe Migrations (Planned).
 - [ ] Day37 — PostgreSQL Production Reliability (Planned).

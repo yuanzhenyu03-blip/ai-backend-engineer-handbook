@@ -828,7 +828,38 @@ starvation; optimistic vs pessimistic concurrency; DB lock vs application lease 
 lock ordering, timeout, retry, observability; idempotency unique constraints still required.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day33 — PostgreSQL Transactions and Atomic State Changes
+
+Next Lesson:
+Day35 — PostgreSQL Indexes and Query Planning
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql` — a concurrency
+claim pack over the Day31 model. ACTIVE: a `FOR UPDATE SKIP LOCKED` claim transaction that reserves one
+queued candidate (tenant/status/order), reuses the unchanged Day33 guarded `queued->running` write with
+explicit control-flow gates, inserts the Attempt + `job_started` Event, and commits before the Provider
+call; plus an optimistic alternative and consistent-lock-order / retry guidance. CONCEPTUAL ONLY (commented,
+not runnable): the application lease state machine (`claim_owner`/`lease_token`/`lease_expires_at`), whose
+columns do not exist in the Day31 schema. Contains no `CREATE INDEX`, `EXPLAIN`, `ALTER`, migration, ORM, or
+Redis (Day35-Day36)
+
+Validation Limits:
+Reduced-schema PostgreSQL 14.18 classroom runtime covered only three concurrency tests on a disposable
+`jobs(job_id text, job_status text, created_at integer)` schema (FOR UPDATE SKIP LOCKED returning job-B while
+job-A is locked; ordinary FOR UPDATE cancelled with `55P03` under `lock_timeout`; a reverse-order deadlock
+aborted with `40P01`). That was NOT the full Day31 schema and did NOT run the final 006 artifact, the claim's
+Attempt/Event inserts, or any lease field. Final 006 file PostgreSQL runtime: NOT RUN. Application/driver/
+Celery multi-Worker, lease heartbeat/renewal/takeover, stale-token Completion, Provider idempotency, Object
+Storage, Redis: NOT RUN. Day35 index plans and production validation: NOT RUN.
 
 ---
 

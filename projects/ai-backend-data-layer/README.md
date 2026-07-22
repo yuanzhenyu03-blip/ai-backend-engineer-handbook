@@ -4,9 +4,9 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day33 — a transactional write pack** that turns the Day32 read-side coherence rules
-into write-side atomic commitments: three short transactions (Accept / Start / Complete) around one
-external Provider/Object Storage phase held outside any transaction, plus the Relay checkpoint.
+Current increment: **Day34 — a concurrency claim pack** that makes the Day33 atomic Start write safe when
+many Workers compete: an active `FOR UPDATE SKIP LOCKED` claim transaction around the unchanged Day33 write,
+plus a conceptual (commented) lease state machine for ownership that survives COMMIT.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -14,6 +14,7 @@ Lessons:
 - Day31 (relational model): [`docs/postgresql/day31-relational-modeling-and-data-integrity.md`](../../docs/postgresql/day31-relational-modeling-and-data-integrity.md)
 - Day32 (operational queries): [`docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`](../../docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md)
 - Day33 (transactions): [`docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`](../../docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md)
+- Day34 (concurrency): [`docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`](../../docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md)
 
 ---
 
@@ -27,7 +28,8 @@ projects/ai-backend-data-layer/
     ├── 002_job_crud_and_guarded_transitions.sql         # Day30: parameterized reads + guarded writes (reference pack, not DDL)
     ├── 003_relational_modeling_and_data_integrity.sql   # Day31: relational target schema + constraints
     ├── 004_sql_joins_aggregation_and_operational_queries.sql  # Day32: read-only operational query pack (not DDL)
-    └── 005_postgresql_transactions_and_atomic_state_changes.sql  # Day33: transactional write pack (driver-bound, not DDL)
+    ├── 005_postgresql_transactions_and_atomic_state_changes.sql  # Day33: transactional write pack (driver-bound, not DDL)
+    └── 006_concurrency_control_mvcc_and_worker_claims.sql        # Day34: concurrency claim pack (active claim + conceptual lease)
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -73,6 +75,83 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day34 increment — concurrency claim pack
+
+`sql/006_concurrency_control_mvcc_and_worker_claims.sql` makes the Day33 atomic Start write safe under many
+competing Workers. It is split into an **active** part and a **conceptual** part, and the split is the most
+important thing to understand before running anything.
+
+### Active (Day31 schema) vs conceptual (Day36 migration)
+
+| Part | Status | Contents |
+| --- | --- | --- |
+| Part 1 — claim transaction | **ACTIVE** (driver-bound, Day31 columns only) | plain candidate `SELECT` (visibility); `FOR UPDATE SKIP LOCKED` reservation; the unchanged Day33 guarded `queued->running` UPDATE with an affected-row gate; Attempt + `job_started` Event on the 1-row path; COMMIT before the Provider call; an optimistic alternative; consistent-lock-order + retry guidance |
+| Part 2 — lease state machine | **CONCEPTUAL ONLY (commented, not runnable)** | `claim_owner` / `lease_token` / `lease_expires_at` claim/renew/takeover/completion pseudocode. These columns **do not exist** in the Day31 schema; adding them is a Day36 migration |
+
+Do not uncomment Part 2 against the current schema — it will fail with "column does not exist." The lease
+design is taught in comments precisely because no migration was performed.
+
+### Rules encoded
+
+```text
+visibility (SELECT) != ownership (lock, then committed lease)
+FOR UPDATE                     -> transaction-local row lock; a conflicting locker WAITS
+FOR UPDATE SKIP LOCKED         -> skip locked rows, reserve the next AVAILABLE; Workers spread
+claim = SKIP LOCKED reserve + unchanged Day33 guarded write + gate + COMMIT, THEN Provider (outside tx)
+0 rows from SKIP LOCKED select -> no available queued Job -> back off (normal)
+0 rows from guarded UPDATE      -> transition_not_applied -> ROLLBACK/stop (Day33 gate)
+SKIP LOCKED weakens fairness     -> ORDER BY sorts only AVAILABLE rows; no strict FIFO; starvation possible
+released lock != liveness        -> committed Job/Attempt/Event persist; blind reclaim duplicates
+row lock (transaction-local)     != committed lease (owner + token + expiry; survives COMMIT; Day36 columns)
+lease expiry = takeover condition (not death); takeover WRITES a new token; expiry alone does not
+lease_token (ownership epoch)    != Provider idempotency key (stable per external operation)
+40P01 deadlock / 40001 serialization -> PostgreSQL aborts one victim; the APPLICATION retries (finite, jittered)
+consistent lock order prevents the cycle; lock_timeout bounds the wait (55P03); UNIQUE still stops duplicates
+```
+
+> **What this pack deliberately does not contain:** no `CREATE INDEX` or `EXPLAIN` (Day35); no `ALTER` or
+> migration (Day36); no ORM / SQLAlchemy / Alembic; no Redis locking. It does **not** claim `SKIP LOCKED`
+> gives strict FIFO, a complete snapshot, or eventual service of every row; it does **not** claim lease
+> expiry proves a Worker died, changes its own token, revokes external work, or makes a Provider retry safe.
+
+### Scope honesty
+
+The claim reuses the exact Day33 write; concurrency is a wrapper, not a replacement. Locks and leases decide
+**ownership**, `UNIQUE (job_id, attempt_number)` / `(tenant_id, idempotency_key)` decide **identity**, and a
+stable Provider idempotency key protects the **external** call — none substitutes for another, and none
+proves a Worker is alive.
+
+### Validation reproduction (**final 006 NOT executed during this repository update**)
+
+```bash
+# The CLASSROOM concurrency tests used a REDUCED disposable schema, NOT the Day31 schema and NOT this file:
+#   jobs(job_id text primary key, job_status text, created_at integer)
+# Two real concurrent psql sessions on a disposable PostgreSQL 14.18 cluster reproduced:
+#   1) Session A locks job-A; Session B runs the ordered queued query FOR UPDATE SKIP LOCKED -> returns job-B
+#   2) Session B ordinary FOR UPDATE with lock_timeout=500ms while A holds job-A -> SQLSTATE 55P03
+#   3) reverse-order lock A->B vs B->A -> SQLSTATE 40P01 deadlock; one victim aborted
+#
+# Illustrative SKIP LOCKED claim shape on the Day31 schema (bind $1; run on a DISPOSABLE cluster):
+#   BEGIN;
+#   SELECT job_id FROM app.jobs
+#    WHERE tenant_id = $1 AND job_status = 'queued'
+#    ORDER BY created_at ASC, job_id ASC
+#    FOR UPDATE SKIP LOCKED LIMIT 1;
+#   -- then the Day33 guarded UPDATE ... RETURNING, gated on affected rows
+#   COMMIT;
+```
+
+### Day34 known gaps (deliberate)
+
+```text
+Day35  measured indexes + EXPLAIN for the queued-claim / stale-lease / unpublished-Outbox access paths
+Day36  the expand/backfill/validate/switch/contract migration that actually adds the lease columns
+Day37  lock/deadlock/timeout monitoring, connection limits, production operations
+Day41  the stronger cross-system fencing-token boundary
+```
 
 ---
 
@@ -928,6 +1007,19 @@ not running. Do not present a Docker workflow as verified.
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
 
+### Day34 (`006_concurrency_control_mvcc_and_worker_claims.sql`)
+
+| Level | Day34 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | visibility vs ownership; `FOR UPDATE`/`SKIP LOCKED`; the claim transaction; fairness/starvation; released lock vs liveness; row lock vs committed lease; lease expiry/takeover/token; `lease_token` vs Provider key; MVCC/isolation; deadlock prevention/detection/bounds/retry |
+| Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, three concurrency tests)** | on a **reduced** disposable `jobs(job_id text, job_status text, created_at integer)` schema (NOT Day31, NOT this file): (1) Session A locked job-A, concurrent Session B ran the ordered queued query `FOR UPDATE SKIP LOCKED` and returned job-B; (2) Session B's ordinary `FOR UPDATE` under `lock_timeout=500ms` failed with `SQLSTATE 55P03`; (3) a reverse-order A->B / B->A deadlock was detected and Session B aborted with `SQLSTATE 40P01`, then Session A COMMITted. An initial restricted-sandbox `initdb` failed with `shmget: Operation not permitted` (environment evidence, not a SQL result). The temporary server was stopped afterwards. |
+| Reduced-run coverage limits | **Explicit** | The reduced run used a 3-column text schema and did **not** execute the final 006 file, the full Day31 schema, the claim's Attempt/Event inserts, or any lease field (`claim_owner`/`lease_token`/`lease_expires_at`). |
+| Final artifact static review | **Done (repository update)** | active SQL uses the Day31 columns exactly (no invented columns); one balanced `BEGIN`/`COMMIT` claim transaction; `FOR UPDATE SKIP LOCKED` reservation + the unchanged Day33 guarded `UPDATE ... RETURNING` with control-flow contracts; the lease state machine is **entirely commented/conceptual**; no `CREATE INDEX`/`EXPLAIN`/`ALTER`/`DROP`/migration/ORM/Redis; SQLSTATEs `55P03`/`40P01`/`40001` documented; no credentials |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available during the repository update, so no statement in `006` was parsed or executed by PostgreSQL. The reduced-schema classroom run is **not** reused as proof of this file. |
+| Application / external integration | **NOT RUN** | no FastAPI/driver/Celery multi-Worker, lease heartbeat/renewal/takeover, stale-token Completion on a migrated schema, Provider idempotency/lookup, Object Storage, or Redis/Queue |
+| Recovery / fairness / stronger isolation | **NOT RUN** | no crash/restart recovery, long-duration fairness/starvation, or SERIALIZABLE workload |
+| Performance / production validation | **NOT RUN / OUT OF SCOPE** | Day35 index plans; production load/performance, RLS, backups, HA, deployment |
+
 ### Day33 (`005_postgresql_transactions_and_atomic_state_changes.sql`)
 
 | Level | Day33 status | Evidence |
@@ -1009,7 +1101,7 @@ Day31  CHECK (valid job_status, attempt_count >= 0), UNIQUE business/idempotency
        Documents / Job Attempts / Job Events / Outbox Events / Result Artifact refs, foreign keys
 Day32  joins/aggregation and operational queries (delivered: sql/004_...sql)
 Day33  transactions (atomic Job + Outbox insert) (delivered: sql/005_...sql)
-Day34  concurrency-safe claims (FOR UPDATE / SKIP LOCKED), leases, idempotency enforcement
+Day34  concurrency-safe claims (FOR UPDATE / SKIP LOCKED), leases, idempotency enforcement (delivered: sql/006_...sql)
 Day35  indexes and query plans
 Day36  versioned migrations (this file is a starting point, not a migration framework)
 Day37  pooling, roles/least privilege, timeouts, vacuum, backup/PITR, operations

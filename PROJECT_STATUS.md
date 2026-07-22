@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day34 — Concurrency Control, MVCC, and Worker Claims
+Day35 — PostgreSQL Indexes and Query Planning
 
 Status:
 Planned / Not started
 
-(The Day34 lesson has not started and no Day34 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day33 details are recorded under Last Completed Lesson.)
+(The Day35 lesson has not started and no Day35 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day34 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -56,6 +56,7 @@ Day33 details are recorded under Last Completed Lesson.)
 - ✅ Day31 — Relational Modeling and Data Integrity
 - ✅ Day32 — SQL Joins, Aggregation, and Operational Queries
 - ✅ Day33 — PostgreSQL Transactions and Atomic State Changes
+- ✅ Day34 — Concurrency Control, MVCC, and Worker Claims
 
 ---
 
@@ -67,32 +68,32 @@ None.
 
 ## Last Completed Lesson
 
-Day33 — PostgreSQL Transactions and Atomic State Changes
+Day34 — Concurrency Control, MVCC, and Worker Claims
 
 Completed Time:
 2026-07-22
 
 Main Artifact:
-Day33 transactional write pack (projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql) — three short transactions (Accept / Start / Complete) around one external Provider/Object Storage phase held outside any transaction, plus the Relay checkpoint; each guarded UPDATE carries an explicit application control-flow contract, the Attempt-finish UPDATE is guarded by finished_at IS NULL (never overwriting recorded evidence), attempt_id is the pre-call Provider recovery anchor while the returned provider_request_id is persisted only in Complete, and the job.succeeded Outbox is conditional (Job Events are internal history; Outbox Events are external duties)
+Day34 concurrency claim pack (projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql) — an ACTIVE FOR UPDATE SKIP LOCKED claim transaction that reserves one queued candidate and reuses the unchanged Day33 guarded queued->running write with explicit control-flow gates, plus a CONCEPTUAL (commented, not runnable) application lease state machine (claim_owner/lease_token/lease_expires_at) whose columns do not exist in the Day31 schema
 
 Validation Boundary:
-Conceptual/manual production reasoning and a static scope check of the local classroom transaction draft were done in class. Then a REDUCED classroom validation schema was executed on PostgreSQL 14.18 and five listed tests PASSED: Job + Outbox committed together; a duplicate Outbox id raised unique_violation and rolled the preceding Job insert back; running Job + Attempt + job_started Event committed coherently; a duplicate Artifact key raised unique_violation and rolled Attempt-finish + Job-success + success Event + success Outbox back; the Outbox published_at checkpoint changed from NULL to a timestamp (final marker DAY33_REDUCED_RUNTIME_VALIDATION_PASS). An earlier restricted-sandbox bootstrap failed at cluster start with shmget: Operation not permitted - environment evidence, not a SQL failure. Both temporary clusters were deleted. Test 5 validated ONLY PostgreSQL's NULL-to-timestamp checkpoint, NOT Redis publication. The reduced classroom draft wrote an unconditional success Outbox; the final artifact makes that row conditional. The FINAL repository 005 artifact was NOT executed: no psql/PostgreSQL server was available during the repository update or the Codex review round, so only a static file review was performed (uses the Day31 columns exactly, NO schema change; three short transactions; guarded UPDATE ... RETURNING with explicit control-flow contracts; Attempt-finish guarded by finished_at IS NULL; attempt_id documented as the pre-call recovery anchor and provider_request_id as returned/persisted-in-C only; conditional commented job.succeeded Outbox with a stable-ids-only payload rule; external phase outside any transaction; no FOR UPDATE/SKIP LOCKED/index/EXPLAIN/migration/ORM; no credentials). The review-round guards (finished_at IS NULL, conditional Outbox, Provider-identity split) are static-only and NOT RUN. The reduced classroom run is not reused as proof of the final file. Application/FastAPI/driver/Provider/Object Storage/Redis/Celery integration: NOT RUN. Real Relay crash/restart and consumer idempotency: NOT RUN. Day34 concurrency/MVCC/locks/SKIP LOCKED (OUT OF SCOPE), and production performance, RLS/roles, backups, HA, deployment: NOT RUN.
+Conceptual/manual production reasoning was done in class. Then a REDUCED disposable schema jobs(job_id text primary key, job_status text, created_at integer) on PostgreSQL 14.18 (Homebrew) passed three concurrency tests: Session A held a row lock on job-A while a real concurrent Session B ran the ordered FOR UPDATE SKIP LOCKED query and returned job-B; while Session A held job-A, Session B used ordinary FOR UPDATE with lock_timeout=500ms and failed with SQLSTATE 55P03 (canceling statement due to lock timeout); Session A locked job-A then requested job-B while Session B locked job-B then requested job-A, PostgreSQL detected the circular wait and aborted Session B with SQLSTATE 40P01 (deadlock detected), and Session A then COMMITted. An initial restricted-sandbox initdb failed with shmget: could not create shared memory segment: Operation not permitted - environment evidence, not a SQL failure. The temporary server was stopped afterwards. This was NOT the full Day31 schema and did NOT run the final 006 artifact, the claim's Attempt/Event inserts, or any lease field. The FINAL 006 artifact was NOT executed: no psql/PostgreSQL server was available during the repository update, so only a static file review was performed (active SQL uses the Day31 columns exactly; FOR UPDATE SKIP LOCKED claim wraps the unchanged Day33 guarded Start write with control-flow gates; the lease state machine is entirely commented/conceptual; no CREATE INDEX/EXPLAIN/ALTER/migration/ORM/Redis; no credentials). The reduced-schema run is not reused as proof of the final file. Application/driver/Celery multi-Worker integration, lease heartbeat/renewal/takeover, stale-token Completion on a migrated schema, Provider idempotency/lookup, Object Storage, Redis/Queue, crash/restart recovery, long-duration fairness/starvation, SERIALIZABLE workload: NOT RUN. Day35 index plans, production load/performance, RLS/roles, backups, HA, deployment: NOT RUN.
 
 Completed Work:
 
-- Day33 classroom learning
-- Day33 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day32->Day33 mental-model evolution)
-- Day33 transactional write pack and project README increment
-- Day33 atomic-Accept, guarded-Start, zero-row-gate, external-boundary, Outbox-lifecycle, delivery-model, lost-COMMIT, and legacy-writer exercises
-- Day33 PostgreSQL cheat sheet append
-- Day33 PostgreSQL interview notes append
-- Day33 repository status update
+- Day34 classroom learning
+- Day34 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day33->Day34 mental-model evolution)
+- Day34 concurrency claim pack (active claim + conceptual lease) and project README increment
+- Day34 visibility-vs-ownership, SKIP LOCKED claim, released-lock-vs-liveness, lease policy/takeover, lease-token-vs-Provider-key, MVCC/isolation, and deadlock/lock-order/retry exercises
+- Day34 PostgreSQL cheat sheet append
+- Day34 PostgreSQL interview notes append
+- Day34 repository status update
 
 ---
 
 ## Next
 
-- Day34 — Concurrency Control, MVCC, and Worker Claims (Phase 3 — Backend Foundations)
+- Day35 — PostgreSQL Indexes and Query Planning (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -136,6 +137,7 @@ Completed Python Foundations:
 - Day31 — Relational modeling and data integrity, entities/attributes/relationships and ownership, when a repeated fact becomes its own entity, primary key vs foreign key vs business key, uniqueness SCOPE (UNIQUE(job_id, attempt_number), UNIQUE(tenant_id, idempotency_key) because a retry brings a new job_id), referential actions as retention policy (RESTRICT protects audit/cost evidence; CASCADE erases it), one-to-many FK placement and one-to-one via FK+UNIQUE, many-to-many junction tables carrying relationship attributes, CHECK as the legal-state boundary and what a row CHECK cannot see, normalizing Result Artifacts with derivable provenance, current state vs append-oriented job_events vs durable outbox_events intent, tenant-aware composite foreign keys, integrity vs authorization, and deploying a UNIQUE constraint onto committed duplicates
 - Day32 — SQL joins, aggregation and operational queries, defining the result grain before writing the query, choosing INNER vs LEFT JOIN from what a missing row MEANS (a zero-Attempt Job is the backlog, and NULL child columns are evidence), join cardinality and row multiplication (3 Attempts x 4 Events = 12 rows; 0 Attempts + 4 Events = 4 rows, not 0), COUNT(*) counting result rows vs COUNT(child_pk) counting existence, conditional aggregation with FILTER and why moving the condition into WHERE collapses LEFT into INNER, WHERE before grouping vs HAVING after aggregation, MIN/MAX for oldest queued age and the NULL-vs-zero empty-queue distinction, SUM/AVG over incomplete cost as a claim about RECORDED facts (recorded_* naming plus completeness; never COALESCE(SUM(cost),0) on a billing page), CTE pre-aggregation as the structural fix for two independent children (DISTINCT patches counts, not SUM), stage-aware stuck detection using the current Attempt clock with a DISTINCT ON tie-breaker producing classified CANDIDATES not verdicts, half-open [start, end) windows vs BETWEEN double-counting, recorded release provenance beating time correlation for an affected set, and rollback stopping future bad writes without repairing committed rows or undoing published outbox events
 - Day33 — PostgreSQL transactions and atomic state changes, BEGIN/COMMIT/ROLLBACK as one business commitment (all related DB facts commit or roll back together; ROLLBACK never undoes a prior COMMIT), the atomic Accept where at acceptance a durable Job is created together with its durable dispatch Outbox intent (a creation-time coupling, not a permanent Job<=>Outbox equivalence; return 202 only after COMMIT; a lost response is resolved by UNIQUE(tenant_id, idempotency_key) lookup), the guarded queued->running Start transition + Attempt + append-only job_started Event committed as one unit, zero affected rows being a NORMAL result the application must gate on (not a transaction failure, unlike a SQL/constraint error) so an ungated continue writes a duplicate Attempt/Event, ACID read from the scenario (Consistency enforces constraints not correct business logic; Isolation deferred to Day34), never holding a transaction across an eight-minute Provider call (two short transactions around an external phase held outside any transaction), the two distinct Provider identifiers (the pre-call recovery anchor derived from attempt_id and durable after Start, vs the Provider-returned provider_request_id persisted only in Complete) and what PostgreSQL can prove (persisted start facts) vs cannot (the external result), the Transactional Outbox lifecycle (durable intent, Relay does not take the row or reset published_at to NULL), published_at NULL vs NOT NULL meanings and the three distinct delivery checkpoints, at-most-once (may lose) vs at-least-once (may duplicate) vs exactly-once not being achieved by disabling retries (practical correctness = at-least-once + stable outbox_event_id + idempotent consumer), the Attempt-finish guard (finished_at IS NULL, never overwriting a finished Attempt's evidence; an already-finished current Attempt is isolated/reconciled, not auto-fixed), Job Events being internal history while Outbox Events are conditional external duties (not every Event needs an Outbox row), external side effects (Provider cost, Object Storage bytes) surviving a database rollback, the unknown outcome of a lost COMMIT response (read stable ids, do not assume rollback), and the transaction pack being a write-path contract that does not protect legacy separate-commit writers
+- Day34 — Concurrency control, MVCC and Worker claims, candidate visibility (a SELECT / MVCC snapshot) being distinct from ownership (a transaction-local FOR UPDATE row lock, and across COMMIT a committed lease), FOR UPDATE waiting on a conflict while FOR UPDATE SKIP LOCKED skips locked rows and reserves the next available Job so Workers spread across the queue, the claim transaction reserving a candidate then reusing the unchanged Day33 guarded queued->running write with the affected-row gate and committing before the Provider call, SKIP LOCKED weakening fairness (ORDER BY sorts only available rows; no strict FIFO; starvation possible) mitigated by short claims and monitoring, a released lock not being liveness evidence (committed Job/Attempt/Event persist; blind reclaim duplicates Attempt/Event/Provider cost), a row lock (transaction-local) vs a committed lease (claim_owner/lease_token/lease_expires_at, a Day36 migration and conceptual today), lease expiry being a takeover condition not proof of death with takeover writing a new token while expiry alone invalidates ownership via the time predicate, lease duration derived from heartbeat + observed pause (2 minutes over 30 seconds for 45-second pauses) with the completion guard requiring current token + running + unexpired lease, lease_token (one ownership epoch) being separate from the stable Provider idempotency key (same external operation, derived from attempt_id and actually sent to a supporting Provider), pessimistic FOR UPDATE SKIP LOCKED spreading a high-contention queue vs optimistic guards storming a hot row, MVCC snapshots under Read Committed (100 then 101 is an allowed phantom, new snapshot per statement) vs Repeatable Read/Serializable stable snapshots that may abort with 40001 and do not partition work, and deadlock handling (a reverse-order cycle detected and one victim aborted with 40P01; consistent lock order prevents it; lock_timeout bounds waits with 55P03; the application, not PostgreSQL, retries 40P01/40001 with a finite budget while UNIQUE/idempotency constraints still stop duplicate durable facts)
 
 ---
 
