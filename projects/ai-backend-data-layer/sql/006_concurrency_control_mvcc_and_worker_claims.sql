@@ -107,11 +107,24 @@ SELECT j.job_id
 
 -- Guarded Day33 Start transition on the reserved row. The WHERE RE-CHECKS the same
 -- business eligibility (queued AND not cancellation-requested) even though we hold
--- the lock: the UPDATE is the FINAL state-transition boundary, not the SELECT. If a
--- cancel transaction committed cancel_requested = true between the SELECT and here,
--- or the claim SELECT is ever changed, this guard still refuses the transition. When
--- the cancel txn and this claim txn run concurrently, the row lock plus the two
--- COMMIT orders decide the outcome; the loser simply returns zero rows.
+-- the lock. This repeat is a DEFENSIVE final state-transition boundary: it protects
+-- a direct UPDATE, the optimistic path, and any future refactor that splits the
+-- SELECT from the UPDATE -- the UPDATE always carries the full eligibility itself.
+--
+-- IMPORTANT lock semantics -- do NOT misread this as a race window: because the
+-- FOR UPDATE SKIP LOCKED above already holds this row's EXCLUSIVE lock until this
+-- claim transaction COMMITs/ROLLBACKs, another transaction CANNOT commit a same-row
+-- cancel_requested change BETWEEN that locking SELECT and this UPDATE. The three
+-- real orderings are:
+--   * cancel committed FIRST      -> the candidate SELECT's predicate already
+--                                    excluded the Job; it is never claimed.
+--   * cancel currently HOLDS the lock (uncommitted) -> SKIP LOCKED skipped the row;
+--                                    this Worker took a different Job and did not wait.
+--   * this claim locks FIRST      -> a cancel transaction WAITS for this lock; this
+--                                    claim can finish queued->running and COMMIT, and
+--                                    the cancel path then re-evaluates the current
+--                                    state under its OWN guarded cancellation policy
+--                                    (Day34 does not define that cancellation UPDATE).
 UPDATE app.jobs
    SET job_status    = 'running',
        started_at    = now(),

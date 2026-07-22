@@ -226,11 +226,23 @@ stop, never insert the Attempt/Event. The lock is released at COMMIT, well befor
 `cancel_requested boolean NOT NULL DEFAULT false`. A Job whose cancellation was already committed can still
 be `job_status = 'queued'` for a moment; claiming it would move it to `running`, write an Attempt/Event, and
 incur an unnecessary Provider cost. So both database boundaries — the `FOR UPDATE SKIP LOCKED` candidate
-`SELECT` **and** the guarded `UPDATE` — filter `AND cancel_requested = false`. The `UPDATE` re-checks it
-because the UPDATE, not the SELECT, is the final state-transition boundary: a cancel transaction may commit
-`cancel_requested = true` between the two. When the cancel and claim transactions run concurrently, the row
-lock plus the two COMMIT orders decide the winner, and the loser simply returns zero rows. (This is one
-eligibility predicate, not a cancellation state machine — that is future work.)
+`SELECT` **and** the guarded `UPDATE` — filter `AND cancel_requested = false`. The `UPDATE` repeats it as a
+**defensive** final state-transition boundary: it keeps the full eligibility on a direct `UPDATE`, on the
+optimistic path, and on any future refactor that splits the `SELECT` from the `UPDATE`.
+
+What it does **not** mean is a race window. Because the `FOR UPDATE SKIP LOCKED` step already holds this
+row's exclusive lock until the claim transaction commits, another transaction **cannot** commit a same-row
+`cancel_requested` change *between* the locking `SELECT` and the `UPDATE`. The three real orderings are:
+
+```text
+cancel commits FIRST            -> the candidate SELECT's predicate excludes the Job; it is never claimed.
+cancel currently HOLDS the lock -> SKIP LOCKED skips the row; the Worker takes a different Job, no waiting.
+this claim locks FIRST          -> the cancel transaction WAITS; the claim finishes queued->running and
+                                   COMMITs, then the cancel path re-evaluates the current state under its
+                                   OWN guarded cancellation policy (Day34 does not define that UPDATE).
+```
+
+(This is one eligibility predicate, not a cancellation state machine — that is future work.)
 
 Engineering Thinking:
 

@@ -102,9 +102,14 @@ FOR UPDATE                     -> transaction-local row lock; a conflicting lock
 FOR UPDATE SKIP LOCKED         -> skip locked rows, reserve the next AVAILABLE; Workers spread
 claim eligibility = tenant_id + job_status = 'queued' + cancel_requested = false, ordered by created_at, job_id
   -> BOTH the FOR UPDATE SKIP LOCKED candidate SELECT and the guarded UPDATE filter cancel_requested = false
-  -> the UPDATE re-checks it because the UPDATE, not the SELECT, is the final transition boundary
+  -> the UPDATE repeats it DEFENSIVELY (direct-update / optimistic / future-refactor paths), NOT because a
+     same-row cancel can commit between the locking SELECT and the UPDATE -- the SKIP LOCKED lock prevents that
   -> a committed-cancel queued Job must NOT be claimed by a new Worker
-  -> concurrent cancel vs claim: the row lock + the two COMMIT orders decide; the loser returns 0 rows
+  -> cancel vs claim orderings:
+       cancel commits first      -> the candidate SELECT excludes the Job (never claimed)
+       cancel holds the lock      -> SKIP LOCKED skips it (Worker takes another Job, no wait)
+       claim locks first          -> the cancel transaction waits; after the claim COMMITs it re-evaluates
+                                     under its own guarded policy (Day34 does not define that UPDATE)
 claim = SKIP LOCKED reserve + unchanged Day33 guarded write + gate + COMMIT, THEN Provider (outside tx)
 0 rows from SKIP LOCKED select -> no ELIGIBLE queued Job (locked, cancel-requested, or empty) -> back off (normal)
 0 rows from guarded UPDATE      -> transition_not_applied -> ROLLBACK/stop (Day33 gate)
