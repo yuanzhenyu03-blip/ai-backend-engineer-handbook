@@ -91,22 +91,27 @@ protects only writers that use it.
 
 | Unit | Writes (all-or-nothing) | Boundary |
 | --- | --- | --- |
-| Transaction A — Accept | `app.jobs` INSERT + `app.outbox_events` publication intent | COMMIT **before** FastAPI returns `202 + job_id` |
+| Transaction A — Accept | `app.jobs` INSERT + `app.outbox_events` **dispatch** intent (payload = stable ids/minimal refs only) | COMMIT **before** FastAPI returns `202 + job_id` |
 | Transaction B — Start | guarded `queued -> running` UPDATE (with `attempt_count + 1`) + `app.job_attempts` + append-only `job_started` `app.job_events` | zero-row guard -> ROLLBACK / `transition_not_applied` |
-| External phase | AI Provider request + Object Storage write | **NO open transaction**; carry stable `provider_request_id` + deterministic object key |
-| Transaction C — Complete | Attempt finish + guarded `running -> succeeded` UPDATE (sets `finished_at`) + `app.result_artifacts` + `job_succeeded` Event + Outbox intent | zero-row guard or constraint error -> ROLLBACK |
+| External phase | AI Provider request + Object Storage write | **NO open transaction**; the recovery anchor is the **pre-call** key = `attempt_id` (durable after B), sent to the Provider as its idempotency key; the Provider-**returned** `provider_request_id` is persisted only in C |
+| Transaction C — Complete | Attempt finish **guarded by `finished_at IS NULL`** (records `provider_request_id`/cost) + guarded `running -> succeeded` UPDATE (sets `finished_at`) + `app.result_artifacts` + `job_succeeded` Event + **conditional** `job.succeeded` Outbox | any zero-row guard or constraint error -> ROLLBACK |
 | Relay checkpoint | read `published_at IS NULL`, publish externally with the same `outbox_event_id`, then UPDATE `published_at = now()` after Queue ack | NOT a business transaction; concurrent claim is Day34 |
 
 ### Rules encoded
 
 ```text
-Job exists <=> Outbox publication intent exists   -> both INSERTs in Transaction A
+Accept creates Job + dispatch Outbox together      -> creation-time coupling in Transaction A,
+                                                      NOT a permanent Job<=>Outbox equivalence (retention archives)
 202 acknowledges a durable commit                 -> return only AFTER COMMIT
 guarded UPDATE ... RETURNING + control-flow gate   -> 0 rows is NORMAL; app must ROLLBACK and stop
 attempt_count = attempt_count + 1 in the UPDATE    -> database-side increment, RETURNED as attempt_number
+attempt_id is the pre-call recovery anchor         -> durable in B; provider_request_id (returned) only in C
+Attempt-finish guarded by finished_at IS NULL      -> never overwrite a finished Attempt's recorded evidence
 short transactions only                            -> never hold one across an 8-minute Provider call
 external Provider / Object Storage OUTSIDE any tx  -> PostgreSQL cannot roll them back
+Job Event = internal history; Outbox = external duty -> not every Event needs an Outbox row
 Outbox row = durable intent + audit               -> Relay does not delete it or reset published_at to NULL
+Outbox payload = stable ids + minimal refs only   -> no bytes, no secrets, no signed URLs
 published_at NULL != no external publish           -> may be in-flight or crashed-before-write-back
 at-least-once + stable outbox_event_id + idempotent consumer   -> exactly-once is NOT disabling retries
 ```
@@ -123,6 +128,32 @@ continue; 0 rows means `transition_not_applied` — ROLLBACK and stop, because P
 affected rows as a normal result and will otherwise run the next INSERT and corrupt the child rows.
 Appendix A of the file gives a runnable pure-SQL demonstration (a `DO` block that `RAISE`s on a zero-row
 transition) so the gate's behaviour is concrete on a disposable cluster.
+
+### Correctness guards
+
+- **Do not overwrite a finished Attempt.** Transaction C's Attempt-finish `UPDATE` carries
+  `AND finished_at IS NULL`. Zero rows means the Attempt is missing, belongs to another Job, **or is
+  already finished** — ROLLBACK and stop in every case. Overwriting a finished Attempt's `finished_at`,
+  `provider_request_id`, or `cost_micros` would destroy recorded evidence. An already-finished current
+  Attempt on a still-running Job is Day32's `running_with_finished_current_attempt`: it is **isolated and
+  reconciled**, never auto-"fixed" to succeeded.
+- **Recoverable Provider identity (two distinct ids).** The **pre-call** `provider_idempotency_key` /
+  correlation key is generated before the request from an already-durable fact — use `attempt_id`
+  (committed in Transaction B) — and, when the Provider supports idempotency keys, is sent with the
+  request. It is the recovery anchor. The Provider-**returned** `provider_request_id` does not exist until
+  the call returns and is persisted only in Transaction C; it is a lookup convenience. Transaction B does
+  **not** persist a returned id. A crash after the call but before Transaction C loses `provider_request_id`,
+  but `attempt_id` is already durable, so reconciliation can still find/deduplicate the call. If the
+  Provider has no idempotency support, PostgreSQL cannot close this unknown-outcome window — isolate and
+  reconcile, never blind-retry. **No schema change** is introduced: `attempt_id` already exists.
+- **Job Event vs Outbox Event.** A `job_events` row is internal business history (one per state change). An
+  `app.outbox_events` row is a pending external integration duty — created **only** when a real downstream
+  consumer must be told. `job.accepted` has a real consumer (dispatch). The completion `job.succeeded`
+  Outbox is **conditional**: `005` leaves it commented out because this project defines no consumer, and it
+  must be enabled only alongside a concrete one. Outbox payload carries stable ids + minimal references
+  only — no result bytes, no secrets, no signed URLs; the consumer fetches the authorized result via a
+  stable reference; `outbox_event_id` is its idempotency key; publication is at-least-once and never proves
+  consumer business success.
 
 ### Validation reproduction (**NOT executed during this repository update**)
 
@@ -904,8 +935,8 @@ not running. Do not present a Docker workflow as verified.
 | Conceptual / manual review | **Done (in class)** | the 14 failure scenarios, the external-side-effect boundary, ACID from the scenario, the Outbox lifecycle, and the at-least-once delivery model |
 | Local draft static scope check | **Done (in class)** | a local classroom draft (`day33/day33_transactional_write_pack.sql`) was scope-reviewed; it is teaching-session input, **not** this repository artifact |
 | Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, five listed tests)** | a **reduced** validation schema PASSED: (1) Job + Outbox committed together; (2) a duplicate Outbox id raised `unique_violation` and rolled the preceding Job insert back; (3) running Job + Attempt + `job_started` Event committed coherently; (4) a duplicate Artifact key raised `unique_violation` and rolled Attempt-finish + Job-success + success Event + success Outbox back; (5) the Outbox `published_at` checkpoint changed from NULL to a timestamp. Final marker `DAY33_REDUCED_RUNTIME_VALIDATION_PASS`. An earlier restricted-sandbox bootstrap failed at cluster start with `shmget: Operation not permitted` (environment evidence, not a SQL result). Both temporary clusters were deleted. |
-| Reduced-run coverage limits | **Explicit** | Test 5 validated only PostgreSQL's NULL->timestamp checkpoint, **not** Redis publication. The reduced run did not execute the final repository file, the FastAPI affected-row / lost-COMMIT integration, a real Relay crash/restart, or consumer idempotency. |
-| Final artifact static review | **Done (repository update)** | uses the Day31 columns exactly (no invented columns); three short transactions with balanced `BEGIN`/`COMMIT`; guarded `UPDATE ... RETURNING` each followed by an explicit control-flow contract; external phase outside any transaction; `attempt_count` incremented database-side; no `FOR UPDATE`/`SKIP LOCKED`/`CREATE INDEX`/`EXPLAIN`/`DROP`/`ALTER`/ORM; no credentials |
+| Reduced-run coverage limits | **Explicit** | Test 5 validated only PostgreSQL's NULL->timestamp checkpoint, **not** Redis publication. Test 4's classroom draft wrote an unconditional success Outbox; the final artifact makes that row conditional. The reduced run did **not** exercise the review-round guards (the `finished_at IS NULL` Attempt-finish guard, the conditional `job.succeeded` Outbox, or the pre-call vs returned Provider-identity split), the final repository file, the FastAPI affected-row / lost-COMMIT integration, a real Relay crash/restart, or consumer idempotency. |
+| Final artifact static review | **Done (repository update + review round)** | uses the Day31 columns exactly (no invented columns, **no schema change**); three short transactions with balanced `BEGIN`/`COMMIT`; guarded `UPDATE ... RETURNING` each followed by an explicit control-flow contract; Attempt-finish guarded by `finished_at IS NULL`; `attempt_id` documented as the pre-call recovery anchor and `provider_request_id` as returned/persisted-in-C only; `job.succeeded` Outbox left conditional (commented) with a stable-ids-only payload rule; external phase outside any transaction; `attempt_count` incremented database-side; no `FOR UPDATE`/`SKIP LOCKED`/`CREATE INDEX`/`EXPLAIN`/`DROP`/`ALTER`/ORM; no credentials |
 | **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available during the repository update, so no statement in `005` was parsed or executed by PostgreSQL. The reduced classroom run is **not** reused as proof of this file. |
 | Application / external integration | **NOT RUN** | no FastAPI affected-row + COMMIT-unknown path, Provider, Object Storage, Redis, Celery, real Relay crash/restart, or consumer idempotency test |
 | Concurrency / production validation | **NOT RUN** | Day34 concurrent claims/MVCC/locks/`SKIP LOCKED` (out of scope); performance, RLS/roles, backups, HA, deployment |

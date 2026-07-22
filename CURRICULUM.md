@@ -799,8 +799,9 @@ Day34 — Concurrency Control, MVCC, and Worker Claims
 Released Engineering Artifact:
 `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql` — a
 read-and-write transaction reference pack over the Day31 model: three short transactions (Accept =
-Job + Outbox intent before 202; Start = guarded queued->running + Attempt + job_started Event; Complete =
-Attempt finish + guarded running->succeeded + Result Artifact + job_succeeded Event + Outbox intent)
+Job + dispatch Outbox intent before 202; Start = guarded queued->running + Attempt + job_started Event;
+Complete = Attempt finish guarded by finished_at IS NULL + guarded running->succeeded + Result Artifact +
+job_succeeded Event + a CONDITIONAL job.succeeded Outbox)
 around one external Provider/Object Storage phase held OUTSIDE any transaction, plus the Relay checkpoint.
 Every guarded `UPDATE ... RETURNING` carries an explicit application control-flow contract. Contains no
 locks, `FOR UPDATE`, `SKIP LOCKED`, indexes, `EXPLAIN`, migrations, or ORM (Day34-Day36)

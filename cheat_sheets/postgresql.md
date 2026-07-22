@@ -339,7 +339,7 @@ Scope note: Day32 queries are written for **meaning only** — no indexes, `EXPL
 
 A transaction is **one business commitment**: `BEGIN` ... `COMMIT` makes all related database facts durable together; `ROLLBACK` discards the whole current transaction. `ROLLBACK` never undoes a **prior** COMMIT — "can I roll it back?" means "is it still uncommitted?".
 
-**Accept invariant.** A durable Job exists **iff** a durable Outbox publication intent exists — put both INSERTs in one transaction. The Relay scans `app.outbox_events`, not `app.jobs`, so a Job committed without its Outbox row sits queued forever (the classic separate-commit stall).
+**Accept invariant (creation-time).** At acceptance, create the durable Job together with the durable Outbox intent to **dispatch** it — put both INSERTs in one transaction. This is a creation-time coupling, **not** a permanent `Job <=> Outbox row` equivalence: retention may later archive published rows, and not every future Event needs an Outbox row. The Relay scans `app.outbox_events`, not `app.jobs`, so a Job committed without its dispatch Outbox row sits queued forever (the classic separate-commit stall).
 
 **Return 202 AFTER COMMIT.** `202 + job_id` acknowledges an existing durable commitment. If COMMIT succeeds but the response is lost, the client retry is made safe by `UNIQUE (tenant_id, idempotency_key)` + lookup — the transaction cannot tell the client the outcome.
 
@@ -364,9 +364,15 @@ external Provider + Object Storage phase   (NO open DB transaction)
 short COMPLETE transaction -> COMMIT
 ```
 
-Never hold a transaction across an eight-minute call: it pins a connection, may hold row locks + an old snapshot, and still cannot undo the external work. After Provider success but before Complete, PostgreSQL proves only the start facts; a recorded `provider_request_id` proves you **asked**, not the external result — blind requeue can repeat paid work.
+Never hold a transaction across an eight-minute call: it pins a connection, may hold row locks + an old snapshot, and still cannot undo the external work. After Provider success but before Complete, PostgreSQL proves only the start facts and can prove nothing about the Provider result.
 
-**Integrated rollback:** if the Completion transaction rolls back (e.g. Artifact `UNIQUE (attempt_id, object_key)` violation), none of Attempt-finish / Job-succeeded / Event / Artifact / Outbox survive — but the **Provider cost and Object Storage bytes remain**. Database rollback is not Object Storage rollback; the object may be orphaned pending reconciliation or an audited compensating delete.
+**Two Provider identifiers — do not conflate.** The **pre-call** `provider_idempotency_key`/correlation key is generated *before* the request from an already-durable fact (use `attempt_id`, committed in Transaction B) and is the **recovery anchor** — send it to the Provider if it supports idempotency keys. The Provider-**returned** `provider_request_id` does not exist until the call returns and is persisted only in Transaction C; it is a lookup convenience, **not** the recovery anchor. Transaction B does **not** persist a returned id. Crash after the call but before Transaction C loses `provider_request_id` — but `attempt_id` is already durable, so reconciliation can still find/dedupe the call. If the Provider has no idempotency support, PostgreSQL cannot close this window: isolate + reconcile, never blind-retry.
+
+**Do not overwrite a finished Attempt.** Transaction C's Attempt-finish UPDATE guards with `AND finished_at IS NULL`; 0 rows (Attempt missing, wrong Job, or **already finished**) -> ROLLBACK and stop. Never overwrite a finished Attempt's `finished_at`/`provider_request_id`/`cost_micros` — that destroys recorded evidence. An already-finished current Attempt on a still-running Job is `running_with_finished_current_attempt`: isolate + reconcile, never auto-"fix" to succeeded.
+
+**Integrated rollback:** if the Completion transaction rolls back (e.g. Artifact `UNIQUE (attempt_id, object_key)` violation), none of Attempt-finish / Job-succeeded / Event / Artifact / any Outbox row survive — but the **Provider cost and Object Storage bytes remain**. Database rollback is not Object Storage rollback; the object may be orphaned pending reconciliation or an audited compensating delete.
+
+**Job Event vs Outbox Event.** A `job_events` row is **internal business history** (append one per state change). An `app.outbox_events` row is a **pending external integration duty** — create one ONLY when a real downstream consumer must be told (dispatch, notification, webhook, billing, indexing). **Not every Job Event needs an Outbox Event.** `job.accepted` has a real consumer (dispatch); the completion `job.succeeded` Outbox is **conditional** — the artifact leaves it commented out because this project defines no consumer, so it is optional, not mandatory. Outbox **payload** carries stable ids + minimal references only: no result bytes, no secrets, no signed URLs; the consumer fetches the authorized result via a stable reference; `outbox_event_id` is its idempotency key; publication is at-least-once and never proves consumer business success.
 
 **Outbox lifecycle.** The row is durable **publication intent + audit evidence**, created `published_at = NULL`. The Relay polls/claims it, publishes, then sets `published_at = now()` after Queue ack — it does **not** delete the row or reset it to NULL.
 
@@ -444,13 +450,15 @@ Scope: Day33 has no `FOR UPDATE`/`SKIP LOCKED`/MVCC tuning (Day34), no indexes/`
 
 - "A transaction is one business commitment: all related DB facts commit together or roll back together."
 - "ROLLBACK undoes the current transaction, never a prior COMMIT."
-- "A durable Job exists iff a durable Outbox intent exists — commit both together."
+- "At acceptance, create the Job together with its dispatch Outbox intent — a creation-time coupling, not a permanent Job-to-Outbox equivalence."
 - "Return 202 after COMMIT; a lost response is resolved by idempotency-key lookup, not the transaction."
 - "Zero affected rows is a normal result the app must gate on; a constraint error is what fails a transaction."
 - "UNIQUE(job_id, attempt_number) stops a duplicate number, not a missing transition guard."
 - "Consistency means constraints hold, not that the business transition was correct."
 - "Never hold a transaction across an eight-minute Provider call — split into two short ones."
-- "A recorded provider_request_id proves you asked, not what the Provider did."
+- "The recovery anchor is the pre-call key (attempt_id), not the Provider-returned provider_request_id."
+- "Transaction B persists attempt_id, not a Provider-returned id; guard Attempt-finish with finished_at IS NULL."
+- "Not every Job Event needs an Outbox Event; publish only when a real consumer must act."
 - "Database rollback is not Object Storage rollback; Provider cost and bytes survive."
 - "The Outbox row is durable intent; the Relay does not take it or reset published_at to NULL."
 - "published_at NOT NULL proves a recorded publish only — not delivery or consumer success."

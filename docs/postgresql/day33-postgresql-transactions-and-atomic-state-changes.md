@@ -42,7 +42,7 @@ Total: 7-8 hours
 By the end of this lesson you can:
 
 1. Use `BEGIN` / `COMMIT` / `ROLLBACK` to define **one business-change boundary** — all related database facts commit together or none do.
-2. Write the Accept transaction so a durable Job exists **if and only if** a durable Outbox publication intent exists, and return `202 + job_id` only after it commits.
+2. Write the Accept transaction so that, **at acceptance**, a durable Job is created together with the durable Outbox intent to dispatch it (a creation-time coupling, not a permanent equivalence — retention may later archive published rows), and return `202 + job_id` only after it commits.
 3. Write the guarded Start transition (`queued -> running`), Attempt, and `job_started` Event as one atomic unit, and gate the following inserts on the affected-row result.
 4. Explain why **zero affected rows is a normal result, not a transaction failure**, and why a `SQL`/constraint error is the opposite.
 5. Keep the AI Provider call and Object Storage write **outside** any open transaction, and say precisely what PostgreSQL can and cannot prove across that gap.
@@ -150,10 +150,11 @@ Exactly right. PostgreSQL holds a committed **queued** Job, but no publication i
 Attempts forever. Day32 can *surface* the symptom (a queued Job with no Outbox row), but it cannot repair
 it or prove the cause.
 
-The rule the artifact encodes:
+The rule the artifact encodes (a **creation-time** coupling, not a permanent equivalence — a retention
+policy may later archive published Outbox rows, and not every future Event needs an Outbox row):
 
 ```text
-A durable Job EXISTS  <=>  a durable Outbox publication intent EXISTS.
+At ACCEPTANCE: create the durable Job together with the durable intent to dispatch it.
 Put both INSERTs in ONE transaction.
 ```
 
@@ -249,10 +250,16 @@ RETURNING job_id, attempt_count;
 The `attempt_count` increment happens **in the UPDATE** (database-side, not read-modify-write) and is
 returned so the Attempt can use it as `attempt_number` without a client recompute.
 
+There is one more durable fact this transaction quietly establishes: the `attempt_id`. It is the **stable,
+pre-call correlation / provider-idempotency key** — it exists *before* the Provider is ever called, so it
+survives a crash in the external phase. That is what makes the Provider call recoverable (Concept 8). Note
+what this transaction does **not** write: any Provider-returned `provider_request_id` — that id does not
+exist yet.
+
 Engineering Thinking:
 
-"The Worker started" is not one fact — it is three (state, attempt, event). Commit them together or a crash
-splits them.
+"The Worker started" is not one fact — it is three (state, attempt, event) plus one durable anchor (the
+`attempt_id`) that later reconciliation will depend on. Commit them together or a crash splits them.
 
 ## Concept 5: Zero Affected Rows Is Not an Error
 
@@ -360,15 +367,45 @@ Student Answer:
 Tech Lead Review:
 
 Correct. PostgreSQL proves only the persisted **start** facts: the Job is running, an Attempt and Event
-exist. It cannot prove the Provider produced a result. Even a persisted `provider_request_id` proves that an
-*identifier was recorded* — not the external outcome by itself. So a blind requeue here can repeat the
-Provider's cost, its result, and its side effects. The safe move is to reconcile Provider status, Object
-Storage, logs, and checkpoints, and to **quarantine** unknown outcomes rather than retry them blindly.
+exist. It cannot prove the Provider produced a result. So a blind requeue here can repeat the Provider's
+cost, its result, and its side effects — quarantine the unknown outcome and reconcile instead.
+
+There is a design subtlety the review surfaced: **do not conflate two different identifiers.**
+
+```text
+provider_idempotency_key / correlation key
+    - generated BEFORE the request, from an ALREADY-DURABLE fact (use attempt_id, or a
+      value derived from it, committed in Transaction B)
+    - if the Provider supports idempotency keys, the Worker SENDS this key with the request
+    - this is the RECOVERY ANCHOR
+
+provider_request_id
+    - the id the Provider RETURNS after accepting the call
+    - does not exist until the call returns; persisted only in Transaction C
+    - a convenience for lookup, NOT the recovery anchor
+```
+
+Why the split matters — the failure window:
+
+```text
+Provider accepts request -> Worker receives provider_request_id
+-> Worker CRASHES before Transaction C -> provider_request_id is NEVER persisted
+```
+
+If your only handle were the returned `provider_request_id`, recovery would be blind. But because the
+pre-call key is `attempt_id` — already durable after Transaction B — reconciliation can still find or
+deduplicate the Provider call. Transaction B does **not** persist a Provider-returned id; it persists
+`attempt_id`, and that is sufficient *only if* the pre-call key is derived from it and actually sent to the
+Provider.
+
+And if the Provider has **no** idempotency support? Then PostgreSQL cannot eliminate this unknown-outcome
+window at all. Such an Attempt must be **isolated and reconciled** — query the Provider, inspect Object
+Storage, or reconcile by hand — never blindly retried.
 
 Engineering Thinking:
 
-A recorded id is a receipt that you *asked*, not proof of *what happened*. External truth needs external
-verification.
+A returned id is a receipt that you *asked*, and it may be lost. The recoverable anchor must be a key you
+made durable *before* you asked.
 
 ## Concept 9: The Outbox Lifecycle — Does the Relay "Take" the Row?
 
@@ -392,9 +429,38 @@ A good question because it exposes a queue-shaped assumption that does not apply
 So `published_at IS NULL` does not mean "the Relay took it." It means never attempted, in flight, or
 published-before-a-crash-prevented-write-back.
 
+A second question the artifact forced open: **should every completion write an Outbox row at all?** No.
+
+```text
+Job Event   = INTERNAL business history. Append one for every state change.
+Outbox Event = a PENDING EXTERNAL INTEGRATION DUTY. Create one ONLY when a real
+               downstream consumer must be told (dispatch, notification, webhook,
+               billing, search indexing).
+Not every Job Event needs an Outbox Event. An Outbox row with no consumer is
+unpublishable noise the Relay will carry forever.
+```
+
+The Accept `job.accepted` row has a real consumer — the dispatch path that hands the queued Job to a Worker —
+which is exactly why Accept couples the two writes. The Completion `job.succeeded` row is **conditional**:
+the artifact leaves it commented out because this project defines no downstream consumer, and it must be
+enabled only alongside a concrete one. Describing it as a mandatory part of completion would be wrong.
+
+Payload discipline, whichever events you publish:
+
+```text
+Outbox payload = STABLE identifiers + minimal references ONLY.
+  - NO result bytes            (the bytes live in Object Storage)
+  - NO secrets
+  - NO short-lived signed URLs (they expire; the row is durable)
+The consumer fetches the authorized result later via a stable reference.
+outbox_event_id is the consumer's idempotency key.
+Publication is at-least-once; it never proves the consumer completed its business work.
+```
+
 Engineering Thinking:
 
-An Outbox is a durable log of intent, not a mailbox that empties when read. Reading it changes nothing.
+An Outbox is a durable log of intent, not a mailbox that empties when read — and not a mirror of internal
+history. Publish a row only when someone outside must act on it, and put only stable references in it.
 
 ## Concept 10: Relay Crash and Stable Event Identity
 
@@ -465,14 +531,30 @@ Tech Lead Review:
 
 Correct boundary. Sharper wording: the statements *executed* inside the transaction, but after `ROLLBACK`
 none becomes a **committed final fact** — Attempt finish, Job succeeded, the success Event, the Artifact
-reference, and the Outbox intent all vanish. What remains is everything the database never controlled: the
+reference, and any Outbox intent all vanish. What remains is everything the database never controlled: the
 **Provider cost** and the **Object Storage bytes**. The object may be an orphan until reconciliation or a
 separately audited compensating delete. Database rollback is not Object Storage rollback.
 
+One further guard the Completion transaction must carry — the Attempt-finish UPDATE finishes only an Attempt
+that has **not** already finished:
+
+```sql
+UPDATE app.job_attempts
+   SET finished_at = now(), provider_request_id = $3, cost_micros = $4
+ WHERE attempt_id = $2 AND job_id = $1 AND finished_at IS NULL   -- the guard
+RETURNING attempt_id;
+```
+
+Zero rows here can mean the Attempt does not exist, does not belong to this Job, **or is already finished**.
+In every case: ROLLBACK and stop. Overwriting a finished Attempt's `finished_at`, `provider_request_id`, or
+`cost_micros` would destroy the evidence of the outcome already recorded. An already-finished current
+Attempt on a still-running Job is Day32's `running_with_finished_current_attempt`: it goes to **isolation and
+reconciliation**, and is never auto-"fixed" to succeeded by this transaction.
+
 Engineering Thinking:
 
-Rollback is total inside the transaction and powerless outside it. The external side effects you cannot undo
-are exactly the ones you must reconcile.
+Rollback is total inside the transaction and powerless outside it. And a completion write must never
+overwrite an outcome already recorded — recorded evidence is the thing reconciliation depends on.
 
 ## Concept 13: The Lost COMMIT Response
 
@@ -532,17 +614,30 @@ it does not exist.
 
 ## Mental Model Evolution (Day32 -> Day33)
 
+The line below is the *starting system limitation* Day33 inherits — a description of where the design
+stood after Day32, not a student quote. (Day32 already established that queries provide repair **evidence**
+but never auto-repair; nothing here contradicts that.)
+
 ```text
-Initial: "Day32 queries can see partial or missing related facts, so I can detect and fix coherence gaps."
-Reasoning: LEFT JOIN, FILTER, and pre-aggregation expose running_without_attempt, missing Events,
-           and NULL published_at.
-Correction: Detection is not prevention. Those gaps exist because related facts were written in
-            SEPARATE commits and a crash split them. A read query can classify the wreck; it cannot
-            stop the crash from producing it.
-Final: Make one business change commit all related database facts together or none — and put the
-       un-rollbackable external work (Provider, Object Storage, Redis) BETWEEN two short transactions,
-       guarded by stable ids, checkpoints, idempotency, and reconciliation. Day32 detects; Day33 prevents
-       the database half and names the boundary it cannot cross.
+Starting system limitation (not a student quote):
+    Day32 queries can OBSERVE and CLASSIFY partial or missing related facts and hand an operator the
+    evidence to repair them -- but detection is not prevention. Those gaps exist because related facts
+    were written in SEPARATE commits and a crash split them. A read query classifies the wreck; it
+    cannot stop the crash from producing it, and it never repairs anything on its own.
+
+Correction that Day33 makes:
+    Make one business change commit all related DATABASE facts together or none. That removes the
+    database half of the problem at the source.
+
+Boundary Day33 cannot cross:
+    A PostgreSQL transaction cannot roll back Provider calls/cost, Object Storage bytes, or Redis
+    publication. So the un-rollbackable external work sits BETWEEN two short transactions, guarded by
+    stable ids, checkpoints, idempotency, and reconciliation.
+
+Net division of labour:
+    Day32 = observe / classify / supply repair evidence.
+    Day33 = prevent partial commits INSIDE the database.
+    Neither one can undo an external side effect -- only reconciliation can.
 ```
 
 ## Misconception 1: Zero affected rows aborts the transaction
@@ -657,8 +752,8 @@ duplicate.
 Given a queued Job with no Outbox row after separate commits, explain why it never advances and which single
 change fixes it. State the invariant in one line.
 
-Verification: your answer names the Relay scanning `outbox_events` and the `Job exists <=> Outbox intent
-exists` rule.
+Verification: your answer names the Relay scanning `outbox_events` and the acceptance-time rule (create the
+Job together with its dispatch Outbox intent), not a permanent Job-to-Outbox equivalence.
 
 ## Exercise 2: Predict the constraint-failure rollback (Beginner)
 
@@ -769,7 +864,8 @@ State the level, never the level above it.
      Test 2: duplicate Outbox id -> unique_violation rolled the preceding Job insert back
      Test 3: running Job + Attempt + job_started Event committed coherently
      Test 4: duplicate Artifact key -> unique_violation rolled Attempt-finish + Job-success
-             + success Event + success Outbox back
+             + success Event + success Outbox back (the classroom draft wrote an
+             unconditional success Outbox; the final artifact makes that row conditional)
      Test 5: Outbox published_at checkpoint changed from NULL to a timestamp
      Final marker: DAY33_REDUCED_RUNTIME_VALIDATION_PASS
    An earlier restricted-sandbox bootstrap failed at cluster start with
@@ -778,14 +874,18 @@ State the level, never the level above it.
    Test 5 validated ONLY PostgreSQL's NULL-to-timestamp checkpoint; it did NOT validate
    Redis publication.
 
-4. Final repository artifact static review          DONE (repository update)
-   005_...sql uses the Day31 columns exactly; three short transactions; guarded
-   UPDATE ... RETURNING with an explicit control-flow contract; external phase outside
-   any transaction; no FOR UPDATE/SKIP LOCKED/index/EXPLAIN/migration/ORM; no credentials.
+4. Final repository artifact static review          DONE (repository update + review round)
+   005_...sql uses the Day31 columns exactly (no schema change); three short transactions;
+   guarded UPDATE ... RETURNING with explicit control-flow contracts; Attempt-finish guarded
+   by finished_at IS NULL; attempt_id documented as the pre-call recovery anchor and
+   provider_request_id as returned/persisted-in-C only; conditional (commented) job.succeeded
+   Outbox with a stable-ids-only payload rule; external phase outside any transaction;
+   no FOR UPDATE/SKIP LOCKED/index/EXPLAIN/migration/ORM; no credentials.
 
 5. Final repository artifact PostgreSQL runtime      NOT RUN
-   No psql/PostgreSQL server was available during the repository update. The reduced
-   classroom run is NOT reused as proof of this file.
+   No psql/PostgreSQL server was available during the repository update or this review round.
+   The review-round guards (finished_at IS NULL, conditional Outbox, Provider-identity split)
+   are static-only. The reduced classroom run is NOT reused as proof of this file.
 
 6. Application / external integration                NOT RUN
    No FastAPI affected-row + COMMIT-unknown path, Provider, Object Storage, Redis,
@@ -956,7 +1056,7 @@ idempotency makes uncertain retries safe. You need both.
 
 # Before Next Lesson Checklist
 
-- [ ] I can state the Accept invariant: a durable Job exists if and only if a durable Outbox intent exists.
+- [ ] I can state the Accept invariant: at acceptance the durable Job is created with its durable dispatch Outbox intent (creation-time, not a permanent Job-to-Outbox equivalence).
 - [ ] I can explain why `ROLLBACK` removes an uncommitted Job but cannot undo a prior COMMIT.
 - [ ] I can justify returning `202` after COMMIT and handle the lost-response case with idempotency.
 - [ ] I can write the guarded `queued -> running` transition + Attempt + Event as one transaction.

@@ -42,6 +42,18 @@
 --   a connection, may retain row locks and an old snapshot, and still could not
 --   undo the external call.
 --
+-- JOB EVENT vs OUTBOX EVENT (read before the transactions)
+--   app.job_events   = INTERNAL business history. Append one for every state change.
+--   app.outbox_events = a PENDING EXTERNAL INTEGRATION DUTY. Create one ONLY when a real
+--                       downstream consumer must be told (dispatch, notification, webhook,
+--                       billing, search indexing, ...). NOT every Job Event needs an Outbox
+--                       Event. An Outbox row with no consumer is unpublishable noise.
+--   Outbox payload = STABLE identifiers + minimal references ONLY. Never result bytes,
+--                    never secrets, never short-lived signed URLs. The consumer fetches the
+--                    authorized result later via a stable reference. outbox_event_id is the
+--                    consumer's idempotency key. Publication is at-least-once; it never
+--                    proves the consumer completed its business work.
+--
 -- WHAT THIS FILE IS **NOT**
 --   * No locking, no FOR UPDATE, no SKIP LOCKED, no MVCC isolation tuning -- Day34.
 --     Concurrent Relay/Worker CLAIM selection is explicitly Day34 (see Relay note).
@@ -76,9 +88,15 @@ VALUES ($1, $2, $3, $4);
 
 INSERT INTO app.outbox_events (outbox_event_id, job_id, event_type, payload)
 VALUES ($5, $1, 'job.accepted', $6);
--- outbox_event_id is the STABLE identifier the consumer will deduplicate on. A
--- duplicate value raises 23505 unique_violation, which fails the transaction and
--- rolls the Job INSERT above back with it (classroom test 2).
+-- This Outbox row has a REAL consumer: the dispatch path that hands the queued Job to a
+-- Worker. That is why Accept couples the two writes -- at CREATION time a durable Job must
+-- come with the durable intent to dispatch it. (This is the creation-time rule, not a
+-- permanent "a Job row always has an Outbox row": a retention policy may later archive
+-- published rows.)
+-- payload ($6) carries STABLE ids + minimal references only -- no bytes, secrets, or signed
+-- URLs. outbox_event_id is the STABLE key the consumer deduplicates on; a duplicate value
+-- raises 23505 unique_violation, failing the transaction and rolling the Job INSERT back
+-- with it (classroom test 2).
 
 COMMIT;
 -- Only now may FastAPI return 202 + job_id.
@@ -121,8 +139,13 @@ RETURNING job_id, attempt_count;
 
 INSERT INTO app.job_attempts (attempt_id, job_id, attempt_number, started_at)
 VALUES ($3, $1, $4, now());
--- provider_request_id / cost_micros / finished_at stay NULL until Transaction C.
 -- $4 is the attempt_count RETURNED above -- do not recompute it on the client.
+--
+-- provider_request_id / cost_micros / finished_at stay NULL here: none of them is
+-- known yet. But the DURABLE fact that recovery depends on -- attempt_id ($3) -- is
+-- committed by this transaction. attempt_id is the STABLE, pre-call correlation /
+-- provider-idempotency key: it exists before the Provider is ever called, so a crash
+-- during the external phase cannot lose it. See the External phase for how it is used.
 
 INSERT INTO app.job_events (job_id, attempt_id, event_type, from_status, to_status, actor)
 VALUES ($1, $3, 'job_started', 'queued', 'running', $5);
@@ -137,14 +160,32 @@ COMMIT;
 --   the AI Provider and writes Object Storage. These are the operations PostgreSQL
 --   cannot roll back, so they must not run inside a transaction.
 --
---   Carry forward two STABLE identifiers for later reconciliation:
---     - provider_request_id  (deduplicate Provider work / find the external call)
---     - a deterministic object key (find or overwrite the same Object Storage byte)
+--   TWO DIFFERENT IDENTIFIERS -- do not conflate them:
+--     - provider_idempotency_key / correlation key: generated BEFORE the request,
+--       from an ALREADY-DURABLE fact. Use attempt_id (committed in Transaction B) or
+--       a value deterministically derived from it. If the Provider supports
+--       idempotency keys, the Worker SENDS this key with the request.
+--     - provider_request_id: the id the Provider RETURNS after accepting the call.
+--       It does not exist until the call returns and is persisted only in
+--       Transaction C. It is a convenience for lookup, NOT the recovery anchor.
+--
+--   Why this split matters (the failure window this closes):
+--     Provider accepts request -> Worker receives provider_request_id
+--     -> Worker CRASHES before Transaction C -> provider_request_id is NOT persisted.
+--   Because the pre-call key is attempt_id (already durable after Transaction B),
+--   reconciliation can still find/deduplicate the Provider call by that stable key.
+--   Transaction B does NOT persist a Provider-returned id -- it persists attempt_id,
+--   which is enough only IF the pre-call key is derived from it and sent to the Provider.
+--
+--   If the Provider has NO idempotency support, PostgreSQL CANNOT eliminate this
+--   unknown-outcome window: such an Attempt must be ISOLATED and reconciled (query the
+--   Provider, inspect Object Storage, or reconcile manually) -- never blindly retried,
+--   which can repeat Provider cost and side effects (classroom incident #8).
 --
 --   What PostgreSQL can prove right now: the Job is running and an Attempt/Event
---   exist. What it CANNOT prove: that the Provider produced a result. A persisted
---   provider_request_id proves an id was recorded, not the external outcome. Blind
---   requeue here can repeat Provider cost and side effects (classroom incident #8).
+--   exist. What it CANNOT prove: that the Provider produced a result, or even that
+--   any provider_request_id exists yet. A recorded id (once Transaction C runs) proves
+--   an id was recorded, never the external outcome.
 -- -----------------------------------------------------------------------------
 -- (no SQL -- external Provider request + Object Storage write happen here)
 
@@ -163,15 +204,24 @@ COMMIT;
 -- -----------------------------------------------------------------------------
 BEGIN;
 
--- Finish the current Attempt and record the external identifiers gathered above.
+-- Finish the current Attempt and record the Provider-RETURNED id ($3) and cost ($4).
+-- finished_at IS NULL in the WHERE clause is a GUARD, not decoration: it finishes only
+-- an Attempt that has NOT already finished, so an already-recorded outcome is never
+-- overwritten.
 UPDATE app.job_attempts
    SET finished_at         = now(),
        provider_request_id = $3,
        cost_micros         = $4
- WHERE attempt_id = $2
-   AND job_id     = $1
+ WHERE attempt_id   = $2
+   AND job_id       = $1
+   AND finished_at IS NULL
 RETURNING attempt_id;
--- CONTROL-FLOW CONTRACT: 0 rows -> wrong attempt_id/job_id pairing. ROLLBACK, stop.
+-- CONTROL-FLOW CONTRACT: 0 rows can mean the Attempt does not exist, does not belong to
+--   this Job, OR is ALREADY FINISHED. In every case: ROLLBACK and STOP. Do NOT overwrite
+--   a finished Attempt's finished_at / provider_request_id / cost_micros -- that would
+--   destroy the evidence of the outcome already recorded. An already-finished current
+--   Attempt on a still-running Job is Day32's running_with_finished_current_attempt: it
+--   goes to ISOLATION and reconciliation, and is NEVER auto-"fixed" to succeeded here.
 
 -- Guarded terminal transition. Matches only a Job that is CURRENTLY running for
 -- THIS tenant. finished_at is set in the same statement so the Day31 CHECK
@@ -193,12 +243,22 @@ VALUES ($6, $2, $7, $8, $9, $10, $11);
 -- not PostgreSQL. UNIQUE (attempt_id, object_key) makes a duplicate reference raise
 -- 23505 and roll the whole completion back (classroom test 4).
 
+-- The success Job EVENT is ALWAYS written: it is internal business history.
 INSERT INTO app.job_events (job_id, attempt_id, event_type, from_status, to_status, actor)
 VALUES ($1, $2, 'job_succeeded', 'running', 'succeeded', $12);
 
-INSERT INTO app.outbox_events (outbox_event_id, job_id, event_type, payload)
-VALUES ($13, $1, 'job.succeeded', $14);
--- Same STABLE outbox_event_id contract as Transaction A.
+-- The success OUTBOX row is CONDITIONAL. Write it ONLY when a real downstream contract
+-- exists that must learn the Job succeeded -- a notification, webhook, billing meter, or
+-- search-index update. This project defines NO such consumer, so the statement is shown
+-- commented out: it is OPTIONAL, not a mandatory part of completion. Uncomment it only
+-- alongside a concrete consumer. (Not every Job Event needs an Outbox Event.)
+-- payload ($14) carries STABLE ids + minimal references only -- no result bytes, no
+-- secrets, no signed URLs; the consumer fetches the authorized result via a stable
+-- reference. outbox_event_id ($13) is the consumer idempotency key. Publication is
+-- at-least-once and does NOT prove the consumer completed its business work.
+--
+-- INSERT INTO app.outbox_events (outbox_event_id, job_id, event_type, payload)
+-- VALUES ($13, $1, 'job.succeeded', $14);
 
 COMMIT;
 

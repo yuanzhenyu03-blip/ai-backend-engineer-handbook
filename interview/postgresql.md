@@ -927,4 +927,20 @@ Strong: "That's at-most-once and can silently lose messages. Use at-least-once p
 Weak:   "The transaction pack makes the whole system atomic."
 Strong: "Only for writers that use it. A legacy Worker committing separately still leaves partial facts;
         drain old Workers, centralize writes, and monitor the Day32 coherence queries."
+
+Weak:   "Transaction B saved the provider_request_id, so I can recover the call."
+Strong: "Transaction B persists attempt_id, not a Provider-returned id. The recovery anchor is a pre-call
+        key derived from attempt_id and sent to the Provider; provider_request_id doesn't exist until the
+        call returns and is only persisted in Transaction C. If the Provider has no idempotency support,
+        isolate and reconcile -- don't blind-retry."
+
+Weak:   "On completion I just set finished_at, provider_request_id and cost on the Attempt."
+Strong: "Guard it with AND finished_at IS NULL. Zero rows can mean already-finished; overwriting would
+        destroy recorded evidence. An already-finished current Attempt on a running Job is
+        running_with_finished_current_attempt -- isolate and reconcile, never auto-fix to succeeded."
+
+Weak:   "Every completion writes a job.succeeded Outbox row."
+Strong: "A Job Event is internal history; an Outbox Event is a pending external duty. Write the Outbox row
+        only when a real consumer must act (notification, webhook, billing, indexing). With no consumer
+        defined it stays optional. Payload carries stable ids only -- no bytes, secrets, or signed URLs."
 ```
