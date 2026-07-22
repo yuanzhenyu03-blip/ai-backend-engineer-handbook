@@ -209,8 +209,10 @@ Tech Lead Teaching (assembled progressively in class):
 
 ```text
 BEGIN
-  -> SELECT one queued candidate by tenant/status/order FOR UPDATE SKIP LOCKED
+  -> SELECT one ELIGIBLE queued candidate FOR UPDATE SKIP LOCKED
+       eligibility = tenant_id + job_status = 'queued' + cancel_requested = false, ordered
   -> guarded queued->running UPDATE ... RETURNING     (Day33 write, unchanged)
+       re-checks the SAME eligibility (queued AND cancel_requested = false)
   -> only on the 1-row path: INSERT Attempt + job_started Event
 COMMIT
   -> THEN call the Provider, OUTSIDE any transaction
@@ -219,6 +221,16 @@ COMMIT
 The claim reuses the **exact** Day33 Start transaction; Day34 only adds the reservation in front of it. The
 affected-row gate is unchanged: zero rows from the UPDATE means `transition_not_applied` — roll back and
 stop, never insert the Attempt/Event. The lock is released at COMMIT, well before the long Provider call.
+
+**Eligibility, not just status.** The Day31 `app.jobs` also carries
+`cancel_requested boolean NOT NULL DEFAULT false`. A Job whose cancellation was already committed can still
+be `job_status = 'queued'` for a moment; claiming it would move it to `running`, write an Attempt/Event, and
+incur an unnecessary Provider cost. So both database boundaries — the `FOR UPDATE SKIP LOCKED` candidate
+`SELECT` **and** the guarded `UPDATE` — filter `AND cancel_requested = false`. The `UPDATE` re-checks it
+because the UPDATE, not the SELECT, is the final state-transition boundary: a cancel transaction may commit
+`cancel_requested = true` between the two. When the cancel and claim transactions run concurrently, the row
+lock plus the two COMMIT orders decide the winner, and the loser simply returns zero rows. (This is one
+eligibility predicate, not a cancellation state machine — that is future work.)
 
 Engineering Thinking:
 
@@ -978,7 +990,7 @@ call. None of them proves a Worker is alive — and none of them can be skipped.
 
 Preparation for Day35 (PostgreSQL Indexes and Query Planning):
 
-- [ ] Re-read `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql` and note the exact claim predicates and ordering (`tenant_id`, `job_status = 'queued'`, `created_at, job_id`).
+- [ ] Re-read `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql` and note the exact claim predicates and ordering (`tenant_id`, `job_status = 'queued'`, `cancel_requested = false`, `created_at, job_id`).
 - [ ] Note the access paths a busy claim hammers: the queued scan, and (once the lease exists) stale-lease and unpublished-Outbox scans.
 - [ ] Be ready to argue why an index is chosen by measurement (`EXPLAIN`), not by guess — and why Day34's correctness must be settled before Day35's speed.
 - [ ] Keep `CREATE INDEX`/`EXPLAIN` out of scope until Day35, and lease-column migration out of scope until Day36.

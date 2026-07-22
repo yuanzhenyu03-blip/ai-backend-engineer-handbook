@@ -56,11 +56,19 @@
 --    Workers then ran the Day33 guarded UPDATE, only ONE legal queued->running
 --    transition would succeed; the others would return zero rows (Day33's gate).
 --    Without that gate, duplicate Attempt/Event facts get written.
+--
+--    ELIGIBILITY (not just status): the Day31 schema also carries
+--    cancel_requested boolean NOT NULL DEFAULT false. A Job whose cancellation was
+--    committed (cancel_requested = true) may still be job_status = 'queued' for a
+--    moment; claiming it would move it to running, write an Attempt/Event, and
+--    incur an unnecessary Provider cost. So a claim must exclude it. (This is one
+--    predicate, not a cancellation state machine -- that is future work.)
 -- -----------------------------------------------------------------------------
 SELECT j.job_id, j.job_status, j.created_at
   FROM app.jobs AS j
- WHERE j.tenant_id  = $1
-   AND j.job_status = 'queued'
+ WHERE j.tenant_id       = $1
+   AND j.job_status      = 'queued'
+   AND j.cancel_requested = false
  ORDER BY j.created_at ASC, j.job_id ASC
  LIMIT 1;
 -- ^ visibility only. No lock, no ownership.
@@ -87,29 +95,35 @@ BEGIN;
 -- over (starvation risk -- see the lesson; monitor oldest queued age).
 SELECT j.job_id
   FROM app.jobs AS j
- WHERE j.tenant_id  = $1
-   AND j.job_status = 'queued'
+ WHERE j.tenant_id       = $1
+   AND j.job_status      = 'queued'
+   AND j.cancel_requested = false   -- do NOT claim a Job whose cancel was requested
  ORDER BY j.created_at ASC, j.job_id ASC
  FOR UPDATE SKIP LOCKED
  LIMIT 1;
--- CONTROL-FLOW CONTRACT: 0 rows -> no AVAILABLE queued Job right now (all queued
---   rows are locked by peers, or the queue is empty). COMMIT/ROLLBACK and back
+-- CONTROL-FLOW CONTRACT: 0 rows -> no ELIGIBLE queued Job right now (all locked by
+--   peers, cancellation-requested, or the queue is empty). COMMIT/ROLLBACK and back
 --   off; this is normal, not an error. 1 row -> bind its job_id as $2 and continue.
 
--- Guarded Day33 Start transition on the reserved row. The WHERE re-checks
--- job_status = 'queued' even though we hold the lock: the lock serializes access,
--- and the guard keeps the transition legal (belt and suspenders, and correct if
--- the claim SELECT is ever changed).
+-- Guarded Day33 Start transition on the reserved row. The WHERE RE-CHECKS the same
+-- business eligibility (queued AND not cancellation-requested) even though we hold
+-- the lock: the UPDATE is the FINAL state-transition boundary, not the SELECT. If a
+-- cancel transaction committed cancel_requested = true between the SELECT and here,
+-- or the claim SELECT is ever changed, this guard still refuses the transition. When
+-- the cancel txn and this claim txn run concurrently, the row lock plus the two
+-- COMMIT orders decide the outcome; the loser simply returns zero rows.
 UPDATE app.jobs
    SET job_status    = 'running',
        started_at    = now(),
        attempt_count = attempt_count + 1
- WHERE job_id     = $2
-   AND tenant_id  = $1
-   AND job_status = 'queued'
+ WHERE job_id          = $2
+   AND tenant_id       = $1
+   AND job_status      = 'queued'
+   AND cancel_requested = false
 RETURNING job_id, attempt_count;
--- CONTROL-FLOW CONTRACT: 0 rows -> transition_not_applied. ROLLBACK and STOP.
---   Do NOT insert the Attempt/Event below (Day33 incident #5).
+-- CONTROL-FLOW CONTRACT: 0 rows -> transition_not_applied (not queued, or cancel was
+--   requested). ROLLBACK and STOP. Do NOT insert the Attempt/Event below (Day33
+--   incident #5).
 
 INSERT INTO app.job_attempts (attempt_id, job_id, attempt_number, started_at)
 VALUES ($3, $2, $4, now());
@@ -139,9 +153,10 @@ COMMIT;
 -- -----------------------------------------------------------------------------
 -- UPDATE app.jobs
 --    SET job_status = 'running', started_at = now(), attempt_count = attempt_count + 1
---  WHERE job_id = $1 AND tenant_id = $2 AND job_status = 'queued'
+--  WHERE job_id = $1 AND tenant_id = $2 AND job_status = 'queued' AND cancel_requested = false
 -- RETURNING job_id;
--- (0 rows -> another session already moved it; re-read and pick a different Job.)
+-- (0 rows -> another session already moved it, OR cancel was requested; re-read and
+--  pick a different Job.)
 
 
 -- -----------------------------------------------------------------------------
@@ -201,6 +216,7 @@ COMMIT;
 --          claim_owner = $worker, lease_token = $new_token,
 --          lease_expires_at = now() + $lease_interval   -- PostgreSQL now(), not Worker clock
 --    WHERE job_id = $job AND tenant_id = $tenant AND job_status = 'queued'
+--      AND cancel_requested = false
 --   RETURNING job_id, lease_token;
 --
 -- RENEW / HEARTBEAT (conceptual): guard on ownership AND an unexpired lease:

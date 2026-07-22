@@ -88,7 +88,7 @@ important thing to understand before running anything.
 
 | Part | Status | Contents |
 | --- | --- | --- |
-| Part 1 — claim transaction | **ACTIVE** (driver-bound, Day31 columns only) | plain candidate `SELECT` (visibility); `FOR UPDATE SKIP LOCKED` reservation; the unchanged Day33 guarded `queued->running` UPDATE with an affected-row gate; Attempt + `job_started` Event on the 1-row path; COMMIT before the Provider call; an optimistic alternative; consistent-lock-order + retry guidance |
+| Part 1 — claim transaction | **ACTIVE** (driver-bound, Day31 columns only) | plain candidate `SELECT` (visibility); `FOR UPDATE SKIP LOCKED` reservation filtering `tenant_id` + `job_status = 'queued'` + `cancel_requested = false`; the unchanged Day33 guarded `queued->running` UPDATE that **re-checks** `cancel_requested = false` (the UPDATE is the final transition boundary); Attempt + `job_started` Event on the 1-row path; COMMIT before the Provider call; an optimistic alternative; consistent-lock-order + retry guidance |
 | Part 2 — lease state machine | **CONCEPTUAL ONLY (commented, not runnable)** | `claim_owner` / `lease_token` / `lease_expires_at` claim/renew/takeover/completion pseudocode. These columns **do not exist** in the Day31 schema; adding them is a Day36 migration |
 
 Do not uncomment Part 2 against the current schema — it will fail with "column does not exist." The lease
@@ -100,8 +100,13 @@ design is taught in comments precisely because no migration was performed.
 visibility (SELECT) != ownership (lock, then committed lease)
 FOR UPDATE                     -> transaction-local row lock; a conflicting locker WAITS
 FOR UPDATE SKIP LOCKED         -> skip locked rows, reserve the next AVAILABLE; Workers spread
+claim eligibility = tenant_id + job_status = 'queued' + cancel_requested = false, ordered by created_at, job_id
+  -> BOTH the FOR UPDATE SKIP LOCKED candidate SELECT and the guarded UPDATE filter cancel_requested = false
+  -> the UPDATE re-checks it because the UPDATE, not the SELECT, is the final transition boundary
+  -> a committed-cancel queued Job must NOT be claimed by a new Worker
+  -> concurrent cancel vs claim: the row lock + the two COMMIT orders decide; the loser returns 0 rows
 claim = SKIP LOCKED reserve + unchanged Day33 guarded write + gate + COMMIT, THEN Provider (outside tx)
-0 rows from SKIP LOCKED select -> no available queued Job -> back off (normal)
+0 rows from SKIP LOCKED select -> no ELIGIBLE queued Job (locked, cancel-requested, or empty) -> back off (normal)
 0 rows from guarded UPDATE      -> transition_not_applied -> ROLLBACK/stop (Day33 gate)
 SKIP LOCKED weakens fairness     -> ORDER BY sorts only AVAILABLE rows; no strict FIFO; starvation possible
 released lock != liveness        -> committed Job/Attempt/Event persist; blind reclaim duplicates
@@ -137,10 +142,11 @@ proves a Worker is alive.
 # Illustrative SKIP LOCKED claim shape on the Day31 schema (bind $1; run on a DISPOSABLE cluster):
 #   BEGIN;
 #   SELECT job_id FROM app.jobs
-#    WHERE tenant_id = $1 AND job_status = 'queued'
+#    WHERE tenant_id = $1 AND job_status = 'queued' AND cancel_requested = false
 #    ORDER BY created_at ASC, job_id ASC
 #    FOR UPDATE SKIP LOCKED LIMIT 1;
-#   -- then the Day33 guarded UPDATE ... RETURNING, gated on affected rows
+#   -- then the Day33 guarded UPDATE ... RETURNING (also re-checking cancel_requested = false),
+#   -- gated on affected rows
 #   COMMIT;
 ```
 

@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.71 — Day34 Review Fix: exclude cancellation-requested Jobs from the claim
+
+Date: 2026-07-22
+
+### Fixed
+
+- **The Worker claim could claim a Job whose cancellation was already committed.** The Day34 `006` claim checked only `tenant_id` and `job_status = 'queued'`, but the Day31 `app.jobs` also carries `cancel_requested boolean NOT NULL DEFAULT false`. A Job with a committed `cancel_requested = true` can still be `job_status = 'queued'` for a moment, so the claim could move it to `running`, write an Attempt and `job_started` Event, and incur an unnecessary Provider cost. Added `AND cancel_requested = false` to **both** database boundaries of the active claim transaction: the `FOR UPDATE SKIP LOCKED` candidate `SELECT` and the guarded `queued -> running` `UPDATE`. The `UPDATE` re-checks it because the `UPDATE`, not the `SELECT`, is the final state-transition boundary — a cancel transaction may commit between the two. Attempt/Event inserts remain gated on the one-row `RETURNING` result. The plain visibility `SELECT`, the optimistic alternative, and the conceptual lease-claim pseudocode were updated to match.
+- Synced the claim predicate everywhere it is shown or described so no file contradicts the SQL: the Day34 lesson (Concept 4 gains an "eligibility, not just status" note and the Day35 prep checklist lists `cancel_requested = false`), `projects/ai-backend-data-layer/README.md` (the Part 1 table row, the rules-encoded block, and the reproduction shape), and `cheat_sheets/postgresql.md` (the claim-transaction block). Each states that a committed-cancel queued Job must not be claimed by a new Worker, and that when a cancel transaction and a claim transaction run concurrently the row lock plus the two COMMIT orders decide the winner while the loser returns zero rows.
+
+### Scope
+
+- One eligibility predicate only — not a cancellation state machine. No new columns, no `ALTER`/migration (Day36), no `CREATE INDEX`/`EXPLAIN` (Day35), no fencing-token design (Day41), no ORM/Redis. The lease state machine stays commented/conceptual. Real student answers were not touched.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope (four files); protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); SQL static review of `006` (the `FOR UPDATE SKIP LOCKED` candidate `SELECT` and the guarded `UPDATE` both filter `tenant_id` + `job_status = 'queued'` + `cancel_requested = false`; Attempt/Event still inserted only after the one-row guarded `UPDATE`; the lease fields `claim_owner`/`lease_token`/`lease_expires_at` remain in comment lines only; balanced parentheses and one `BEGIN`/`COMMIT` claim transaction; no `CREATE INDEX`/`EXPLAIN`/`ALTER`); a cross-file check that the SQL, lesson, project README, and cheat sheet no longer show a contradictory claim predicate; Markdown fence balance; and relative-link resolution.
+- **Final artifact PostgreSQL Runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available, so the updated `006` claim (including the new `cancel_requested = false` predicates) was reviewed statically but **not** executed. The reduced-schema PostgreSQL 14.18 classroom evidence (three concurrency tests) is unchanged historical evidence and is not reused as proof of the final file. Application/driver/Celery multi-Worker, lease heartbeat/renewal/takeover, Provider idempotency, Object Storage, Redis, and Day35 index plans remain NOT RUN.
+
+---
+
 ## v0.1.70 — Day34 Concurrency Control, MVCC, and Worker Claims
 
 Date: 2026-07-22
