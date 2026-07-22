@@ -107,7 +107,8 @@ claim eligibility = tenant_id + job_status = 'queued' + cancel_requested = false
   -> a committed-cancel queued Job must NOT be claimed by a new Worker
   -> cancel vs claim orderings:
        cancel commits first      -> the candidate SELECT excludes the Job (never claimed)
-       cancel holds the lock      -> SKIP LOCKED skips it (Worker takes another Job, no wait)
+       cancel holds the lock      -> SKIP LOCKED skips that row and keeps scanning; MAY return another
+                                     eligible Job, or 0 rows if none is available (then back off, no wait)
        claim locks first          -> the cancel transaction waits; after the claim COMMITs it re-evaluates
                                      under its own guarded policy (Day34 does not define that UPDATE)
 claim = SKIP LOCKED reserve + unchanged Day33 guarded write + gate + COMMIT, THEN Provider (outside tx)

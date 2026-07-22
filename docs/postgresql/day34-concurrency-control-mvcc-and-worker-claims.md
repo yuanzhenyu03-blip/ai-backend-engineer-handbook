@@ -236,7 +236,8 @@ row's exclusive lock until the claim transaction commits, another transaction **
 
 ```text
 cancel commits FIRST            -> the candidate SELECT's predicate excludes the Job; it is never claimed.
-cancel currently HOLDS the lock -> SKIP LOCKED skips the row; the Worker takes a different Job, no waiting.
+cancel currently HOLDS the lock -> SKIP LOCKED skips that row and keeps scanning; it MAY return another
+                                   eligible Job, or 0 rows if none is available (then back off, no waiting).
 this claim locks FIRST          -> the cancel transaction WAITS; the claim finishes queued->running and
                                    COMMITs, then the cancel path re-evaluates the current state under its
                                    OWN guarded cancellation policy (Day34 does not define that UPDATE).

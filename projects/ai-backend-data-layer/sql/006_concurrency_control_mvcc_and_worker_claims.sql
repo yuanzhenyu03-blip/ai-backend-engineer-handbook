@@ -118,8 +118,9 @@ SELECT j.job_id
 -- real orderings are:
 --   * cancel committed FIRST      -> the candidate SELECT's predicate already
 --                                    excluded the Job; it is never claimed.
---   * cancel currently HOLDS the lock (uncommitted) -> SKIP LOCKED skipped the row;
---                                    this Worker took a different Job and did not wait.
+--   * cancel currently HOLDS the lock (uncommitted) -> SKIP LOCKED skips that row and
+--                                    keeps scanning; it MAY return another eligible Job,
+--                                    or 0 rows if none is available (then back off, no wait).
 --   * this claim locks FIRST      -> a cancel transaction WAITS for this lock; this
 --                                    claim can finish queued->running and COMMIT, and
 --                                    the cancel path then re-evaluates the current

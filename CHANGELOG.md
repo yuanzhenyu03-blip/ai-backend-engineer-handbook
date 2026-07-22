@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.73 — Day34 Review Fix: precise SKIP LOCKED outcome (may return another Job, or zero rows)
+
+Date: 2026-07-22
+
+### Fixed
+
+- **Removed an absolute `SKIP LOCKED` outcome claim.** The v0.1.72 cancel-vs-claim ordering said that when the cancellation transaction currently holds the row lock, `SKIP LOCKED` skips it and the Worker "takes another/a different Job." That overstates the guarantee. `FOR UPDATE SKIP LOCKED` only skips currently-locked rows and keeps scanning for other rows matching the predicate; it **may** return another eligible Job, but if none is available it returns **zero rows** and the Worker backs off. Reworded the second ordering in the `006` SQL comment, the Day34 lesson (Concept 4 ordering block), the project README rules-encoded block, the cheat sheet eligibility paragraph, and the v0.1.72 CHANGELOG bullet to: "SKIP LOCKED skips that row and keeps scanning; it may return another eligible Job, or 0 rows if none is available (then the Worker backs off without waiting)." This is now consistent with the existing zero-row control-flow contract in `006` (0 rows -> no eligible unlocked Job right now -> COMMIT/ROLLBACK and back off -> normal, not an error).
+
+### Scope
+
+- Wording/comment correction only. The `cancel_requested = false` predicate remains in the candidate `SELECT`, the guarded `UPDATE`, the optimistic example, and the conceptual lease claim; the active transaction structure is unchanged; the three cancel-vs-claim orderings remain complete and accurate; the defensive-boundary rationale for the `UPDATE` re-check is unchanged. No cancellation state machine, no invented cancellation `UPDATE`, no new columns/migration (Day36), no index/`EXPLAIN` (Day35), no fencing token (Day41), no ORM/Redis; lease fields stay commented/conceptual; no student answer changed.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope (`006` SQL, the Day34 lesson, the project README, the cheat sheet, and this `CHANGELOG`); protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); a full-repository sweep confirming no file outside this corrective CHANGELOG entry still asserts the Worker "takes another/a different Job" unconditionally; a consistency check that every claim description now says `SKIP LOCKED` may return another eligible Job or zero rows, matching the `006` zero-row control-flow contract; SQL static review (both boundaries still filter `tenant_id` + `job_status = 'queued'` + `cancel_requested = false`; Attempt/Event inserted only after the one-row guarded `UPDATE`; lease fields `claim_owner`/`lease_token`/`lease_expires_at` still comment-only; balanced parentheses and one `BEGIN`/`COMMIT` claim transaction; no `CREATE INDEX`/`EXPLAIN`/`ALTER`); Markdown fence balance; and relative-link resolution.
+- **Final artifact PostgreSQL Runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available, so the corrected `006` was reviewed statically but **not** executed; the `SKIP LOCKED` outcomes were reasoned about, not run. The reduced-schema PostgreSQL 14.18 classroom evidence (three concurrency tests) is unchanged historical evidence and is not reused as proof. Application/driver/Celery multi-Worker, a real cancel-vs-claim race, lease heartbeat/renewal/takeover, Provider idempotency, Object Storage, Redis, and Day35 index plans remain NOT RUN.
+
+---
+
 ## v0.1.72 — Day34 Review Fix: correct the cancel-vs-claim concurrency semantics
 
 Date: 2026-07-22
@@ -18,7 +37,7 @@ Date: 2026-07-22
 - **Removed an inaccurate lock-semantics claim.** The v0.1.71 documentation said the guarded `UPDATE` re-checks `cancel_requested = false` because "a cancel transaction may commit between the SELECT and UPDATE," and that "the row lock plus the two COMMIT orders decide the winner, and the loser returns zero rows." Both are wrong for this claim transaction: after the `SELECT ... FOR UPDATE SKIP LOCKED` succeeds, the Worker holds the target `app.jobs` row's **exclusive lock** until the claim transaction commits or rolls back, so another transaction **cannot** commit a same-row `cancel_requested` change between the locking `SELECT` and the `UPDATE` — it must wait for the lock. And because the repository does not define the cancellation transaction's guarded `UPDATE`, there is no basis to assert a generic "loser returns zero rows."
 - **Unified the correct three-ordering model** across the `006` SQL comment, the Day34 lesson (Concept 4), the project README rules-encoded block, and the cheat sheet claim block:
   - cancellation commits **first** -> the candidate `SELECT`'s eligibility predicate already excludes the Job; it is never claimed;
-  - cancellation currently **holds the row lock** (uncommitted) -> `SKIP LOCKED` skips the row and the Worker takes a different Job without waiting;
+  - cancellation currently **holds the row lock** (uncommitted) -> `SKIP LOCKED` skips that row and keeps scanning; it may return another eligible Job, or 0 rows if none is available (then the Worker backs off without waiting);
   - the claim **locks first** -> the cancellation transaction waits, the claim finishes `queued -> running` and commits, and the cancellation path then re-evaluates the current state under its **own** guarded policy (which Day34 does not define).
 - **Kept the guarded `UPDATE`'s `cancel_requested = false` re-check**, now with the correct rationale: it is a **defensive** final state-transition boundary that carries full eligibility for a direct `UPDATE`, the optimistic path, and any future refactor that splits the `SELECT` from the `UPDATE`. The predicate remains in the candidate `SELECT`, the guarded `UPDATE`, the optimistic example, and the conceptual lease claim.
 
