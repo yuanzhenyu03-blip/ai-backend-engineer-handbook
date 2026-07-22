@@ -721,3 +721,210 @@ Strong: "Rollback stops future bad writes only; it retries nothing. Blind bulk r
         what repeats provider work and cost. Committed rows, provider charges and published outbox
         events all persist, and published_at IS NULL may mean 'sent, then crashed before write-back'."
 ```
+
+---
+
+# Day33 PostgreSQL Transactions and Atomic State Changes Questions
+
+From the Day33 lesson: `BEGIN`/`COMMIT`/`ROLLBACK` as one business boundary, the atomic Accept
+(Job + Outbox), the guarded Start transition, zero-affected-rows control flow, ACID from the scenario, the
+external-side-effect boundary, the Transactional Outbox lifecycle, `published_at` semantics, at-least-once
+vs exactly-once, the lost-COMMIT-response case, and why the pack is a write-path contract.
+
+Lesson: `docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`
+
+Transaction pack: `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql`
+
+## Beginner
+
+### 1. What is a database transaction, and why must Job + Outbox share one?
+
+Question:
+
+What is a database transaction, and why should creating a Job and its Outbox event happen in the same
+transaction?
+
+中文解析:
+
+事务把一组相关操作变成**一个原子单元**：`BEGIN ... COMMIT` 让它们要么一起持久化，要么一起回滚。Job 和它的
+Outbox publication intent 代表**一次业务承诺**——必须同一个事务提交。否则 Job 提交后进程崩溃、Outbox 没写，
+Relay 只扫 `app.outbox_events` 而不扫 `app.jobs`，这个 Job 就永远停在 queued。注意：语句是**按顺序执行**的，
+不是"同时发生"，原子性说的是最终提交可见性与回滚。
+
+Student's actual answer (preserved):
+
+> "a database transaction is a database atomicity operation.beacuse job and outbox event occure same time,both of them get success together or both of them get faild"
+
+Assessment: correct all-or-nothing direction. Fix "occur at the same time" — statements execute in
+sequence and share one atomic commit boundary.
+
+Strong answer:
+
+> "A database transaction groups related operations into one atomic unit. The Job and its Outbox event must
+> share a transaction because they are one business commitment — either both commit or neither does. This
+> prevents a durable queued Job from existing without a durable publication intent."
+
+### 2. Does a Job survive if the second insert violates a constraint and the transaction rolls back?
+
+Question:
+
+Job INSERT succeeds, Outbox INSERT violates a constraint, then ROLLBACK. Does the Job remain?
+
+中文解析:
+
+不会。Job 的 INSERT 在**同一个未提交的事务**里，`ROLLBACK` 把它和其他一切一起丢弃。关键区分：未提交的工作会
+被回滚；**已经 COMMIT 的工作回滚碰不到**——这正是"Job 提交后崩溃"那个 bug 能发生的原因。
+
+Student's actual answer (preserved):
+
+> "不会，因为原子性证明要么一起成功要么一起失败"
+
+Assessment: correct. Sharpen it with "uncommitted vs committed": the Job was uncommitted in the
+rolled-back transaction.
+
+## Intermediate
+
+### 1. Before or after COMMIT should FastAPI return 202?
+
+Question:
+
+Should FastAPI return `202 + job_id` before or after the Accept COMMIT, and what about a lost response?
+
+中文解析:
+
+COMMIT **之后**。`202 + job_id` 确认的是一个**已经持久化的承诺**；提前返回后若回滚，就承诺了一个不存在的 Job。
+若 COMMIT 成功但 HTTP 响应丢失，客户端重试由 Day31 的 `UNIQUE (tenant_id, idempotency_key)` + 查找兜底——
+事务本身无法告诉客户端结果。原子性防止部分事实，**幂等性**让不确定的重试安全。
+
+Student's actual answer (preserved):
+
+> "应该在commit之后，因为如果commit之前就已经返回202，如果发生回滚，而数据库没有业务承诺"
+
+Assessment: correct.
+
+### 2. Why not hold a transaction across an eight-minute Provider call?
+
+Question:
+
+Why should a PostgreSQL transaction not stay open while a Worker waits eight minutes for an AI Provider, and
+how do you divide the workflow?
+
+中文解析:
+
+事务开着八分钟会**占用一个连接**、可能持有**行锁和旧快照**（让冲突工作等待、给 vacuum 施压）、消耗连接池；更
+根本的是 PostgreSQL **无法回滚** Provider 调用或其费用，所以开着也没有意义。结构：短的 START 事务 → COMMIT →
+无事务的外部 Provider/Object Storage 阶段 → 短的 COMPLETE 事务 → COMMIT。
+
+Student's actual answer (preserved):
+
+> "beacause postgresql can't control extra provider job. put the use of AI Provider in two short transaction"
+
+Assessment: right direction. Fix "extra" to "external"; the call belongs between the two transactions. Add
+the connection/lock/old-snapshot costs.
+
+Strong answer:
+
+> "PostgreSQL cannot include an external Provider call in its transaction, so a rollback cannot undo the
+> request or its cost, and holding it open pins a connection and may hold locks and an old snapshot. I use
+> one short transaction for the claim/Attempt/start Event, commit, call the Provider outside any
+> transaction, then a second short transaction for completion state, result reference, Event, and Outbox
+> intent."
+
+## Senior
+
+### 1. Guarded transition returns zero rows — what happens, and what must the app do?
+
+Question:
+
+The guarded `queued -> running` UPDATE affects zero rows because the Job is already running. Does the
+transaction abort? What corrupts if the code continues?
+
+中文解析:
+
+不会终止事务——零影响行是 PostgreSQL 的**正常结果**，下一条语句照常执行。若应用不 gate，就会为一个自己从未
+合法认领的 Job 插入重复的 Attempt 与 Event。用 `UPDATE ... RETURNING`：1 行则继续，0 行是
+`transition_not_applied`，回滚并停止。`UNIQUE (job_id, attempt_number)` 只挡重复**编号**，挡不了缺失的
+转换守卫。规则：SQL/约束错误才让事务失败；零影响行需要应用解释。
+
+Student's actual answer (preserved):
+
+> "不会终止事务，会发生重复插入attempt与event"
+
+Assessment: correct, and the core operational subtlety of the lesson.
+
+### 2. Relay publishes, then crashes before `published_at` — what now?
+
+Question:
+
+An Outbox Relay publishes successfully but crashes before updating `published_at`. What happens after
+restart, and how does the system stay correct?
+
+中文解析:
+
+行还是 NULL，重启后 Relay 可能**再次发布**同一条消息——这是 at-least-once 下的预期。Relay 复用同一个稳定的
+`outbox_event_id`，消费者拿它当**幂等键**。这个 id **不能阻止重复发布**，它阻止的是重复的**业务处理**。而且
+`published_at` 只证明 Relay 记录了一次发布，不证明 Queue 投递或消费者成功。禁用重试不是 exactly-once，而是
+at-most-once，会丢消息。
+
+Student's actual answer (preserved):
+
+> "the outbox relay would retry published same message.we need to add outbox_event_id that it is a idempotent key avoid relay publish twice"
+
+Assessment: first half correct. The mechanism is wrong: `outbox_event_id` does not avoid Relay
+retransmission; it enables consumer-side idempotent processing.
+
+Strong answer:
+
+> "After restart the Relay still sees `published_at` as null and may publish again — expected under
+> at-least-once. It reuses the same stable `outbox_event_id`, and the consumer uses that id as an
+> idempotency key. The id prevents duplicate business processing, not duplicate publication. And
+> `published_at` proves only that the Relay recorded a publish, not that the consumer finished."
+
+### 3. After a completion rollback, what survives?
+
+Question:
+
+Provider already succeeded and charged; the Object Storage object exists. In one Completion transaction the
+Attempt-finish and Job-success updates run, then the Artifact INSERT violates a constraint and the app rolls
+back. What survives?
+
+中文解析:
+
+数据库侧**都不留下**：Attempt 完成、Job 成功、成功 Event、Artifact 引用、Outbox intent 在回滚后都不是已提交
+的最终事实。留下的是数据库从未控制的东西——**Provider 费用**和**Object Storage 字节**。对象可能成为孤儿，需要
+对账或单独审计的补偿删除。数据库回滚不是 Object Storage 回滚。
+
+Student's actual answer (preserved):
+
+> "都不存在在了，在同一个事务中还没提交的状态下，任何的回滚之前的操作都不奏效。provider费用已经开销了是无法回滚的，写入object storage的对象也是无法回滚的"
+
+Assessment: correct boundary. Sharper: the statements executed but none became a committed fact after
+rollback; the external effects remain.
+
+## Common Weak vs Strong Answer (Day33)
+
+```text
+Weak:   "I'll insert the Job, then insert the Outbox event."
+Strong: "Both go in one transaction. A durable Job must exist iff a durable Outbox intent exists, or the
+        Relay never sees the Job and it stays queued forever."
+
+Weak:   "The guarded update returned zero rows, so the transaction failed."
+Strong: "Zero rows is a normal result. The transaction is fine; the app must gate on RETURNING and roll
+        back on transition_not_applied, or it writes a duplicate Attempt and Event."
+
+Weak:   "Wrap the whole job, including the eight-minute Provider call, in one transaction."
+Strong: "Never. It pins a connection and may hold locks and an old snapshot, and PostgreSQL still can't
+        roll back the Provider call. Two short transactions with the external phase between them."
+
+Weak:   "published_at is set, so the consumer processed the message."
+Strong: "It proves only that the Relay recorded a publish. Queue delivery and consumer success are
+        separate checkpoints, and a crash before write-back can republish the same outbox_event_id."
+
+Weak:   "We disabled retries, so delivery is exactly-once."
+Strong: "That's at-most-once and can silently lose messages. Use at-least-once plus an idempotent consumer
+        keyed on outbox_event_id; exactly-once is not achieved by turning off retries."
+
+Weak:   "The transaction pack makes the whole system atomic."
+Strong: "Only for writers that use it. A legacy Worker committing separately still leaves partial facts;
+        drain old Workers, centralize writes, and monitor the Day32 coherence queries."
+```

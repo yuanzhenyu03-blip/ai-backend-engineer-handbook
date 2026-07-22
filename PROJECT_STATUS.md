@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day33 — PostgreSQL Transactions and Atomic State Changes
+Day34 — Concurrency Control, MVCC, and Worker Claims
 
 Status:
 Planned / Not started
 
-(The Day33 lesson has not started and no Day33 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day32 details are recorded under Last Completed Lesson.)
+(The Day34 lesson has not started and no Day34 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day33 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -55,6 +55,7 @@ Day32 details are recorded under Last Completed Lesson.)
 - ✅ Day30 — SQL Data Manipulation and Query Fundamentals
 - ✅ Day31 — Relational Modeling and Data Integrity
 - ✅ Day32 — SQL Joins, Aggregation, and Operational Queries
+- ✅ Day33 — PostgreSQL Transactions and Atomic State Changes
 
 ---
 
@@ -66,32 +67,32 @@ None.
 
 ## Last Completed Lesson
 
-Day32 — SQL Joins, Aggregation, and Operational Queries
+Day33 — PostgreSQL Transactions and Atomic State Changes
 
 Completed Time:
-2026-07-21
+2026-07-22
 
 Main Artifact:
-Day32 operational query pack (projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql) — twelve read-only, parameterized statements in ten query groups over the Day31 model, each with an explicit result-grain contract, deterministic ORDER BY, and a tenant predicate
+Day33 transactional write pack (projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql) — three short transactions (Accept / Start / Complete) around one external Provider/Object Storage phase held outside any transaction, plus the Relay checkpoint, each guarded UPDATE carrying an explicit application control-flow contract
 
 Validation Boundary:
-Conceptual/manual reasoning and query construction were done in class. Then a REDUCED classroom validation schema with representative data was executed on PostgreSQL 14.18 and the following checks PASSED: LEFT JOIN zero-Attempt placeholder row; COUNT(*) vs COUNT(attempt_id) for a zero-Attempt Job; 3 Attempts x 4 Events = 12 rows; conditional aggregation 3 total / 2 failed; cost evidence 2 reported / SUM 400 / AVG 200; independent Attempt/Event CTE pre-aggregation; running_attempt_over_threshold classification; running_without_attempt classification; one succeeded Job in the last-hour throughput window; release-provenance DISTINCT affected set; final marker DAY32_RUNTIME_VALIDATION_PASS. An earlier bootstrap failed at cluster start with shmget: Operation not permitted - environment evidence, not a SQL result. The cluster was stopped afterwards. That reduced run did NOT execute or prove: HAVING group filtering; DISTINCT ON selection of the current Attempt (the classroom used the greatest attempt_number path, not the artifact's DISTINCT ON form); a half-open window excluding a row placed exactly on the upper bound (only a single last-hour succeeded throughput sample was run, with no boundary row created or asserted); the explicit terminal-status allowlist; queries 4b, 5 or 10; or execution against the full Day31 001 + 003 schema. The release-provenance check WAS covered representatively, but that still does not prove the final repository query 9 as written. The FULL Day32 artifact in this repository was NOT executed: no psql/PostgreSQL server was available during the repository update or this review, so only a static file review was performed (balanced parentheses, 12 statements, every referenced column present in 001 + 003, a GRAIN contract per statement, deterministic ORDER BY, no DML/transactions/locks/indexes/EXPLAIN, no credentials). The reduced classroom evidence is not reused as proof of this file. Application integration: NOT RUN. Production validation: NOT RUN. Atomicity (Day33), locking/MVCC (Day34), indexes and execution plans (Day35), safe migration of populated tables (Day36), release-metadata completeness, RLS/roles, performance, and production deployment remain unproven.
+Conceptual/manual production reasoning and a static scope check of the local classroom transaction draft were done in class. Then a REDUCED classroom validation schema was executed on PostgreSQL 14.18 and five listed tests PASSED: Job + Outbox committed together; a duplicate Outbox id raised unique_violation and rolled the preceding Job insert back; running Job + Attempt + job_started Event committed coherently; a duplicate Artifact key raised unique_violation and rolled Attempt-finish + Job-success + success Event + success Outbox back; the Outbox published_at checkpoint changed from NULL to a timestamp (final marker DAY33_REDUCED_RUNTIME_VALIDATION_PASS). An earlier restricted-sandbox bootstrap failed at cluster start with shmget: Operation not permitted - environment evidence, not a SQL failure. Both temporary clusters were deleted. Test 5 validated ONLY PostgreSQL's NULL-to-timestamp checkpoint, NOT Redis publication. The FINAL repository 005 artifact was NOT executed: no psql/PostgreSQL server was available during the repository update, so only a static file review was performed (uses the Day31 columns exactly; three short transactions; guarded UPDATE ... RETURNING with explicit control-flow contracts; external phase outside any transaction; no FOR UPDATE/SKIP LOCKED/index/EXPLAIN/migration/ORM; no credentials). The reduced classroom run is not reused as proof of the final file. Application/FastAPI/driver/Provider/Object Storage/Redis/Celery integration: NOT RUN. Real Relay crash/restart and consumer idempotency: NOT RUN. Day34 concurrency/MVCC/locks/SKIP LOCKED (OUT OF SCOPE), and production performance, RLS/roles, backups, HA, deployment: NOT RUN.
 
 Completed Work:
 
-- Day32 classroom learning
-- Day32 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day31->Day32 mental-model evolution)
-- Day32 read-only operational query pack and project README increment
-- Day32 join-choice, row-multiplication, NULL-aware counting, honest cost reporting, CTE pre-aggregation, stage-aware stuck detection, and incident-evidence exercises
-- Day32 PostgreSQL cheat sheet append
-- Day32 PostgreSQL interview notes append
-- Day32 repository status update
+- Day33 classroom learning
+- Day33 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day32->Day33 mental-model evolution)
+- Day33 transactional write pack and project README increment
+- Day33 atomic-Accept, guarded-Start, zero-row-gate, external-boundary, Outbox-lifecycle, delivery-model, lost-COMMIT, and legacy-writer exercises
+- Day33 PostgreSQL cheat sheet append
+- Day33 PostgreSQL interview notes append
+- Day33 repository status update
 
 ---
 
 ## Next
 
-- Day33 — PostgreSQL Transactions and Atomic State Changes (Phase 3 — Backend Foundations)
+- Day34 — Concurrency Control, MVCC, and Worker Claims (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -134,6 +135,7 @@ Completed Python Foundations:
 - Day30 — SQL data manipulation and query fundamentals, clause chain SELECT/FROM/WHERE/ORDER BY/LIMIT, explicit columns and a unique ORDER BY tie-breaker, three-valued logic (WHERE keeps only TRUE; IS NULL; why `<> 'timeout'` drops no-error rows), INSERT with database defaults + RETURNING (rows not a count), parameterized SQL and the injection boundary (values only; identifiers need an allowlist; it does not authorize or fix concurrency), WHERE as the modification boundary with current-state guards, zero rows means the transition did not apply, AND/OR precedence in destructive statements, lost-update awareness (database-side increment or expected-old-value guard), and the contain->evidence->identify->reconcile->guarded repair->verify incident order
 - Day31 — Relational modeling and data integrity, entities/attributes/relationships and ownership, when a repeated fact becomes its own entity, primary key vs foreign key vs business key, uniqueness SCOPE (UNIQUE(job_id, attempt_number), UNIQUE(tenant_id, idempotency_key) because a retry brings a new job_id), referential actions as retention policy (RESTRICT protects audit/cost evidence; CASCADE erases it), one-to-many FK placement and one-to-one via FK+UNIQUE, many-to-many junction tables carrying relationship attributes, CHECK as the legal-state boundary and what a row CHECK cannot see, normalizing Result Artifacts with derivable provenance, current state vs append-oriented job_events vs durable outbox_events intent, tenant-aware composite foreign keys, integrity vs authorization, and deploying a UNIQUE constraint onto committed duplicates
 - Day32 — SQL joins, aggregation and operational queries, defining the result grain before writing the query, choosing INNER vs LEFT JOIN from what a missing row MEANS (a zero-Attempt Job is the backlog, and NULL child columns are evidence), join cardinality and row multiplication (3 Attempts x 4 Events = 12 rows; 0 Attempts + 4 Events = 4 rows, not 0), COUNT(*) counting result rows vs COUNT(child_pk) counting existence, conditional aggregation with FILTER and why moving the condition into WHERE collapses LEFT into INNER, WHERE before grouping vs HAVING after aggregation, MIN/MAX for oldest queued age and the NULL-vs-zero empty-queue distinction, SUM/AVG over incomplete cost as a claim about RECORDED facts (recorded_* naming plus completeness; never COALESCE(SUM(cost),0) on a billing page), CTE pre-aggregation as the structural fix for two independent children (DISTINCT patches counts, not SUM), stage-aware stuck detection using the current Attempt clock with a DISTINCT ON tie-breaker producing classified CANDIDATES not verdicts, half-open [start, end) windows vs BETWEEN double-counting, recorded release provenance beating time correlation for an affected set, and rollback stopping future bad writes without repairing committed rows or undoing published outbox events
+- Day33 — PostgreSQL transactions and atomic state changes, BEGIN/COMMIT/ROLLBACK as one business commitment (all related DB facts commit or roll back together; ROLLBACK never undoes a prior COMMIT), the atomic Accept where a durable Job exists iff a durable Outbox publication intent exists (return 202 only after COMMIT; a lost response is resolved by UNIQUE(tenant_id, idempotency_key) lookup), the guarded queued->running Start transition + Attempt + append-only job_started Event committed as one unit, zero affected rows being a NORMAL result the application must gate on (not a transaction failure, unlike a SQL/constraint error) so an ungated continue writes a duplicate Attempt/Event, ACID read from the scenario (Consistency enforces constraints not correct business logic; Isolation deferred to Day34), never holding a transaction across an eight-minute Provider call (two short transactions around an external phase held outside any transaction), what PostgreSQL can prove (persisted start facts, a recorded provider_request_id = you asked) vs cannot (the external result), the Transactional Outbox lifecycle (durable intent, Relay does not take the row or reset published_at to NULL), published_at NULL vs NOT NULL meanings and the three distinct delivery checkpoints, at-most-once (may lose) vs at-least-once (may duplicate) vs exactly-once not being achieved by disabling retries (practical correctness = at-least-once + stable outbox_event_id + idempotent consumer), external side effects (Provider cost, Object Storage bytes) surviving a database rollback, the unknown outcome of a lost COMMIT response (read stable ids, do not assume rollback), and the transaction pack being a write-path contract that does not protect legacy separate-commit writers
 
 ---
 

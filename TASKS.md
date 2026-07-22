@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day33 — PostgreSQL Transactions and Atomic State Changes
+Day34 — Concurrency Control, MVCC, and Worker Claims
 
 Status:
 Planned / Not started
@@ -28,10 +28,61 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day33 — PostgreSQL Transactions and Atomic State Changes (see the Day33 Preparation block below).
+- [ ] Prepare for Day34 — Concurrency Control, MVCC, and Worker Claims (see the Day34 Preparation block below).
 
-(Day29-Day32 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32 sections
-and the corresponding Preparation history blocks.)
+(Day29-Day33 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33
+sections and the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day33 Tasks
+
+- [x] Complete Day33 PostgreSQL Transactions and Atomic State Changes classroom learning.
+- [x] Generate the Day33 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day32->Day33 mental-model evolution).
+- [x] Use BEGIN/COMMIT/ROLLBACK as one business-change boundary.
+- [x] Make Job + Outbox publication intent atomic and return 202 only after COMMIT.
+- [x] Write the guarded queued->running transition + Attempt + job_started Event as one transaction.
+- [x] Explain why zero affected rows is a normal result requiring an application gate, not a transaction failure.
+- [x] Keep the AI Provider and Object Storage phase outside any open transaction.
+- [x] State what PostgreSQL can and cannot prove after Provider success.
+- [x] Explain the Transactional Outbox lifecycle and published_at semantics.
+- [x] Correct the exactly-once misconception with at-most-once vs at-least-once + idempotent consumer.
+- [x] Explain the integrated rollback (external side effects survive) and the lost-COMMIT-response case.
+- [x] Explain why the transaction pack is a write-path contract, not a schema guarantee.
+- [x] Preserve the real student answers, the delivery-label mistake, and all corrections.
+
+---
+
+## Completed Day33 Repository Tasks
+
+- [x] Add `docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day33 increment, transaction boundaries, driver contract, reproduction, and limitations.
+- [x] Append the Day33 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day33 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day33 is now the latest PostgreSQL lesson).
+- [x] Update the Day32 lesson Next Lesson link to the released Day33 lesson.
+- [x] Update `CURRICULUM.md` (Day33 Completed; Day34 remains Planned).
+- [x] Update `ROADMAP.md` (Day33 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day33 Interview Tasks
+
+- [x] Add the beginner transaction-definition and constraint-rollback questions with the student's actual answers.
+- [x] Add intermediate 202-after-COMMIT and no-transaction-across-Provider questions.
+- [x] Add the senior zero-row-gate, Relay-crash, and completion-rollback questions.
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day33 Homework
+
+- [x] Complete the Job-without-Outbox and constraint-rollback diagnosis exercises.
+- [x] Complete the 202 placement and zero-row-gate exercises.
+- [x] Complete the split-the-eight-minute-call and proof-boundary exercises.
+- [x] Complete the published_at, delivery-label, and legacy-writer exercises.
 
 ---
 
@@ -149,14 +200,26 @@ and the corresponding Preparation history blocks.)
 
 ---
 
-### Day33 Preparation — PostgreSQL Transactions and Atomic State Changes
+### Day34 Preparation — Concurrency Control, MVCC, and Worker Claims
 
-- [ ] Read the Day33 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` and note which evidence each query assumes was written at all.
-- [ ] Preview BEGIN/COMMIT/ROLLBACK, ACID from production failures, and the atomic Job + Outbox insert.
-- [ ] Preview why a database transaction cannot cover an external provider, Object Storage, or Redis side effect.
-- [ ] Preview transaction size and duration, and why one must never stay open during an eight-minute model call.
-- [ ] Keep concurrency/locks (Day34), indexes and execution plans (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day34 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql` and note where the Relay checkpoint defers concurrent claiming.
+- [ ] Preview concurrent sessions, MVCC snapshot visibility, and isolation-level anomalies.
+- [ ] Preview `SELECT ... FOR UPDATE`, `SKIP LOCKED` worker claiming, and fairness/starvation.
+- [ ] Preview DB lock vs application lease, deadlocks, lock ordering, timeout, and retry.
+- [ ] Remember that a lock cannot repair a wrongly defined business transaction (Day33 stays the foundation).
+- [ ] Keep indexes and execution plans (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day33 Preparation — PostgreSQL Transactions and Atomic State Changes (completed)
+
+- [x] Read the Day33 input.
+- [x] Reviewed `projects/ai-backend-data-layer/sql/004_sql_joins_aggregation_and_operational_queries.sql` and which evidence each query assumes was written at all.
+- [x] Previewed BEGIN/COMMIT/ROLLBACK, ACID from production failures, and the atomic Job + Outbox insert.
+- [x] Previewed why a database transaction cannot cover an external provider, Object Storage, or Redis side effect.
+- [x] Previewed transaction size and duration, and why one must never stay open during an eight-minute model call.
+- [x] Kept concurrency/locks (Day34), indexes and execution plans (Day35), safe migration (Day36), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -367,7 +430,7 @@ and the corresponding Preparation history blocks.)
 - [x] Day30 — SQL Data Manipulation and Query Fundamentals (Completed).
 - [x] Day31 — Relational Modeling and Data Integrity (Completed).
 - [x] Day32 — SQL Joins, Aggregation, and Operational Queries (Completed).
-- [ ] Day33 — PostgreSQL Transactions and Atomic State Changes (Planned).
+- [x] Day33 — PostgreSQL Transactions and Atomic State Changes (Completed).
 - [ ] Day34 — Concurrency Control, MVCC, and Worker Claims (Planned).
 - [ ] Day35 — PostgreSQL Indexes and Query Planning (Planned).
 - [ ] Day36 — Schema Evolution and Safe Migrations (Planned).

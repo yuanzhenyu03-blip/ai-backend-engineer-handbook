@@ -16,7 +16,7 @@ Prerequisite: Day31 — Relational Modeling and Data Integrity
 
 Previous Lesson: [Day31 — Relational Modeling and Data Integrity](day31-relational-modeling-and-data-integrity.md)
 
-Next Lesson: Day33 — PostgreSQL Transactions and Atomic State Changes (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day33 lesson file does not exist yet)
+Next Lesson: [Day33 — PostgreSQL Transactions and Atomic State Changes](day33-postgresql-transactions-and-atomic-state-changes.md)
 
 Engineering Artifact: The Day32 operational query pack (`sql/004_sql_joins_aggregation_and_operational_queries.sql`) — twelve read-only statements in ten query groups over the Day31 model, each with an explicit result grain — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.67 — Day33 PostgreSQL Transactions and Atomic State Changes
+
+Date: 2026-07-22
+
+### Added
+
+- Added `docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day32->Day33 mental-model evolution).
+- Added `projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql` — a driver-bound **transaction reference pack** over the Day31 model: Transaction A (Accept = Job + Outbox publication intent, COMMIT before `202`), Transaction B (Start = guarded `queued -> running` with database-side `attempt_count + 1` + Attempt + append-only `job_started` Event), an external Provider/Object Storage phase held **outside any transaction**, Transaction C (Complete = Attempt finish + guarded `running -> succeeded` with `finished_at` + Result Artifact + `job_succeeded` Event + Outbox intent), and the Relay checkpoint (`published_at IS NULL` -> publish with the same `outbox_event_id` -> `published_at = now()` after ack). Every guarded `UPDATE ... RETURNING` carries an explicit application control-flow contract, and Appendix A gives a runnable pure-SQL zero-row-gate demonstration.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day33 increment: the three-transaction + external-boundary table, the encoded rules, the zero-row control-flow contract, an authored (not executed) reproduction against a disposable cluster, Day33 known gaps, and a separate Day33 validation matrix.
+- Appended a Day33 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day33 Beginner/Intermediate/Senior questions to `interview/postgresql.md`, preserving the student's real answers verbatim — including the broken-English interview answers, the `occure same time` and `avoid relay publish twice` misconceptions, and the final synthesis's delivery-label mistake (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day33 is the latest PostgreSQL lesson, and pointed the Day32 lesson's Next Lesson at the released Day33 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day33 completed with its released lesson/artifact (Day34 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day33 last completed with artifact + validation boundary; Current/Next is Day34 Planned / Not started), `TASKS.md` (completed Day33 blocks, Day33 preparation converted to history, Day34 preparation added), `README.md`, and `AGENTS.md`.
+
+### Learning Notes
+
+- Day33 turns the Day32 read-side coherence rules into write-side atomic commitments. A transaction is **one business commitment**: `BEGIN`/`COMMIT` makes all related database facts durable together and `ROLLBACK` discards the whole current transaction — but never a **prior** COMMIT, which is why a Job committed without its Outbox row (separate commits) is stuck forever. The Accept invariant is that a durable Job exists **iff** a durable Outbox publication intent exists, and `202 + job_id` is returned only after that COMMIT (a lost response is resolved by `UNIQUE (tenant_id, idempotency_key)` lookup, not the transaction). The Start transition, its Attempt, and its `job_started` Event share one transaction; **zero affected rows is a normal result the application must gate on** (unlike a SQL/constraint error that fails the transaction), or an ungated continue writes a duplicate Attempt/Event. The decisive boundary: PostgreSQL commits/rolls back only its own rows, so the AI Provider call and Object Storage write sit **outside** any transaction, between two short transactions — a long transaction across an eight-minute call pins a connection and may hold locks and an old snapshot, and still cannot undo the external call. A completion rollback discards every database fact but leaves the Provider cost and Object Storage bytes. The Transactional Outbox is durable publication intent (the Relay does not delete the row or reset `published_at` to NULL); `published_at IS NOT NULL` proves only that the Relay recorded a publish, not Queue delivery or consumer success. Delivery is **at-least-once + stable `outbox_event_id` + idempotent consumer** — exactly-once is not achieved by disabling retries (that is at-most-once and can lose messages). A correct pack is a **write-path contract**, not a schema guarantee: legacy separate-commit writers remain unsafe until drained.
+- The real classroom record is preserved, including the two unresolved-after-correction mistakes: the final Chinese synthesis said PostgreSQL transactions **control** the external Provider (very likely a missing 「不能」, not silently rewritten) and mislabelled disabling retries as exactly-once. The polished delivery model is recorded as Tech Lead synthesis, not attributed to the student.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day34 lesson exists and Day34 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day33 student quote appears in `Day33_Repository_Update_Input.md`; Markdown fence balance; relative-link resolution; status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; SQL static review of `005` (balanced parentheses, three `BEGIN`/`COMMIT` pairs, every referenced column present in `001` + `003`, guarded `UPDATE ... RETURNING` with control-flow contracts, external phase outside any transaction, no `FOR UPDATE`/`SKIP LOCKED`/`CREATE INDEX`/`EXPLAIN`/`DROP`/`ALTER`/ORM, no exactly-once claim); and a secret scan.
+- **Final artifact PostgreSQL Runtime: NOT RUN.** No `psql`, PostgreSQL server, or Docker daemon was available in the repository-update environment, so no statement in `005` was parsed or executed by PostgreSQL. Classroom evidence is reported separately and at its true level: a disposable **PostgreSQL 14.18** cluster ran a **reduced** validation schema and passed five listed tests (Job + Outbox atomic commit; duplicate Outbox id rolling the Job back; running Job + Attempt + Event coherence; duplicate Artifact key rolling the completion back; the Outbox `published_at` NULL->timestamp checkpoint; final marker `DAY33_REDUCED_RUNTIME_VALIDATION_PASS`). Test 5 validated **only** PostgreSQL's checkpoint, not Redis publication. An earlier restricted-sandbox bootstrap failed at cluster start with `shmget: Operation not permitted` (environment evidence, not a SQL failure). That reduced run is **not** reused as proof of the repository file. Application/FastAPI/driver/Provider/Object Storage/Redis/Celery integration, a real Relay crash/restart, and consumer idempotency: NOT RUN. Day34 concurrency, and production performance/RLS/backups/HA/deployment: NOT RUN.
+- Scope: no Day34 lesson was created; no locks, `FOR UPDATE`, `SKIP LOCKED`, MVCC tuning, indexes, `EXPLAIN`, migrations, ORM, or Alembic were added; no exactly-once delivery claim; no claim that `published_at` proves external delivery or that rollback reverses Provider cost or Object Storage bytes; the protected prompt/template files are unchanged; and no credentials, real connection strings, signed URLs, or production data were added.
+
+---
+
 ## v0.1.66 — Day32 Second-Round Review Fixes
 
 Date: 2026-07-21

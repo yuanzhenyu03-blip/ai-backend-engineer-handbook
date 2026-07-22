@@ -335,6 +335,58 @@ Scope note: Day32 queries are written for **meaning only** — no indexes, `EXPL
 
 ---
 
+## Day33 PostgreSQL Transactions and Atomic State Changes
+
+A transaction is **one business commitment**: `BEGIN` ... `COMMIT` makes all related database facts durable together; `ROLLBACK` discards the whole current transaction. `ROLLBACK` never undoes a **prior** COMMIT — "can I roll it back?" means "is it still uncommitted?".
+
+**Accept invariant.** A durable Job exists **iff** a durable Outbox publication intent exists — put both INSERTs in one transaction. The Relay scans `app.outbox_events`, not `app.jobs`, so a Job committed without its Outbox row sits queued forever (the classic separate-commit stall).
+
+**Return 202 AFTER COMMIT.** `202 + job_id` acknowledges an existing durable commitment. If COMMIT succeeds but the response is lost, the client retry is made safe by `UNIQUE (tenant_id, idempotency_key)` + lookup — the transaction cannot tell the client the outcome.
+
+**Zero affected rows != error.**
+
+```text
+SQL / constraint error -> transaction FAILED, must ROLLBACK
+zero affected rows     -> NORMAL result; the APPLICATION must gate and stop
+```
+
+A guarded `UPDATE ... RETURNING` returning 0 rows is `transition_not_applied`: roll back and stop. If the app runs the next INSERT anyway it creates a duplicate Attempt/Event. `UNIQUE (job_id, attempt_number)` stops a duplicate **number** only; it cannot replace the transition guard. Never claim `BEGIN/COMMIT` alone makes a zero-row UPDATE fail.
+
+**Atomic Start = three facts in one transaction:** guarded `queued -> running` (with `attempt_count = attempt_count + 1` database-side, returned as the new `attempt_number`), the Attempt, and the append-only `job_started` Event. A crash after only the status commit is Day32's `running_without_attempt`.
+
+**ACID from the scenario:** Atomicity = all-or-nothing DB facts; Consistency = constraints hold, but guarded app logic still enforces the business transition (ACID does not invent correct logic); Isolation = concurrent interaction (Day34); Durability = facts survive process crash after COMMIT.
+
+**The external boundary.** PostgreSQL commits/rolls back **only its own rows**. It cannot roll back a Provider call or its cost, Object Storage bytes, a Redis/Queue publish, or a webhook. So:
+
+```text
+short START transaction -> COMMIT
+external Provider + Object Storage phase   (NO open DB transaction)
+short COMPLETE transaction -> COMMIT
+```
+
+Never hold a transaction across an eight-minute call: it pins a connection, may hold row locks + an old snapshot, and still cannot undo the external work. After Provider success but before Complete, PostgreSQL proves only the start facts; a recorded `provider_request_id` proves you **asked**, not the external result — blind requeue can repeat paid work.
+
+**Integrated rollback:** if the Completion transaction rolls back (e.g. Artifact `UNIQUE (attempt_id, object_key)` violation), none of Attempt-finish / Job-succeeded / Event / Artifact / Outbox survive — but the **Provider cost and Object Storage bytes remain**. Database rollback is not Object Storage rollback; the object may be orphaned pending reconciliation or an audited compensating delete.
+
+**Outbox lifecycle.** The row is durable **publication intent + audit evidence**, created `published_at = NULL`. The Relay polls/claims it, publishes, then sets `published_at = now()` after Queue ack — it does **not** delete the row or reset it to NULL.
+
+```text
+published_at IS NULL     -> never attempted, in flight, OR published-then-crashed before write-back
+published_at IS NOT NULL -> Relay RECORDED a publish; NOT proof of Queue delivery or consumer success
+```
+
+Three distinct checkpoints: Relay recorded publish != Queue delivered != consumer processed. A Relay crash after publish but before write-back republishes the **same** `outbox_event_id`.
+
+**Delivery model.** No retry under uncertainty = **at-most-once** (may lose). Retry = **at-least-once** (may duplicate). Exactly-once is **not** obtained by disabling retries. Practical correctness = at-least-once publication + stable `outbox_event_id` + **idempotent consumer**. The stable id does not stop Relay retransmission; it stops duplicate **business processing**.
+
+**Lost COMMIT response** = unknown outcome. Do not assume rollback — reconnect and read stable ids (`idempotency_key`, `job_id`, `outbox_event_id`). Atomicity prevents partial facts; idempotency makes the retry safe.
+
+**Write-path contract, not a schema guarantee.** The transaction pack binds only writers that use it. A legacy Worker committing separately can still leave partial facts — drain old Workers, centralize write paths, monitor Day32 coherence queries. The schema does not enforce that all child rows are present.
+
+Scope: Day33 has no `FOR UPDATE`/`SKIP LOCKED`/MVCC tuning (Day34), no indexes/`EXPLAIN` (Day35), no migrations (Day36), no ORM. Locks cannot repair a wrongly defined business transaction.
+
+---
+
 ## Interview Phrases
 
 - "The Job row is committed before 202; 202 acknowledges an existing durable commitment."
@@ -389,3 +441,20 @@ Scope note: Day32 queries are written for **meaning only** — no indexes, `EXPL
 - "Recorded provenance is the affected set; a time window is a proxy you must disclose."
 - "No completion recorded is not the same as the provider call being dead."
 - "Rollback stops future bad writes; committed rows and published outbox events remain."
+
+- "A transaction is one business commitment: all related DB facts commit together or roll back together."
+- "ROLLBACK undoes the current transaction, never a prior COMMIT."
+- "A durable Job exists iff a durable Outbox intent exists — commit both together."
+- "Return 202 after COMMIT; a lost response is resolved by idempotency-key lookup, not the transaction."
+- "Zero affected rows is a normal result the app must gate on; a constraint error is what fails a transaction."
+- "UNIQUE(job_id, attempt_number) stops a duplicate number, not a missing transition guard."
+- "Consistency means constraints hold, not that the business transition was correct."
+- "Never hold a transaction across an eight-minute Provider call — split into two short ones."
+- "A recorded provider_request_id proves you asked, not what the Provider did."
+- "Database rollback is not Object Storage rollback; Provider cost and bytes survive."
+- "The Outbox row is durable intent; the Relay does not take it or reset published_at to NULL."
+- "published_at NOT NULL proves a recorded publish only — not delivery or consumer success."
+- "at-most-once loses, at-least-once duplicates, exactly-once is not disabling retries."
+- "The same outbox_event_id stops duplicate processing, not duplicate publication."
+- "A lost COMMIT response is unknown — read stable ids, do not assume rollback."
+- "A transaction pack is a write-path contract, not a schema guarantee."

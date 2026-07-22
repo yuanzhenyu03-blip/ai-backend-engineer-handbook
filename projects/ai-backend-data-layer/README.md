@@ -4,15 +4,16 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day32 — a read-only operational query pack** that turns the Day31 relational model
-into grain-correct evidence: preserved missing relationships, multiplication-free aggregation,
-stage-aware anomaly candidates, and provenance-scoped incident classification.
+Current increment: **Day33 — a transactional write pack** that turns the Day32 read-side coherence rules
+into write-side atomic commitments: three short transactions (Accept / Start / Complete) around one
+external Provider/Object Storage phase held outside any transaction, plus the Relay checkpoint.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
 - Day30 (operations): [`docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md`](../../docs/postgresql/day30-sql-data-manipulation-and-query-fundamentals.md)
 - Day31 (relational model): [`docs/postgresql/day31-relational-modeling-and-data-integrity.md`](../../docs/postgresql/day31-relational-modeling-and-data-integrity.md)
 - Day32 (operational queries): [`docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`](../../docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md)
+- Day33 (transactions): [`docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`](../../docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md)
 
 ---
 
@@ -25,7 +26,8 @@ projects/ai-backend-data-layer/
     ├── 001_create_jobs.sql                              # Day29: the durable Job schema
     ├── 002_job_crud_and_guarded_transitions.sql         # Day30: parameterized reads + guarded writes (reference pack, not DDL)
     ├── 003_relational_modeling_and_data_integrity.sql   # Day31: relational target schema + constraints
-    └── 004_sql_joins_aggregation_and_operational_queries.sql  # Day32: read-only operational query pack (not DDL)
+    ├── 004_sql_joins_aggregation_and_operational_queries.sql  # Day32: read-only operational query pack (not DDL)
+    └── 005_postgresql_transactions_and_atomic_state_changes.sql  # Day33: transactional write pack (driver-bound, not DDL)
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -71,6 +73,89 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day33 increment — transactional write pack
+
+`sql/005_postgresql_transactions_and_atomic_state_changes.sql` is a **driver-bound transaction reference
+pack**, not DDL and not a runnable script: `$1`/`$2`/... are `PREPARE`/driver placeholders, not psql
+variables. It reads and writes the Day31 model, so the apply order is `001_create_jobs.sql` ->
+`003_...sql`, then bind and execute these transactions from an application.
+
+It turns the Day32 read-side rule ("detect partial/missing related facts") into a write-side rule
+("commit all related facts or none"), and it is a **write-path contract, not a schema guarantee**: it
+protects only writers that use it.
+
+### The three transactions and the external boundary
+
+| Unit | Writes (all-or-nothing) | Boundary |
+| --- | --- | --- |
+| Transaction A — Accept | `app.jobs` INSERT + `app.outbox_events` publication intent | COMMIT **before** FastAPI returns `202 + job_id` |
+| Transaction B — Start | guarded `queued -> running` UPDATE (with `attempt_count + 1`) + `app.job_attempts` + append-only `job_started` `app.job_events` | zero-row guard -> ROLLBACK / `transition_not_applied` |
+| External phase | AI Provider request + Object Storage write | **NO open transaction**; carry stable `provider_request_id` + deterministic object key |
+| Transaction C — Complete | Attempt finish + guarded `running -> succeeded` UPDATE (sets `finished_at`) + `app.result_artifacts` + `job_succeeded` Event + Outbox intent | zero-row guard or constraint error -> ROLLBACK |
+| Relay checkpoint | read `published_at IS NULL`, publish externally with the same `outbox_event_id`, then UPDATE `published_at = now()` after Queue ack | NOT a business transaction; concurrent claim is Day34 |
+
+### Rules encoded
+
+```text
+Job exists <=> Outbox publication intent exists   -> both INSERTs in Transaction A
+202 acknowledges a durable commit                 -> return only AFTER COMMIT
+guarded UPDATE ... RETURNING + control-flow gate   -> 0 rows is NORMAL; app must ROLLBACK and stop
+attempt_count = attempt_count + 1 in the UPDATE    -> database-side increment, RETURNED as attempt_number
+short transactions only                            -> never hold one across an 8-minute Provider call
+external Provider / Object Storage OUTSIDE any tx  -> PostgreSQL cannot roll them back
+Outbox row = durable intent + audit               -> Relay does not delete it or reset published_at to NULL
+published_at NULL != no external publish           -> may be in-flight or crashed-before-write-back
+at-least-once + stable outbox_event_id + idempotent consumer   -> exactly-once is NOT disabling retries
+```
+
+> **What this pack deliberately does not contain:** no `FOR UPDATE`, `SKIP LOCKED`, or MVCC isolation
+> tuning (Day34); no indexes or `EXPLAIN` (Day35); no migrations / `ALTER` of populated tables (Day36);
+> no ORM. The concurrent selection of unpublished Outbox rows is explicitly Day34.
+
+### The zero-row control-flow contract
+
+A SQL file cannot enforce "stop on zero rows" by comment alone. Each guarded `UPDATE ... RETURNING` in
+`005` is followed by an explicit **CONTROL-FLOW CONTRACT** the driver must honour: 1 row returned means
+continue; 0 rows means `transition_not_applied` — ROLLBACK and stop, because PostgreSQL treats zero
+affected rows as a normal result and will otherwise run the next INSERT and corrupt the child rows.
+Appendix A of the file gives a runnable pure-SQL demonstration (a `DO` block that `RAISE`s on a zero-row
+transition) so the gate's behaviour is concrete on a disposable cluster.
+
+### Validation reproduction (**NOT executed during this repository update**)
+
+```bash
+# Requires the Day29 disposable cluster (see "Reproduce the Day29 validation" below) and
+# 001 -> 003 applied to the FRESH, EMPTY disposable database.
+# These are TEMPLATES: bind $1/$2/... with a driver, or wrap them in PREPARE/EXECUTE.
+# The reduced CLASSROOM run (separate from this file) checked: Job+Outbox atomic commit;
+# duplicate Outbox id rolling the Job back; running Job + Attempt + Event coherence;
+# duplicate Artifact key rolling the completion back; the published_at NULL->timestamp checkpoint.
+
+# Illustrative Accept transaction with fixed disposable UUIDs (NOT a psql copy-paste of $1):
+psql -v ON_ERROR_STOP=1 <<'SQL'
+BEGIN;
+INSERT INTO app.jobs (job_id, tenant_id, idempotency_key, provider_metadata)
+VALUES ('11111111-1111-1111-1111-111111111111',
+        '22222222-2222-2222-2222-222222222222', 'idem-key-1', '{}'::jsonb);
+INSERT INTO app.outbox_events (outbox_event_id, job_id, event_type, payload)
+VALUES ('33333333-3333-3333-3333-333333333333',
+        '11111111-1111-1111-1111-111111111111', 'job.accepted', '{}'::jsonb);
+COMMIT;
+SQL
+```
+
+### Day33 known gaps (deliberate)
+
+```text
+Day34  concurrent Worker/Relay claims: FOR UPDATE, SKIP LOCKED, MVCC, leases, deadlocks, fairness
+Day35  measured indexes and execution plans for the claim / Outbox / query access paths
+Day36  safe schema evolution (e.g. typed release/build provenance) of populated tables
+Day37  roles/permissions that could restrict direct table writers (stronger than a write-path contract)
+Future distributed delivery semantics beyond the at-least-once Outbox boundary
+```
 
 ---
 
@@ -812,6 +897,19 @@ not running. Do not present a Docker workflow as verified.
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
 
+### Day33 (`005_postgresql_transactions_and_atomic_state_changes.sql`)
+
+| Level | Day33 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | the 14 failure scenarios, the external-side-effect boundary, ACID from the scenario, the Outbox lifecycle, and the at-least-once delivery model |
+| Local draft static scope check | **Done (in class)** | a local classroom draft (`day33/day33_transactional_write_pack.sql`) was scope-reviewed; it is teaching-session input, **not** this repository artifact |
+| Reduced classroom PostgreSQL runtime | **Done (PostgreSQL 14.18, five listed tests)** | a **reduced** validation schema PASSED: (1) Job + Outbox committed together; (2) a duplicate Outbox id raised `unique_violation` and rolled the preceding Job insert back; (3) running Job + Attempt + `job_started` Event committed coherently; (4) a duplicate Artifact key raised `unique_violation` and rolled Attempt-finish + Job-success + success Event + success Outbox back; (5) the Outbox `published_at` checkpoint changed from NULL to a timestamp. Final marker `DAY33_REDUCED_RUNTIME_VALIDATION_PASS`. An earlier restricted-sandbox bootstrap failed at cluster start with `shmget: Operation not permitted` (environment evidence, not a SQL result). Both temporary clusters were deleted. |
+| Reduced-run coverage limits | **Explicit** | Test 5 validated only PostgreSQL's NULL->timestamp checkpoint, **not** Redis publication. The reduced run did not execute the final repository file, the FastAPI affected-row / lost-COMMIT integration, a real Relay crash/restart, or consumer idempotency. |
+| Final artifact static review | **Done (repository update)** | uses the Day31 columns exactly (no invented columns); three short transactions with balanced `BEGIN`/`COMMIT`; guarded `UPDATE ... RETURNING` each followed by an explicit control-flow contract; external phase outside any transaction; `attempt_count` incremented database-side; no `FOR UPDATE`/`SKIP LOCKED`/`CREATE INDEX`/`EXPLAIN`/`DROP`/`ALTER`/ORM; no credentials |
+| **Final artifact PostgreSQL runtime** | **NOT RUN** | no `psql`/PostgreSQL server was available during the repository update, so no statement in `005` was parsed or executed by PostgreSQL. The reduced classroom run is **not** reused as proof of this file. |
+| Application / external integration | **NOT RUN** | no FastAPI affected-row + COMMIT-unknown path, Provider, Object Storage, Redis, Celery, real Relay crash/restart, or consumer idempotency test |
+| Concurrency / production validation | **NOT RUN** | Day34 concurrent claims/MVCC/locks/`SKIP LOCKED` (out of scope); performance, RLS/roles, backups, HA, deployment |
+
 ### Day32 (`004_sql_joins_aggregation_and_operational_queries.sql`)
 
 | Level | Day32 status | Evidence |
@@ -879,7 +977,7 @@ Day30  SELECT/INSERT/UPDATE/DELETE/RETURNING, NULL logic, parameterized SQL, gua
 Day31  CHECK (valid job_status, attempt_count >= 0), UNIQUE business/idempotency key, tenant ownership,
        Documents / Job Attempts / Job Events / Outbox Events / Result Artifact refs, foreign keys
 Day32  joins/aggregation and operational queries (delivered: sql/004_...sql)
-Day33  transactions (atomic Job + Outbox insert)
+Day33  transactions (atomic Job + Outbox insert) (delivered: sql/005_...sql)
 Day34  concurrency-safe claims (FOR UPDATE / SKIP LOCKED), leases, idempotency enforcement
 Day35  indexes and query plans
 Day36  versioned migrations (this file is a starting point, not a migration framework)

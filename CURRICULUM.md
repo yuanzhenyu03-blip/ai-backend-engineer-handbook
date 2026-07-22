@@ -782,7 +782,36 @@ Storage/Redis side effect; constraint failure and rollback; transaction size/dur
 open during an eight-minute model call); Outbox remains at-least-once after relay publish.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day32 — SQL Joins, Aggregation, and Operational Queries
+
+Next Lesson:
+Day34 — Concurrency Control, MVCC, and Worker Claims
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/005_postgresql_transactions_and_atomic_state_changes.sql` — a
+read-and-write transaction reference pack over the Day31 model: three short transactions (Accept =
+Job + Outbox intent before 202; Start = guarded queued->running + Attempt + job_started Event; Complete =
+Attempt finish + guarded running->succeeded + Result Artifact + job_succeeded Event + Outbox intent)
+around one external Provider/Object Storage phase held OUTSIDE any transaction, plus the Relay checkpoint.
+Every guarded `UPDATE ... RETURNING` carries an explicit application control-flow contract. Contains no
+locks, `FOR UPDATE`, `SKIP LOCKED`, indexes, `EXPLAIN`, migrations, or ORM (Day34-Day36)
+
+Validation Limits:
+Reduced-schema PostgreSQL 14.18 classroom runtime covered only five listed tests (Job+Outbox atomic
+commit; duplicate Outbox id rolling the Job back; running Job + Attempt + Event coherence; duplicate
+Artifact key rolling the completion back; the Outbox published_at NULL->timestamp checkpoint). Test 5
+validated only PostgreSQL's checkpoint, NOT Redis publication. Final repository 005 file PostgreSQL
+runtime: NOT RUN. Application/Provider/Object Storage/Redis/Celery integration: NOT RUN. Real Relay
+crash/restart and consumer idempotency: NOT RUN. Day34 concurrency, production validation: NOT RUN.
 
 ---
 

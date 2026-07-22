@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day32 — SQL Joins, Aggregation, and Operational Queries
+Day33 — PostgreSQL Transactions and Atomic State Changes
 
 Next Lesson:
 
-Day33 — PostgreSQL Transactions and Atomic State Changes (Planned / Not started; see ROADMAP.md)
+Day34 — Concurrency Control, MVCC, and Worker Claims (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 
