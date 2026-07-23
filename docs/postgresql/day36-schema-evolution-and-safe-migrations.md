@@ -229,7 +229,11 @@ outcome is **not** automatically backfillable. Asked about exactly that case:
 > "不能，因为还需要隔离、对账、人工或专门恢复流程"
 
 Exactly. An unknown running Job goes to isolation, reconciliation, human review, or a dedicated recovery
-policy — never a fabricated token and never a migration-triggered Provider call.
+policy — never a fabricated token and never a migration-triggered Provider call. And "sent to the exception
+queue" is **triage, not resolution**: the row is still `running` with a NULL Lease, so it still violates the
+invariant and still blocks completion until a **trusted source** backfills its Lease, or a **real recovery
+process** establishes its truthful current state so it is no longer a running-without-Lease row (never a
+faked status). Until then, the migration is simply not finished.
 
 Engineering Thinking:
 
@@ -319,20 +323,27 @@ Student Answer:
 
 Tech Lead Review:
 
-Correct. Completion evidence is `remaining target rows = 0` **plus** an accounted-for exception/isolation
-queue (explained failures, not silent gaps), batch timing/errors, and confirmed new-write protection. A
-process counter alone does not prove the database reached the target state — the counter can be wrong, the
-process can restart, and rows can be added. Query the database for the truth:
+Correct. Completion evidence is `remaining target rows = 0` **plus** an exception/isolation queue that is
+accounted for **by resolution** (each entry actually resolved, or explicitly still blocking — not silent
+gaps), batch timing/errors, and confirmed new-write protection. The crucial subtlety: the exception queue is
+**triage, not resolution**. A Job merely recorded there is still `running` with a NULL Lease, so it still
+counts in `remaining_targets` and still violates the invariant — being queued is not being done.
 
 ```sql
 SELECT count(*) AS remaining_targets
   FROM app.jobs WHERE job_status = 'running' AND lease_token IS NULL;
 ```
 
+So `remaining_targets = 0` is a completion condition only when it reaches zero for the **right reason**:
+every violating running row was truthfully resolved — either a trusted source completed its Lease backfill,
+or a real recovery moved it to a semantically correct, non-violating state — never by parking it in the queue
+while it stays NULL, and never by faking a status. A process counter alone proves even less: it can be wrong,
+the process can restart, and rows can be added.
+
 Engineering Thinking:
 
-The database is the source of truth about the database. Prove completion by querying state, not by trusting
-a loop variable.
+The database is the source of truth about the database. Prove completion by querying state — and check *why*
+the count is zero, not just *that* it is.
 
 ## Concept 10: `NOT VALID`, Then `VALIDATE`
 
@@ -359,9 +370,13 @@ ALTER TABLE app.jobs
     NOT VALID;
 ```
 
-You then repair/reconcile the legacy rows and run `VALIDATE CONSTRAINT` in a controlled window — it scans
-the data and has resource/lock/DDL interactions, even though it separates historic verification from the
-new-write enforcement you already have. (Note: `NOT VALID` applies to `CHECK`/foreign-key constraints;
+You then repair/reconcile the legacy rows and run `VALIDATE CONSTRAINT` in a controlled window — but only
+once its hard precondition holds: **every** legacy `running` row already has a trusted Lease, or has been
+moved by a real recovery process to a state that no longer violates the invariant. A row merely parked in
+the exception queue still violates it, so `VALIDATE` would **fail** — you do not run it (and do not proceed
+to Switch/Contract) while any violating running row remains. `VALIDATE` scans the data and has
+resource/lock/DDL interactions, even though it separates historic verification from the new-write
+enforcement you already have. (Note: `NOT VALID` applies to `CHECK`/foreign-key constraints;
 `NOT NULL` itself cannot be `NOT VALID`.)
 
 Engineering Thinking:
@@ -671,7 +686,7 @@ Verification: distinct batches per Worker; never lock around Provider calls or m
 
 State what proves the Backfill is complete instead of a process counter.
 
-Verification: `remaining targets = 0` + accounted exception queue + batch metrics + new-write protection.
+Verification: `remaining targets = 0` **for the right reason** (every violating running row truly resolved, not merely parked in the queue) + an exception queue accounted for by resolution + batch metrics + new-write protection.
 
 ## Exercise 9: `NOT VALID` vs `VALIDATE` (Advanced)
 
@@ -861,7 +876,7 @@ Key vocabulary: `versioned state transition`, `expand`, `backfill`, `validate`, 
 8. Drain/isolate old Workers before recovery/switch; they bypass the token guard -> double execution.
 9. Backfill is batched, short-tx, idempotent, restartable, observable; the DB state is the checkpoint.
 10. FOR UPDATE SKIP LOCKED takes distinct batches; never hold locks around Provider calls; no Provider in backfill.
-11. Completion evidence = remaining targets 0 + exception queue + metrics + new-write protection, not a counter.
+11. Completion = remaining targets 0 FOR THE RIGHT REASON (every violating running row truly resolved), not a counter; the exception queue is triage, not resolution, and a parked row still blocks VALIDATE.
 12. CHECK ... NOT VALID protects new writes now; VALIDATE CONSTRAINT proves history after remediation.
 13. CREATE INDEX CONCURRENTLY is non-transactional (no BEGIN/COMMIT); a failed build leaves an unusable invalid index.
 14. Switch = every writer guards the token AND the old path can no longer write; a new binary alone is not Switch.

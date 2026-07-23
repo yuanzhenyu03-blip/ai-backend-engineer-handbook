@@ -526,7 +526,7 @@ Even a nullable `ADD COLUMN` takes a brief lock — it is lock-aware.
 
 **Drain/isolate old Workers BEFORE recovery/switch.** Old Workers don't enforce the token guard, so they can keep completing a Job a new Worker took over -> double execution, conflicting state, repeated Provider cost.
 
-**Backfill mechanics:** target predicate `job_status = 'running' AND lease_token IS NULL`, repeated in selection AND the guarded write so committed rows stop matching after a restart (the **DB state is the checkpoint**, not a process counter). Small short transactions; `FOR UPDATE SKIP LOCKED` for distinct parallel batches; hold locks only around DB state, never around Provider/reconciliation. **Completion evidence** = `remaining targets = 0` + accounted exception queue + batch metrics + confirmed new-write protection.
+**Backfill mechanics:** target predicate `job_status = 'running' AND lease_token IS NULL`, repeated in selection AND the guarded write so committed rows stop matching after a restart (the **DB state is the checkpoint**, not a process counter). Small short transactions; `FOR UPDATE SKIP LOCKED` for distinct parallel batches; hold locks only around DB state, never around Provider/reconciliation. The **exception/isolation queue is TRIAGE, not resolution**: a Job recorded there is still `running` with a NULL Lease, so it still counts in `remaining_targets` and still violates the invariant. An unknown running Job is resolved only by (a) a trusted source completing its Lease backfill, or (b) a real recovery moving it to a truthful non-violating state — never a fake token/status, never a Provider call; otherwise the migration stays incomplete. **Completion** = `remaining targets = 0` **for the right reason** (every violating running row truly resolved) + exception queue accounted for by resolution + batch metrics + confirmed new-write protection.
 
 **`CHECK ... NOT VALID` is NOT an inactive constraint** — it enforces the rule on every new INSERT/UPDATE immediately and only defers the historical scan. `NOT NULL` itself cannot be `NOT VALID`.
 
@@ -534,7 +534,7 @@ Even a nullable `ADD COLUMN` takes a brief lock — it is lock-aware.
 ALTER TABLE app.jobs ADD CONSTRAINT jobs_running_requires_lease
   CHECK (job_status <> 'running' OR (claim_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL)) NOT VALID;
 -- after remediation:
-ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_running_requires_lease;   -- scans; resource/lock-aware
+ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_running_requires_lease;   -- precondition: no violating running row remains; scans; resource/lock-aware
 ```
 
 **`CREATE INDEX CONCURRENTLY`** allows normal DML but is longer-running, takes brief stage locks, and **cannot run inside `BEGIN/COMMIT`** (its own non-transactional step). A failed build leaves an **INVALID** index — unusable, not "slow"; diagnose, don't claim success, clean up/retry. Validity is separate from net benefit (Day35); measure only a valid build. It uses a stable predicate (`job_status='running'`); the expiry test stays a query-time range (no `now()` in the predicate).
@@ -653,6 +653,8 @@ Scope: Day36 = safe migration DESIGN + EVIDENCE only, **NOT executed** (no serve
 - "Drain old Workers before recovery/switch; they bypass the token guard and double-execute."
 - "Backfill idempotency is a predicate (running AND lease_token IS NULL), not a counter; the DB state is the checkpoint."
 - "CHECK ... NOT VALID enforces new writes now and defers the historical scan to VALIDATE CONSTRAINT."
+- "The exception queue is triage, not resolution; a parked running-without-lease row still counts and still blocks VALIDATE."
+- "remaining_targets = 0 is completion only when every violating running row is truthfully resolved (trusted backfill or real recovery), never by queuing or a fake status."
 - "CREATE INDEX CONCURRENTLY is non-transactional and can leave an unusable invalid index; validity before net benefit."
 - "Switch = every writer guards the token AND the old path can no longer write; a new binary alone is not Switch."
 - "Contract is destructive; only on evidence + observation."

@@ -98,8 +98,8 @@ data, and every deployed application version, and a successful `ALTER` is not a 
 | 2. Compatible code | deploy new code that writes the columns and tolerates NULL (application step) | deploying a binary is **not** the Switch |
 | 3. Drain old Workers | drain/isolate old Workers (operational step) | they bypass the token guard -> double execution / repeated Provider cost |
 | 4. `NOT VALID` constraint | `CHECK (job_status <> 'running' OR all three Lease fields NOT NULL) NOT VALID` | enforces **new** writes immediately; historical rows unverified (`NOT NULL` itself cannot be `NOT VALID`) |
-| 5. Backfill / recovery | bounded, idempotent, `SKIP LOCKED`, DB-checkpointed; target `job_status = 'running' AND lease_token IS NULL` | **trusted source only**; unknown ownership -> reconcile, never a fake token; **no Provider calls** |
-| 6. Validate | `VALIDATE CONSTRAINT jobs_running_requires_lease` after remediation | scans the table; resource/lock-aware |
+| 5. Backfill / recovery | bounded, idempotent, `SKIP LOCKED`, DB-checkpointed; target `job_status = 'running' AND lease_token IS NULL` | **trusted source only**; unknown ownership -> the exception/isolation queue is **triage, not resolution** (a parked row is still `running` + NULL, still counts in `remaining_targets`, still violates the invariant); it must be truthfully resolved by a trusted backfill or a real recovery, never a fake token/status; **no Provider calls** |
+| 6. Validate | `VALIDATE CONSTRAINT jobs_running_requires_lease` after remediation | **precondition:** every legacy `running` row already has a trusted Lease, or was moved by a real recovery to a non-violating state — otherwise `VALIDATE` fails; scans the table; resource/lock-aware |
 | 7. Switch | every writer uses the token guard | precondition: **old path can no longer write** |
 | 8. Contract | remove temporary compatibility (commented; destructive) | only on evidence + observation period |
 | Index | Day35 stale-lease index via `CREATE INDEX CONCURRENTLY` (commented) | **non-transactional** (no `BEGIN/COMMIT`); a failed build leaves an **invalid** (unusable) index |
@@ -111,6 +111,9 @@ a migration is a versioned state transition; a successful ALTER is NOT a complet
 Expand nullable, NO fabricated default; NULL honestly means "no proved Lease ownership"
 a default is a business fact for every row; lease_token DEFAULT gen_random_uuid() fabricates ownership + rewrite risk
 Backfill is running-only, but scope does NOT certify ownership; unknowable -> reconcile, never a fake token
+the exception/isolation queue is TRIAGE, not resolution: a parked row still counts + still violates until truly resolved
+remaining_targets = 0 counts only when every violating running row is truthfully resolved (trusted backfill or real recovery)
+VALIDATE precondition: no violating running row remains; a queued-but-unresolved row would make VALIDATE fail
 Backfill NEVER calls the Provider; migration/DB rollback cannot undo Provider cost or Object Storage bytes
 drain old Workers BEFORE recovery/switch (they bypass the token guard)
 target predicate repeated in selection + guarded write -> DB state is the checkpoint, not a process counter

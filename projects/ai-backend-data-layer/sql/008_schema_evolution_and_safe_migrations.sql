@@ -145,9 +145,23 @@ ALTER TABLE app.jobs
 --
 --   CRITICAL: values come ONLY from an AUDITED reconciliation source ($owner,$token,
 --   $expiry). There is NO in-schema source today, so most legacy running Jobs are
---   NOT auto-backfillable -- they are routed to an exception/isolation queue for
---   reconciliation, human review, or a dedicated recovery policy. NEVER fabricate a
---   token (Student: "不能，因为还需要隔离、对账、人工或专门恢复流程").
+--   NOT auto-backfillable.
+--
+--   THE EXCEPTION/ISOLATION QUEUE IS TRIAGE, NOT RESOLUTION. Recording a Job there
+--   does NOT change its database row: it is STILL job_status = 'running' AND
+--   lease_token IS NULL, so it STILL counts in remaining_targets and STILL VIOLATES
+--   jobs_running_requires_lease at VALIDATE time. A parked row is unfinished work,
+--   not finished work. Such a Job has exactly THREE truthful outcomes:
+--     (a) a TRUSTED source completes its Lease backfill (lease_token becomes non-NULL
+--         -> no longer a target, satisfies the invariant); OR
+--     (b) a dedicated recovery / human reconciliation establishes its TRUE current
+--         state so it is no longer a running-without-lease row (e.g. a genuinely
+--         verified terminal outcome) -- a semantically correct, non-violating state,
+--         NEVER a fabricated 'failed'/status just to clear the count; OR
+--     (c) it stays UNRESOLVED -> the migration is INCOMPLETE: do NOT run VALIDATE,
+--         Switch, or Contract while any violating running row remains.
+--   NEVER fabricate a token and NEVER call the Provider/Object Storage to "recover"
+--   it (Student: "不能，因为还需要隔离、对账、人工或专门恢复流程").
 --
 -- Per-batch pattern (one short transaction per batch, run by the migration app):
 --   BEGIN;
@@ -163,23 +177,36 @@ ALTER TABLE app.jobs
 --   UPDATE app.jobs
 --      SET claim_owner = $owner, lease_token = $token, lease_expires_at = $expiry
 --    WHERE job_id = $1 AND job_status = 'running' AND lease_token IS NULL;
---   -- job_ids WITHOUT a trustworthy source: do NOT update; record them in the
---   -- exception/isolation queue for reconciliation. NO Provider call here.
+--   -- job_ids WITHOUT a trustworthy source: do NOT update the row here. Record them in
+--   -- the exception/isolation queue for TRIAGE only. They REMAIN violating running
+--   -- rows until a trusted backfill (a) or a real recovery (b) truthfully resolves
+--   -- them; the queue does not clear remaining_targets or the invariant. NO Provider
+--   -- call here.
 --   COMMIT;
 --
--- Progress / observability (DB-backed, not a process counter):
+-- Progress / observability (DB-backed, not a process counter). remaining_targets
+-- counts EVERY still-violating running row, INCLUDING those parked in the exception
+-- queue -- being queued is not being resolved:
 --   SELECT count(*) AS remaining_targets
 --     FROM app.jobs WHERE job_status = 'running' AND lease_token IS NULL;
---   -- plus: batch timings/errors, size of the exception queue, new-write protection.
+--   -- plus: batch timings/errors, exception-queue size WITH resolution status,
+--   -- new-write protection. remaining_targets = 0 is reached ONLY when every such row
+--   -- has been truthfully resolved via (a) or (b), never by queuing alone.
 
 
 -- #############################################################################
 -- PHASE 6 — VALIDATE CONSTRAINT: prove the table-wide invariant
 -- #############################################################################
---   Run ONLY after every legacy running Job is repaired/reconciled or isolated so no
---   row violates the invariant. VALIDATE scans the table and has resource/lock/DDL
---   interactions (SHARE UPDATE EXCLUSIVE), even though it separates historic
---   verification from the new-write enforcement Phase 4 already provided.
+--   PRECONDITION (hard): every legacy running row already has a TRUSTED Lease
+--   (claim_owner + lease_token + lease_expires_at from audited reconciliation), OR has
+--   been moved by a real recovery process to a state that no longer violates the
+--   invariant (it is truthfully no longer a running-without-lease row). If ANY
+--   violating running row remains -- including one merely parked in the exception
+--   queue -- VALIDATE will FAIL; do not run it, and do not proceed to Switch/Contract.
+--   Equivalently: run VALIDATE only when remaining_targets = 0 for the RIGHT reason.
+--   VALIDATE scans the table and has resource/lock/DDL interactions (SHARE UPDATE
+--   EXCLUSIVE), even though it separates historic verification from the new-write
+--   enforcement Phase 4 already provided.
 ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_running_requires_lease;
 
 
@@ -234,13 +261,17 @@ ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_running_requires_lease;
 -- VERIFICATION / COMPLETION EVIDENCE (queries only; nothing executed here)
 -- #############################################################################
 --   Backfill is complete when the DATABASE shows the target state -- not when a
---   process counter says so:
---     * remaining targets = 0:
+--   process counter or an exception-queue entry says so:
+--     * remaining targets = 0, and 0 for the RIGHT reason (every violating running row
+--       truthfully resolved by a trusted backfill or a real recovery, NOT merely
+--       parked in the exception queue while still NULL):
 --         SELECT count(*) FROM app.jobs WHERE job_status='running' AND lease_token IS NULL;
---     * exception/isolation queue accounted for (explained failures, not silent gaps);
+--     * exception/isolation queue fully accounted for BY RESOLUTION (each entry either
+--       resolved via (a)/(b) or explicitly still blocking the migration -- a parked
+--       entry is NOT completion);
 --     * batch timing/error metrics recorded;
 --     * new-write protection confirmed (Phase 4 constraint present);
---     * constraint validated:
+--     * constraint validated (only possible once no violating running row remains):
 --         SELECT conname, convalidated FROM pg_constraint
 --          WHERE conname = 'jobs_running_requires_lease';
 

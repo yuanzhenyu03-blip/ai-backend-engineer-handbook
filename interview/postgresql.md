@@ -1404,8 +1404,11 @@ owner?
 中文解析:
 
 只回填 `running` 的 Job（queued/terminal 不需要 Lease）。但状态范围**不等于**证明了所有权。一个没有可信
-owner/token/Provider 结果的 running Job **不能**自动回填——它要走**隔离、对账、人工审核或专门的恢复流程**，
-绝不能塞一个假 token，也绝不能在迁移里触发 Provider 调用。
+owner/token/Provider 结果的 running Job **不能**自动回填。注意：**进入异常/隔离队列只是分诊（triage），不是解决**
+——该行仍然是 `running` 且 `lease_token IS NULL`，仍然计入 `remaining_targets`，`VALIDATE` 时仍然违反约束。它只能
+被真正处理：(a) 由**可信来源**完成 Lease 回填；或 (b) 经**专门恢复/人工对账**转为语义正确、不再违反 invariant 的
+状态（绝不是伪造 `failed` 之类的假状态）；否则迁移就是**未完成**，不能执行 Validate/Switch/Contract。绝不塞假
+token，绝不在迁移里调用 Provider。
 
 Student's actual answers (preserved):
 
@@ -1413,7 +1416,7 @@ Student's actual answers (preserved):
 
 > (unknown running Job) "不能，因为还需要隔离、对账、人工或专门恢复流程"
 
-Assessment: both correct — scope is running-only, and unknown ownership is reconciled, never faked.
+Assessment: both correct — scope is running-only, and unknown ownership is reconciled, never faked. The added precision: the exception queue is triage, not resolution, so a parked row keeps blocking `remaining_targets` and `VALIDATE` until it is truthfully resolved.
 
 ### 2. Why must old Workers be drained before recovery, and how do parallel batches stay safe?
 
@@ -1451,7 +1454,9 @@ does each do?
 中文解析:
 
 先 `NOT VALID`。它**不是**一个未生效的约束——它立即对所有新的 INSERT/UPDATE 强制该规则，只是**不**声称历史行
-已被检查。之后修复/对账 legacy 行，再在受控窗口运行 `VALIDATE CONSTRAINT`（它会扫描数据、有资源/锁/DDL 影响）。
+已被检查。之后修复/对账 legacy 行，再在受控窗口运行 `VALIDATE CONSTRAINT`（扫描数据、有资源/锁/DDL 影响）。
+**硬前置条件**：每个 legacy `running` 行要么已有可信 Lease，要么已被真实恢复流程转为不再违反 invariant 的状态；
+只要还有一个违反的 `running` 行（哪怕只是被放进异常队列），`VALIDATE` 就会**失败**，也不能进入 Switch/Contract。
 注意：`NOT VALID` 适用于 CHECK/外键约束，`NOT NULL` 本身不能 `NOT VALID`。
 
 Student's actual answer (preserved):
@@ -1525,7 +1530,9 @@ Strong: "Old Workers don't enforce the token guard, so they double-execute. Drai
 
 Weak:   "NOT VALID means the constraint is off until I validate it."
 Strong: "It enforces the rule on all new writes immediately; it only defers the historical scan. VALIDATE
-        CONSTRAINT proves the existing rows after remediation."
+        CONSTRAINT proves the existing rows after remediation — and only runs once every legacy running row
+        has a trusted Lease or was truly recovered; a row merely parked in the exception queue still
+        violates it and makes VALIDATE fail."
 
 Weak:   "The rollout is bad, so drop the columns."
 Strong: "Rollback is honest only before durable data/side effects exist. After real Lease data, Job
