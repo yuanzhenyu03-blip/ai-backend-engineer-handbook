@@ -43,7 +43,7 @@ By the end of this lesson you can:
 
 1. Explain why a reachable database with low CPU is not a reliable system, and reason about **bounded** capacity for API acceptance, Worker claims, Attempt writes, and Outbox checkpoints.
 2. Size connection pools by **aggregate demand across every process** (`(4 API + 12 Worker) * 10 = 160`), reserve capacity for migrations/monitoring/admin/recovery, and keep `global demand < safe connection budget`.
-3. Keep the eight-minute Provider call outside the database transaction, and reconstruct the Accept -> Claim/Start -> External -> Complete boundaries with the current-token completion guard.
+3. Keep the eight-minute Provider call outside the database transaction, and reconstruct the Accept -> Claim/Start -> External -> Complete boundaries with the full completion guard (`job_status = 'running'` AND `lease_token` = current token AND `lease_expires_at > now()`).
 4. Distinguish Provider success, Object Storage Artifact existence, and committed PostgreSQL business success, and reconcile a deterministic Artifact before any second Provider call.
 5. Apply the layered timeout model (pool acquisition, `lock_timeout`, `statement_timeout`, `idle_in_transaction_session_timeout`, application deadline) with the ordering `lock_timeout < statement_timeout < application deadline`.
 6. Separate liveness, readiness, and business success, and prevent a shared-outage restart storm by dropping readiness rather than failing all liveness.
@@ -206,7 +206,8 @@ faster. The class then reconstructed the full lifecycle after a student-initiate
 Accept:    queued Job + dispatch Outbox intent -> COMMIT -> return 202 + job_id
 Claim:     reserve queued Job, write Lease, queued -> running, Attempt + job_started Event -> COMMIT
 External:  Provider call + Object Storage upload OUTSIDE any transaction; Lease renewal via SHORT txns
-Complete:  guard by job_id + current lease_token, finish Attempt + Result Artifact + success Event,
+Complete:  guard by job_id AND job_status = 'running' AND lease_token = current token AND
+           lease_expires_at > now(); finish Attempt + Result Artifact + success Event,
            running -> succeeded -> COMMIT
 ```
 
@@ -382,7 +383,7 @@ Student Answers:
 Tech Lead Review:
 
 Correct throughout. Runtime DML identities must **not** own `ALTER TABLE`, `DROP TABLE`, index creation, or
-role management; separate runtime, migration, monitoring, and backup/restore responsibilities so least
+role management; separate runtime, migration, monitoring, and — as distinct identities — a backup/replication database role (`pg_basebackup`/replication only), a WAL-archive storage identity (archiver write-only, not an application account), and a restore operator/control-plane identity used only in an isolated recovery environment, so least
 privilege limits the blast radius of bugs, injection, leaks, and operator error. Credentials never belong in
 images or Git history — use Kubernetes Secrets, a cloud Secrets Manager, Vault, or managed short-lived
 identity — and **storage alone is insufficient**: creation, distribution, rotation, revocation, and audit are
@@ -601,7 +602,7 @@ instances, long hold times, and insufficient database/operational reserve.
 Wrong: the model produced a result, so the Job is done.
 
 Right: Provider success, Artifact bytes, and committed PostgreSQL business state are separate. Only the
-current Lease owner committing the guarded Complete transaction makes `succeeded` durable; reconcile the
+current Lease owner committing the guarded Complete transaction makes `succeeded` durable. That guard is the full Day34 condition — `job_status = 'running'` AND `lease_token` = the current token AND `lease_expires_at > now()` — not the token alone: expiry does not change the token, so a stale-but-still-matching token must be rejected by the running + unexpired-lease checks. Reconcile the
 Artifact first.
 
 ## Misconception 3: `queued -> running` happens in the Accept transaction
@@ -779,7 +780,7 @@ Verification: stop the long/idle transaction first; tune per-table on I/O eviden
 
 ## Exercise 9: Least privilege + rotation (Advanced)
 
-Design runtime/migration/monitoring/backup role separation and a safe rotation order.
+Design runtime / migration / monitoring / backup-replication / WAL-archive / restore identity separation and a safe rotation order.
 
 Verification: runtime cannot DDL; rotate load-new -> verify-all-switched -> recycle -> revoke-old.
 
@@ -967,7 +968,7 @@ Key vocabulary: `connection pool`, `aggregate demand`, `safe connection budget`,
 1. Reachable / low-CPU is NOT reliable; business ops depend on bounded capacity, not CPU.
 2. Sum EVERY process's pool + reserve < safe connection budget < max_connections; a pool max is potential demand.
 3. Raising pools moves queuing INTO PostgreSQL; more pool is not more capacity.
-4. The 8-minute Provider call runs OUTSIDE the DB transaction: Accept / Claim-Start / External / Complete.
+4. The 8-minute Provider call runs OUTSIDE the DB transaction: Accept / Claim-Start / External / Complete; Complete guards job_status='running' AND current lease_token AND lease_expires_at > now() (not the token alone).
 5. Provider success != Artifact bytes != committed PostgreSQL success; reconcile the deterministic Artifact first.
 6. queued->running is in Claim/Start; running->succeeded is in Complete; Accept only creates queued.
 7. Lease expiry = takeover ELIGIBILITY, not proof the old Worker did no external work; keep idempotency + reconciliation.

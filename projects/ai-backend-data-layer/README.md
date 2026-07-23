@@ -103,11 +103,11 @@ RUNTIME NOT RUN, PRODUCTION NOT VALIDATED.**
 | Section | Contents |
 | --- | --- |
 | Connection-capacity worksheet | `sum(process pools) + reserve < safe budget < max_connections`; the `(4+12)*10 = 160` baseline; reserve for migration/monitoring/admin/recovery |
-| Three Job transaction boundaries | Accept / Claim-Start / External (Provider outside any tx) / Complete with the current-token guard |
+| Three Job transaction boundaries | Accept / Claim-Start / External (Provider outside any tx) / Complete guarded by job_status='running' AND current lease_token AND lease_expires_at > now() (not the token alone) |
 | Timeout matrix | pool acquisition, `lock_timeout`, `statement_timeout`, `idle_in_transaction_session_timeout`, application deadline — scope, on-expiry, retry, observe |
 | Health matrix | liveness vs readiness vs business success; shared-outage readiness drop + restart-storm prevention |
 | Long-transaction / Vacuum procedure | root-cause-first incident order; evidence-based per-table autovacuum review; no casual `VACUUM FULL` |
-| Least-privilege roles + rotation | runtime cannot DDL; separate runtime/migration/monitoring/backup; load-new -> verify-all -> recycle -> revoke-old |
+| Least-privilege roles + rotation | runtime cannot DDL; separate runtime / migration / monitoring / backup-replication / WAL-archive / restore identities; load-new -> verify-all -> recycle -> revoke-old |
 | Backup / PITR / restore drill | replication != backup; base backup + WAL -> PITR; RPO/RTO; isolated-restore recovery evidence |
 | Monitoring matrix | connections/pool waits, queries, locks/deadlocks, transaction age/dead tuples, disk/WAL, replication lag, backup + tested-restore evidence |
 | Replica-promotion gate | replay position + data-loss estimate + explicit RPO decision + split-brain prevention + reconciliation |

@@ -557,7 +557,7 @@ Scope: Day36 = safe migration DESIGN + EVIDENCE only, **NOT executed** (no serve
 Accept:   queued Job + Outbox intent -> COMMIT -> 202 + job_id
 Claim:    reserve queued Job, write Lease, queued -> running, Attempt + job_started Event -> COMMIT
 External: Provider + Object Storage upload OUTSIDE any transaction; Lease renewal via SHORT txns
-Complete: guard job_id + current lease_token; finish Attempt + Artifact + success Event; running -> succeeded -> COMMIT
+Complete: guard job_id AND job_status='running' AND lease_token=current token AND lease_expires_at > now() (NOT the token alone); finish Attempt + Artifact + success Event; running -> succeeded -> COMMIT
 ```
 
 Provider success != Artifact bytes != committed PostgreSQL success. If an Artifact exists but Complete never committed, the DB truthfully shows `running`; **reconcile the deterministic Artifact first**, never re-call the Provider on a guess. Lease expiry = takeover **eligibility**, not proof the old Worker did no external work (keep idempotency + reconciliation; the lease token is a DB epoch, not a stable external idempotency key).
@@ -579,7 +579,7 @@ Ordering: lock_timeout < statement_timeout < application deadline
 
 **MVCC / Vacuum.** An `UPDATE` writes a new row version; Vacuum reclaims an old one only after **no active snapshot** can see it. A long/idle transaction retains an old snapshot, may hold locks, and grows **dead tuples**/bloat. Incident order: find + stop the long transaction FIRST, then let autovacuum reclaim, verify txn-age/dead-tuple trends, fix the app boundary. No casual `VACUUM FULL` (rewrites the table under a strong lock). Tune autovacuum **per-table on I/O evidence** (design syntax only, e.g. `autovacuum_vacuum_scale_factor`/`_threshold` — not a recommendation without measurement).
 
-**Least privilege + rotation.** Runtime DML identities must NOT own `ALTER`/`DROP`/index/role privileges; separate runtime/migration/monitoring/backup. Secrets in Kubernetes Secrets / Secrets Manager / Vault / managed identity — never in images or Git; storage alone is insufficient (create/distribute/rotate/revoke/audit). Rotate: **load new -> new connections -> verify all switched -> recycle pools -> ONLY THEN revoke old.** Existing sessions ok while new auth fails = incomplete rollout, not total failure.
+**Least privilege + rotation.** Runtime DML identities must NOT own `ALTER`/`DROP`/index/role privileges; separate runtime / migration / monitoring / backup-replication (`pg_basebackup`/replication only) / WAL-archive (archiver write-only, not an app account) / restore (isolated recovery, not a long-held API role). Secrets in Kubernetes Secrets / Secrets Manager / Vault / managed identity — never in images or Git; storage alone is insufficient (create/distribute/rotate/revoke/audit). Rotate: **load new -> new connections -> verify all switched -> recycle pools -> ONLY THEN revoke old.** Existing sessions ok while new auth fails = incomplete rollout, not total failure.
 
 **Replication is NOT backup** (it copies bad `DELETE`/`DROP` too). **Base backup** = consistent starting point; **WAL** = physical redo (not readable SQL); **PITR** = restore base + replay WAL to a target BEFORE the bad change (e.g. `10:36:59` before a `10:37` delete). **RPO** = max data-loss window; **RTO** = max recovery duration — both **recovery objectives, NOT health probes**. A successful backup **job** is only backup evidence; **recoverability** = isolated restore + PITR + integrity/business checks + measured RPO/RTO (never overwrite production to test).
 

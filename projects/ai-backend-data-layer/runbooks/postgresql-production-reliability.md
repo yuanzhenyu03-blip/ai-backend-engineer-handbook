@@ -59,10 +59,15 @@ Claim:     reserve eligible queued Job, write Lease, queued -> running,
            create Attempt + job_started Event           -> COMMIT
 External:  Provider call + Object Storage Artifact upload OUTSIDE any DB transaction;
            Lease renewal (if needed) uses separate SHORT transactions
-Complete:  guard by job_id + current lease_token, finish Attempt, record Result Artifact
-           reference, append success Event, running -> succeeded  -> COMMIT
+Complete:  guard by job_id AND job_status = 'running' AND lease_token = current token AND
+           lease_expires_at > now(); finish Attempt, record Result Artifact reference,
+           append success Event, running -> succeeded  -> COMMIT
 ```
 
+- The Complete guard is the **full Day34 condition** — `job_status = 'running'` AND `lease_token` = the
+  current token AND `lease_expires_at > now()` — **not the token alone**. Lease expiry does not change
+  `lease_token`, so before a takeover the expired Worker's token can still equal the current token; the
+  `running` + unexpired-lease predicates are what reject a Worker that has lost ownership.
 - `queued -> running` happens in **Claim/Start**, not Accept (Accept only creates `queued`).
 - If an Artifact exists but the Complete transaction never committed, the database truthfully still shows
   `running`. Recovery must **reconcile the deterministic Artifact** (by its deterministic key) before
@@ -83,7 +88,7 @@ deliberate action. `SKIP LOCKED` is **candidate selection** for parallel claims,
 | `lock_timeout` | waiting to **acquire a PostgreSQL lock** | statement cancelled (`55P03`) | short bounded retry if safe | lock-wait duration, blockers |
 | `statement_timeout` | total **SQL statement** execution time | statement cancelled | investigate slow query; do not blindly retry | slow-query rate, plans |
 | `idle_in_transaction_session_timeout` | a transaction **opened then idle** without commit/rollback | session terminated | fix the code path (always commit/rollback) | idle-in-transaction count, oldest txn |
-| Application deadline | the overall **business operation** | fail/deprecate the operation | per operation semantics | end-to-end op latency, timeout rate |
+| Application deadline | the overall **business operation** | fail/cancel/degrade the operation according to its semantics | per operation semantics | end-to-end op latency, timeout rate |
 
 Useful ordering: `lock_timeout < statement_timeout < application deadline`.
 
@@ -158,7 +163,9 @@ leaks, and operator error.
 | Runtime (API/Worker) | `INSERT`/`UPDATE`/`SELECT` on the Job model; guarded transitions | DDL, `DROP`, index creation, role management |
 | Migration | `ALTER`/index build in a controlled window | be held permanently by API processes |
 | Monitoring | read stats/activity views | write business data |
-| Backup/restore | base backup, WAL archive, restore | run application DML |
+| Backup / replication (DB role) | `pg_basebackup` / the replication protocol; only the `REPLICATION` + connection privileges it needs | application DML or DDL |
+| WAL archive storage identity | used by the PostgreSQL archiver (`archive_command` / `archive_library`) or the managed service; only write access to the archive store | be an application database account |
+| Restore operator / control-plane identity | run restore/PITR in an **isolated** recovery environment; read backup storage, manage the data directory or cloud control-plane recovery | be a production DB role held long-term by API/Workers |
 
 Credential lifecycle: storage alone is **insufficient** — creation, distribution, rotation, revocation, and
 audit are all required. Never put credentials in images or Git history; use Kubernetes Secrets, a cloud
