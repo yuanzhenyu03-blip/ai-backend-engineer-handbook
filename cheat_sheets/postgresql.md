@@ -449,6 +449,54 @@ Scope: Day34 adds no `CREATE INDEX`/`EXPLAIN` (Day35), no `ALTER`/migration (Day
 
 ---
 
+## Day35 PostgreSQL Indexes and Query Planning
+
+**An index is an ADDITIONAL access structure over the Heap**, not a replacement source of truth. It speeds CANDIDATE lookup; `FOR UPDATE SKIP LOCKED` still visits and locks the real Heap tuple. An index existing is not an Index-Only claim and does not replace Day34's lock/lease/guarded transition.
+
+**Design from the query shape**, not a chosen column: leading EQUALITY predicates -> then RANGE / `ORDER BY` columns. A `job_status`-only index is weak (no tenant narrowing, no ordering, low-cardinality leaves a big set).
+
+**Claim access path (Day34)** -> Partial Composite:
+
+```sql
+CREATE INDEX jobs_claim_queue_idx
+    ON app.jobs (tenant_id, created_at, job_id)
+    WHERE job_status = 'queued' AND cancel_requested = false;
+```
+
+`tenant_id` equality -> `created_at, job_id` order; partial predicate keeps only claimable rows (small, hot). Design only — NOT executed / NOT plan-validated.
+
+**Keys serve an access path, not every selected column.** Unindexed returned columns come from the Heap. But a Partial Index that OMITS the target rows cannot answer the query — the claim index fails all-status history because it contains only queued/not-cancelled rows (membership), not because a column is missing.
+
+**History is several paths, measure don't default:** all-status `(tenant_id, created_at DESC, job_id DESC)`; dynamic-status shared composite `(tenant_id, job_status, created_at DESC, job_id DESC)`; or fixed-status Partial Indexes for a few selective/frequent statuses. One general index vs many narrow ones is a trade.
+
+**A UNIQUE constraint is already an index.** Day31's `UNIQUE (tenant_id, idempotency_key)` auto-created a unique B-tree that serves the lookup; a duplicate ordinary index adds storage/write/Vacuum/cache cost and no new capability. Do not add it.
+
+**Outbox poll** -> Partial:
+
+```sql
+CREATE INDEX outbox_unpublished_idx
+    ON app.outbox_events (created_at, outbox_event_id)
+    WHERE published_at IS NULL;
+```
+
+`job_id` is SELECTED but neither filtered nor ordered -> NOT a leading key. Almost all rows are published, so the partial set is small.
+
+**`now()` cannot be a Partial Index predicate.** Partial membership only changes on a WRITE; `now()` moves without writes. Use a STABLE predicate (`WHERE job_status = 'running'`) and test expiry as a QUERY-TIME range (`lease_expires_at <= now()` in the query). The lease columns don't exist until Day36 — stale-lease index stays conceptual.
+
+**`EXPLAIN` estimates a plan (no execution). `EXPLAIN ANALYZE` EXECUTES it** — real row locks on `SELECT ... FOR UPDATE`, real changes on DML (wrap in a `ROLLBACK` transaction, disposable cluster only). `EXPLAIN (ANALYZE, BUFFERS)` adds page/cache evidence. A node name is not a conclusion.
+
+**A Seq Scan is a COST-BASED plan and may be OPTIMAL** (small table, high match fraction, cache-hot, or to avoid random Heap reads). Concerning only with evidence: e.g. 8M rows, ~0.2% queued, ~1.6 s, ~7.9M `Rows Removed by Filter`, high Buffer Reads.
+
+**Estimate vs actual divergence** (1 vs 20,000) -> investigate **statistics / data skew / predicate shape / casts / parameter planning** and refresh statistics (`ANALYZE`) BEFORE adding an index. Validation sequence: plain `EXPLAIN` -> controlled `EXPLAIN (ANALYZE, BUFFERS)` -> workload metrics (claim p95/p99, oldest queued age, I/O/CPU, lock impact, write-path latency).
+
+**Index maintenance cost.** An UPDATE maintains only indexes whose key/included values or PARTIAL membership change. `queued -> running`: the claim partial index is MAINTAINED (row leaves it); `(tenant_id, created_at, job_id)` history and the idempotency unique index are UNCHANGED (keys unchanged).
+
+**Keep an index only for NET SYSTEM benefit.** The classroom case: a broad history/status index moved history p95 100->80 ms but Job acceptance p99 50->220 ms, cost +14 GB, no Worker/Outbox gain -> roll back only that index, keep proven claim/Outbox/unique paths. A read win that inflates acceptance p99 is a net loss; check whether the cost merely MOVED.
+
+Scope: Day35 = DESIGN + EVIDENCE only. NOT executed / NOT plan-validated (no server, `EXPLAIN`, benchmark, or DDL). `CREATE INDEX CONCURRENTLY`, DDL-lock windows, and rollout/rollback are Day36.
+
+---
+
 ## Interview Phrases
 
 - "The Job row is committed before 202; 202 acknowledges an existing durable commitment."
@@ -535,3 +583,16 @@ Scope: Day34 adds no `CREATE INDEX`/`EXPLAIN` (Day35), no `ALTER`/migration (Day
 - "A reverse-order deadlock is detected and one victim aborts with 40P01; the application retries, not PostgreSQL."
 - "Consistent lock order prevents the cycle; lock_timeout only bounds the wait (55P03)."
 - "Locks/leases decide ownership, UNIQUE decides identity, a stable Provider key protects the external call."
+
+- "An index is an additional access structure over the Heap; the claim still locks the real tuple."
+- "Design the index from the real WHERE + ORDER BY + LIMIT, not from a chosen column."
+- "B-tree order: leading equality predicates, then range / ORDER BY columns."
+- "A Partial Index that omits the target rows can't answer the query — membership, not columns."
+- "A UNIQUE constraint already builds a unique B-tree; never duplicate the idempotency index."
+- "Outbox = (created_at, outbox_event_id) WHERE published_at IS NULL; job_id is selected, not a key."
+- "now() can't define partial membership; use a stable predicate + a query-time range."
+- "EXPLAIN estimates; EXPLAIN ANALYZE executes — real row locks and real DML changes."
+- "A Seq Scan is a cost-based plan and can be optimal; judge by selectivity, filtered rows, buffers."
+- "Estimate vs actual divergence is a statistics/skew investigation before another index."
+- "Keep an index only for net system benefit; a read win that inflates acceptance p99 is a loss."
+- "Day35 designs and validates evidence; Day36 deploys it safely (CONCURRENTLY, DDL locks)."

@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day34 — Concurrency Control, MVCC, and Worker Claims
+Day35 — PostgreSQL Indexes and Query Planning
 
 Next Lesson:
 
-Day35 — PostgreSQL Indexes and Query Planning (Planned / Not started; see ROADMAP.md)
+Day36 — Schema Evolution and Safe Migrations (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

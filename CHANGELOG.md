@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.74 — Day35 PostgreSQL Indexes and Query Planning
+
+Date: 2026-07-22
+
+### Added
+
+- Added `docs/postgresql/day35-postgresql-indexes-and-query-planning.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day34->Day35 mental-model evolution).
+- Added `projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql` — an index/`EXPLAIN` **design** reference pack over the Day31/Day34 access paths: the claim Partial Composite `(tenant_id, created_at, job_id) WHERE job_status = 'queued' AND cancel_requested = false`; tenant history candidates (all-status, dynamic-status shared composite, and a fixed-status partial alternative); the Outbox Partial `(created_at, outbox_event_id) WHERE published_at IS NULL`; a deliberate **no-duplicate** note for the Day31 `UNIQUE (tenant_id, idempotency_key)` index; parameterized `EXPLAIN` / `EXPLAIN ANALYZE` templates with honest row-lock/DML side-effect labels; an index-maintenance analysis of `queued -> running`; and a conceptual-only stale-lease design that rejects a `now()` partial predicate.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day35 increment: the index-candidate table, the encoded rules, an explicit statement of what the pack does not contain, an authored (nothing executed) `EXPLAIN` reproduction that flags every plan number as a classroom scenario, Day35 known gaps, and a separate Day35 validation matrix.
+- Appended a Day35 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day35 Beginner/Intermediate/Senior questions to `interview/postgresql.md`, preserving the student's real answers verbatim — including the "我不知道加什么索引" starting point, the "event列" history-reason misconception, the Seq-Scan-proves-failure answer, the English answers, and the final Chinese synthesis with its Composite-Index imprecision (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day35 is the latest PostgreSQL lesson, and pointed the Day34 lesson's Next Lesson at the released Day35 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day35 completed with its released lesson/artifact (Day36 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day35 last completed with artifact + validation boundary; Current/Next is Day36 Planned / Not started), `TASKS.md` (completed Day35 blocks, Day35 preparation converted to history, Day36 preparation added), `README.md`, and `AGENTS.md`.
+
+### Learning Notes
+
+- Day35 turns the Day34 claim and the Day33 write paths into measured, cost-aware index designs, and its spine is: an index is an **additional access structure over the Heap**, not a replacement source of truth — `FOR UPDATE SKIP LOCKED` still visits and locks the real tuple, so an index speeds candidate lookup but not ownership. Design the index from the **real query shape** (leading equality predicates, then range/`ORDER BY` columns): the claim gets a Partial Composite `(tenant_id, created_at, job_id) WHERE job_status='queued' AND cancel_requested=false`, the Outbox gets a Partial `(created_at, outbox_event_id) WHERE published_at IS NULL` (with `job_id` selected but not a key), and the idempotency lookup gets **nothing new** because the `UNIQUE (tenant_id, idempotency_key)` constraint already created a usable unique B-tree. History is several distinct paths chosen by measured workload, not one default. `now()` cannot define partial membership (membership changes only on a write), so expiry is a query-time range on a stable "running" predicate — and the lease columns are Day36. `EXPLAIN` estimates a plan while `EXPLAIN ANALYZE` really executes it (row locks on `SELECT ... FOR UPDATE`, real DML changes); a Sequential Scan is a cost-based and possibly optimal plan judged by selectivity / `Rows Removed by Filter` / latency / buffers, not by its name; an estimate-vs-actual divergence is a statistics/skew investigation before another index; and the keep/rollback decision is made on **net system benefit** (a broad history index that moved history p95 100->80 ms but Job acceptance p99 50->220 ms and cost +14 GB with no Worker/Outbox gain is rolled back).
+- The real classroom trajectory is preserved, including the honest starting uncertainty ("我不知道加什么索引"), the corrected history-index reason (it omits the rows, not "a column is missing"), and the Seq-Scan-proves-failure misconception. Final-synthesis imprecisions (a Composite Index means multiple ordered key columns, not "no restriction"; statistics estimate cost rather than mechanically decide optimization; the decision is net system benefit, not "extra profit") are corrected as Tech Lead commentary, not rewritten into the student's words.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day36 lesson exists and Day36 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day35 student quote appears in `Day35_Repository_Update_Input.md`; Markdown fence balance; relative-link resolution; status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; SQL static review of `007` (balanced parentheses; four active `CREATE INDEX` design statements whose keys and partial predicates all reference existing Day31 columns; the claim and Outbox candidates match the required shapes exactly; **no** duplicate index for the unique idempotency constraint; the lease fields `claim_owner`/`lease_token`/`lease_expires_at` appear only in comment lines; no active `CREATE INDEX CONCURRENTLY`/`ALTER`/`DROP`/`now()`/`EXPLAIN`); and a secret scan.
+- **Day35 has NO runtime evidence — Final artifact PostgreSQL Runtime: NOT RUN.** No PostgreSQL server, `EXPLAIN`, `EXPLAIN ANALYZE`, statistics refresh, representative data, benchmark, production DDL, production load test, or rollback command was run in class or during the repository update. Every plan number quoted (the 8,000,000-row Seq Scan with ~0.2% queued / ~1.6 s / ~7,900,000 `Rows Removed by Filter`, the estimate-1-vs-actual-20,000 case, and the 100->80 / 50->220 / +14 GB broad-index decision) is a classroom scenario for reasoning, not a measured result and not the output of any executed plan or DDL. Application/driver/Celery benchmark and representative-data load: NOT RUN. Safe index deployment (`CREATE INDEX CONCURRENTLY`, DDL-lock windows, rollout/rollback) is Day36: NOT RUN. Production load/performance, RLS/roles, backups, HA, deployment: NOT RUN.
+- Scope: no Day36 lesson was created; no `CREATE INDEX CONCURRENTLY`, `ALTER`, `DROP`, migration, ORM, or `now()`-predicate index was added; the conceptual lease columns were not created; the Day35 artifact makes no claim that any plan, benchmark, or DDL was executed; the protected prompt/template files are unchanged; and no credentials, real connection strings, signed URLs, or production data were added.
+
+---
+
 ## v0.1.73 — Day34 Review Fix: precise SKIP LOCKED outcome (may return another Job, or zero rows)
 
 Date: 2026-07-22

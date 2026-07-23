@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day35 — PostgreSQL Indexes and Query Planning
+Day36 — Schema Evolution and Safe Migrations
 
 Status:
 Planned / Not started
@@ -28,10 +28,62 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day35 — PostgreSQL Indexes and Query Planning (see the Day35 Preparation block below).
+- [ ] Prepare for Day36 — Schema Evolution and Safe Migrations (see the Day36 Preparation block below).
 
 (Day29-Day34 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33/Day34
 sections and the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day35 Tasks
+
+- [x] Complete Day35 PostgreSQL Indexes and Query Planning classroom learning.
+- [x] Generate the Day35 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day34->Day35 mental-model evolution).
+- [x] Derive the claim Partial Composite index from the Day34 predicate and ordering.
+- [x] Explain why a job_status-only index is weak and why B-tree order is equality-then-range/order.
+- [x] Separate the claim path from all-status/dynamic-status/fixed-status history paths.
+- [x] Explain why the UNIQUE (tenant_id, idempotency_key) index must not be duplicated.
+- [x] Design the Outbox Partial Index and exclude job_id from the keys.
+- [x] Reject a now() Partial predicate and give the stable-predicate + query-time-range design.
+- [x] Distinguish EXPLAIN (plan) from EXPLAIN ANALYZE (real execution, locks/DML side effects).
+- [x] Judge a Seq Scan as cost-based and treat estimate-vs-actual as a statistics investigation.
+- [x] Identify which indexes queued -> running maintains.
+- [x] Make the net-benefit keep/rollback decision on the broad-history-index case.
+- [x] Preserve the real student answers, English answers, final Chinese synthesis, and all corrections.
+
+---
+
+## Completed Day35 Repository Tasks
+
+- [x] Add `docs/postgresql/day35-postgresql-indexes-and-query-planning.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day35 increment, index candidates, EXPLAIN evidence plan, and honest NOT-RUN limits.
+- [x] Append the Day35 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day35 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day35 is now the latest PostgreSQL lesson).
+- [x] Update the Day34 lesson Next Lesson link to the released Day35 lesson.
+- [x] Update `CURRICULUM.md` (Day35 Completed; Day36 remains Planned).
+- [x] Update `ROADMAP.md` (Day35 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day35 Interview Tasks
+
+- [x] Add the beginner claim-index and EXPLAIN questions with the student's actual answers.
+- [x] Add intermediate history-path and composite-vs-partial questions.
+- [x] Add the senior no-duplicate-unique, now()-rejection, and keep/rollback questions.
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day35 Homework
+
+- [x] Complete the claim-index derivation and job_status-only-weakness exercises.
+- [x] Complete the history-path and composite-vs-partial exercises.
+- [x] Complete the no-duplicate-unique and Outbox-partial exercises.
+- [x] Complete the now()-rejection and EXPLAIN-vs-EXPLAIN-ANALYZE exercises.
+- [x] Complete the Seq-Scan-judgement, estimate-vs-actual, maintenance, and keep/rollback exercises.
 
 ---
 
@@ -252,14 +304,25 @@ sections and the corresponding Preparation history blocks.)
 
 ---
 
-### Day35 Preparation — PostgreSQL Indexes and Query Planning
+### Day36 Preparation — Schema Evolution and Safe Migrations
 
-- [ ] Read the Day35 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql` and note the exact claim predicates and ordering (tenant_id, job_status = 'queued', created_at, job_id).
-- [ ] Preview the access paths a busy claim hammers: the queued scan, and (once the lease exists) stale-lease and unpublished-Outbox scans.
-- [ ] Preview `EXPLAIN`/`EXPLAIN ANALYZE`, index types, and why an index is chosen by measurement, not guess.
-- [ ] Remember Day34's correctness must be settled before Day35's speed; an index cannot fix a wrong claim.
-- [ ] Keep lease-column migration (Day36), full operations (Day37), and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day36 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql` and note which index designs and the conceptual lease columns need safe online deployment.
+- [ ] Preview `CREATE INDEX CONCURRENTLY`, `DROP INDEX CONCURRENTLY`, and DDL-lock-aware procedures.
+- [ ] Preview the expand/backfill/validate/switch/contract migration for adding the lease columns (claim_owner, lease_token, lease_expires_at).
+- [ ] Remember that a design (Day35) and its safe rollout (Day36) are different decisions; Day35 executed no DDL.
+- [ ] Keep production operations/monitoring (Day37) and SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day35 Preparation — PostgreSQL Indexes and Query Planning (completed)
+
+- [x] Read the Day35 input.
+- [x] Reviewed `projects/ai-backend-data-layer/sql/006_concurrency_control_mvcc_and_worker_claims.sql` and the exact claim predicates and ordering (tenant_id, job_status = 'queued', cancel_requested = false, created_at, job_id).
+- [x] Previewed the access paths a busy claim hammers: the queued scan and unpublished-Outbox scan (stale-lease deferred to Day36 columns).
+- [x] Previewed `EXPLAIN`/`EXPLAIN ANALYZE`, index types, and why an index is chosen by measurement, not guess.
+- [x] Kept Day34's correctness settled before Day35's speed; an index cannot fix a wrong claim.
+- [x] Kept lease-column migration and safe index deployment (Day36), full operations (Day37), and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -495,7 +558,7 @@ sections and the corresponding Preparation history blocks.)
 - [x] Day32 — SQL Joins, Aggregation, and Operational Queries (Completed).
 - [x] Day33 — PostgreSQL Transactions and Atomic State Changes (Completed).
 - [x] Day34 — Concurrency Control, MVCC, and Worker Claims (Completed).
-- [ ] Day35 — PostgreSQL Indexes and Query Planning (Planned).
+- [x] Day35 — PostgreSQL Indexes and Query Planning (Completed).
 - [ ] Day36 — Schema Evolution and Safe Migrations (Planned).
 - [ ] Day37 — PostgreSQL Production Reliability (Planned).
 - [ ] Day38 — Redis Foundations and Data Structures (Planned).

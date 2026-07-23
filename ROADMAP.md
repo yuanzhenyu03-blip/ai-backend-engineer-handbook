@@ -122,7 +122,7 @@ Topics: PostgreSQL, SQL, Redis, Database Design.
 | Day32 | SQL Joins, Aggregation, and Operational Queries | ✅ Completed |
 | Day33 | PostgreSQL Transactions and Atomic State Changes | ✅ Completed |
 | Day34 | Concurrency Control, MVCC, and Worker Claims | ✅ Completed |
-| Day35 | PostgreSQL Indexes and Query Planning | Planned |
+| Day35 | PostgreSQL Indexes and Query Planning | ✅ Completed |
 | Day36 | Schema Evolution and Safe Migrations | Planned |
 | Day37 | PostgreSQL Production Reliability | Planned |
 

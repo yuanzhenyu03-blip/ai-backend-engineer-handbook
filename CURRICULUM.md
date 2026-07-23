@@ -876,7 +876,37 @@ scan is not automatically wrong; index costs (writes/storage/vacuum/cache); meas
 data when runtime is available.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day35-postgresql-indexes-and-query-planning.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day34 — Concurrency Control, MVCC, and Worker Claims
+
+Next Lesson:
+Day36 — Schema Evolution and Safe Migrations
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql` — an index/EXPLAIN DESIGN
+reference pack over the Day31/Day34 access paths: the claim Partial Composite
+`(tenant_id, created_at, job_id) WHERE job_status = 'queued' AND cancel_requested = false`, tenant history
+candidates (all-status, dynamic-status composite, fixed-status partial alternative), the Outbox Partial
+`(created_at, outbox_event_id) WHERE published_at IS NULL`, a deliberate NO-duplicate note for the Day31
+`UNIQUE (tenant_id, idempotency_key)` index, parameterized `EXPLAIN` / `EXPLAIN ANALYZE` templates with
+honest side-effect labels, and a conceptual-only stale-lease design that avoids a `now()` predicate.
+Contains no `CREATE INDEX CONCURRENTLY`, `ALTER`, migration, or ORM (Day36)
+
+Validation Limits:
+Day35 has NO runtime evidence — everything is conceptual reasoning and static review. No Day35 SQL file,
+PostgreSQL server, `EXPLAIN`, `EXPLAIN ANALYZE`, statistics refresh, representative data, benchmark,
+application integration, production DDL, or rollback was run in class or during the repository update. Every
+plan number (the 8M-row Seq Scan, estimate-1-vs-actual-20,000, and the 100->80 / 50->220 / +14 GB decision
+case) is a classroom scenario for reasoning, not a measured result. Final 007 file PostgreSQL runtime: NOT
+RUN. Safe index deployment (`CREATE INDEX CONCURRENTLY`, DDL-lock windows, rollout/rollback) is Day36.
 
 ---
 

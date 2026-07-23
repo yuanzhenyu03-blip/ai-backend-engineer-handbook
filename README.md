@@ -24,10 +24,11 @@ Last completed lesson:
 * Day32 — SQL Joins, Aggregation, and Operational Queries
 * Day33 — PostgreSQL Transactions and Atomic State Changes
 * Day34 — Concurrency Control, MVCC, and Worker Claims
+* Day35 — PostgreSQL Indexes and Query Planning
 
 Next:
 
-* Day35 — PostgreSQL Indexes and Query Planning (Planned / Not started; see `ROADMAP.md`)
+* Day36 — Schema Evolution and Safe Migrations (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

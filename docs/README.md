@@ -17,7 +17,8 @@ docs/
 │   ├── day31-relational-modeling-and-data-integrity.md
 │   ├── day32-sql-joins-aggregation-and-operational-queries.md
 │   ├── day33-postgresql-transactions-and-atomic-state-changes.md
-│   └── day34-concurrency-control-mvcc-and-worker-claims.md            # latest
+│   ├── day34-concurrency-control-mvcc-and-worker-claims.md
+│   └── day35-postgresql-indexes-and-query-planning.md                 # latest
 ├── fastapi/
 ├── playwright/
 └── n8n/

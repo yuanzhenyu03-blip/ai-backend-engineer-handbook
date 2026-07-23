@@ -1,0 +1,282 @@
+-- =============================================================================
+-- Production AI Backend Data Layer — 007_postgresql_indexes_and_query_planning.sql
+-- Day35: PostgreSQL Indexes and Query Planning
+--
+-- WHAT THIS FILE IS
+--   A DESIGN + EVIDENCE reference pack: candidate B-tree index designs for the
+--   real access paths of Day33/Day34, and parameterized EXPLAIN templates to
+--   VALIDATE those designs. It decides index DESIGN and how to gather evidence.
+--   It does NOT deploy a production migration and makes no runtime claims.
+--
+--   Target schema: 001_create_jobs.sql -> 003_relational_modeling_and_data_integrity.sql
+--   The active designs use the Day31 columns EXACTLY and invent no columns.
+--
+-- VALIDATION LEVEL FOR THE WHOLE FILE  ==>  NOT executed / NOT plan-validated.
+--   Nothing here was run in class or during the repository update: no PostgreSQL
+--   server, no EXPLAIN, no EXPLAIN ANALYZE, no statistics refresh, no
+--   representative data, no benchmark, no production DDL, no rollback command.
+--   An index is retained ONLY after representative EXPLAIN (ANALYZE, BUFFERS) plus
+--   workload evidence (see "HOW TO VALIDATE" and the decision case at the end).
+--   Treat every CREATE INDEX below as a candidate DESIGN, not a fact.
+--
+-- ACTIVE vs CONCEPTUAL
+--   * Sections 1-4 and 6-8 reference only existing Day31 columns.
+--   * Section 5 (stale-lease) is CONCEPTUAL and fully COMMENTED: claim_owner /
+--     lease_token / lease_expires_at do NOT exist yet (Day36 adds them).
+--
+-- DEPLOYMENT SAFETY IS DAY36, NOT DAY35
+--   A plain CREATE INDEX takes a lock that blocks writes while it builds. On a
+--   populated production table you build indexes ONLINE with
+--   CREATE INDEX CONCURRENTLY, and you plan rollout/rollback and DDL-lock windows.
+--   Those operational mechanics are Day36. The designs are written as plain
+--   CREATE INDEX for clarity; do not read them as a safe production migration.
+--
+-- WHAT THIS FILE IS **NOT**
+--   * No migration, no CREATE INDEX CONCURRENTLY, no DROP/rollout mechanics (Day36).
+--   * No ORM. No claim that any plan or benchmark was produced.
+--   * An index speeds CANDIDATE lookup only. It does NOT replace Day34 locks,
+--     leases, or guarded transitions: FOR UPDATE SKIP LOCKED still visits and
+--     locks the real Heap tuple. An index existing is not an Index-Only claim.
+--
+-- Lesson: docs/postgresql/day35-postgresql-indexes-and-query-planning.md
+-- =============================================================================
+
+
+-- #############################################################################
+-- SECTION 1 — The Day34 Worker-claim access path (primary case)
+-- #############################################################################
+--
+-- Query shape (the exact Day34 claim; see 006):
+--   SELECT j.job_id
+--     FROM app.jobs AS j
+--    WHERE j.tenant_id = $1 AND j.job_status = 'queued' AND j.cancel_requested = false
+--    ORDER BY j.created_at ASC, j.job_id ASC
+--    FOR UPDATE SKIP LOCKED LIMIT 1;
+--
+-- Why a job_status-only index is weak: it cannot first narrow by tenant, cannot
+-- supply the (created_at, job_id) order, and 'queued' is low-cardinality, so it can
+-- still leave a large set to sort/filter.
+--
+-- CANDIDATE DESIGN — Partial Composite B-tree:
+--   purpose:      locate one tenant's next claimable Job in queue order.
+--   query-shape:  tenant_id equality -> created_at, job_id ordered read; the
+--                 partial predicate keeps only claimable rows.
+--   trade-off:    smaller/cheaper than a full index (only queued+not-cancelled
+--                 rows), but only serves THIS predicate; maintained when a row
+--                 enters/leaves the predicate (e.g. queued -> running removes it).
+--   validation:   NOT executed / NOT plan-validated. Prove with the EXPLAIN
+--                 templates in Section 6 on representative data before retaining.
+CREATE INDEX jobs_claim_queue_idx
+    ON app.jobs (tenant_id, created_at, job_id)
+    WHERE job_status = 'queued' AND cancel_requested = false;
+-- NOTE: the index finds a CANDIDATE. FOR UPDATE SKIP LOCKED still locks the actual
+-- Heap tuple; this is not an Index-Only Scan and not ownership.
+
+
+-- #############################################################################
+-- SECTION 2 — Tenant history access paths (distinct from the claim)
+-- #############################################################################
+--
+-- These history candidates are DESIGNS to be validated, NOT automatically
+-- retained. Section 8 shows a worked decision where a broad history/status index
+-- was rejected on net-system evidence. Retain a history index only if measured
+-- benefit is positive overall.
+--
+-- 2a. All-status tenant history, newest first:
+--   SELECT ... FROM app.jobs
+--    WHERE tenant_id = $1
+--    ORDER BY created_at DESC, job_id DESC LIMIT $2;
+--   CANDIDATE: a NON-partial composite (includes all rows of the tenant).
+CREATE INDEX jobs_tenant_history_idx
+    ON app.jobs (tenant_id, created_at DESC, job_id DESC);
+--   purpose:    a tenant's full timeline in a stable newest-first order.
+--   trade-off:  general (any status) but larger; competes on write/cache/Vacuum.
+--   validation: NOT executed / NOT plan-validated.
+--
+-- 2b. Dynamic status-filtered history (endpoint takes an arbitrary status):
+--   SELECT ... WHERE tenant_id = $1 AND job_status = $2
+--    ORDER BY created_at DESC, job_id DESC LIMIT $3;
+--   CANDIDATE: ONE shared composite covering the status filter + order.
+CREATE INDEX jobs_tenant_status_history_idx
+    ON app.jobs (tenant_id, job_status, created_at DESC, job_id DESC);
+--   trade-off:  one general index vs many narrow fixed-status Partial Indexes.
+--               Neither is automatically best -- a selective, frequent FIXED
+--               status can justify a narrow Partial Index instead; choose by
+--               MEASURED workload and total cost, not by default.
+--   validation: NOT executed / NOT plan-validated.
+--
+-- 2c. Fixed-status Partial alternative (only if one status dominates the workload):
+--   -- CREATE INDEX jobs_tenant_failed_history_idx
+--   --     ON app.jobs (tenant_id, created_at DESC, job_id DESC)
+--   --     WHERE job_status = 'failed';
+--   Shown commented as a design ALTERNATIVE to 2b, not an additional requirement.
+--   An index key serves an ACCESS PATH, not every SELECT-list column: unindexed
+--   returned columns are fetched from the Heap. But a Partial Index that omits the
+--   target rows (e.g. the claim index for an all-status query) cannot answer it.
+
+
+-- #############################################################################
+-- SECTION 3 — Idempotency lookup: DO NOT add an index (it already exists)
+-- #############################################################################
+--
+-- Day31 declared:  CONSTRAINT jobs_tenant_idempotency_unique UNIQUE (tenant_id, idempotency_key)
+-- PostgreSQL AUTOMATICALLY created a unique B-tree index to enforce that
+-- constraint, and that index also SERVES the lookup
+--   WHERE tenant_id = $1 AND idempotency_key = $2.
+-- An identical ordinary index would be REDUNDANT: same key, no new lookup
+-- capability, only extra storage / write amplification / Vacuum / cache cost.
+-- So there is deliberately NO CREATE INDEX here. A unique constraint is also an
+-- access-path fact.
+
+
+-- #############################################################################
+-- SECTION 4 — Unpublished Outbox polling access path
+-- #############################################################################
+--
+-- Query shape (from the Day31 outbox_events columns; the Relay poll):
+--   SELECT outbox_event_id, job_id, event_type, payload
+--     FROM app.outbox_events
+--    WHERE published_at IS NULL
+--    ORDER BY created_at ASC, outbox_event_id ASC
+--    LIMIT 100;
+--
+-- Almost all rows are already published, so the UNPUBLISHED set is tiny -> a
+-- Partial Index on that set is small and hot.
+--
+-- CANDIDATE DESIGN — Partial B-tree:
+--   purpose:    serve the high-frequency Relay poll of unsent events in order.
+--   query-shape: partial predicate published_at IS NULL keeps only unsent rows;
+--                (created_at, outbox_event_id) supplies the exact Relay order.
+--   trade-off:  very small (only unsent rows); an event leaves the index when
+--                published_at is written (published_at IS NULL -> NOT NULL).
+--   validation: NOT executed / NOT plan-validated.
+--
+-- job_id is SELECTED but is neither a filter nor an ordering key, so it must NOT
+-- be a leading key -- do not put a column before the ordering keys merely because
+-- it appears in the SELECT list.
+CREATE INDEX outbox_unpublished_idx
+    ON app.outbox_events (created_at, outbox_event_id)
+    WHERE published_at IS NULL;
+
+
+-- #############################################################################
+-- SECTION 5 — Stale-lease recovery index: CONCEPTUAL ONLY (Day36 columns)
+-- #############################################################################
+--
+-- The Day31 schema has NO claim_owner / lease_token / lease_expires_at. These are
+-- the Day34 conceptual lease fields; Day36 owns adding them and safely deploying
+-- any index. Everything here is COMMENTED and must NOT be run against the current
+-- schema (it would fail: column does not exist).
+--
+-- WHY now() CANNOT be a Partial Index predicate:
+--   A Partial Index's membership is fixed at write time. A row only enters/leaves
+--   the index when it is WRITTEN. now() moves continuously, so
+--     ... WHERE lease_expires_at <= now()
+--   would need rows to change membership as time passes WITHOUT any write -- which
+--   PostgreSQL cannot do. The expiry test is therefore a QUERY-TIME B-tree range
+--   condition, while the STABLE partial predicate is "still running".
+--
+-- FUTURE (Day36) candidate, conceptual:
+--   -- CREATE INDEX jobs_running_lease_idx
+--   --     ON app.jobs (lease_expires_at, job_id)
+--   --     WHERE job_status = 'running';           -- STABLE predicate (a write moves it)
+--   -- and the recovery query applies the time test at QUERY time:
+--   --   SELECT job_id FROM app.jobs
+--   --    WHERE job_status = 'running' AND lease_expires_at <= now()
+--   --    ORDER BY lease_expires_at ASC, job_id ASC ...;
+--   Day36 adds the columns and deploys this safely; Day35 only designs it.
+
+
+-- #############################################################################
+-- SECTION 6 — HOW TO VALIDATE: EXPLAIN vs EXPLAIN ANALYZE (honest templates)
+-- #############################################################################
+--
+-- EXPLAIN = ask the Planner for an ESTIMATED plan WITHOUT executing the query.
+-- EXPLAIN ANALYZE = actually EXECUTE the query and report real rows/time/loops.
+-- EXPLAIN (ANALYZE, BUFFERS) = adds page/cache (shared hit/read) evidence.
+--
+-- HONESTY / SIDE EFFECTS:
+--   * On a SELECT ... FOR UPDATE SKIP LOCKED claim, EXPLAIN ANALYZE really RUNS it:
+--     it takes row locks and does real I/O. It is not a harmless viewer.
+--   * On DML (INSERT/UPDATE/DELETE), EXPLAIN ANALYZE makes REAL changes -- wrap it
+--     in a transaction you ROLLBACK if you must analyze DML, and only on a
+--     DISPOSABLE cluster.
+--   * Run ANALYZE evidence only in a controlled, representative environment.
+--
+-- Plan-only (safe; bind $1, or PREPARE/EXECUTE, on a disposable cluster):
+--   EXPLAIN
+--   SELECT j.job_id FROM app.jobs AS j
+--    WHERE j.tenant_id = $1 AND j.job_status = 'queued' AND j.cancel_requested = false
+--    ORDER BY j.created_at ASC, j.job_id ASC
+--    FOR UPDATE SKIP LOCKED LIMIT 1;
+--
+-- Real execution (locks rows; disposable cluster + representative data ONLY):
+--   EXPLAIN (ANALYZE, BUFFERS)
+--   SELECT j.job_id FROM app.jobs AS j
+--    WHERE j.tenant_id = $1 AND j.job_status = 'queued' AND j.cancel_requested = false
+--    ORDER BY j.created_at ASC, j.job_id ASC
+--    FOR UPDATE SKIP LOCKED LIMIT 1;
+--
+-- Outbox poll plan:
+--   EXPLAIN
+--   SELECT outbox_event_id, job_id, event_type, payload FROM app.outbox_events
+--    WHERE published_at IS NULL
+--    ORDER BY created_at ASC, outbox_event_id ASC LIMIT 100;
+--
+-- READING THE OUTPUT (a node name is NOT the conclusion):
+--   * A Sequential Scan is a COST-BASED plan and can be CORRECT: cheapest on a
+--     small table, a high match fraction, cache-resident data, or when an index
+--     scan would cause expensive random Heap reads. It is CONCERNING only with
+--     evidence: e.g. 8,000,000 rows, ~0.2% queued, ~1.6 s, ~7,900,000 Rows Removed
+--     by Filter, high disk Buffer Reads -> then investigate.
+--   * Compare ESTIMATED rows vs ACTUAL rows, actual time, loops, Rows Removed by
+--     Filter, buffers, and sorting. An estimate of 1 vs 20,000 actual first
+--     suggests STALE/INADEQUATE statistics or data skew -> investigate predicates /
+--     type casts / parameter planning and refresh statistics (ANALYZE) BEFORE
+--     adding another index.
+--   * Validation sequence: plain EXPLAIN -> controlled EXPLAIN (ANALYZE, BUFFERS)
+--     -> workload metrics (claim p95/p99, oldest queued age, DB I/O/CPU, lock
+--     impact, write-path latency).
+
+
+-- #############################################################################
+-- SECTION 7 — Index maintenance cost of the queued -> running transition
+-- #############################################################################
+--
+-- Every index adds write amplification, storage, cache competition, and Vacuum
+-- work. An UPDATE maintains ONLY indexes whose key/included values change, or
+-- whose PARTIAL predicate membership changes. For the Day34 queued -> running
+-- claim UPDATE (SET job_status='running', started_at, attempt_count+1):
+--   * jobs_claim_queue_idx (partial, WHERE job_status='queued' ...)  -> MAINTAINED:
+--       the row leaves the partial index (predicate membership changes).
+--   * jobs_tenant_history_idx (tenant_id, created_at, job_id)        -> unchanged:
+--       none of its key columns changed.
+--   * the UNIQUE (tenant_id, idempotency_key) index                  -> unchanged:
+--       neither key column changed.
+-- So the transition touches the claim index only, not the history/idempotency ones.
+
+
+-- #############################################################################
+-- SECTION 8 — Integrated production decision case (design narrative; NO DDL RUN)
+-- #############################################################################
+--
+-- Scenario (reasoned in class; numbers are the classroom example, NOT measured
+-- here and NOT the result of any executed DDL or benchmark):
+--   A broad history/status index was proposed. Its evidence:
+--     * history page p95:      100 ms -> 80 ms   (small read improvement)
+--     * Job acceptance p99:     50 ms -> 220 ms  (write path much worse)
+--     * storage:               +14 GB
+--     * Worker claim / Outbox: no additional benefit
+--   DECISION: roll back ONLY that new broad index; KEEP the evidence-backed
+--   claim / Outbox / unique access paths. Consider a NARROWER alternative later,
+--   only if the history workload becomes important.
+--
+-- The rule: retain an index by NET SYSTEM benefit, not by a single page's win.
+-- A read improvement that inflates acceptance p99, burns storage, and adds
+-- write/Vacuum/cache cost is negative overall. And check whether the cost merely
+-- MOVED elsewhere rather than disappearing.
+--
+-- The SAFE mechanics of building/removing such an index in production
+-- (CREATE INDEX CONCURRENTLY, DROP INDEX CONCURRENTLY, DDL-lock windows, rollout
+-- and rollback) are Day36. Day35 makes the DESIGN + EVIDENCE decision only; no
+-- DDL was actually deployed or rolled back here.

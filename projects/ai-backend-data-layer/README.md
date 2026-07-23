@@ -4,9 +4,9 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day34 — a concurrency claim pack** that makes the Day33 atomic Start write safe when
-many Workers compete: an active `FOR UPDATE SKIP LOCKED` claim transaction around the unchanged Day33 write,
-plus a conceptual (commented) lease state machine for ownership that survives COMMIT.
+Current increment: **Day35 — an index/EXPLAIN design pack** that turns the Day33/Day34 access paths into
+measured, cost-aware index designs: a claim Partial Composite, an Outbox Partial, history candidates, and
+honest `EXPLAIN` evidence templates — design and evidence only, with safe deployment deferred to Day36.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -15,6 +15,7 @@ Lessons:
 - Day32 (operational queries): [`docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md`](../../docs/postgresql/day32-sql-joins-aggregation-and-operational-queries.md)
 - Day33 (transactions): [`docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`](../../docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md)
 - Day34 (concurrency): [`docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`](../../docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md)
+- Day35 (indexes): [`docs/postgresql/day35-postgresql-indexes-and-query-planning.md`](../../docs/postgresql/day35-postgresql-indexes-and-query-planning.md)
 
 ---
 
@@ -29,7 +30,8 @@ projects/ai-backend-data-layer/
     ├── 003_relational_modeling_and_data_integrity.sql   # Day31: relational target schema + constraints
     ├── 004_sql_joins_aggregation_and_operational_queries.sql  # Day32: read-only operational query pack (not DDL)
     ├── 005_postgresql_transactions_and_atomic_state_changes.sql  # Day33: transactional write pack (driver-bound, not DDL)
-    └── 006_concurrency_control_mvcc_and_worker_claims.sql        # Day34: concurrency claim pack (active claim + conceptual lease)
+    ├── 006_concurrency_control_mvcc_and_worker_claims.sql        # Day34: concurrency claim pack (active claim + conceptual lease)
+    └── 007_postgresql_indexes_and_query_planning.sql            # Day35: index/EXPLAIN design pack (designs + evidence, not a migration)
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -75,6 +77,73 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day35 increment — index/EXPLAIN design pack
+
+`sql/007_postgresql_indexes_and_query_planning.sql` turns the real Day33/Day34 access paths into candidate
+B-tree index **designs** plus honest `EXPLAIN` evidence templates. It decides *which* index and *whether the
+evidence justifies it*; it does **not** deploy a migration and makes **no runtime claims**.
+
+### Index candidates (design only — NOT executed, NOT plan-validated)
+
+| Access path | Candidate design | Notes |
+| --- | --- | --- |
+| Day34 Worker claim | `(tenant_id, created_at, job_id) WHERE job_status = 'queued' AND cancel_requested = false` | Partial Composite; tenant equality -> queue order; a `job_status`-only index is weak; speeds candidate lookup, not lock ownership |
+| All-status tenant history | `(tenant_id, created_at DESC, job_id DESC)` | non-partial; a different path from the claim |
+| Dynamic status-filtered history | `(tenant_id, job_status, created_at DESC, job_id DESC)` | shared composite vs several fixed-status partials — a trade, not a rule; measure |
+| Idempotency lookup | **none added** | Day31's `UNIQUE (tenant_id, idempotency_key)` already created a unique B-tree; a duplicate is pure cost |
+| Unpublished Outbox poll | `(created_at, outbox_event_id) WHERE published_at IS NULL` | Partial on the tiny unsent set; `job_id` is selected but not a key |
+| Stale-lease recovery | **conceptual/commented only** | `claim_owner`/`lease_token`/`lease_expires_at` do not exist (Day36); `now()` cannot be a partial predicate — stable "running" partial + query-time range |
+
+### Rules encoded
+
+```text
+index = ADDITIONAL access structure over the Heap; FOR UPDATE SKIP LOCKED still locks the real tuple
+design from the real WHERE + ORDER BY + LIMIT; B-tree order = equality predicates, then range / ORDER BY
+a key serves an access path, not every SELECT-list column; the Heap supplies unindexed columns
+a Partial Index that OMITS the target rows cannot answer the query (membership, not columns)
+a UNIQUE constraint already builds a unique B-tree -> never duplicate the idempotency index
+now() cannot be a partial predicate (membership changes only on a write) -> query-time range test
+EXPLAIN estimates a plan; EXPLAIN ANALYZE EXECUTES it (row locks on SELECT FOR UPDATE, real DML changes)
+Seq Scan is a cost-based plan and may be optimal; judge by selectivity / Rows Removed by Filter / buffers
+estimate vs actual divergence -> statistics/skew investigation BEFORE another index
+queued->running maintains only the claim partial index; history/idempotency keys unchanged
+keep an index only for NET SYSTEM benefit; a read win that inflates acceptance p99 is a net loss
+```
+
+> **What this pack deliberately does not contain:** no `CREATE INDEX CONCURRENTLY`, no `ALTER`, no
+> `DROP`/rollout mechanics, no migration, no ORM. The active `CREATE INDEX` statements are candidate
+> **designs**; on a populated table a plain build takes a write-blocking lock, so the safe online build and
+> rollout/rollback are **Day36**.
+
+### Validation reproduction (**NOT executed — Day35 has no runtime evidence**)
+
+```bash
+# NOTHING here was run in class or during the repository update: no PostgreSQL server, no EXPLAIN,
+# no EXPLAIN ANALYZE, no statistics refresh, no representative data, no benchmark, no DDL, no rollback.
+# On a DISPOSABLE cluster you would inspect plans like this (EXPLAIN is plan-only and safe;
+# EXPLAIN ANALYZE really executes and, on FOR UPDATE, takes row locks):
+#
+#   EXPLAIN
+#   SELECT j.job_id FROM app.jobs AS j
+#    WHERE j.tenant_id = $1 AND j.job_status = 'queued' AND j.cancel_requested = false
+#    ORDER BY j.created_at ASC, j.job_id ASC
+#    FOR UPDATE SKIP LOCKED LIMIT 1;
+#
+# Every plan number in the lesson (8M-row Seq Scan; estimate 1 vs actual 20,000; 100->80 / 50->220 / +14 GB)
+# is a CLASSROOM SCENARIO for reasoning, not a measured result.
+```
+
+### Day35 known gaps (deliberate)
+
+```text
+Day36  safe online build/removal (CREATE INDEX CONCURRENTLY, DROP INDEX CONCURRENTLY), DDL-lock windows,
+       rollout/rollback, and the migration that adds the conceptual lease columns
+Day37  slow-query / lock / connection / Vacuum monitoring and production capacity
+Day40+ Redis and the capstone reuse the measure-before-optimizing discipline
+```
 
 ---
 
@@ -1019,6 +1088,16 @@ not running. Do not present a Docker workflow as verified.
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
 
+### Day35 (`007_postgresql_indexes_and_query_planning.sql`)
+
+| Level | Day35 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | index-from-query-shape derivation; the claim Partial Composite; history paths; no-duplicate-unique; Outbox Partial; `now()` rejection; `EXPLAIN` vs `EXPLAIN ANALYZE`; Seq-Scan judgement; estimate-vs-actual; index maintenance; the net-benefit keep/rollback decision |
+| Final artifact static review | **Done (repository update)** | uses the Day31 columns exactly; claim Partial Composite is `(tenant_id, created_at, job_id) WHERE job_status='queued' AND cancel_requested=false`; Outbox Partial is `(created_at, outbox_event_id) WHERE published_at IS NULL`; **no** duplicate index for `UNIQUE (tenant_id, idempotency_key)`; the stale-lease design and its `now()`-avoidance are commented/conceptual (lease columns absent); no `CREATE INDEX CONCURRENTLY`/`ALTER`/`DROP`/migration/ORM; no credentials |
+| **PostgreSQL runtime (EXPLAIN / EXPLAIN ANALYZE)** | **NOT RUN** | no Day35 SQL file, PostgreSQL server, `EXPLAIN`, `EXPLAIN ANALYZE`, statistics refresh, or representative data was executed in class or during the repository update. Every plan number quoted (8M-row Seq Scan; estimate 1 vs actual 20,000; 100->80 / 50->220 / +14 GB) is a **classroom scenario** for reasoning, not a measured result |
+| Application / benchmark integration | **NOT RUN** | no FastAPI/driver/Celery workload, p95/p99 benchmark, or representative-data load |
+| Production DDL / deployment / rollback | **NOT RUN / OUT OF SCOPE** | no index was built, deployed, or rolled back; `CREATE INDEX CONCURRENTLY`, DDL-lock windows, and rollout/rollback are Day36; no production load test, RLS, backups, HA, or deployment |
+
 ### Day34 (`006_concurrency_control_mvcc_and_worker_claims.sql`)
 
 | Level | Day34 status | Evidence |
@@ -1114,7 +1193,7 @@ Day31  CHECK (valid job_status, attempt_count >= 0), UNIQUE business/idempotency
 Day32  joins/aggregation and operational queries (delivered: sql/004_...sql)
 Day33  transactions (atomic Job + Outbox insert) (delivered: sql/005_...sql)
 Day34  concurrency-safe claims (FOR UPDATE / SKIP LOCKED), leases, idempotency enforcement (delivered: sql/006_...sql)
-Day35  indexes and query plans
+Day35  indexes and query plans (delivered: sql/007_...sql)
 Day36  versioned migrations (this file is a starting point, not a migration framework)
 Day37  pooling, roles/least privilege, timeouts, vacuum, backup/PITR, operations
 ```

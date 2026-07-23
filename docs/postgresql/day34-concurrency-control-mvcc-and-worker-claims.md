@@ -16,7 +16,7 @@ Prerequisite: Day33 — PostgreSQL Transactions and Atomic State Changes
 
 Previous Lesson: [Day33 — PostgreSQL Transactions and Atomic State Changes](day33-postgresql-transactions-and-atomic-state-changes.md)
 
-Next Lesson: Day35 — PostgreSQL Indexes and Query Planning (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day35 lesson file does not exist yet)
+Next Lesson: [Day35 — PostgreSQL Indexes and Query Planning](day35-postgresql-indexes-and-query-planning.md)
 
 Engineering Artifact: The Day34 concurrency claim pack (`sql/006_concurrency_control_mvcc_and_worker_claims.sql`) — an active `FOR UPDATE SKIP LOCKED` claim transaction wrapping the Day33 Start write, plus a fully commented, conceptual lease state machine — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

@@ -1142,3 +1142,197 @@ Weak:   "Set a timeout to fix deadlocks."
 Strong: "PostgreSQL detects the cycle and aborts one victim with 40P01. Consistent lock order prevents it;
         lock_timeout only bounds the wait (55P03); the application retries the whole transaction."
 ```
+
+---
+
+# Day35 PostgreSQL Indexes and Query Planning Questions
+
+From the Day35 lesson: index as an access structure over the Heap, deriving indexes from the query shape,
+the claim Partial Composite and Outbox Partial designs, why the unique idempotency index is not duplicated,
+rejecting a `now()` predicate, `EXPLAIN` vs `EXPLAIN ANALYZE`, Seq Scan as a cost-based plan, estimate-vs-
+actual as a statistics investigation, index maintenance, and the net-benefit keep/rollback decision.
+
+Lesson: `docs/postgresql/day35-postgresql-indexes-and-query-planning.md`
+
+Index pack: `projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql`
+
+## Beginner
+
+### 1. What index would you add for the Day34 claim query?
+
+Question:
+
+The claim is `WHERE tenant_id = $1 AND job_status = 'queued' AND cancel_requested = false ORDER BY
+created_at, job_id LIMIT 1 FOR UPDATE SKIP LOCKED`. What index, and why not a `job_status`-only index?
+
+中文解析:
+
+从**查询形状**推导，而不是随便选一列：`CREATE INDEX ... ON app.jobs (tenant_id, created_at, job_id) WHERE
+job_status = 'queued' AND cancel_requested = false`。`tenant_id` 等值先缩小到一个租户，`created_at, job_id`
+提供确定的队列顺序，partial 谓词只保留可认领的行（小而热）。只按 `job_status` 建索引很弱：无法先按 tenant 缩小、
+无法直接提供排序，且 `'queued'` 基数低，仍可能剩下一大批行。索引只加速**候选查找**，`FOR UPDATE SKIP LOCKED`
+仍然会访问并锁住真实的 Heap 行。
+
+Student's actual answer (preserved):
+
+> "我不知道加什么索引"
+
+Assessment: an honest starting point — and the right one, because the index is derived from the real
+predicate/ordering, not guessed.
+
+Strong answer:
+
+> "A partial composite `(tenant_id, created_at, job_id) WHERE job_status = 'queued' AND cancel_requested =
+> false`. `tenant_id` equality narrows to one tenant, `created_at, job_id` give the queue order, and the
+> partial predicate keeps only claimable rows. A `job_status`-only index can't narrow by tenant or supply
+> the order, and 'queued' is low-cardinality."
+
+### 2. `EXPLAIN` vs `EXPLAIN ANALYZE`?
+
+Question:
+
+What is the difference, and what are the side effects of `EXPLAIN ANALYZE`?
+
+中文解析:
+
+`EXPLAIN` 只向 Planner 要一个**估算的执行计划**，不执行；`EXPLAIN ANALYZE` **真正执行**并返回真实的行数/时间/
+循环，`BUFFERS` 再加上页/缓存证据。它不是无害的查看器：对 `SELECT ... FOR UPDATE` 会真的加**行锁**，对 DML 会
+**真的改数据**（要放进能 `ROLLBACK` 的事务，且只在一次性集群上跑）。
+
+Student's actual answer (preserved):
+
+> "不会因为数量太大了，这个时候建立专门的Partial index速度更快。explan应该是执行计划，EXPLAIN ANALYZE应该是执行计划分析"
+
+Assessment: the core distinction is correct; the "table size" clause is not the point, and the honesty
+caveat (real execution, real locks/DML) is the key addition.
+
+## Intermediate
+
+### 1. Does the claim Partial Index support all-status history?
+
+Question:
+
+Can the claim's Partial Index serve an all-status tenant history query? Explain the real reason.
+
+中文解析:
+
+不支持——但原因不是"缺某个返回列"。索引键服务于**访问路径**，未被索引的返回列可以从 Heap 取。claim 的 partial
+index 只包含 `queued` 且未取消的行，它**不包含**其它状态的行（成员资格），所以无法回答需要所有状态的历史查询。
+一个不包含目标行的 partial index 无法服务该查询。
+
+Student's actual answer (preserved):
+
+> "不支持，因为索引里不包含event列。所以需要重新维护"
+
+Assessment: correct conclusion, wrong reason — corrected from "a column is absent" to "it omits the rows."
+
+### 2. Shared status Composite or many fixed-status Partial Indexes?
+
+Question:
+
+For a dynamic status-filtered history endpoint, one shared Composite index or several fixed-status Partial
+Indexes?
+
+中文解析:
+
+对一个接受多种状态的端点，共享的 `(tenant_id, job_status, created_at DESC, job_id DESC)` 是合理的**默认**，避免
+建多个 partial。但不是绝对最优：某个**选择性高、频繁、固定**的状态仍可能值得一个窄的 Partial Index。按**实测负载
+和总成本**选择，一个通用索引 vs 多个窄索引是权衡，不是规则。
+
+Student's actual answer (preserved):
+
+> "Composite Index，可以避免创建多个Partial Index"
+
+Assessment: a sound default; corrected to "measure — a selective fixed status can still justify a partial."
+
+## Senior
+
+### 1. Should you add an ordinary index for the unique idempotency key?
+
+Question:
+
+Day31 has `UNIQUE (tenant_id, idempotency_key)`. Add an ordinary index on the same columns for the
+idempotency lookup?
+
+中文解析:
+
+不需要。PostgreSQL 为该唯一约束**自动建了一个唯一 B-tree 索引**，它本身就能服务 `WHERE tenant_id = $1 AND
+idempotency_key = $2` 的查找。再建一个相同键的普通索引是**冗余**——同样的键、没有新能力，只增加存储/写放大/
+Vacuum/缓存成本。唯一约束本身就是一个访问路径事实。
+
+Student's actual answer (preserved):
+
+> "不会，因为本身这就表示这个组合在表中是唯一的。"
+
+Assessment: correct; the mechanism (the constraint already created a usable unique B-tree) is the addition.
+
+### 2. Can `WHERE lease_expires_at <= now()` be a Partial Index predicate?
+
+Question:
+
+For stale-lease recovery, can you make `lease_expires_at <= now()` a Partial Index?
+
+中文解析:
+
+不可以。Partial Index 的成员资格在**写入时**固定——只有写这一行才会让它进/出索引。`now()` 持续变化，会要求行
+在**没有任何写入**的情况下随时间改变成员资格，PostgreSQL 做不到。所以到期判断放在**查询时**做 B-tree 范围条件，
+稳定的 partial 谓词用 `WHERE job_status = 'running'`。而且 `lease_expires_at` 等 lease 列在 Day31 schema 里
+**不存在**，这个索引保持概念性，Day36 才加列并安全部署。
+
+Student's actual answer (preserved):
+
+> "不可以，因为now是一直变化的"
+
+Assessment: correct; the addition is the durable model (stable predicate + query-time range) and the Day36
+boundary.
+
+### 3. Keep or roll back a broad history index that hurt acceptance latency?
+
+Question:
+
+A broad history/status index moved history p95 100->80 ms but Job acceptance p99 50->220 ms, cost +14 GB,
+and helped neither Workers nor Outbox. Keep it?
+
+中文解析:
+
+回滚**只是那个新的宽索引**。判断标准是**净系统收益**，不是单个页面的提升：history p95 只小幅改善，但写路径
+（Job acceptance p99）严重恶化、+14GB、对 Worker/Outbox 无收益，净收益为负。保留有证据支撑的 claim/Outbox/unique
+访问路径，只有当 history 负载变重要时再考虑更窄的替代方案。先看别的页面是否改善、成本是否只是**转移**到别处，再决定。
+注意：课堂**没有执行**任何 DDL 或回滚——这是基于给定证据的**设计决策**；安全的建/删索引机制属于 Day36。
+
+Student's actual answers (preserved):
+
+> (method) "不会立刻回滚，应该比较无关页面是否减少，延迟比较，是否延迟转入另外的一处"
+
+> (final decision) "最终决策是回滚，因为只有history页面的P95的延迟减小但是提升不大，其他的影响增大，且没有额外收益"
+
+Assessment: both strong — the method (don't reflex-roll-back; check other pages and whether cost moved) and
+the evidence-based decision (net system benefit is negative -> roll back only that index).
+
+## Common Weak vs Strong Answer (Day35)
+
+```text
+Weak:   "The query is slow, so add an index on job_status."
+Strong: "Derive it from the query shape: (tenant_id, created_at, job_id) WHERE job_status='queued' AND
+        cancel_requested=false. job_status alone can't narrow by tenant or provide the order."
+
+Weak:   "The claim index can't serve history because it's missing a column."
+Strong: "It omits the ROWS — it only holds queued/not-cancelled Jobs. Unindexed columns come from the Heap;
+        a partial index that lacks the target rows can't answer the query."
+
+Weak:   "Add an index on (tenant_id, idempotency_key) for fast lookups."
+Strong: "The UNIQUE constraint already built a unique B-tree that serves that lookup. A duplicate is pure
+        storage/write/Vacuum/cache cost with no new capability."
+
+Weak:   "I see a Seq Scan, so the index failed."
+Strong: "Seq Scan is a cost-based plan and can be optimal — small table, high match, cache-hot. It's
+        concerning only with evidence: low selectivity, huge Rows Removed by Filter, poor latency, high buffers."
+
+Weak:   "Estimate 1 vs actual 20,000 means I need another index."
+Strong: "First a statistics/skew investigation — predicate shape, casts, parameter planning — and refresh
+        statistics. A new index built on wrong estimates can be the wrong index."
+
+Weak:   "The history page got faster, so keep the index."
+Strong: "Keep by net system benefit. It pushed acceptance p99 50->220 ms and cost 14 GB with no other gain,
+        so roll back only that index and keep the proven paths. Safe build/drop mechanics are Day36."
+```
