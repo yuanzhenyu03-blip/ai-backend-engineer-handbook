@@ -970,7 +970,37 @@ backup/WAL/PITR and restore testing; core monitoring (connections, slow queries,
 transaction age, disk/WAL, replication lag, backup/restore evidence); managed vs self-operated.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day37-postgresql-production-reliability.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day36 — Schema Evolution and Safe Migrations
+
+Next Lesson:
+Day38 — Redis Foundations and Data Structures
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md` — an operational runbook /
+evidence pack: a connection-capacity worksheet, the three short Job transaction boundaries, timeout / health
+/ monitoring matrices, a long-transaction+Vacuum incident procedure with evidence-based per-table autovacuum
+review, a least-privilege role matrix + credential-rotation procedure, a backup/PITR/restore drill with
+RPO/RTO and explicit limitations, a replica-promotion gate, and the integrated 420-vs-300 connection incident
+— every section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED. No
+SQLAlchemy/Alembic (Phase 4)
+
+Validation Limits:
+Day37 classroom status is conceptual reasoning and static review only — nothing was executed. No PostgreSQL
+server or disposable cluster was started; no `psql`/SQL/configuration statement, connection pool, lock/
+timeout/deadlock, idle transaction, Vacuum/autovacuum/`VACUUM FULL`, role/grant/credential/Secret/rotation,
+Kubernetes probe/drain, base backup/WAL/PITR/isolated restore/integrity or business check, replica lag/
+promotion/split-brain, or managed service was run, measured, or inspected. Every number (`160`, `420`, `300`,
+the autovacuum settings, any RPO/RTO) is classroom arithmetic/design, not a measured result. RUNTIME NOT RUN;
+PRODUCTION NOT VALIDATED.
 
 ---
 

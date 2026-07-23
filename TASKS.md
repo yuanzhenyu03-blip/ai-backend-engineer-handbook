@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day37 — PostgreSQL Production Reliability
+Day38 — Redis Foundations and Data Structures
 
 Status:
 Planned / Not started
@@ -28,10 +28,63 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day37 — PostgreSQL Production Reliability (see the Day37 Preparation block below).
+- [ ] Prepare for Day38 — Redis Foundations and Data Structures (see the Day38 Preparation block below).
 
 (Day29-Day34 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33/Day34
 sections and the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day37 Tasks
+
+- [x] Complete Day37 PostgreSQL Production Reliability classroom learning.
+- [x] Generate the Day37 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day36->Day37 mental-model evolution).
+- [x] Explain why a reachable, low-CPU database is not reliable.
+- [x] Size pools by aggregate demand across processes and reserve capacity below the safe budget.
+- [x] Place the eight-minute Provider call outside the DB transaction and name the four boundaries.
+- [x] Distinguish Provider success, Artifact bytes, and committed PostgreSQL success, and reconcile first.
+- [x] Apply the layered timeout model and the lock_timeout < statement_timeout < deadline ordering.
+- [x] Separate liveness/readiness/business success and avoid a shared-outage restart storm.
+- [x] Explain MVCC dead tuples, stop the long transaction first, and tune autovacuum per-table on evidence.
+- [x] Design least-privilege roles and a safe credential-rotation order.
+- [x] Explain why replication is not backup and reconstruct base backup + WAL -> PITR.
+- [x] State what recoverability evidence requires beyond a successful backup job.
+- [x] Make the 420-vs-300 incident decision (contain + roll back pool config; reconcile external effects).
+- [x] Preserve the real student answers, student-initiated questions, English answers, two-pass Chinese synthesis, and all corrections.
+
+---
+
+## Completed Day37 Repository Tasks
+
+- [x] Add `docs/postgresql/day37-postgresql-production-reliability.md`.
+- [x] Add `projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day37 increment (runbook link, components, honest NOT-RUN limits).
+- [x] Append the Day37 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day37 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day37 is now the latest PostgreSQL lesson).
+- [x] Update the Day36 lesson Next Lesson link to the released Day37 lesson.
+- [x] Update `CURRICULUM.md` (Day37 Completed; Day38 remains Planned).
+- [x] Update `ROADMAP.md` (Day37 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day37 Interview Tasks
+
+- [x] Add the beginner connection-pool and aggregate-demand questions with the student's actual answers.
+- [x] Add intermediate idle-in-transaction and timeout/readiness questions.
+- [x] Add the senior replica-promotion, replication-vs-backup, and 420-vs-300 questions.
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day37 Homework
+
+- [x] Complete the aggregate-pool-demand and reserve-capacity exercises.
+- [x] Complete the 8-minute-call placement and Artifact-vs-commit exercises.
+- [x] Complete the timeout-selection and readiness/restart-storm exercises.
+- [x] Complete the Vacuum-root-cause and least-privilege/rotation exercises.
+- [x] Complete the replication-vs-backup, PITR/restore-evidence, and 420-vs-300 exercises.
 
 ---
 
@@ -357,14 +410,26 @@ sections and the corresponding Preparation history blocks.)
 
 ---
 
-### Day37 Preparation — PostgreSQL Production Reliability
+### Day38 Preparation — Redis Foundations and Data Structures
 
-- [ ] Read the Day37 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql` and note the DDL-lock, batch, and index-build boundaries that become live operational concerns.
-- [ ] Preview long transactions and transaction/WAL age, autovacuum/Vacuum, connection pooling and limits, and backup/recovery.
-- [ ] Preview slow-query monitoring, lock/connection pressure, and capacity planning as the operational lens on Day34-Day36 designs.
-- [ ] Remember that a safe migration DESIGN (Day36) still needs live operational guardrails (Day37); Day36 executed no DDL.
-- [ ] Keep SQLAlchemy/Alembic (Phase 4) and cross-system fencing tokens (Day41) out of scope.
+- [ ] Read the Day38 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md` and hold the boundary that PostgreSQL stays the durable, recoverable Job source of truth.
+- [ ] Preview the Redis server/database/key/value model and single-command atomicity.
+- [ ] Preview strings/hashes/lists/sets/sorted sets by access pattern, key naming/versioning/tenant namespace, and TTL/expiration.
+- [ ] Preview memory limits and eviction as correctness concerns, and the RDB/AOF overview (Redis is not the Job source of truth).
+- [ ] Remember appropriate Redis uses (ephemeral progress, cache, broker transport, rate-limit counters) vs inappropriate ones (authoritative Job lifecycle, large documents).
+- [ ] Keep SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day37 Preparation — PostgreSQL Production Reliability (completed)
+
+- [x] Read the Day37 input.
+- [x] Reviewed `projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql` and the DDL-lock/batch/index-build boundaries that became live operational concerns.
+- [x] Previewed long transactions and transaction/WAL age, autovacuum/Vacuum, connection pooling and limits, and backup/recovery.
+- [x] Previewed slow-query monitoring, lock/connection pressure, and capacity planning as the operational lens on Day34-Day36 designs.
+- [x] Kept the safe-migration DESIGN (Day36) vs live operational guardrails (Day37) distinction.
+- [x] Kept SQLAlchemy/Alembic (Phase 4) and cross-system fencing tokens (Day41) out of scope.
 
 ---
 
@@ -624,7 +689,7 @@ sections and the corresponding Preparation history blocks.)
 - [x] Day34 — Concurrency Control, MVCC, and Worker Claims (Completed).
 - [x] Day35 — PostgreSQL Indexes and Query Planning (Completed).
 - [x] Day36 — Schema Evolution and Safe Migrations (Completed).
-- [ ] Day37 — PostgreSQL Production Reliability (Planned).
+- [x] Day37 — PostgreSQL Production Reliability (Completed).
 - [ ] Day38 — Redis Foundations and Data Structures (Planned).
 - [ ] Day39 — Redis Cache Design and Consistency (Planned).
 - [ ] Day40 — Redis Messaging and Queue Semantics (Planned).

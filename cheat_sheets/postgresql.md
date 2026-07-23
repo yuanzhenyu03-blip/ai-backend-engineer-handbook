@@ -545,6 +545,56 @@ Scope: Day36 = safe migration DESIGN + EVIDENCE only, **NOT executed** (no serve
 
 ---
 
+## Day37 PostgreSQL Production Reliability
+
+**Reachable / low-CPU is NOT reliable.** A slowing AI Job system at modest CPU can be exhausted pools, an `idle in transaction` session, and growing pool waits. API `202`, Worker claim/complete, Attempt writes, and Outbox checkpoints all depend on **bounded** capacity, not CPU.
+
+**Connections are finite.** Total demand is the **sum across every process**, not one pool setting: `(4 API + 12 Worker) * pool 10 = 160`. Reserve capacity for migration/monitoring/admin/recovery + margin. A pool max is **potential** demand, not connections opened immediately. Raising pools moves queuing **into** PostgreSQL. Model: `global application demand < safe connection budget < max_connections`.
+
+**Short transactions.** The 8-minute Provider call runs **outside** the DB transaction:
+
+```text
+Accept:   queued Job + Outbox intent -> COMMIT -> 202 + job_id
+Claim:    reserve queued Job, write Lease, queued -> running, Attempt + job_started Event -> COMMIT
+External: Provider + Object Storage upload OUTSIDE any transaction; Lease renewal via SHORT txns
+Complete: guard job_id + current lease_token; finish Attempt + Artifact + success Event; running -> succeeded -> COMMIT
+```
+
+Provider success != Artifact bytes != committed PostgreSQL success. If an Artifact exists but Complete never committed, the DB truthfully shows `running`; **reconcile the deterministic Artifact first**, never re-call the Provider on a guess. Lease expiry = takeover **eligibility**, not proof the old Worker did no external work (keep idempotency + reconciliation; the lease token is a DB epoch, not a stable external idempotency key).
+
+**Layered timeouts** (containment, not repair):
+
+```text
+Pool acquisition timeout            -> waiting for an application connection
+lock_timeout                        -> waiting to ACQUIRE a lock (55P03 on cancel)
+statement_timeout                   -> total SQL execution time
+idle_in_transaction_session_timeout -> a transaction opened then left idle
+application deadline                -> the whole business operation
+Ordering: lock_timeout < statement_timeout < application deadline
+```
+
+`SKIP LOCKED` is **claim candidate selection**, not a timeout. Every timeout must be observable and routed to bounded retry / fail / investigate.
+
+**Liveness vs Readiness vs Business success.** `SELECT 1` proves only one query through one connection. Liveness = would restarting fix a **local** fault? Readiness = safe to receive **new traffic**? Business success = a real Accept/Claim/Complete. A shared PostgreSQL outage should **drop readiness + back off**, NOT fail every Pod's liveness (restart/reconnection storm).
+
+**MVCC / Vacuum.** An `UPDATE` writes a new row version; Vacuum reclaims an old one only after **no active snapshot** can see it. A long/idle transaction retains an old snapshot, may hold locks, and grows **dead tuples**/bloat. Incident order: find + stop the long transaction FIRST, then let autovacuum reclaim, verify txn-age/dead-tuple trends, fix the app boundary. No casual `VACUUM FULL` (rewrites the table under a strong lock). Tune autovacuum **per-table on I/O evidence** (design syntax only, e.g. `autovacuum_vacuum_scale_factor`/`_threshold` — not a recommendation without measurement).
+
+**Least privilege + rotation.** Runtime DML identities must NOT own `ALTER`/`DROP`/index/role privileges; separate runtime/migration/monitoring/backup. Secrets in Kubernetes Secrets / Secrets Manager / Vault / managed identity — never in images or Git; storage alone is insufficient (create/distribute/rotate/revoke/audit). Rotate: **load new -> new connections -> verify all switched -> recycle pools -> ONLY THEN revoke old.** Existing sessions ok while new auth fails = incomplete rollout, not total failure.
+
+**Replication is NOT backup** (it copies bad `DELETE`/`DROP` too). **Base backup** = consistent starting point; **WAL** = physical redo (not readable SQL); **PITR** = restore base + replay WAL to a target BEFORE the bad change (e.g. `10:36:59` before a `10:37` delete). **RPO** = max data-loss window; **RTO** = max recovery duration — both **recovery objectives, NOT health probes**. A successful backup **job** is only backup evidence; **recoverability** = isolated restore + PITR + integrity/business checks + measured RPO/RTO (never overwrite production to test).
+
+**Monitoring** (low CPU proves nothing): connections/pool waits, query latency/timeout rate/slow plans, lock waiters/blockers/deadlocks, oldest transaction/dead tuples/autovacuum pace, disk/WAL/archive failures, replication lag/replay position, latest backup + latest **tested** restore + measured RPO/RTO.
+
+**Replica promotion gate:** replay position + data-loss estimate + explicit RPO decision + split-brain prevention + reconciliation. Immediate promotion improves RTO but may violate RPO.
+
+**Managed vs self-operated:** managed may automate infra/patching/HA/backup mechanisms; the team still owns capacity, roles, credentials, schema, migrations, RPO/RTO, restore testing, business validation, and incident response.
+
+**420-vs-300 incident:** `12 API * 25 + 12 Worker * 10 = 420` vs `max_connections = 300`. Do NOT raise `max_connections`. Contain: stop scaling/new demand, rate-limit/degrade, roll back the API **pool config** via gradual rollout, drain Workers with in-flight calls (no mass restart), observe recovery, resize DB only on evidence. Rollback target = pool/capacity config; Provider cost + Artifacts are irreversible external effects to **reconcile**, not undo.
+
+Scope: Day37 = design + reasoning only. **RUNTIME NOT RUN / PRODUCTION NOT VALIDATED** (no server, pool, timeout, Vacuum, role, secret, backup, PITR, restore, replica, or managed service executed/measured). PostgreSQL stays the durable source of truth; Redis is Day38 transient acceleration.
+
+---
+
 ## Interview Phrases
 
 - "The Job row is committed before 202; 202 acknowledges an existing durable commitment."
@@ -659,3 +709,16 @@ Scope: Day36 = safe migration DESIGN + EVIDENCE only, **NOT executed** (no serve
 - "Switch = every writer guards the token AND the old path can no longer write; a new binary alone is not Switch."
 - "Contract is destructive; only on evidence + observation."
 - "Rollback vs forward fix is decided by durable state; after real Lease data or external effects, forward fix."
+
+- "Reachable / low-CPU is not reliable; business ops depend on bounded capacity, not CPU."
+- "Sum every process's pool + reserve < safe connection budget; a pool max is potential demand."
+- "The 8-minute Provider call runs outside the DB transaction: Accept / Claim-Start / External / Complete."
+- "Provider success != Artifact bytes != committed PostgreSQL success; reconcile the deterministic Artifact first."
+- "Timeouts contain failure: lock_timeout < statement_timeout < application deadline; SKIP LOCKED is claim selection."
+- "idle_in_transaction_session_timeout kills stuck open transactions; pool acquisition timeout bounds getting a connection."
+- "A shared DB outage drops readiness + backs off; it must not fail every liveness (restart storm)."
+- "Long/idle transactions retain snapshots -> block Vacuum -> dead-tuple bloat; fix the source first, no casual VACUUM FULL."
+- "Runtime identities can't DDL; rotate load-new -> verify-all-switched -> recycle -> revoke-old."
+- "Replication is not backup; it copies bad writes. Recovery evidence = isolated restore + PITR + business checks + RPO/RTO."
+- "RPO/RTO are recovery objectives, not health probes; promote a lagging replica only with a replay position + explicit RPO decision + split-brain prevention."
+- "420-vs-300: contain demand + roll back the pool config; reconcile irreversible Provider effects; resize the DB only on evidence."

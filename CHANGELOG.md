@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.78 — Day37 PostgreSQL Production Reliability
+
+Date: 2026-07-22
+
+### Added
+
+- Added `docs/postgresql/day37-postgresql-production-reliability.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day36->Day37 mental-model evolution).
+- Added `projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md` — the Day37 operational **runbook / evidence pack** (a new `runbooks/` directory in the data-layer artifact): a connection-capacity worksheet, the three short Job transaction boundaries, timeout / health / monitoring matrices, a long-transaction+Vacuum incident procedure with evidence-based per-table autovacuum review, a least-privilege role matrix + credential-rotation procedure, a backup/PITR/restore drill with RPO/RTO and explicit limitations, a replica-promotion gate, and the integrated 420-vs-300 connection incident. Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**, with no real secrets or connection strings.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day37 increment: a runbook-contents table, the encoded rules, an explicit statement of what the runbook does not do, Day37 known gaps, a new `runbooks/` entry in the structure tree, and a separate Day37 validation matrix.
+- Appended a Day37 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day37 Beginner/Intermediate/Senior questions to `interview/postgresql.md`, preserving the student's real answers verbatim — including the opening `不知道`, the `160` arithmetic, the Artifact-vs-success student-initiated question, the `SKIP LOCKED`/timeout mix-ups, the `mcvv`/`trash` MVCC terminology, the Senior `我不知道` on the 420-vs-300 incident, the English answers, and both passes of the final Chinese synthesis (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day37 is the latest PostgreSQL lesson, and pointed the Day36 lesson's Next Lesson at the released Day37 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day37 completed with its released lesson/artifact (Day38 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day37 last completed with artifact + validation boundary; Current/Next is Day38 Planned / Not started), `TASKS.md` (completed Day37 blocks, Day37 preparation converted to history, Day38 preparation added), `README.md`, and `AGENTS.md`.
+
+### Learning Notes
+
+- Day37 operates the durable PostgreSQL truth after Day36 made the schema deployable, and its spine is that **a reachable, low-CPU database is not a reliable system**: a slowing AI Job system at modest CPU can be exhausted connection pools, an `idle in transaction` session, and growing pool waits, and API `202` / Worker claim-complete / Attempt writes / Outbox checkpoints all depend on **bounded** capacity. Connection pools are finite, so total demand is the **sum across every process** (`(4 API + 12 Worker) * pool 10 = 160`) that must stay under a **safe connection budget** with reserve for migration/monitoring/admin/recovery — a pool max is potential demand, and raising pools moves queuing into PostgreSQL. The eight-minute Provider call runs **outside** the DB transaction across Accept / Claim-Start / External / Complete (with the current-token completion guard, `queued->running` in Claim and `running->succeeded` in Complete), and Provider success, Object Storage Artifact bytes, and committed PostgreSQL success are different facts — reconcile the deterministic Artifact before any second Provider call. Timeouts **contain** failure (`lock_timeout < statement_timeout < application deadline`; `idle_in_transaction_session_timeout` kills stuck open transactions; `SKIP LOCKED` is claim selection, not a timeout); a shared DB outage drops **readiness** and backs off rather than failing every liveness (restart storm); long/idle transactions retain snapshots and block Vacuum so you stop the source first and tune autovacuum per-table on evidence, never a casual `VACUUM FULL`; runtime identities cannot DDL and credentials rotate load-new -> verify-all -> recycle -> revoke-old; replication is **not** backup (it copies bad writes) and recovery evidence requires an isolated restore + PITR + integrity/business checks + measured RPO/RTO (which are recovery objectives, not health probes); and the 420-vs-300 incident is contained by rolling back the **pool configuration** and reconciling irreversible Provider effects, not by raising `max_connections`.
+- The real classroom trajectory is preserved, including the honest starting `不知道`, the student-initiated Artifact-vs-success and transaction-numbering questions, and the terminology corrections (`mcvv` -> MVCC, `trash` -> dead tuples, `legacy snapchat` -> old MVCC snapshot). The two-pass final Chinese synthesis is recorded verbatim, and the correction between passes — that RPO/RTO are recovery objectives, not health probes — is documented as the student's own accepted revision.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day38 lesson exists and Day38 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day37 student quote appears in `Day37_Repository_Update_Input.md`; Markdown fence balance (lesson and runbook); relative-link resolution (including the new `runbooks/` cross-links); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets or connection strings in the runbook or lesson).
+- **Day37 has NO runtime evidence — RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.** No PostgreSQL server or disposable cluster was started; no `psql`/SQL/configuration statement, connection pool, lock/timeout/deadlock, idle transaction, Vacuum/autovacuum/`VACUUM FULL`, role/grant/credential/Secret/rotation, Kubernetes probe/drain, base backup/WAL/PITR/isolated restore/integrity or business check, replica lag/promotion/split-brain, or managed service was run, measured, or inspected in class or during the repository update. Every number (`160`, `420`, `300`, the autovacuum settings, any RPO/RTO) is classroom arithmetic/design, not a measured result. Static arithmetic and static reasoning review were completed.
+- Scope: no Day38 lesson was created; Redis is mentioned only as a future transient-state boundary; no SQLAlchemy/Alembic or Playwright content was added; the runbook invents no command output, PostgreSQL version, managed-service behaviour, benchmark, plan, restore time, or RPO/RTO achievement; the protected prompt/template files are unchanged; and no real secrets, connection strings, or production data were added.
+
+---
+
 ## v0.1.77 — Day36 Fix: exception queue is triage, not migration completion
 
 Date: 2026-07-22

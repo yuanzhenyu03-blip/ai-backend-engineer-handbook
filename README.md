@@ -26,10 +26,11 @@ Last completed lesson:
 * Day34 — Concurrency Control, MVCC, and Worker Claims
 * Day35 — PostgreSQL Indexes and Query Planning
 * Day36 — Schema Evolution and Safe Migrations
+* Day37 — PostgreSQL Production Reliability
 
 Next:
 
-* Day37 — PostgreSQL Production Reliability (Planned / Not started; see `ROADMAP.md`)
+* Day38 — Redis Foundations and Data Structures (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

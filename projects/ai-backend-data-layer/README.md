@@ -4,7 +4,12 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day36 — a safe-migration design pack** that evolves the populated Day31/Day34
+Current increment: **Day37 — a production reliability runbook** that operates the durable PostgreSQL truth
+after Day36 made the schema deployable: bounded connections, short transactions, timeout/health/monitoring
+matrices, Vacuum + credential-rotation + backup/PITR procedures, a replica-promotion gate, and the 420-vs-300
+incident — design and evidence only, nothing executed. (See the Day36 note below for the prior increment.)
+
+Prior increment (Day36): **a safe-migration design pack** that evolves the populated Day31/Day34
 `app.jobs` into a Lease-aware model without breaking old code: the phased Expand -> Backfill -> Validate ->
 Switch -> Contract, with safe/unsafe DDL, a bounded recovery template, and rollback-vs-forward-fix
 boundaries — design and evidence only, nothing executed.
@@ -18,6 +23,7 @@ Lessons:
 - Day34 (concurrency): [`docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`](../../docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md)
 - Day35 (indexes): [`docs/postgresql/day35-postgresql-indexes-and-query-planning.md`](../../docs/postgresql/day35-postgresql-indexes-and-query-planning.md)
 - Day36 (migrations): [`docs/postgresql/day36-schema-evolution-and-safe-migrations.md`](../../docs/postgresql/day36-schema-evolution-and-safe-migrations.md)
+- Day37 (production reliability): [`docs/postgresql/day37-postgresql-production-reliability.md`](../../docs/postgresql/day37-postgresql-production-reliability.md)
 
 ---
 
@@ -26,6 +32,8 @@ Lessons:
 ```text
 projects/ai-backend-data-layer/
 ├── README.md
+├── runbooks/
+│   └── postgresql-production-reliability.md            # Day37: production reliability runbook (design + evidence, not executed)
 └── sql/
     ├── 001_create_jobs.sql                              # Day29: the durable Job schema
     ├── 002_job_crud_and_guarded_transitions.sql         # Day30: parameterized reads + guarded writes (reference pack, not DDL)
@@ -80,6 +88,59 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day37 increment — production reliability runbook
+
+`runbooks/postgresql-production-reliability.md` operates the durable PostgreSQL truth after Day36 made the
+Lease-aware schema deployable. It is an operational **runbook / evidence pack**, not a SQL file and not an
+executed procedure: **every command, number, and threshold is CONCEPTUAL / STATICALLY REVIEWED only —
+RUNTIME NOT RUN, PRODUCTION NOT VALIDATED.**
+
+### What the runbook contains
+
+| Section | Contents |
+| --- | --- |
+| Connection-capacity worksheet | `sum(process pools) + reserve < safe budget < max_connections`; the `(4+12)*10 = 160` baseline; reserve for migration/monitoring/admin/recovery |
+| Three Job transaction boundaries | Accept / Claim-Start / External (Provider outside any tx) / Complete with the current-token guard |
+| Timeout matrix | pool acquisition, `lock_timeout`, `statement_timeout`, `idle_in_transaction_session_timeout`, application deadline — scope, on-expiry, retry, observe |
+| Health matrix | liveness vs readiness vs business success; shared-outage readiness drop + restart-storm prevention |
+| Long-transaction / Vacuum procedure | root-cause-first incident order; evidence-based per-table autovacuum review; no casual `VACUUM FULL` |
+| Least-privilege roles + rotation | runtime cannot DDL; separate runtime/migration/monitoring/backup; load-new -> verify-all -> recycle -> revoke-old |
+| Backup / PITR / restore drill | replication != backup; base backup + WAL -> PITR; RPO/RTO; isolated-restore recovery evidence |
+| Monitoring matrix | connections/pool waits, queries, locks/deadlocks, transaction age/dead tuples, disk/WAL, replication lag, backup + tested-restore evidence |
+| Replica-promotion gate | replay position + data-loss estimate + explicit RPO decision + split-brain prevention + reconciliation |
+| 420-vs-300 incident | `12*25 + 12*10 = 420` vs `max_connections = 300`; contain + roll back pool config; reconcile irreversible Provider effects |
+
+### Rules encoded
+
+```text
+reachable / low-CPU is NOT reliable; business ops depend on bounded capacity
+sum every process's pool + reserve < safe connection budget < max_connections (a pool max is potential demand)
+the 8-minute Provider call runs OUTSIDE the DB transaction; reconcile the deterministic Artifact before any re-call
+timeouts contain failure: lock_timeout < statement_timeout < application deadline; SKIP LOCKED is claim selection
+a shared DB outage drops READINESS + backs off; it must NOT fail every liveness (restart storm)
+long/idle transactions retain snapshots -> block Vacuum -> dead-tuple bloat; fix the source first, no casual VACUUM FULL
+runtime identities cannot DDL; rotate load-new -> verify-all -> recycle -> revoke-old
+replication is NOT backup; recovery EVIDENCE = isolated restore + PITR + integrity/business checks + measured RPO/RTO
+RPO/RTO are recovery objectives, not health probes
+420-vs-300: contain demand + roll back the POOL CONFIG; reconcile irreversible Provider effects; resize the DB only on evidence
+```
+
+> **What this runbook deliberately does not do:** it does not pretend to be an automated executable, it
+> contains no real secrets or connection strings, and it invents no command output, PostgreSQL version,
+> managed-service behaviour, benchmark, plan, restore time, or RPO/RTO achievement. PostgreSQL stays the
+> durable source of truth; Redis (Day38) is a future transient-state boundary. SQLAlchemy/Alembic are Phase 4.
+
+### Day37 known gaps (deliberate)
+
+```text
+Day38-Day41  Redis foundations, cache consistency, messaging/queue semantics, and coordination — transient
+             acceleration judged against this recoverable PostgreSQL truth
+Day42        capstone integrating PostgreSQL operation/recovery evidence with Redis failure boundaries
+Phase 4      SQLAlchemy/Alembic
+```
 
 ---
 
@@ -1162,6 +1223,18 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day37 (`runbooks/postgresql-production-reliability.md`)
+
+| Level | Day37 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one continuously evolving AI Job production scenario; all 15 concepts reasoned end to end |
+| Static reasoning review | **Completed** | static arithmetic (`(4+12)*10 = 160`; `12*25 + 12*10 = 420` vs `300`); static review of transaction boundaries, timeout scope, readiness/liveness, MVCC/Vacuum, least privilege, rotation, replication-vs-backup, PITR, RPO/RTO, monitoring, promotion, and incident rollback reasoning |
+| Artifact syntax / runtime validation | **NOT RUN** | no PostgreSQL server or disposable cluster started; no `psql`/SQL/configuration statement executed |
+| Disposable PostgreSQL validation | **NOT RUN** | no pool configured/saturated/measured; no real lock wait/timeout/deadlock/idle transaction/cancel; no Vacuum/autovacuum/dead-tuple/`VACUUM FULL` behaviour run |
+| Application integration validation | **NOT RUN** | no role/grant/credential/Secret/TLS/rotation configured; no Kubernetes probe/drain deployed; no application/Worker/Provider/Object Storage integration run |
+| Backup / restore drill | **NOT RUN** | no base backup, WAL archive, PITR, isolated restore, integrity/business check, replica lag/promotion, or measured RPO/RTO |
+| Production validation | **NOT RUN** | no managed PostgreSQL inspected/changed; no production accessed; every number is classroom arithmetic/design, not a measured result |
 
 ### Day36 (`008_schema_evolution_and_safe_migrations.sql`)
 

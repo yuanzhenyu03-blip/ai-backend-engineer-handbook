@@ -1538,3 +1538,208 @@ Weak:   "The rollout is bad, so drop the columns."
 Strong: "Rollback is honest only before durable data/side effects exist. After real Lease data, Job
         transitions, and Provider charges, forward-fix and reconcile — DROP COLUMN can't undo them."
 ```
+
+---
+
+# Day37 PostgreSQL Production Reliability Questions
+
+From the Day37 lesson: reachable != reliable, connection-pool aggregate demand, short transactions around
+the Provider call, Artifact-vs-success reconciliation, layered timeouts, liveness/readiness vs business
+success, MVCC/Vacuum/autovacuum, least privilege + credential rotation, replication-is-not-backup, base
+backup/WAL/PITR/RPO/RTO, monitoring, replica promotion, and the 420-vs-300 incident.
+
+Lesson: `docs/postgresql/day37-postgresql-production-reliability.md`
+
+Runbook: `projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md`
+
+## Beginner
+
+### 1. What is a connection pool and why use one?
+
+Question:
+
+What is a database connection pool, and why does a backend application use one?
+
+中文解析:
+
+连接池维护**一组有限、可复用**的数据库连接。API 和 Worker 需要执行查询时借用连接、用完归还，从而降低建立连接的
+开销，并防止应用打开**不受控**数量的连接。生产上的关键是：总需求是**所有进程池的总和**（如 `(4+12)*10=160`），
+必须小于数据库的**安全连接预算**，并为迁移/监控/管理/恢复保留余量。
+
+Student's actual answer (preserved):
+
+> "API and work both of them all need to connect database by connction pool"
+
+Assessment: the API/Worker-use-a-pool idea is right; corrected wording (`workers`, `connect to the
+database`, drop `both of them all`) and added reuse + bounded concurrency.
+
+### 2. Aggregate pool demand arithmetic
+
+Question:
+
+Four API processes and twelve Workers each have a pool limit of 10. Total possible application connections?
+Should you assign all nominal DB connections to applications?
+
+中文解析:
+
+`(4 + 12) * 10 = 160`——总需求是各进程池上限之**和**。不应把全部 `max_connections` 都分给应用：池上限是**潜在**
+需求（不是立即打开），且必须为迁移/监控/管理/恢复留预留。提高池大小会把排队从应用**移进 PostgreSQL**，增加
+内存/CPU/I/O/缓存压力。
+
+Student's actual answers (preserved):
+
+> (arithmetic) "160"
+
+> (reserve) "不会，因为要按照具体需求进行分配，如果全部按照最大进行分配，很快连接池就被耗尽了"
+
+Assessment: correct; the precision is that a pool max is potential demand and the real risk is aggregate
+demand + long holds + insufficient reserve.
+
+## Intermediate
+
+### 1. Why is `idle in transaction` dangerous, and how do you protect against it?
+
+Question:
+
+Why is an `idle in transaction` connection dangerous in production, and how would you protect the system?
+
+中文解析:
+
+它有一个未提交的开着的事务却不干活：占用连接、可能持锁、并保留一个**旧的 MVCC 快照**，使 Vacuum 无法回收
+**dead tuples**。防护：事务保持短小、每条代码路径都 commit/rollback、设置 `idle_in_transaction_session_timeout`、
+监控最老事务。注意术语：是 MVCC（不是 mcvv）、dead tuples（不是 trash）。
+
+Student's actual answer (preserved):
+
+> "it means transaction don't commit,long transaction meade legacy snapchat increase.vacuum can't recycle trash"
+
+Assessment: correct core; corrected `legacy snapchat` -> old MVCC snapshot, `trash` -> dead tuples, and
+added the connection/lock risk.
+
+### 2. Timeout selection and readiness under saturation
+
+Question:
+
+Which tool bounds a lock-acquisition wait vs a slow non-locking query vs an already-open idle transaction?
+Under pool saturation, should the instance report ready?
+
+中文解析:
+
+锁获取等待用 `lock_timeout`（`SKIP LOCKED` 不是超时，它只是跳过已被锁的认领候选）；慢的非锁查询用
+`statement_timeout`；已开着的空闲事务用 `idle_in_transaction_session_timeout`（Pool acquisition timeout 是
+**获取连接之前**的等待）。排序：`lock_timeout < statement_timeout < application deadline`。池耗尽时**不应**
+report ready——应摘除流量并退避。
+
+Student's actual answers (preserved):
+
+> (lock wait) "skip lock"
+
+> (slow non-locking SQL) "statement_timeout"
+
+> (idle transaction) "应该使用Pool acquisition timeout"
+
+> (readiness under saturation) "不能，这个时候已经有连接池已被耗尽"
+
+Assessment: `statement_timeout` and the readiness answer correct; corrected `SKIP LOCKED` (selection, not a
+timeout; use `lock_timeout`) and the idle-transaction case (`idle_in_transaction_session_timeout`).
+
+## Senior
+
+### 1. A replica is 10 minutes behind — do you promote it?
+
+Question:
+
+During a primary failure a replica is ten minutes behind. Promote it?
+
+中文解析:
+
+不能盲目提升。提升一个滞后的副本可能**丢掉已确认的主库事务**。提升需要：已知复制/回放**位置**、估算**数据丢失
+窗口**、明确的 **RPO 决策**、**split-brain** 预防（旧主必须停止接受写入）、以及提升后的**对账**计划。立即提升
+改善 RTO 但可能违反 RPO；等待主库/剩余 WAL 保留更多数据但延长中断。
+
+Student's actual answer (preserved):
+
+> "不能，因为副本的复制延迟有10分钟，在故障进行切换时，副本数据可能与主库有很大差异"
+
+Assessment: correct — promotion is an RPO-vs-RTO decision gated on replay position, split-brain prevention,
+and reconciliation.
+
+### 2. Replication vs backup, and does a successful backup job prove recovery?
+
+Question:
+
+Is a replica a backup? Does a successful backup job prove you can recover?
+
+中文解析:
+
+副本不是备份：复制提升**可用性**并保留近实时副本，但也会**复制有害的逻辑变更**（误 DELETE/DROP 会同步过去）；
+备份提供**独立的历史**恢复材料。成功的备份**作业**只是备份证据。**可恢复性**需要**隔离恢复 + PITR + 完整性/业务
+校验 + 实测 RPO/RTO**，且绝不覆盖生产来测试。基础备份是一致的起点，WAL 是**物理 redo**（不是可读 SQL），PITR 回放
+到坏变更**之前**的目标时间。
+
+Student's actual answers (preserved):
+
+> (replica as backup) "不能，因为只是备份了删除部分"
+
+> (restore testing) "不能，因为没有进行真正的恢复测试"
+
+Assessment: correct conclusions; corrected the replica reason (it copies bad writes; backup is independent
+historical material) and clarified base backup vs WAL vs recovery evidence.
+
+### 3. Contain the 420-vs-300 connection incident
+
+Question:
+
+After a rollout the fleet can request 420 connections but PostgreSQL is set to 300; new connections fail
+while Workers run costly Provider calls. Contain it, and what do you roll back?
+
+中文解析:
+
+先**停止继续扩容/新流量**，限流或降级，然后通过**渐进式发布回滚过大的池配置**，同时让有在途 Provider 调用的
+Worker **安全 drain**——不要重启所有 Worker，也不要盲目提高 `max_connections`（会造成重连风暴或把瓶颈移进
+PostgreSQL）。回滚目标是**连接池/容量配置**，不是已完成的 Provider 调用；外部副作用（费用、Artifact）不可回滚，
+需用幂等键和确定性 Artifact 标识**对账**。最后验证连接压力、事务年龄、锁等待和业务恢复。
+
+Student's actual answers (preserved):
+
+> (initial) "我不知道"
+
+> (initial incident decision, elsewhere) "提高 PostgreSQL max_connections，同时重启会造成已经实现的调用断线。回滚无法回滚provider的副作用"
+
+> (corrected) "连接池容量配置，因为已经发生的provider是无法进行回滚的，二次调用会浪费成本"
+
+Assessment: the Senior English answer began as `我不知道` and the full containment answer was taught
+immediately; the student then correctly identified the pool-config rollback target and the irreversible
+Provider effects.
+
+## Common Weak vs Strong Answer (Day37)
+
+```text
+Weak:   "Database CPU is low, so it's healthy."
+Strong: "Low CPU proves nothing. I check pool waits, oldest transaction, dead tuples, WAL growth,
+        replication lag, and restore evidence — reliability is capacity, waiting, age, growth, recovery."
+
+Weak:   "Give the apps all the connections and raise max_connections if it's tight."
+Strong: "Total demand is the sum of every process's pool; reserve for migration/monitoring/recovery. A pool
+        max is potential demand, and raising pools moves queuing into PostgreSQL."
+
+Weak:   "The model produced an Artifact, so the Job is succeeded."
+Strong: "Provider success, Artifact bytes, and a committed PostgreSQL state are different. If Complete never
+        committed, the DB truthfully shows running; reconcile the deterministic Artifact before any re-call."
+
+Weak:   "Use SKIP LOCKED so the UPDATE doesn't wait forever."
+Strong: "SKIP LOCKED skips locked claim candidates — it's selection, not a timeout. lock_timeout bounds lock
+        acquisition; statement_timeout bounds execution; idle_in_transaction_session_timeout kills idle txns."
+
+Weak:   "A shared PostgreSQL outage should fail every Pod's liveness so they restart."
+Strong: "That's a restart/reconnection storm. Drop readiness and back off; liveness is for local,
+        restart-fixable faults, not a shared dependency outage."
+
+Weak:   "The backup job succeeded, so we can recover; the replica is our backup."
+Strong: "A successful backup job is only backup evidence, and a replica copies bad writes. Recovery evidence
+        is an isolated restore + PITR + integrity/business checks + measured RPO/RTO."
+
+Weak:   "420 vs 300 connections — raise max_connections."
+Strong: "Contain demand and roll back the pool config via a gradual rollout, draining in-flight Workers. The
+        rollback target is the pool configuration; Provider cost and Artifacts are reconciled, not undone."
+```

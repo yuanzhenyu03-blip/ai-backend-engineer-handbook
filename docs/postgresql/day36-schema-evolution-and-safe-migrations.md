@@ -16,7 +16,7 @@ Prerequisite: Day35 — PostgreSQL Indexes and Query Planning
 
 Previous Lesson: [Day35 — PostgreSQL Indexes and Query Planning](day35-postgresql-indexes-and-query-planning.md)
 
-Next Lesson: Day37 — PostgreSQL Production Reliability (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day37 lesson file does not exist yet)
+Next Lesson: [Day37 — PostgreSQL Production Reliability](day37-postgresql-production-reliability.md)
 
 Engineering Artifact: The Day36 safe-migration design pack (`sql/008_schema_evolution_and_safe_migrations.sql`) — a phased Expand -> Backfill -> Validate -> Switch -> Contract design for adding the Lease columns to a populated table, with safe/unsafe DDL, a bounded recovery template, and rollback-vs-forward-fix boundaries — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

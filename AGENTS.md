@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day36 — Schema Evolution and Safe Migrations
+Day37 — PostgreSQL Production Reliability
 
 Next Lesson:
 
-Day37 — PostgreSQL Production Reliability (Planned / Not started; see ROADMAP.md)
+Day38 — Redis Foundations and Data Structures (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

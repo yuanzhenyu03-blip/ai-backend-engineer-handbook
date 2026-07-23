@@ -124,7 +124,7 @@ Topics: PostgreSQL, SQL, Redis, Database Design.
 | Day34 | Concurrency Control, MVCC, and Worker Claims | ✅ Completed |
 | Day35 | PostgreSQL Indexes and Query Planning | ✅ Completed |
 | Day36 | Schema Evolution and Safe Migrations | ✅ Completed |
-| Day37 | PostgreSQL Production Reliability | Planned |
+| Day37 | PostgreSQL Production Reliability | ✅ Completed |
 
 ## Redis and Capstone
 
