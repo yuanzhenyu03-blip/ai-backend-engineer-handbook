@@ -77,18 +77,21 @@ CREATE INDEX jobs_claim_queue_idx
 -- SECTION 2 — Tenant history access paths (distinct from the claim)
 -- #############################################################################
 --
--- These history candidates are DESIGNS to be validated, NOT automatically
--- retained. Section 8 shows a worked decision where a broad history/status index
--- was rejected on net-system evidence. Retain a history index only if measured
--- benefit is positive overall.
+-- These history candidates are MUTUALLY EXCLUSIVE DESIGNS, and NONE is created by
+-- running this pack. They are all COMMENTED on purpose: a history index is retained
+-- only AFTER representative EXPLAIN (ANALYZE, BUFFERS) plus system-wide net-benefit
+-- evidence, and Section 8's worked decision actually ROLLS BACK a broad
+-- history/status index. Pick AT MOST ONE of 2a / 2b / 2c, only if it shows a
+-- positive net benefit for the real history workload. (No IF NOT EXISTS is used --
+-- that would hide the design choice, not make it.)
 --
 -- 2a. All-status tenant history, newest first:
 --   SELECT ... FROM app.jobs
 --    WHERE tenant_id = $1
 --    ORDER BY created_at DESC, job_id DESC LIMIT $2;
---   CANDIDATE: a NON-partial composite (includes all rows of the tenant).
-CREATE INDEX jobs_tenant_history_idx
-    ON app.jobs (tenant_id, created_at DESC, job_id DESC);
+--   CANDIDATE (commented -- NON-partial composite, includes all rows of the tenant):
+--     CREATE INDEX jobs_tenant_history_idx
+--         ON app.jobs (tenant_id, created_at DESC, job_id DESC);
 --   purpose:    a tenant's full timeline in a stable newest-first order.
 --   trade-off:  general (any status) but larger; competes on write/cache/Vacuum.
 --   validation: NOT executed / NOT plan-validated.
@@ -96,20 +99,22 @@ CREATE INDEX jobs_tenant_history_idx
 -- 2b. Dynamic status-filtered history (endpoint takes an arbitrary status):
 --   SELECT ... WHERE tenant_id = $1 AND job_status = $2
 --    ORDER BY created_at DESC, job_id DESC LIMIT $3;
---   CANDIDATE: ONE shared composite covering the status filter + order.
-CREATE INDEX jobs_tenant_status_history_idx
-    ON app.jobs (tenant_id, job_status, created_at DESC, job_id DESC);
---   trade-off:  one general index vs many narrow fixed-status Partial Indexes.
+--   CANDIDATE (commented -- ONE shared composite covering the status filter + order):
+--     CREATE INDEX jobs_tenant_status_history_idx
+--         ON app.jobs (tenant_id, job_status, created_at DESC, job_id DESC);
+--   trade-off:  one general index vs many narrow fixed-status Partial Indexes (2c).
 --               Neither is automatically best -- a selective, frequent FIXED
 --               status can justify a narrow Partial Index instead; choose by
 --               MEASURED workload and total cost, not by default.
+--   note:       this candidate's key includes job_status, so if it is EVER retained
+--               the queued -> running transition MUST maintain it (see Section 7).
 --   validation: NOT executed / NOT plan-validated.
 --
 -- 2c. Fixed-status Partial alternative (only if one status dominates the workload):
---   -- CREATE INDEX jobs_tenant_failed_history_idx
---   --     ON app.jobs (tenant_id, created_at DESC, job_id DESC)
---   --     WHERE job_status = 'failed';
---   Shown commented as a design ALTERNATIVE to 2b, not an additional requirement.
+--   CANDIDATE (commented -- an ALTERNATIVE to 2b, not an additional requirement):
+--     CREATE INDEX jobs_tenant_failed_history_idx
+--         ON app.jobs (tenant_id, created_at DESC, job_id DESC)
+--         WHERE job_status = 'failed';
 --   An index key serves an ACCESS PATH, not every SELECT-list column: unindexed
 --   returned columns are fetched from the Heap. But a Partial Index that omits the
 --   target rows (e.g. the claim index for an all-status query) cannot answer it.
@@ -246,14 +251,27 @@ CREATE INDEX outbox_unpublished_idx
 -- Every index adds write amplification, storage, cache competition, and Vacuum
 -- work. An UPDATE maintains ONLY indexes whose key/included values change, or
 -- whose PARTIAL predicate membership changes. For the Day34 queued -> running
--- claim UPDATE (SET job_status='running', started_at, attempt_count+1):
---   * jobs_claim_queue_idx (partial, WHERE job_status='queued' ...)  -> MAINTAINED:
---       the row leaves the partial index (predicate membership changes).
---   * jobs_tenant_history_idx (tenant_id, created_at, job_id)        -> unchanged:
---       none of its key columns changed.
---   * the UNIQUE (tenant_id, idempotency_key) index                  -> unchanged:
+-- claim UPDATE (SET job_status='running', started_at, attempt_count+1), against the
+-- indexes this pack actually creates plus the Day31 implicit unique index:
+--   * jobs_claim_queue_idx (ACTIVE partial, WHERE job_status='queued' ...) -> MAINTAINED:
+--       the row LEAVES the partial index (predicate membership changes).
+--   * outbox_unpublished_idx (ACTIVE, on app.outbox_events)                -> not touched:
+--       a different table; this UPDATE writes app.jobs only.
+--   * the UNIQUE (tenant_id, idempotency_key) index (implicit, Day31)       -> unchanged:
 --       neither key column changed.
--- So the transition touches the claim index only, not the history/idempotency ones.
+-- So among the indexes this pack CREATES, the transition maintains the claim
+-- partial index only.
+--
+-- The history candidates in Section 2 are COMMENTED and not created here, so they
+-- add no maintenance today. But note the CONDITIONAL cost if one is ever retained:
+--   * all-status history (tenant_id, created_at DESC, job_id DESC)  -> would be
+--       UNCHANGED by queued -> running: none of its key columns changed.
+--   * dynamic-status history (tenant_id, job_status, created_at DESC, job_id DESC)
+--       -> would be MAINTAINED: its key INCLUDES job_status, which changes from
+--       'queued' to 'running', so the entry must be updated.
+--   * fixed-status Partial (WHERE job_status = '<one status>')      -> maintained
+--       only if the transition moves a row INTO or OUT OF that status' predicate.
+-- Choose a history index on net-benefit evidence WITH this write cost included.
 
 
 -- #############################################################################

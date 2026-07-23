@@ -88,11 +88,17 @@ evidence justifies it*; it does **not** deploy a migration and makes **no runtim
 
 ### Index candidates (design only — NOT executed, NOT plan-validated)
 
+The claim Partial Composite and the Outbox Partial are the two **active** `CREATE INDEX` design statements
+(independent access paths on different tables). The three tenant-history candidates are **mutually
+exclusive** and all **commented** in `007`: running the pack creates neither, and at most one is retained,
+only after representative `EXPLAIN (ANALYZE, BUFFERS)` and net-benefit evidence (Section 8 rolls a broad
+history index back).
+
 | Access path | Candidate design | Notes |
 | --- | --- | --- |
 | Day34 Worker claim | `(tenant_id, created_at, job_id) WHERE job_status = 'queued' AND cancel_requested = false` | Partial Composite; tenant equality -> queue order; a `job_status`-only index is weak; speeds candidate lookup, not lock ownership |
-| All-status tenant history | `(tenant_id, created_at DESC, job_id DESC)` | non-partial; a different path from the claim |
-| Dynamic status-filtered history | `(tenant_id, job_status, created_at DESC, job_id DESC)` | shared composite vs several fixed-status partials — a trade, not a rule; measure |
+| All-status tenant history | `(tenant_id, created_at DESC, job_id DESC)` | **commented candidate**; non-partial; a different path from the claim; `queued -> running` would NOT maintain it (keys unchanged) |
+| Dynamic status-filtered history | `(tenant_id, job_status, created_at DESC, job_id DESC)` | **commented candidate**; shared composite vs several fixed-status partials — a trade, not a rule; measure. Its key includes `job_status`, so if retained, `queued -> running` MUST maintain it |
 | Idempotency lookup | **none added** | Day31's `UNIQUE (tenant_id, idempotency_key)` already created a unique B-tree; a duplicate is pure cost |
 | Unpublished Outbox poll | `(created_at, outbox_event_id) WHERE published_at IS NULL` | Partial on the tiny unsent set; `job_id` is selected but not a key |
 | Stale-lease recovery | **conceptual/commented only** | `claim_owner`/`lease_token`/`lease_expires_at` do not exist (Day36); `now()` cannot be a partial predicate — stable "running" partial + query-time range |

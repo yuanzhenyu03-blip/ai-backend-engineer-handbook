@@ -462,14 +462,19 @@ rule: an UPDATE maintains **only** indexes whose key/included values change, or 
 membership** changes.
 
 ```text
-jobs_claim_queue_idx  (partial, WHERE job_status='queued' ...)  -> MAINTAINED: the row LEAVES the
-                                                                    partial index (membership changes).
-jobs_tenant_history_idx (tenant_id, created_at, job_id)         -> unchanged: no key column changed.
-UNIQUE (tenant_id, idempotency_key) index                       -> unchanged: neither key changed.
+jobs_claim_queue_idx  (ACTIVE partial, WHERE job_status='queued' ...) -> MAINTAINED: the row LEAVES the
+                                                                         partial index (membership changes).
+outbox_unpublished_idx (ACTIVE, on app.outbox_events)                -> not touched: a different table.
+UNIQUE (tenant_id, idempotency_key) index (implicit, Day31)          -> unchanged: neither key changed.
 ```
 
-So the transition touches the claim partial index only. Every index you add is write amplification on every
-qualifying write — this is the standing cost side of the ledger.
+So among the indexes the `007` pack actually creates, the transition maintains the claim partial index only.
+The history designs in `007` are commented mutually-exclusive candidates (none is created), but the cost is
+**conditional** if one is ever retained: an all-status `(tenant_id, created_at DESC, job_id DESC)` index would
+be **unchanged** (no key column changed), whereas a dynamic-status
+`(tenant_id, job_status, created_at DESC, job_id DESC)` index **includes `job_status`**, so `queued -> running`
+**would maintain it**. Every index you add is write amplification on every qualifying write — this is the
+standing cost side of the ledger, and it must be counted before retaining a history index.
 
 Engineering Thinking:
 
