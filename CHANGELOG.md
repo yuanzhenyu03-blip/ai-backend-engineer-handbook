@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.76 — Day36 Schema Evolution and Safe Migrations
+
+Date: 2026-07-22
+
+### Added
+
+- Added `docs/postgresql/day36-schema-evolution-and-safe-migrations.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day35->Day36 mental-model evolution).
+- Added `projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql` — a safe-migration **DESIGN** reference pack that evolves the populated Day31/Day34 `app.jobs` into a Lease-aware model: preconditions, a compatibility matrix, and the phased Expand (nullable `claim_owner`/`lease_token`/`lease_expires_at`, no fabricated default) -> compatible code -> drain old Workers -> `CHECK ... NOT VALID` -> bounded idempotent `SKIP LOCKED` recovery/backfill (trusted source only, unknown ownership reconciled, no Provider calls) -> `VALIDATE CONSTRAINT` -> Switch -> Contract. The `NOT NULL` and `DEFAULT gen_random_uuid()` forms are commented **unsafe counter-examples**; the Day35 stale-lease index is a commented non-transactional `CREATE INDEX CONCURRENTLY` step with invalid-index handling; verification queries and rollback-vs-forward-fix boundaries are included.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day36 increment: the phased-plan table, the encoded rules, an explicit statement of what the pack does not contain, an authored (nothing executed) reproduction note, Day36 known gaps, and a separate Day36 validation matrix.
+- Appended a Day36 rapid-reference section and interview phrases to `cheat_sheets/postgresql.md`.
+- Appended Day36 Beginner/Intermediate/Senior questions to `interview/postgresql.md`, preserving the student's real answers verbatim — including the direct-`NOT NULL`-is-unsafe answer, the default-value reasoning, the running-only-scope and reconcile-unknown answers, the `SKIP LOCKED` and `NOT VALID` answers, the student-initiated backfill-scope question, the English answers, and the final Chinese synthesis (no duplicate PostgreSQL interview file created).
+- Updated `docs/README.md` so Day36 is the latest PostgreSQL lesson, and pointed the Day35 lesson's Next Lesson at the released Day36 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day36 completed with its released lesson/artifact (Day37 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day36 last completed with artifact + validation boundary; Current/Next is Day37 Planned / Not started), `TASKS.md` (completed Day36 blocks, Day36 preparation converted to history, Day37 preparation added), `README.md`, and `AGENTS.md`.
+
+### Learning Notes
+
+- Day36 turns the Day34 conceptual Lease and the Day35 conceptual stale-lease index into a compatible, versioned transition, and its spine is that **a migration is a versioned state transition across schema + existing data + every deployed application version** — a successful `ALTER` is not a completed migration. A direct `ADD COLUMN lease_token uuid NOT NULL` on a populated table is rejected **atomically** (existing rows have no value) and breaks old code, so you **Expand** with nullable columns and **no fabricated default** (old code ignores them, new code tolerates `NULL`; even a nullable `ADD COLUMN` is lock-aware). A default is a **business fact** for every row — `is_archived DEFAULT false` only if verified, `lease_token DEFAULT gen_random_uuid()` never (it fabricates an ownership epoch and risks a table rewrite), and `NULL` honestly means "no proved Lease ownership." **Backfill** is running-only but scope does not certify ownership: a running Job with a trusted source gets an idempotent guarded `UPDATE`, and an unknown one is isolated/reconciled — never a fake token, and the backfill never calls the Provider. Old Workers must be **drained** before recovery/switch because they bypass the token guard and double-execute; the backfill is batched/short-transaction/idempotent/restartable with the target predicate repeated in selection and the guarded write so the **DB state is the checkpoint**, and `FOR UPDATE SKIP LOCKED` takes distinct parallel batches. `CHECK ... NOT VALID` protects **new** writes immediately while deferring the historical scan to `VALIDATE CONSTRAINT`; `CREATE INDEX CONCURRENTLY` is non-transactional (cannot run in `BEGIN/COMMIT`) and can leave an unusable **invalid** index (validity separate from net benefit); **Switch** requires every writer to guard the token and the old path to no longer write; **Contract** is destructive and evidence-gated; and **rollback vs forward fix** is decided by durable state — after real Lease data or external side effects, forward-fix and reconcile.
+- The real classroom trajectory is preserved, including the student-initiated question about whether detailed backfill was out of scope (it is Day36 scope, resolved in-lesson), and the corrected reasonings (the `NOT NULL` failure is atomic; the UUID default's real harm is fabricated ownership + rewrite, not recognition; `is_archived` **is** a business fact; `NOT VALID` protects new writes rather than being inactive). Final-synthesis precisions are corrected as Tech Lead commentary, not rewritten into the student's words.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day37 lesson exists and Day37 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day36 student quote appears in `Day36_Repository_Update_Input.md`; Markdown fence balance; relative-link resolution; status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; SQL static review of `008` (balanced parentheses; the only active statements are the nullable `ADD COLUMN` expand, the `CHECK ... NOT VALID` constraint, and `VALIDATE CONSTRAINT`, all referencing existing/added Day31 columns; `gen_random_uuid()`, `NOT NULL DEFAULT`, `CREATE INDEX CONCURRENTLY`, `DROP COLUMN`, `is_archived`, `Provider`, `SQLAlchemy`, and `Alembic` appear only in comment lines); and a secret scan.
+- **Day36 has NO runtime evidence — Final artifact PostgreSQL Runtime: NOT RUN.** No PostgreSQL server, `ALTER`, constraint, index build, `EXPLAIN`, backfill, benchmark, Provider/Object Storage integration, production DDL, or rollback command was run in class or during the repository update. The lock/rewrite/rollout behaviours (nullable `ADD COLUMN` still lock-aware; `NOT NULL` rejected atomically; volatile-default rewrite risk; `NOT VALID` vs `VALIDATE` scan; `CREATE INDEX CONCURRENTLY` non-transactional and possibly invalid) are reasoned about, not measured. Application/Worker compatibility, old-Worker drain, token-guard Switch, and disposable-cluster DDL/backfill: NOT RUN. Live operation is Day37; `SQLAlchemy`/`Alembic` are Phase 4; fencing is Day41: NOT RUN.
+- Scope: no Day37 lesson was created; no executed DDL, `SQLAlchemy`/`Alembic`, live-operations, or fencing content was added; the artifact does not fabricate a historical owner/token/expiry and gives terminal/queued Jobs no Lease; the protected prompt/template files are unchanged; and no credentials, real connection strings, signed URLs, or production data were added.
+
+---
+
 ## v0.1.75 — Day35 Review Fix: mutually-exclusive history candidates + accurate maintenance note
 
 Date: 2026-07-22

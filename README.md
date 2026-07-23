@@ -25,10 +25,11 @@ Last completed lesson:
 * Day33 — PostgreSQL Transactions and Atomic State Changes
 * Day34 — Concurrency Control, MVCC, and Worker Claims
 * Day35 — PostgreSQL Indexes and Query Planning
+* Day36 — Schema Evolution and Safe Migrations
 
 Next:
 
-* Day36 — Schema Evolution and Safe Migrations (Planned / Not started; see `ROADMAP.md`)
+* Day37 — PostgreSQL Production Reliability (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

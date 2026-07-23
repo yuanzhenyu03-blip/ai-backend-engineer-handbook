@@ -923,7 +923,37 @@ progress/restartability/observability; rollback vs forward fix when data changed
 deferred to Phase 4.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/postgresql/day36-schema-evolution-and-safe-migrations.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day35 — PostgreSQL Indexes and Query Planning
+
+Next Lesson:
+Day37 — PostgreSQL Production Reliability
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql` — a safe-migration DESIGN
+reference pack that evolves the populated Day31/Day34 `app.jobs` into a Lease-aware model: preconditions and
+a compatibility matrix; the phased Expand (nullable `claim_owner`/`lease_token`/`lease_expires_at`, no
+fabricated default) -> compatible code -> drain old Workers -> `CHECK ... NOT VALID` -> bounded idempotent
+`SKIP LOCKED` recovery/backfill (trusted source only, unknown ownership reconciled, no Provider calls) ->
+`VALIDATE CONSTRAINT` -> Switch -> Contract; commented UNSAFE counter-examples (`NOT NULL`, `DEFAULT
+gen_random_uuid()`); the Day35 stale-lease index as a commented non-transactional `CREATE INDEX
+CONCURRENTLY` step with invalid-index handling; verification queries; and rollback-vs-forward-fix
+boundaries. No SQLAlchemy/Alembic (Phase 4)
+
+Validation Limits:
+Day36 classroom status is conceptual reasoning and static review only. No Day36 SQL file, PostgreSQL server,
+`ALTER`, constraint, index build, `EXPLAIN`, backfill, benchmark, Provider/Object Storage integration,
+production DDL, or rollback command was run in class or during the repository update. Final 008 file
+PostgreSQL runtime: NOT RUN. Application/Worker compatibility, old-Worker drain, token-guard Switch,
+disposable-cluster DDL/backfill: NOT RUN. Live operation is Day37; SQLAlchemy/Alembic are Phase 4.
 
 ---
 

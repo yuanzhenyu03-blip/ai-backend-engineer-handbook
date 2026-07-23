@@ -16,7 +16,7 @@ Prerequisite: Day34 — Concurrency Control, MVCC, and Worker Claims
 
 Previous Lesson: [Day34 — Concurrency Control, MVCC, and Worker Claims](day34-concurrency-control-mvcc-and-worker-claims.md)
 
-Next Lesson: Day36 — Schema Evolution and Safe Migrations (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day36 lesson file does not exist yet)
+Next Lesson: [Day36 — Schema Evolution and Safe Migrations](day36-schema-evolution-and-safe-migrations.md)
 
 Engineering Artifact: The Day35 index/EXPLAIN reference pack (`sql/007_postgresql_indexes_and_query_planning.sql`) — candidate B-tree index designs for the real Day33/Day34 access paths, parameterized `EXPLAIN` templates, and a stale-lease design kept conceptual — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

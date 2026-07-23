@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day36 — Schema Evolution and Safe Migrations
+Day37 — PostgreSQL Production Reliability
 
 Status:
 Planned / Not started
 
-(The Day36 lesson has not started and no Day36 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day35 details are recorded under Last Completed Lesson.)
+(The Day37 lesson has not started and no Day37 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day36 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -58,6 +58,7 @@ Day35 details are recorded under Last Completed Lesson.)
 - ✅ Day33 — PostgreSQL Transactions and Atomic State Changes
 - ✅ Day34 — Concurrency Control, MVCC, and Worker Claims
 - ✅ Day35 — PostgreSQL Indexes and Query Planning
+- ✅ Day36 — Schema Evolution and Safe Migrations
 
 ---
 
@@ -69,32 +70,32 @@ None.
 
 ## Last Completed Lesson
 
-Day35 — PostgreSQL Indexes and Query Planning
+Day36 — Schema Evolution and Safe Migrations
 
 Completed Time:
 2026-07-22
 
 Main Artifact:
-Day35 index/EXPLAIN reference pack (projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql) — candidate B-tree index DESIGNS for the real Day33/Day34 access paths (the claim Partial Composite, tenant history candidates, the Outbox Partial), parameterized EXPLAIN/EXPLAIN ANALYZE templates with honest side-effect labels, a deliberate no-duplicate note for the Day31 unique idempotency index, and a conceptual-only stale-lease design that avoids a now() predicate
+Day36 safe-migration design pack (projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql) — a phased Expand -> Backfill -> Validate -> Switch -> Contract DESIGN for adding the Lease columns (claim_owner/lease_token/lease_expires_at) to the populated Day31 app.jobs, with safe nullable expand, commented unsafe counter-examples, a CHECK NOT VALID then VALIDATE invariant, a bounded idempotent SKIP LOCKED recovery/backfill template (trusted source only, unknown ownership reconciled, no Provider calls), a commented CREATE INDEX CONCURRENTLY step with invalid-index handling, verification queries, and rollback-vs-forward-fix boundaries
 
 Validation Boundary:
-Day35 has NO runtime evidence — classroom validation was conceptual reasoning and review only. No Day35 SQL file, PostgreSQL server, EXPLAIN, EXPLAIN ANALYZE, statistics refresh, representative data, application integration, benchmark, production DDL, production load test, or rollback command was run in class or during the repository update. Every plan number quoted (the 8,000,000-row Seq Scan with ~0.2% queued / ~1.6 s / ~7,900,000 Rows Removed by Filter, the estimate-1-vs-actual-20,000 case, and the broad-history-index decision 100->80 ms history p95 / 50->220 ms Job acceptance p99 / +14 GB) is a CLASSROOM SCENARIO for reasoning, not a measured result and not the output of any executed plan or DDL. The FINAL 007 artifact was NOT executed: only a static file review was performed (uses the Day31 columns exactly; the claim Partial Composite is (tenant_id, created_at, job_id) WHERE job_status='queued' AND cancel_requested=false; the Outbox Partial is (created_at, outbox_event_id) WHERE published_at IS NULL; no duplicate index for UNIQUE (tenant_id, idempotency_key); the stale-lease design and its now()-avoidance are commented/conceptual; no CREATE INDEX CONCURRENTLY/ALTER/migration/ORM; no credentials). Application/driver/Celery benchmark, representative-data load: NOT RUN. Safe index deployment (CREATE INDEX CONCURRENTLY, DDL-lock windows, rollout/rollback) is Day36: NOT RUN. Production load/performance, RLS/roles, backups, HA, deployment: NOT RUN.
+Day36 classroom status is conceptual reasoning and static review only — nothing was executed. No Day36 SQL file, PostgreSQL server, ALTER, constraint, index build, EXPLAIN, backfill, benchmark, Provider/Object Storage integration, production DDL, or rollback command was run in class or during the repository update. The lock/rewrite/rollout behaviours (nullable ADD COLUMN still lock-aware; NOT NULL rejected atomically on a populated table; volatile default rewrite risk; NOT VALID vs VALIDATE scan; CREATE INDEX CONCURRENTLY non-transactional and possibly leaving an invalid index) are reasoned about, not measured. The FINAL 008 artifact was NOT executed: only a static file review was performed (adds the Lease columns as NULLABLE with no fabricated default; the UNSAFE forms are commented counter-examples; the CHECK is NOT VALID then VALIDATE; the backfill is a bounded idempotent SKIP LOCKED template calling NO Provider and never fabricating a token; CREATE INDEX CONCURRENTLY is a commented non-transactional step; no SQLAlchemy/Alembic; no credentials). Application/Worker compatibility, old-Worker drain, token-guard Switch, and disposable-cluster DDL/backfill: NOT RUN. Live operation (long transactions, Vacuum, pooling, backup/recovery) is Day37: NOT RUN. Cross-system fencing tokens are Day41; SQLAlchemy/Alembic are Phase 4.
 
 Completed Work:
 
-- Day35 classroom learning
-- Day35 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day34->Day35 mental-model evolution)
-- Day35 index/EXPLAIN design reference pack and project README increment
-- Day35 claim-index-derivation, history-path, no-duplicate-unique, Outbox-partial, now()-rejection, EXPLAIN-semantics, Seq-Scan-judgement, estimate-vs-actual, index-maintenance, and net-benefit keep/rollback exercises
-- Day35 PostgreSQL cheat sheet append
-- Day35 PostgreSQL interview notes append
-- Day35 repository status update
+- Day36 classroom learning
+- Day36 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day35->Day36 mental-model evolution)
+- Day36 safe-migration design pack and project README increment
+- Day36 versioned-transition, nullable-expand, default-as-business-fact, backfill-scope/mechanics, drain, NOT-VALID/VALIDATE, CONCURRENTLY, switch/contract, and rollback-vs-forward-fix exercises
+- Day36 PostgreSQL cheat sheet append
+- Day36 PostgreSQL interview notes append
+- Day36 repository status update
 
 ---
 
 ## Next
 
-- Day36 — Schema Evolution and Safe Migrations (Phase 3 — Backend Foundations)
+- Day37 — PostgreSQL Production Reliability (Phase 3 — Backend Foundations)
 
 Status:
 Planned / Not started
@@ -140,6 +141,7 @@ Completed Python Foundations:
 - Day33 — PostgreSQL transactions and atomic state changes, BEGIN/COMMIT/ROLLBACK as one business commitment (all related DB facts commit or roll back together; ROLLBACK never undoes a prior COMMIT), the atomic Accept where at acceptance a durable Job is created together with its durable dispatch Outbox intent (a creation-time coupling, not a permanent Job<=>Outbox equivalence; return 202 only after COMMIT; a lost response is resolved by UNIQUE(tenant_id, idempotency_key) lookup), the guarded queued->running Start transition + Attempt + append-only job_started Event committed as one unit, zero affected rows being a NORMAL result the application must gate on (not a transaction failure, unlike a SQL/constraint error) so an ungated continue writes a duplicate Attempt/Event, ACID read from the scenario (Consistency enforces constraints not correct business logic; Isolation deferred to Day34), never holding a transaction across an eight-minute Provider call (two short transactions around an external phase held outside any transaction), the two distinct Provider identifiers (the pre-call recovery anchor derived from attempt_id and durable after Start, vs the Provider-returned provider_request_id persisted only in Complete) and what PostgreSQL can prove (persisted start facts) vs cannot (the external result), the Transactional Outbox lifecycle (durable intent, Relay does not take the row or reset published_at to NULL), published_at NULL vs NOT NULL meanings and the three distinct delivery checkpoints, at-most-once (may lose) vs at-least-once (may duplicate) vs exactly-once not being achieved by disabling retries (practical correctness = at-least-once + stable outbox_event_id + idempotent consumer), the Attempt-finish guard (finished_at IS NULL, never overwriting a finished Attempt's evidence; an already-finished current Attempt is isolated/reconciled, not auto-fixed), Job Events being internal history while Outbox Events are conditional external duties (not every Event needs an Outbox row), external side effects (Provider cost, Object Storage bytes) surviving a database rollback, the unknown outcome of a lost COMMIT response (read stable ids, do not assume rollback), and the transaction pack being a write-path contract that does not protect legacy separate-commit writers
 - Day34 — Concurrency control, MVCC and Worker claims, candidate visibility (a SELECT / MVCC snapshot) being distinct from ownership (a transaction-local FOR UPDATE row lock, and across COMMIT a committed lease), FOR UPDATE waiting on a conflict while FOR UPDATE SKIP LOCKED skips locked rows and reserves the next available Job so Workers spread across the queue, the claim transaction reserving a candidate then reusing the unchanged Day33 guarded queued->running write with the affected-row gate and committing before the Provider call, SKIP LOCKED weakening fairness (ORDER BY sorts only available rows; no strict FIFO; starvation possible) mitigated by short claims and monitoring, a released lock not being liveness evidence (committed Job/Attempt/Event persist; blind reclaim duplicates Attempt/Event/Provider cost), a row lock (transaction-local) vs a committed lease (claim_owner/lease_token/lease_expires_at, a Day36 migration and conceptual today), lease expiry being a takeover condition not proof of death with takeover writing a new token while expiry alone invalidates ownership via the time predicate, lease duration derived from heartbeat + observed pause (2 minutes over 30 seconds for 45-second pauses) with the completion guard requiring current token + running + unexpired lease, lease_token (one ownership epoch) being separate from the stable Provider idempotency key (same external operation, derived from attempt_id and actually sent to a supporting Provider), pessimistic FOR UPDATE SKIP LOCKED spreading a high-contention queue vs optimistic guards storming a hot row, MVCC snapshots under Read Committed (100 then 101 is an allowed phantom, new snapshot per statement) vs Repeatable Read/Serializable stable snapshots that may abort with 40001 and do not partition work, and deadlock handling (a reverse-order cycle detected and one victim aborted with 40P01; consistent lock order prevents it; lock_timeout bounds waits with 55P03; the application, not PostgreSQL, retries 40P01/40001 with a finite budget while UNIQUE/idempotency constraints still stop duplicate durable facts)
 - Day35 — PostgreSQL indexes and query planning, an index as an ADDITIONAL access structure over the Heap (not a replacement source of truth; FOR UPDATE SKIP LOCKED still visits and locks the real tuple, so an index speeds candidate lookup but not ownership), deriving the index from the real WHERE + ORDER BY + LIMIT rather than a chosen column (the Day34 claim -> Partial Composite (tenant_id, created_at, job_id) WHERE job_status='queued' AND cancel_requested=false; a job_status-only index is weak), B-tree column order as leading equality predicates then range/ORDER BY columns, an index key serving an access path not every selected column (unindexed columns come from the Heap; a Partial Index that omits the target rows cannot answer the query), history being several distinct paths (all-status, dynamic-status shared composite, or fixed-status partials) chosen by measured workload, a UNIQUE constraint already creating a unique B-tree so the idempotency index must not be duplicated, the Outbox Partial (created_at, outbox_event_id) WHERE published_at IS NULL with job_id selected but not a key, why now() cannot define partial membership (membership changes only on a write) so expiry is a query-time range on a stable running predicate (lease columns are Day36), EXPLAIN estimating a plan vs EXPLAIN ANALYZE really executing it (row locks on SELECT FOR UPDATE, real DML changes), a Sequential Scan being a cost-based and possibly optimal plan judged by selectivity/Rows Removed by Filter/latency/buffers not by its name, an estimate-vs-actual divergence being a statistics/data-skew/predicate/parameter-plan investigation before another index, index maintenance where queued->running touches only the claim partial index (history/idempotency keys unchanged), and the keep/rollback decision made on NET SYSTEM benefit (a broad history index that moved history p95 100->80 ms but Job acceptance p99 50->220 ms and cost +14 GB with no Worker/Outbox gain is rolled back), with all Day35 work being DESIGN + EVIDENCE only (NOT RUN) and safe deployment via CREATE INDEX CONCURRENTLY deferred to Day36
+- Day36 — Schema evolution and safe migrations, a migration being a VERSIONED STATE TRANSITION across schema + existing data + every deployed application version (a successful ALTER is not a completed migration), why a direct ADD COLUMN ... NOT NULL on a populated table is rejected ATOMICALLY (existing rows have no value) and breaks old code, the Expand phase adding NULLABLE claim_owner/lease_token/lease_expires_at with NO fabricated default (old code ignores, new code tolerates NULL; even a nullable ADD COLUMN is lock-aware), a default being a BUSINESS FACT for every row (is_archived DEFAULT false only if verified; lease_token DEFAULT gen_random_uuid() fabricates an ownership epoch and risks a table rewrite so NULL honestly means no proved Lease ownership), Backfill scope being running-only while status scope does not certify ownership (an unknown running Job is isolated/reconciled, never assigned a fake token, and the backfill never calls the Provider), draining/isolating old Workers before recovery/switch because they bypass the token guard and cause double execution, backfill mechanics being small-batch/short-transaction/idempotent/restartable/observable with the target predicate (job_status='running' AND lease_token IS NULL) repeated in selection and the guarded write so the DURABLE DB state is the checkpoint (not a process counter) and FOR UPDATE SKIP LOCKED for distinct parallel batches, completion evidence being remaining-targets-0 plus an accounted exception queue and new-write protection, CHECK ... NOT VALID enforcing new writes IMMEDIATELY while deferring the historical scan to VALIDATE CONSTRAINT (NOT NULL itself cannot be NOT VALID), CREATE INDEX CONCURRENTLY being non-transactional (cannot run inside BEGIN/COMMIT) and possibly leaving an unusable INVALID index (validity separate from net benefit), Switch requiring every writer to guard the token AND the old path to no longer write (a new binary alone is not Switch), Contract removing temporary compatibility only on evidence and an observation period (destructive), and rollback vs forward fix being decided by DURABLE STATE (after real Lease data/Job transitions/Provider/Object Storage effects a DROP COLUMN cannot undo them so forward-fix and reconcile), with all Day36 work being DESIGN + EVIDENCE only (NOT RUN) and live operation deferred to Day37
 
 ---
 

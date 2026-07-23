@@ -4,9 +4,10 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day35 — an index/EXPLAIN design pack** that turns the Day33/Day34 access paths into
-measured, cost-aware index designs: a claim Partial Composite, an Outbox Partial, history candidates, and
-honest `EXPLAIN` evidence templates — design and evidence only, with safe deployment deferred to Day36.
+Current increment: **Day36 — a safe-migration design pack** that evolves the populated Day31/Day34
+`app.jobs` into a Lease-aware model without breaking old code: the phased Expand -> Backfill -> Validate ->
+Switch -> Contract, with safe/unsafe DDL, a bounded recovery template, and rollback-vs-forward-fix
+boundaries — design and evidence only, nothing executed.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -16,6 +17,7 @@ Lessons:
 - Day33 (transactions): [`docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md`](../../docs/postgresql/day33-postgresql-transactions-and-atomic-state-changes.md)
 - Day34 (concurrency): [`docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md`](../../docs/postgresql/day34-concurrency-control-mvcc-and-worker-claims.md)
 - Day35 (indexes): [`docs/postgresql/day35-postgresql-indexes-and-query-planning.md`](../../docs/postgresql/day35-postgresql-indexes-and-query-planning.md)
+- Day36 (migrations): [`docs/postgresql/day36-schema-evolution-and-safe-migrations.md`](../../docs/postgresql/day36-schema-evolution-and-safe-migrations.md)
 
 ---
 
@@ -31,7 +33,8 @@ projects/ai-backend-data-layer/
     ├── 004_sql_joins_aggregation_and_operational_queries.sql  # Day32: read-only operational query pack (not DDL)
     ├── 005_postgresql_transactions_and_atomic_state_changes.sql  # Day33: transactional write pack (driver-bound, not DDL)
     ├── 006_concurrency_control_mvcc_and_worker_claims.sql        # Day34: concurrency claim pack (active claim + conceptual lease)
-    └── 007_postgresql_indexes_and_query_planning.sql            # Day35: index/EXPLAIN design pack (designs + evidence, not a migration)
+    ├── 007_postgresql_indexes_and_query_planning.sql            # Day35: index/EXPLAIN design pack (designs + evidence, not a migration)
+    └── 008_schema_evolution_and_safe_migrations.sql            # Day36: safe-migration design pack (phased plan, not executed)
 ```
 
 > **Deviation from `projects/README.md` (stated honestly):** the generic project template lists
@@ -77,6 +80,69 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day36 increment — safe-migration design pack
+
+`sql/008_schema_evolution_and_safe_migrations.sql` evolves the **populated** Day31/Day34 `app.jobs` into a
+recoverable, Lease-aware model. It is a migration **DESIGN + EVIDENCE** reference pack, not a runnable
+script and not an executed migration: a migration is a versioned state transition across schema, existing
+data, and every deployed application version, and a successful `ALTER` is not a completed migration.
+
+### Phased plan (Expand -> Backfill -> Validate -> Switch -> Contract)
+
+| Phase | What it does | Safety note |
+| --- | --- | --- |
+| 1. Expand | `ADD COLUMN claim_owner text, lease_token uuid, lease_expires_at timestamptz` — **nullable, no default** | old code ignores, new code tolerates NULL; even nullable `ADD COLUMN` is lock-aware; `NOT NULL` / `DEFAULT gen_random_uuid()` shown as commented **unsafe counter-examples** |
+| 2. Compatible code | deploy new code that writes the columns and tolerates NULL (application step) | deploying a binary is **not** the Switch |
+| 3. Drain old Workers | drain/isolate old Workers (operational step) | they bypass the token guard -> double execution / repeated Provider cost |
+| 4. `NOT VALID` constraint | `CHECK (job_status <> 'running' OR all three Lease fields NOT NULL) NOT VALID` | enforces **new** writes immediately; historical rows unverified (`NOT NULL` itself cannot be `NOT VALID`) |
+| 5. Backfill / recovery | bounded, idempotent, `SKIP LOCKED`, DB-checkpointed; target `job_status = 'running' AND lease_token IS NULL` | **trusted source only**; unknown ownership -> reconcile, never a fake token; **no Provider calls** |
+| 6. Validate | `VALIDATE CONSTRAINT jobs_running_requires_lease` after remediation | scans the table; resource/lock-aware |
+| 7. Switch | every writer uses the token guard | precondition: **old path can no longer write** |
+| 8. Contract | remove temporary compatibility (commented; destructive) | only on evidence + observation period |
+| Index | Day35 stale-lease index via `CREATE INDEX CONCURRENTLY` (commented) | **non-transactional** (no `BEGIN/COMMIT`); a failed build leaves an **invalid** (unusable) index |
+
+### Rules encoded
+
+```text
+a migration is a versioned state transition; a successful ALTER is NOT a completed migration
+Expand nullable, NO fabricated default; NULL honestly means "no proved Lease ownership"
+a default is a business fact for every row; lease_token DEFAULT gen_random_uuid() fabricates ownership + rewrite risk
+Backfill is running-only, but scope does NOT certify ownership; unknowable -> reconcile, never a fake token
+Backfill NEVER calls the Provider; migration/DB rollback cannot undo Provider cost or Object Storage bytes
+drain old Workers BEFORE recovery/switch (they bypass the token guard)
+target predicate repeated in selection + guarded write -> DB state is the checkpoint, not a process counter
+CHECK ... NOT VALID protects new writes now; VALIDATE CONSTRAINT proves history after remediation
+CREATE INDEX CONCURRENTLY is non-transactional and can leave an unusable invalid index; validity before net benefit
+Switch = universal token guard AND the old path can no longer write; Contract is destructive, evidence-gated
+rollback vs forward fix is decided by durable state; after real Lease data/external effects -> forward fix
+```
+
+> **What this pack deliberately does not contain:** no executed DDL, no `SQLAlchemy`/`Alembic` (Phase 4), no
+> live operations (long transactions, Vacuum, pooling, backup/recovery — Day37), no cross-system fencing
+> tokens (Day41). The safe DDL statements (nullable expand, `NOT VALID` constraint, `VALIDATE`) are design
+> statements; `CREATE INDEX CONCURRENTLY`, the batched backfill, and the destructive Contract are commented
+> because they are non-transactional / application-driven / evidence-gated.
+
+### Validation reproduction (**NOT executed — Day36 has no runtime evidence**)
+
+```bash
+# NOTHING here was run in class or during the repository update: no PostgreSQL server, no ALTER, no
+# constraint, no index build, no EXPLAIN, no backfill, no benchmark, no production DDL, no rollback.
+# On a DISPOSABLE cluster, the phases would be applied by a migration runner in controlled windows,
+# NOT as one transaction (CREATE INDEX CONCURRENTLY and the batched backfill are non-transactional).
+```
+
+### Day36 known gaps (deliberate)
+
+```text
+Day37   live operation of these boundaries: DDL locks, long transactions, WAL/transaction age, Vacuum,
+        connection pooling, backup/recovery, slow-query and lock/connection monitoring, capacity
+Day41   cross-system fencing tokens (stronger than the Lease token guard)
+Phase 4 SQLAlchemy/Alembic migration tooling
+```
 
 ---
 
@@ -1094,6 +1160,16 @@ not running. Do not present a Docker workflow as verified.
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
 
+### Day36 (`008_schema_evolution_and_safe_migrations.sql`)
+
+| Level | Day36 status | Evidence |
+|---|---|---|
+| Conceptual / manual review | **Done (in class)** | migration as a versioned state transition; the phased plan; the compatibility matrix; nullable expand vs the unsafe counter-examples; backfill scope/mechanics; `NOT VALID`/`VALIDATE`; `CONCURRENTLY`/invalid index; switch/contract; the false-takeover forward-fix decision |
+| Final artifact static review | **Done (repository update)** | adds the Lease columns as **NULLABLE** with no fabricated default; the `NOT NULL` and `DEFAULT gen_random_uuid()` forms are **commented** counter-examples; the `CHECK` is `NOT VALID` then `VALIDATE`; the backfill is a bounded idempotent `SKIP LOCKED` template that calls **no Provider** and never fabricates a token; `CREATE INDEX CONCURRENTLY` is a **commented** non-transactional step with invalid-index handling; the destructive Contract `DROP` is commented; no `SQLAlchemy`/`Alembic`; no credentials |
+| **Disposable-PostgreSQL runtime (ALTER / constraint / index / backfill)** | **NOT RUN** | no Day36 SQL file, PostgreSQL server, `ALTER`, constraint, index build, `EXPLAIN`, or backfill was executed in class or during the repository update; the lock/rewrite/rollout behaviours are reasoned about, not measured |
+| Application / Worker integration | **NOT RUN** | no old/new application compatibility test, old-Worker drain, token-guard Switch, or Provider/Object Storage integration |
+| Production DDL / deployment / rollback | **NOT RUN / OUT OF SCOPE** | no production migration, index build, backfill, benchmark, or rollback; live operation is Day37; `SQLAlchemy`/`Alembic` are Phase 4; fencing is Day41 |
+
 ### Day35 (`007_postgresql_indexes_and_query_planning.sql`)
 
 | Level | Day35 status | Evidence |
@@ -1200,7 +1276,7 @@ Day32  joins/aggregation and operational queries (delivered: sql/004_...sql)
 Day33  transactions (atomic Job + Outbox insert) (delivered: sql/005_...sql)
 Day34  concurrency-safe claims (FOR UPDATE / SKIP LOCKED), leases, idempotency enforcement (delivered: sql/006_...sql)
 Day35  indexes and query plans (delivered: sql/007_...sql)
-Day36  versioned migrations (this file is a starting point, not a migration framework)
+Day36  versioned migrations (this file is a starting point, not a migration framework) (delivered: sql/008_...sql)
 Day37  pooling, roles/least privilege, timeouts, vacuum, backup/PITR, operations
 ```
 

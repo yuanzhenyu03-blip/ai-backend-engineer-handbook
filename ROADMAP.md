@@ -123,7 +123,7 @@ Topics: PostgreSQL, SQL, Redis, Database Design.
 | Day33 | PostgreSQL Transactions and Atomic State Changes | ✅ Completed |
 | Day34 | Concurrency Control, MVCC, and Worker Claims | ✅ Completed |
 | Day35 | PostgreSQL Indexes and Query Planning | ✅ Completed |
-| Day36 | Schema Evolution and Safe Migrations | Planned |
+| Day36 | Schema Evolution and Safe Migrations | ✅ Completed |
 | Day37 | PostgreSQL Production Reliability | Planned |
 
 ## Redis and Capstone

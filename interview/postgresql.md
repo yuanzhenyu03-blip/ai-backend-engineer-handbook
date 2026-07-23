@@ -1336,3 +1336,198 @@ Weak:   "The history page got faster, so keep the index."
 Strong: "Keep by net system benefit. It pushed acceptance p99 50->220 ms and cost 14 GB with no other gain,
         so roll back only that index and keep the proven paths. Safe build/drop mechanics are Day36."
 ```
+
+---
+
+# Day36 Schema Evolution and Safe Migrations Questions
+
+From the Day36 lesson: migration as a versioned state transition, why direct `NOT NULL` fails on a populated
+table, nullable Expand, defaults as business facts, running-only Backfill scope with reconciliation for
+unknown ownership, draining old Workers, idempotent `SKIP LOCKED` backfill, `CHECK ... NOT VALID` vs
+`VALIDATE CONSTRAINT`, `CREATE INDEX CONCURRENTLY` and invalid indexes, Switch/Contract preconditions, and
+rollback vs forward fix.
+
+Lesson: `docs/postgresql/day36-schema-evolution-and-safe-migrations.md`
+
+Migration pack: `projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql`
+
+## Beginner
+
+### 1. Why can't you add the required Lease column directly?
+
+Question:
+
+`app.jobs` is populated with no Lease columns. Is `ADD COLUMN lease_token uuid NOT NULL` safe? What happens?
+
+中文解析:
+
+不安全。已有历史行没有该列的值，所以 PostgreSQL 会**原子地拒绝**整个迁移（不是部分损坏行）；而且强制要求写入
+会破坏不设置该列的旧代码。安全做法是先加**可空**列（Expand），回填并对账之后再强制 required 状态。
+
+Student's actual answer (preserved):
+
+> "不安全，会直接破坏已有历史行、旧版应用"
+
+Assessment: correct; the precision added is that the rejection is atomic, and nullable Expand comes first.
+
+### 2. Is `lease_token DEFAULT gen_random_uuid()` a safe default?
+
+Question:
+
+Would you give the new `lease_token` a `DEFAULT gen_random_uuid()` so historical rows have a value?
+
+中文解析:
+
+不行。真正的问题不是"旧代码认不出这列"（旧代码可以忽略有默认值的列），而是 UUID 默认值**凭空捏造了一个所有权
+epoch**——没有真实 Worker owner、没有 expiry、没有 Worker 存活证明，还会给不该有 Lease 的 queued/terminal Job
+发一个 Lease；而且 volatile 的按行默认值可能触发**整表重写**。`NULL` 诚实地表示"没有被证明的 Lease 所有权"。
+对比：`is_archived DEFAULT false` 是一个**生命周期业务事实**，只有在证明所有历史行确实未归档时才安全。
+
+Student's actual answers (preserved):
+
+> (UUID default) "因为旧引用同样不能识别这些列，而历史数据默认值并没有参与，新应用也不能识别默认值"
+
+> (is_archived) "这个不涉及业务事实"
+
+Assessment: corrected — the UUID default's real harm is fabricated ownership + rewrite risk (not
+recognition); and `is_archived` **is** a business fact, safe only if verified.
+
+## Intermediate
+
+### 1. What is the Backfill scope, and what about an unknown running Job?
+
+Question:
+
+Which Jobs does the Lease Backfill target, and what do you do with a running Job that has no trustworthy
+owner?
+
+中文解析:
+
+只回填 `running` 的 Job（queued/terminal 不需要 Lease）。但状态范围**不等于**证明了所有权。一个没有可信
+owner/token/Provider 结果的 running Job **不能**自动回填——它要走**隔离、对账、人工审核或专门的恢复流程**，
+绝不能塞一个假 token，也绝不能在迁移里触发 Provider 调用。
+
+Student's actual answers (preserved):
+
+> (scope) "只是处理running job，因为其他状态不需要lease"
+
+> (unknown running Job) "不能，因为还需要隔离、对账、人工或专门恢复流程"
+
+Assessment: both correct — scope is running-only, and unknown ownership is reconciled, never faked.
+
+### 2. Why must old Workers be drained before recovery, and how do parallel batches stay safe?
+
+Question:
+
+Why drain old Workers before legacy recovery, and how do several migration Workers take distinct batches?
+
+中文解析:
+
+旧 Worker 不执行 token guard，如果在旧 Worker 还在**运行**（不是暂停）时把 legacy running Job 交给新协议，
+两个 Worker 会同时完成它——**重复执行、状态冲突、重复 Provider 费用**。所以回填/切换前必须先 drain/隔离旧
+Worker。并行批次用 `SELECT ... FOR UPDATE SKIP LOCKED` 各取不同的小批；事务只在**数据库状态**上持锁，绝不在
+Provider 调用或人工对账上持锁。崩溃在 COMMIT 前会释放锁并回滚该批；已提交的行不再匹配幂等目标谓词。
+
+Student's actual answers (preserved):
+
+> (drain) "不安全，因为旧版work还在运行，而不是处于暂停状态"
+
+> (why drain precedes backfill) "因为 旧 Worker 会与 Backfill / 新协议并发写同一 Job"
+
+> (parallel batches) "加for update skip"
+
+Assessment: correct — the deeper reason is old writers bypass the token guard; `SKIP LOCKED` isolates
+distinct batches.
+
+## Senior
+
+### 1. `CHECK ... NOT VALID` vs `VALIDATE CONSTRAINT`?
+
+Question:
+
+For "running implies non-NULL Lease fields," do you add the constraint directly or `NOT VALID` first? What
+does each do?
+
+中文解析:
+
+先 `NOT VALID`。它**不是**一个未生效的约束——它立即对所有新的 INSERT/UPDATE 强制该规则，只是**不**声称历史行
+已被检查。之后修复/对账 legacy 行，再在受控窗口运行 `VALIDATE CONSTRAINT`（它会扫描数据、有资源/锁/DDL 影响）。
+注意：`NOT VALID` 适用于 CHECK/外键约束，`NOT NULL` 本身不能 `NOT VALID`。
+
+Student's actual answer (preserved):
+
+> "先使用NOT VALID，因为可能会导致阻塞"
+
+Assessment: right direction; corrected that `NOT VALID` protects new writes immediately (not inactive) and
+`VALIDATE` proves history after remediation.
+
+### 2. Rollback or forward fix after a too-short Lease duration?
+
+Question:
+
+Thousands of real Lease tokens were written, then you find the Lease duration was too short (false
+takeovers). Roll back the schema or forward-fix?
+
+中文解析:
+
+Forward fix。决定权在**是否已有持久化状态/外部副作用**：一旦有真实的 Lease 数据、Job 状态转换、Provider 调用
+或 Object Storage artifact，`DROP COLUMN` **无法**撤销它们。保留兼容 schema，调大 Lease duration 配置，对受影响
+的 Job 做对账；Contract 要等证据和观察期之后再做。这里问题只是配置过短，所以 forward fix，而不是删列。
+
+Student's actual answers (preserved):
+
+> "我会保留schema做forward fix，因为只是 Lease duration配置过短造成的"
+
+> (English) "i think forward fix is a better choose,bacause some job status had transit success,may be it has already produce artifact."
+
+Assessment: correct decision and reason — durable Lease data and possible artifacts/Provider charges mean a
+`DROP COLUMN` cannot undo them.
+
+### 3. When is the Switch complete, and when can you Contract?
+
+Question:
+
+Is the Switch done when the new binary ships? When can you Contract?
+
+中文解析:
+
+Switch 不是"部署了新二进制"就完成——硬前提是**旧路径再也不能写**（旧 Worker 不能在协议外执行/完成 legacy
+Job）。Contract 只在有证据后进行：没有旧 Worker 版本能写、没有遗留未解决的 running Job、token guard 已普及、
+约束已 VALIDATE、且**观察期**内没有旧路径流量或错误。Contract 通常是破坏性的，会让回滚更难，所以放最后。
+
+Student's actual answers (preserved):
+
+> (switch precondition) "A，因为这样会继续扩大影响范围"
+
+> (contract) "不同意，旧路径真正不再被使用后"
+
+Assessment: correct — Switch requires the old path to be gone; Contract needs validated data + drained
+writers + universal guards + an observation period.
+
+## Common Weak vs Strong Answer (Day36)
+
+```text
+Weak:   "The ALTER ran, so the migration is done."
+Strong: "A migration is a versioned transition across schema, data, and every deployed app version. A valid
+        ALTER proves the catalog changed, not that old data, old code, and new code coexist safely."
+
+Weak:   "Add lease_token NOT NULL; default it to gen_random_uuid() so old rows have a value."
+Strong: "That's rejected atomically on a populated table and, worse, fabricates ownership with no Worker,
+        expiry, or liveness, and can force a table rewrite. Expand nullable; NULL means no proved ownership."
+
+Weak:   "All running Jobs get a Lease in the backfill."
+Strong: "Scope is running-only, but scope doesn't certify ownership. A running Job with no trusted source is
+        isolated and reconciled — never a fabricated token, and the backfill never calls the Provider."
+
+Weak:   "A new token protects the Job even if an old Worker is still running it."
+Strong: "Old Workers don't enforce the token guard, so they double-execute. Drain or isolate them before
+        recovery and before switching to the token protocol."
+
+Weak:   "NOT VALID means the constraint is off until I validate it."
+Strong: "It enforces the rule on all new writes immediately; it only defers the historical scan. VALIDATE
+        CONSTRAINT proves the existing rows after remediation."
+
+Weak:   "The rollout is bad, so drop the columns."
+Strong: "Rollback is honest only before durable data/side effects exist. After real Lease data, Job
+        transitions, and Provider charges, forward-fix and reconcile — DROP COLUMN can't undo them."
+```

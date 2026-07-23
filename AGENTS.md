@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day35 — PostgreSQL Indexes and Query Planning
+Day36 — Schema Evolution and Safe Migrations
 
 Next Lesson:
 
-Day36 — Schema Evolution and Safe Migrations (Planned / Not started; see ROADMAP.md)
+Day37 — PostgreSQL Production Reliability (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

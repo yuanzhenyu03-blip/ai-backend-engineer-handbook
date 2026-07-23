@@ -497,6 +497,54 @@ Scope: Day35 = DESIGN + EVIDENCE only. NOT executed / NOT plan-validated (no ser
 
 ---
 
+## Day36 Schema Evolution and Safe Migrations
+
+**A migration is a VERSIONED STATE TRANSITION** across schema + existing data + every deployed app version. A successful `ALTER` is **not** a completed migration — old data, old code, and new code must coexist safely.
+
+**Phased plan: Expand -> Backfill -> Validate -> Switch -> Contract.**
+
+```text
+Expand    nullable columns, NO fabricated default (old code ignores, new code tolerates NULL)
+Backfill  only where a TRUSTED source exists; unknowable -> reconcile; NEVER call the Provider
+Validate  NOT VALID protects new writes NOW; VALIDATE CONSTRAINT proves history AFTER remediation
+Switch    every writer uses the token guard AND the old path can no longer write
+Contract  remove temporary compatibility only on evidence + observation (destructive)
+```
+
+**Direct `ADD COLUMN ... NOT NULL` on a populated table is rejected ATOMICALLY** (existing rows have no value) and breaks old code. Expand nullable first:
+
+```sql
+ALTER TABLE app.jobs
+    ADD COLUMN claim_owner text, ADD COLUMN lease_token uuid, ADD COLUMN lease_expires_at timestamptz;
+```
+
+Even a nullable `ADD COLUMN` takes a brief lock — it is lock-aware.
+
+**A default is a BUSINESS FACT for every row.** `is_archived NOT NULL DEFAULT false` is safe only if verified true for all historical + future rows. `lease_token DEFAULT gen_random_uuid()` is **never** safe: it fabricates an ownership epoch (no real Worker/expiry/liveness), Leases queued/terminal Jobs that must not have one, and a volatile per-row default can force a table rewrite. **`NULL` honestly means "no proved Lease ownership."**
+
+**Backfill scope = running-only**, but status scope does not certify ownership. A running Job with a trusted source gets an idempotent guarded `UPDATE`; a running Job with no trustworthy owner/token goes to **isolation/reconciliation** — never a fabricated token, never a migration-triggered Provider call.
+
+**Drain/isolate old Workers BEFORE recovery/switch.** Old Workers don't enforce the token guard, so they can keep completing a Job a new Worker took over -> double execution, conflicting state, repeated Provider cost.
+
+**Backfill mechanics:** target predicate `job_status = 'running' AND lease_token IS NULL`, repeated in selection AND the guarded write so committed rows stop matching after a restart (the **DB state is the checkpoint**, not a process counter). Small short transactions; `FOR UPDATE SKIP LOCKED` for distinct parallel batches; hold locks only around DB state, never around Provider/reconciliation. **Completion evidence** = `remaining targets = 0` + accounted exception queue + batch metrics + confirmed new-write protection.
+
+**`CHECK ... NOT VALID` is NOT an inactive constraint** — it enforces the rule on every new INSERT/UPDATE immediately and only defers the historical scan. `NOT NULL` itself cannot be `NOT VALID`.
+
+```sql
+ALTER TABLE app.jobs ADD CONSTRAINT jobs_running_requires_lease
+  CHECK (job_status <> 'running' OR (claim_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL)) NOT VALID;
+-- after remediation:
+ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_running_requires_lease;   -- scans; resource/lock-aware
+```
+
+**`CREATE INDEX CONCURRENTLY`** allows normal DML but is longer-running, takes brief stage locks, and **cannot run inside `BEGIN/COMMIT`** (its own non-transactional step). A failed build leaves an **INVALID** index — unusable, not "slow"; diagnose, don't claim success, clean up/retry. Validity is separate from net benefit (Day35); measure only a valid build. It uses a stable predicate (`job_status='running'`); the expiry test stays a query-time range (no `now()` in the predicate).
+
+**Rollback vs forward fix is decided by DURABLE STATE.** Before durable new data/side effects, rollback (drop the added columns) may be practical. After real Lease data, Job transitions, Provider calls, or Object Storage artifacts, a `DROP COLUMN` cannot undo them -> **forward fix** and reconcile. The false-takeover case (too-short Lease after thousands of real tokens) is forward fix, not `DROP COLUMN`.
+
+Scope: Day36 = safe migration DESIGN + EVIDENCE only, **NOT executed** (no server/ALTER/constraint/index build/backfill/benchmark/DDL/rollback ran). Live operation (long tx, Vacuum, pooling, backup) is Day37; SQLAlchemy/Alembic are Phase 4; fencing tokens are Day41.
+
+---
+
 ## Interview Phrases
 
 - "The Job row is committed before 202; 202 acknowledges an existing durable commitment."
@@ -596,3 +644,16 @@ Scope: Day35 = DESIGN + EVIDENCE only. NOT executed / NOT plan-validated (no ser
 - "Estimate vs actual divergence is a statistics/skew investigation before another index."
 - "Keep an index only for net system benefit; a read win that inflates acceptance p99 is a loss."
 - "Day35 designs and validates evidence; Day36 deploys it safely (CONCURRENTLY, DDL locks)."
+
+- "A migration is a versioned state transition across schema + data + every deployed app version; a successful ALTER is not a completed migration."
+- "ADD COLUMN ... NOT NULL on a populated table is rejected atomically; expand nullable first."
+- "A default is a business fact for every row; lease_token DEFAULT gen_random_uuid() fabricates ownership — never."
+- "NULL honestly means no proved Lease ownership; terminal/queued Jobs get no Lease."
+- "Backfill is running-only, but scope doesn't certify ownership; unknowable rows are reconciled, never faked, and it never calls the Provider."
+- "Drain old Workers before recovery/switch; they bypass the token guard and double-execute."
+- "Backfill idempotency is a predicate (running AND lease_token IS NULL), not a counter; the DB state is the checkpoint."
+- "CHECK ... NOT VALID enforces new writes now and defers the historical scan to VALIDATE CONSTRAINT."
+- "CREATE INDEX CONCURRENTLY is non-transactional and can leave an unusable invalid index; validity before net benefit."
+- "Switch = every writer guards the token AND the old path can no longer write; a new binary alone is not Switch."
+- "Contract is destructive; only on evidence + observation."
+- "Rollback vs forward fix is decided by durable state; after real Lease data or external effects, forward fix."

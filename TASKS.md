@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day36 — Schema Evolution and Safe Migrations
+Day37 — PostgreSQL Production Reliability
 
 Status:
 Planned / Not started
@@ -28,10 +28,63 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day36 — Schema Evolution and Safe Migrations (see the Day36 Preparation block below).
+- [ ] Prepare for Day37 — PostgreSQL Production Reliability (see the Day37 Preparation block below).
 
 (Day29-Day34 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33/Day34
 sections and the corresponding Preparation history blocks.)
+
+---
+
+## Completed Day36 Tasks
+
+- [x] Complete Day36 Schema Evolution and Safe Migrations classroom learning.
+- [x] Generate the Day36 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day35->Day36 mental-model evolution).
+- [x] Define a migration as a versioned state transition across schema, data, and app versions.
+- [x] Explain why a direct ADD COLUMN ... NOT NULL is rejected atomically on a populated table.
+- [x] Expand with nullable Lease columns and reject a fabricated default.
+- [x] Judge defaults as business facts and reject lease_token DEFAULT gen_random_uuid().
+- [x] Scope Backfill to running-only and route unknown ownership to reconciliation.
+- [x] Explain why old Workers must be drained before recovery and Switch.
+- [x] Design an idempotent, restartable, SKIP LOCKED Backfill with a database-backed checkpoint.
+- [x] Explain CHECK ... NOT VALID vs VALIDATE CONSTRAINT.
+- [x] Explain CREATE INDEX CONCURRENTLY and invalid-index handling.
+- [x] Define the Switch precondition and the Contract evidence.
+- [x] Decide rollback vs forward fix by durable state and forward-fix the false-takeover case.
+- [x] Preserve the real student answers, the student-initiated backfill question, English answers, final Chinese synthesis, and all corrections.
+
+---
+
+## Completed Day36 Repository Tasks
+
+- [x] Add `docs/postgresql/day36-schema-evolution-and-safe-migrations.md`.
+- [x] Add `projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day36 increment, phased plan, compatibility matrix, and honest NOT-RUN limits.
+- [x] Append the Day36 section to `cheat_sheets/postgresql.md`.
+- [x] Append Day36 questions to `interview/postgresql.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day36 is now the latest PostgreSQL lesson).
+- [x] Update the Day35 lesson Next Lesson link to the released Day36 lesson.
+- [x] Update `CURRICULUM.md` (Day36 Completed; Day37 remains Planned).
+- [x] Update `ROADMAP.md` (Day36 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day36 Interview Tasks
+
+- [x] Add the beginner NOT-NULL-fails and default-as-business-fact questions with the student's actual answers.
+- [x] Add intermediate backfill-scope/reconciliation and drain/SKIP-LOCKED questions.
+- [x] Add the senior NOT-VALID/VALIDATE, rollback-vs-forward-fix, and switch/contract questions.
+- [x] Add Chinese explanations and weak-vs-strong answers.
+
+---
+
+## Completed Day36 Homework
+
+- [x] Complete the direct-NOT-NULL-failure and default-as-business-fact exercises.
+- [x] Complete the backfill-scope/reconciliation and phase-ordering exercises.
+- [x] Complete the drain-before-recovery and idempotent-SKIP-LOCKED-backfill exercises.
+- [x] Complete the completion-evidence and NOT-VALID/VALIDATE exercises.
+- [x] Complete the CONCURRENTLY/invalid-index, forward-fix, and Contract exercises.
 
 ---
 
@@ -304,14 +357,25 @@ sections and the corresponding Preparation history blocks.)
 
 ---
 
-### Day36 Preparation — Schema Evolution and Safe Migrations
+### Day37 Preparation — PostgreSQL Production Reliability
 
-- [ ] Read the Day36 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql` and note which index designs and the conceptual lease columns need safe online deployment.
-- [ ] Preview `CREATE INDEX CONCURRENTLY`, `DROP INDEX CONCURRENTLY`, and DDL-lock-aware procedures.
-- [ ] Preview the expand/backfill/validate/switch/contract migration for adding the lease columns (claim_owner, lease_token, lease_expires_at).
-- [ ] Remember that a design (Day35) and its safe rollout (Day36) are different decisions; Day35 executed no DDL.
-- [ ] Keep production operations/monitoring (Day37) and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day37 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/sql/008_schema_evolution_and_safe_migrations.sql` and note the DDL-lock, batch, and index-build boundaries that become live operational concerns.
+- [ ] Preview long transactions and transaction/WAL age, autovacuum/Vacuum, connection pooling and limits, and backup/recovery.
+- [ ] Preview slow-query monitoring, lock/connection pressure, and capacity planning as the operational lens on Day34-Day36 designs.
+- [ ] Remember that a safe migration DESIGN (Day36) still needs live operational guardrails (Day37); Day36 executed no DDL.
+- [ ] Keep SQLAlchemy/Alembic (Phase 4) and cross-system fencing tokens (Day41) out of scope.
+
+---
+
+### Day36 Preparation — Schema Evolution and Safe Migrations (completed)
+
+- [x] Read the Day36 input.
+- [x] Reviewed `projects/ai-backend-data-layer/sql/007_postgresql_indexes_and_query_planning.sql` and the conceptual lease columns / stale-lease index needing safe deployment.
+- [x] Previewed `CREATE INDEX CONCURRENTLY` and DDL-lock-aware procedures.
+- [x] Previewed the expand/backfill/validate/switch/contract migration for adding the lease columns (claim_owner, lease_token, lease_expires_at).
+- [x] Kept the design (Day35) vs safe rollout (Day36) distinction; Day36 executed no DDL.
+- [x] Kept production operations/monitoring (Day37) and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
@@ -559,7 +623,7 @@ sections and the corresponding Preparation history blocks.)
 - [x] Day33 — PostgreSQL Transactions and Atomic State Changes (Completed).
 - [x] Day34 — Concurrency Control, MVCC, and Worker Claims (Completed).
 - [x] Day35 — PostgreSQL Indexes and Query Planning (Completed).
-- [ ] Day36 — Schema Evolution and Safe Migrations (Planned).
+- [x] Day36 — Schema Evolution and Safe Migrations (Completed).
 - [ ] Day37 — PostgreSQL Production Reliability (Planned).
 - [ ] Day38 — Redis Foundations and Data Structures (Planned).
 - [ ] Day39 — Redis Cache Design and Consistency (Planned).
