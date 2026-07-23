@@ -902,7 +902,7 @@ Key vocabulary: `access path`, `Heap`, `B-tree`, `Partial Index`, `Composite Ind
 11. EXPLAIN estimates; EXPLAIN ANALYZE EXECUTES (row locks / real DML). A node name is not a conclusion.
 12. Seq Scan is cost-based and can be optimal; judge by selectivity, filtered rows, latency, buffers.
 13. Estimate vs actual divergence -> statistics/skew investigation BEFORE another index.
-14. queued->running maintains only the claim partial index; history/idempotency keys are unchanged.
+14. Among 007's active indexes, queued->running maintains only the claim Partial Index; the idempotency Unique Index is unchanged. If retained later, an all-status history index stays unchanged, while a dynamic-status history index must be maintained because job_status changes.
 15. Keep an index only for NET SYSTEM benefit; a read win that inflates acceptance p99 is a net loss.
 16. Day35 designs + validates evidence; Day36 safely deploys (CONCURRENTLY, DDL locks, rollout/rollback).
 ```
