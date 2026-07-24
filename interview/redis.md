@@ -121,8 +121,9 @@ Model answer:
 
 Combining RDB and AOF is a reasonable operational choice — RDB alone can serve a stale snapshot and AOF alone
 can grow an unbounded file — but neither makes Redis authoritative. RDB loses writes after the last snapshot;
-AOF still loses writes in the fsync/rewrite window. Persistence shrinks the loss window and speeds restart; it
-never confers ownership. Truth stays in PostgreSQL; large bytes in Object Storage.
+AOF's potential loss window depends mainly on its fsync policy (plus OS/disk persistence and the failure type)
+and does not guarantee zero loss, while AOF rewrite is log compaction with CPU/I/O/disk cost, not itself a
+loss window. Persistence shrinks the recovery loss window and speeds restart; it never confers ownership. Truth stays in PostgreSQL; large bytes in Object Storage.
 
 Student's actual answer (preserved verbatim):
 

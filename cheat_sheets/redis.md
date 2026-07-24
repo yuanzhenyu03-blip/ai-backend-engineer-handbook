@@ -66,7 +66,7 @@ composition      MULTI/EXEC, Lua -> Day41
 maxmemory/eviction = a CORRECTNESS boundary: only rebuildable keys may be evicted;
                      authoritative lifecycle must never live only in Redis.
 RDB  snapshot  -> lose writes since last snapshot
-AOF  append    -> lose writes in the fsync/rewrite window
+AOF  append    -> potential loss depends on fsync policy (rewrite = log compaction / ops cost, not a loss window)
 both -> smaller loss window, still NOT ownership. Truth stays in PostgreSQL (replication != backup, Day37).
 Broker message = job_id + tenant_id + trace metadata. Never truth, never a 300 MB PDF (that's Object
                  Storage). 202 still returns after the durable Accept commit even if publish is unavailable.

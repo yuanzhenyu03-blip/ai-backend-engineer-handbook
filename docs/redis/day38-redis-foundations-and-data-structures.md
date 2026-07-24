@@ -367,15 +367,17 @@ Tech Lead Review:
 The RDB+AOF combination is a reasonable operational choice, and the student correctly saw the failure mode
 of each alone (a stale RDB snapshot; an unbounded AOF file). But the initial belief that "AOF can recover
 all lost data" is the misconception to correct: RDB snapshots lose everything written after the last
-snapshot, and AOF still has a fsync/rewrite window and can lose the most recent writes (both can diverge on
-an unclean restart). Persistence **shrinks** the loss window — it does not close it, and it does not make
-Redis authoritative. Durable, recoverable ownership stays in PostgreSQL (Day37: replication is not backup;
+snapshot, and AOF's potential loss window depends mainly on its fsync policy (plus OS/disk persistence and
+the failure type) — so it can still lose the most recent writes and does not guarantee zero loss. AOF rewrite
+is log compaction that brings CPU/I/O/disk operational cost; it is not itself an inherent data-loss window.
+Persistence **shrinks** the recovery loss window — it does not close it, and it does not make Redis
+authoritative. Durable, recoverable ownership stays in PostgreSQL (Day37: replication is not backup;
 RPO/RTO are explicit). Redis persistence just makes a warm restart cheaper.
 
 ```text
 RDB  periodic snapshot   -> lose writes since last snapshot
-AOF  append log          -> lose writes inside the fsync/rewrite window
-both -> smaller loss window, still a loss window, still NOT authority
+AOF  append log          -> potential loss depends on fsync policy (rewrite = log compaction / ops cost, NOT a loss window)
+both -> smaller recovery loss window, still a loss window, still NOT authority
 ```
 
 Engineering Thinking:
@@ -566,11 +568,15 @@ A deploy shipped a code path that writes progress Hashes **without** `EXPIRE`. W
 climbs toward `maxmemory`, eviction starts touching keys that should have been safe, and progress reads get
 noisier. The keys never expired because the TTL was never set.
 
-Student's instinct and correction:
+Student's answer:
 
-The student's first reflex was to clear Redis. That is the trap. `FLUSHALL` (or `FLUSHDB`) would delete
-**every** key across the shared keyspace — other tenants, other key classes, healthy cached views — turning
-a leak into a self-inflicted outage. The safe path is prefix-scoped.
+> "回滚这次 TTL 配置，因为清空redis会清除正常的缓存key。"
+
+The student correctly chose to roll back the TTL configuration first, reasoning that clearing Redis would
+also wipe the normal, healthy cache keys. That reasoning names the exact trap to avoid: `FLUSHALL` (or
+`FLUSHDB`) is a **common production trap / unsafe alternative**, not the student's instinct — it would delete
+**every** key across the shared keyspace (other tenants, other key classes, healthy cached views), turning a
+leak into a self-inflicted outage. The safe path is a TTL-config rollback followed by prefix-scoped cleanup.
 
 Response (design, not executed):
 

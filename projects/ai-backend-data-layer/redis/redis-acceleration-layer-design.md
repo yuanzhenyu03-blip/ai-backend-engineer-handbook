@@ -98,8 +98,9 @@ which a JSON String cannot do safely under concurrency.
 
 ```text
 RDB  = compact periodic snapshot; can lose writes since its last successful snapshot.
-AOF  = logs writes; a smaller loss window depending on fsync policy, at I/O/disk/management cost;
-       still NOT a guarantee of zero lost writes. AOF rewrite controls file growth.
+AOF  = logs writes; its potential loss window depends mainly on the fsync policy (plus OS/disk
+       persistence and the failure type) -- still NOT a guarantee of zero lost writes.
+       AOF rewrite = log compaction (CPU/I/O/disk ops cost); it is NOT itself a data-loss window.
 ```
 
 RDB/AOF change Redis **recovery loss windows**; they do **not** grant Redis authoritative Job ownership.
