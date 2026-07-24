@@ -632,10 +632,15 @@ the TTL must be short. Without it, a broken client or attacker can drive unbound
 
 ## Outbox invalidation intent vs inline best-effort delete
 
-An inline `DEL` is one fewer moving part but is lost on a crash or timeout, leaving an unbounded stale window.
-An Outbox intent + retryable idempotent `DEL` is durable and self-healing at the cost of the Outbox/Relay
-machinery you already run for Phase 3. For terminal transitions where a stale `succeeded` matters, the durable
-path is worth it; TTL remains the backstop either way.
+An inline `DEL` is one fewer moving part, but if it is lost on a crash or timeout the cache can stay stale
+until the key's TTL expires, a retry cleans it up, or someone fixes it by hand. Under a correctly configured
+TTL contract that is actually in effect, that stale window is **bounded** — but it can still be longer than
+the endpoint's freshness tolerance. An **unbounded** stale window only appears when a TTL is missing,
+misconfigured, or not actually applied (the Day38 missing-TTL failure mode). An Outbox intent + retryable
+idempotent `DEL` is durable and self-healing at the cost of the Outbox/Relay machinery you already run for
+Phase 3: its value is that it persists the invalidation intent **together with** the PostgreSQL state change
+and retries it reliably, shrinking the risk of a missed invalidation. For terminal transitions where a stale
+`succeeded` matters, the durable path is worth it; TTL remains the final backstop either way.
 
 ---
 
