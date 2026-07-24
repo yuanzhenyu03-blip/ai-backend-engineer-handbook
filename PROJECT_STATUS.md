@@ -11,13 +11,13 @@ Phase 2 — Engineering Foundations (Complete)
 
 ## Current Lesson
 
-Day38 — Redis Foundations and Data Structures
+Day39 — Redis Cache Design and Consistency
 
 Status:
 Planned / Not started
 
-(The Day38 lesson has not started and no Day38 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day37 details are recorded under Last Completed Lesson.)
+(The Day39 lesson has not started and no Day39 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
+Day38 details are recorded under Last Completed Lesson.)
 
 ---
 
@@ -60,6 +60,7 @@ Day37 details are recorded under Last Completed Lesson.)
 - ✅ Day35 — PostgreSQL Indexes and Query Planning
 - ✅ Day36 — Schema Evolution and Safe Migrations
 - ✅ Day37 — PostgreSQL Production Reliability
+- ✅ Day38 — Redis Foundations and Data Structures
 
 ---
 
@@ -71,32 +72,32 @@ None.
 
 ## Last Completed Lesson
 
-Day37 — PostgreSQL Production Reliability
+Day38 — Redis Foundations and Data Structures
 
 Completed Time:
-2026-07-23
+2026-07-24
 
 Main Artifact:
-Day37 production reliability runbook (projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md) — an operational runbook/evidence pack: a connection-capacity worksheet, the three short Job transaction boundaries, timeout/health/monitoring matrices, a long-transaction+Vacuum incident procedure with evidence-based per-table autovacuum review, a least-privilege role matrix + credential-rotation procedure, a backup/PITR/restore drill with RPO/RTO and explicit limitations, a replica-promotion gate, and the integrated 420-vs-300 connection incident — every section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED
+Day38 Redis acceleration-layer design (projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) — a design/evidence pack: the ownership model (PostgreSQL truth / Object Storage bytes / Redis rebuildable acceleration), a tenant-scoped versioned key contract, a data-structure decision table, TTL and multi-command boundaries, memory/eviction as a correctness concern, RDB/AOF loss windows, Redis-outage degradation, and the missing-TTL incident with prefix-scoped recovery — every section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED
 
 Validation Boundary:
-Day37 classroom status is conceptual reasoning and static review only — nothing was executed. No PostgreSQL server or disposable cluster was started; no psql/SQL/configuration statement, connection pool (configured/saturated/measured), real lock wait/timeout/deadlock/idle transaction/cancellation, Vacuum/autovacuum/dead-tuple/bloat/table-setting/VACUUM FULL behaviour, role/grant/credential/Secret/TLS/rotation, Kubernetes liveness/readiness probe or rolling drain, base backup/WAL archive/PITR/isolated restore/integrity check/business restore test, replica lag/promotion/split-brain/reconciliation, managed PostgreSQL inspection, or application/Worker/Provider/Object Storage integration was run, measured, or inspected. No production environment was accessed and no runtime RPO or RTO was measured. Every number (160, 420, 300, the autovacuum settings, any RPO/RTO) is classroom arithmetic/design, not a measured result. Static arithmetic ((4+12)*10 = 160; 12*25 + 12*10 = 420 vs 300) and static review of all boundaries were completed. RUNTIME NOT RUN; APPLICATION INTEGRATION NOT RUN; BACKUP/RESTORE DRILL NOT RUN; PRODUCTION NOT VALIDATED. Redis remains a future Day38 boundary; SQLAlchemy/Alembic are Phase 4.
+Day38 classroom status is conceptual reasoning and static review only — nothing was executed. No Redis server, redis-cli, configuration, key/command (String/Hash/List/Set/Sorted Set, INCR/HINCRBY/HSET/EXPIRE/SCAN), RDB/AOF file, cluster, memory/eviction event, workload, benchmark, or application/Worker/Provider/Object Storage integration was run, measured, or inspected. No production environment was accessed. Any figure reused from Day37 is a placeholder, not a measurement. Static review of the ownership model, key/versioning contract, structure selection, TTL/atomicity boundaries, RDB/AOF loss windows, outage degradation, and the missing-TTL incident was completed. RUNTIME NOT RUN; APPLICATION INTEGRATION NOT RUN; PRODUCTION NOT VALIDATED. Redis transactions/Lua, cache invalidation/stampede, Streams/Pub-Sub, and full rate-limiting are Day39-41; SQLAlchemy/Alembic are Phase 4.
 
 Completed Work:
 
-- Day37 classroom learning
-- Day37 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day36->Day37 mental-model evolution)
-- Day37 production reliability runbook and project README increment
-- Day37 connection-capacity, short-transaction, timeout, liveness/readiness, MVCC/Vacuum, least-privilege/rotation, replication-vs-backup, PITR/RPO/RTO, monitoring, promotion, and 420-vs-300 exercises
-- Day37 PostgreSQL cheat sheet append
-- Day37 PostgreSQL interview notes append
-- Day37 repository status update
+- Day38 classroom learning
+- Day38 lesson document (LESSON_TEMPLATE_v2, v3.2 continuity + Day37->Day38 mental-model evolution)
+- Day38 Redis acceleration-layer design artifact and project README increment
+- Day38 ownership, structure-by-access-pattern, key-contract/versioning, TTL/atomicity, eviction, RDB/AOF, broker-payload, outage-degradation, and missing-TTL-incident exercises
+- Day38 Redis cheat sheet (new file)
+- Day38 Redis interview notes append (existing stub extended)
+- Day38 repository status update
 
 ---
 
 ## Next
 
-- Day38 — Redis Foundations and Data Structures (Phase 3 — Backend Foundations, Redis and Capstone)
+- Day39 — Redis Cache Design and Consistency (Phase 3 — Backend Foundations, Redis and Capstone)
 
 Status:
 Planned / Not started
@@ -144,6 +145,7 @@ Completed Python Foundations:
 - Day35 — PostgreSQL indexes and query planning, an index as an ADDITIONAL access structure over the Heap (not a replacement source of truth; FOR UPDATE SKIP LOCKED still visits and locks the real tuple, so an index speeds candidate lookup but not ownership), deriving the index from the real WHERE + ORDER BY + LIMIT rather than a chosen column (the Day34 claim -> Partial Composite (tenant_id, created_at, job_id) WHERE job_status='queued' AND cancel_requested=false; a job_status-only index is weak), B-tree column order as leading equality predicates then range/ORDER BY columns, an index key serving an access path not every selected column (unindexed columns come from the Heap; a Partial Index that omits the target rows cannot answer the query), history being several distinct paths (all-status, dynamic-status shared composite, or fixed-status partials) chosen by measured workload, a UNIQUE constraint already creating a unique B-tree so the idempotency index must not be duplicated, the Outbox Partial (created_at, outbox_event_id) WHERE published_at IS NULL with job_id selected but not a key, why now() cannot define partial membership (membership changes only on a write) so expiry is a query-time range on a stable running predicate (lease columns are Day36), EXPLAIN estimating a plan vs EXPLAIN ANALYZE really executing it (row locks on SELECT FOR UPDATE, real DML changes), a Sequential Scan being a cost-based and possibly optimal plan judged by selectivity/Rows Removed by Filter/latency/buffers not by its name, an estimate-vs-actual divergence being a statistics/data-skew/predicate/parameter-plan investigation before another index, index maintenance where queued->running touches only the claim partial index (history/idempotency keys unchanged), and the keep/rollback decision made on NET SYSTEM benefit (a broad history index that moved history p95 100->80 ms but Job acceptance p99 50->220 ms and cost +14 GB with no Worker/Outbox gain is rolled back), with all Day35 work being DESIGN + EVIDENCE only (NOT RUN) and safe deployment via CREATE INDEX CONCURRENTLY deferred to Day36
 - Day36 — Schema evolution and safe migrations, a migration being a VERSIONED STATE TRANSITION across schema + existing data + every deployed application version (a successful ALTER is not a completed migration), why a direct ADD COLUMN ... NOT NULL on a populated table is rejected ATOMICALLY (existing rows have no value) and breaks old code, the Expand phase adding NULLABLE claim_owner/lease_token/lease_expires_at with NO fabricated default (old code ignores, new code tolerates NULL; even a nullable ADD COLUMN is lock-aware), a default being a BUSINESS FACT for every row (is_archived DEFAULT false only if verified; lease_token DEFAULT gen_random_uuid() fabricates an ownership epoch and risks a table rewrite so NULL honestly means no proved Lease ownership), Backfill scope being running-only while status scope does not certify ownership (an unknown running Job is isolated/reconciled, never assigned a fake token, and the backfill never calls the Provider), draining/isolating old Workers before recovery/switch because they bypass the token guard and cause double execution, backfill mechanics being small-batch/short-transaction/idempotent/restartable/observable with the target predicate (job_status='running' AND lease_token IS NULL) repeated in selection and the guarded write so the DURABLE DB state is the checkpoint (not a process counter) and FOR UPDATE SKIP LOCKED for distinct parallel batches, completion evidence being remaining-targets-0 FOR THE RIGHT REASON (every violating running row truly resolved by a trusted backfill or a real recovery, since the exception/isolation queue is triage not resolution and a parked running-without-lease row still counts and still violates the invariant at VALIDATE) plus new-write protection, CHECK ... NOT VALID enforcing new writes IMMEDIATELY while deferring the historical scan to VALIDATE CONSTRAINT (NOT NULL itself cannot be NOT VALID), CREATE INDEX CONCURRENTLY being non-transactional (cannot run inside BEGIN/COMMIT) and possibly leaving an unusable INVALID index (validity separate from net benefit), Switch requiring every writer to guard the token AND the old path to no longer write (a new binary alone is not Switch), Contract removing temporary compatibility only on evidence and an observation period (destructive), and rollback vs forward fix being decided by DURABLE STATE (after real Lease data/Job transitions/Provider/Object Storage effects a DROP COLUMN cannot undo them so forward-fix and reconcile), with all Day36 work being DESIGN + EVIDENCE only (NOT RUN) and live operation deferred to Day37
 - Day37 — PostgreSQL production reliability, operating the durable truth after Day36 made the schema deployable: reachable/low-CPU being NOT reliable (a slowing AI Job system at modest CPU can be exhausted pools + an idle-in-transaction session + growing pool waits; API 202, Worker claim/complete, Attempt writes and Outbox checkpoints all depend on bounded capacity), connection pools being finite so total demand is the SUM across every process ((4 API + 12 Worker) * pool 10 = 160) which must stay below a safe connection budget with reserve for migration/monitoring/admin/recovery (a pool max is potential demand, and raising pools moves queuing into PostgreSQL), the eight-minute Provider call staying OUTSIDE the DB transaction across Accept/Claim-Start/External/Complete with the full completion guard (job_status='running' AND current lease_token AND lease_expires_at > now(), not the token alone, since expiry does not change the token) and queued->running in Claim while running->succeeded in Complete, Provider success vs Object Storage Artifact bytes vs committed PostgreSQL success being different facts (reconcile the deterministic Artifact before any second Provider call), Lease expiry being takeover ELIGIBILITY not proof the old Worker did no external work, the layered timeout model (pool acquisition, lock_timeout, statement_timeout, idle_in_transaction_session_timeout, application deadline ordered lock_timeout < statement_timeout < deadline) as failure containment not repair with SKIP LOCKED being claim selection not a timeout, liveness (restart-fixes-local?) vs readiness (safe for new traffic?) vs business success where a shared DB outage drops readiness and backs off rather than failing every liveness (restart storm), MVCC dead tuples where long/idle transactions retain old snapshots and block Vacuum so you stop the source first and tune autovacuum per-table on I/O evidence (never a casual VACUUM FULL), least-privilege runtime identities that cannot DDL plus a credential rotation lifecycle (load new -> verify all switched -> recycle -> revoke old), replication NOT being backup (it copies bad writes) with recovery evidence requiring an isolated restore + PITR + integrity/business checks + measured RPO/RTO (RPO/RTO are recovery objectives not health probes; base backup is the consistent start and WAL is physical redo), monitoring that treats low CPU as proving nothing, a replica-promotion gate (replay position + data-loss estimate + explicit RPO decision + split-brain prevention + reconciliation), managed vs self-operated responsibility, and the integrated 420-vs-300 incident (12*25 + 12*10 = 420 vs max_connections 300) resolved by containing demand and rolling back the pool configuration while reconciling irreversible Provider effects and resizing the DB only on evidence, with all Day37 work being conceptual reasoning + static review only (RUNTIME NOT RUN, PRODUCTION NOT VALIDATED) and PostgreSQL staying the durable source of truth ahead of Day38 Redis
+- Day38 — Redis foundations and data structures, Redis as a transient acceleration layer around the durable truth: PostgreSQL app.jobs owns the authoritative Job lifecycle/audit truth, Object Storage owns large bytes, and Redis owns only small, temporary, REBUILDABLE acceleration views + lightweight broker transport, so a missing Redis key (TTL expiry, eviction, restart, RDB/AOF loss) is a cache-miss that falls back to PostgreSQL rather than a failed Job or a duplicate Provider call, a whole Job lifecycle under a 24h TTL is rejected because the record vanishes at hour 25, structures are chosen by access pattern (String scalar/counter via INCR, Hash for named mutable fields where a JSON String would lose concurrent read-modify-write updates, List ordered-with-duplicates, Set unique membership as a VIEW not ownership, Sorted Set unique-plus-score for recent-100 completions), keys are tenant-namespaced and versioned (ai:tenant:{tenant_id}:job-progress:v1:{job_id}) with a new version only for an INCOMPATIBLE change not an additive optional field and logical databases being a namespace not isolation, single-command atomicity (INCR/HINCRBY) not spanning a two-command read-modify-write or an HSET-then-EXPIRE crash window that leaks a permanent key (composition MULTI/EXEC/Lua deferred to Day41), maxmemory/eviction being a CORRECTNESS boundary where only rebuildable keys may be evicted, RDB/AOF shrinking but never closing the loss window and never conferring ownership, broker messages carrying job_id + tenant_id + trace metadata (never truth, never a 300 MB PDF) with 202 still returned after the durable Accept, a Redis outage degrading via a BOUNDED PostgreSQL fallback that protects the database with Day37 budgets, and a missing-TTL incident fixed by a TTL-config rollback + prefix-scoped SCAN/cleanup rather than FLUSHALL, with all Day38 work being DESIGN + EVIDENCE only (RUNTIME NOT RUN, PRODUCTION NOT VALIDATED) and cache consistency/messaging/composition deferred to Day39-41
 
 ---
 

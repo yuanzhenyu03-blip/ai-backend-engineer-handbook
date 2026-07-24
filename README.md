@@ -27,10 +27,11 @@ Last completed lesson:
 * Day35 — PostgreSQL Indexes and Query Planning
 * Day36 — Schema Evolution and Safe Migrations
 * Day37 — PostgreSQL Production Reliability
+* Day38 — Redis Foundations and Data Structures
 
 Next:
 
-* Day38 — Redis Foundations and Data Structures (Planned / Not started; see `ROADMAP.md`)
+* Day39 — Redis Cache Design and Consistency (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

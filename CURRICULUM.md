@@ -1017,7 +1017,34 @@ Day28 uses (ephemeral progress, cache, broker transport, rate-limit counters) vs
 (authoritative Job lifecycle, large documents).
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/redis/day38-redis-foundations-and-data-structures.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day37 — PostgreSQL Production Reliability
+
+Next Lesson:
+Day39 — Redis Cache Design and Consistency
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md` — a design/evidence pack: the
+ownership model (PostgreSQL truth / Object Storage bytes / Redis rebuildable acceleration), the
+tenant-scoped versioned key contract, a data-structure decision table, TTL and multi-command boundaries,
+memory/eviction as a correctness concern, RDB/AOF loss windows, Redis-outage degradation, and the
+missing-TTL incident with prefix-scoped recovery — every section labelled CONCEPTUAL / STATICALLY REVIEWED
+/ RUNTIME NOT RUN / PRODUCTION NOT VALIDATED. No cache-consistency, messaging, or composition (Day39-41)
+
+Validation Limits:
+Day38 classroom status is conceptual reasoning and static review only — nothing was executed. No Redis
+server, `redis-cli`, configuration, key/command, RDB/AOF file, cluster, workload, benchmark, eviction, or
+integration was run, measured, or inspected. Any figure reused from Day37 is a placeholder, not a
+measurement. Redis transactions/Lua, cache invalidation/stampede, Streams/Pub-Sub, and full rate-limiting
+algorithms are Day39-41. RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.
 
 ---
 

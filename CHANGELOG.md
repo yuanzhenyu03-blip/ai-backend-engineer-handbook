@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.80 — Day38 Redis Foundations and Data Structures
+
+Date: 2026-07-24
+
+### Added
+
+- Added `docs/redis/day38-redis-foundations-and-data-structures.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day37->Day38 mental-model evolution). New `docs/redis/` directory.
+- Added `projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md` — the Day38 Redis **acceleration-layer design / evidence pack** (a new `redis/` subdirectory in the data-layer artifact): the ownership model (PostgreSQL truth / Object Storage bytes / Redis rebuildable acceleration), a tenant-scoped versioned key contract, a data-structure decision table, TTL and multi-command boundaries, memory/eviction as a correctness concern, RDB/AOF loss windows, Redis-outage degradation, and the missing-TTL incident with prefix-scoped recovery. Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**, with no real secrets, connection strings, or tenant data.
+- Added `cheat_sheets/redis.md` (new file) with the Day38 rapid-reference section and weak-vs-strong answers.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day38 increment: a design-contents table, the encoded rules, an explicit statement of what the design does not do, Day38 known gaps, a new `redis/` entry in the structure tree, and a separate Day38 validation matrix.
+- Appended Day38 Beginner-through-Senior questions to `interview/redis.md`, preserving the student's real answers verbatim — including the missing-key `回PostgreSQL 查询...` answer, the hour-25 TTL answer, the Sorted Set / Set / List reasoning, the tenant-namespace and versioning answers, the `HSET`+`EXPIRE` and two-Worker atomicity answers, the three English answers, and the bounded-fallback answer (the existing Redis interview stub was extended; no duplicate file created).
+- Updated `docs/README.md` (added the `redis/` tree and the Day38 lesson as the latest lesson), and pointed the Day37 lesson's Next Lesson at the released Day38 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day38 completed with its released lesson/artifact (Day39 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day38 last completed with artifact + validation boundary; Current/Next is Day39 Planned / Not started), `TASKS.md` (completed Day38 blocks, Day38 preparation converted to history, Day39 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day38 adds Redis as **transient acceleration** around the durable PostgreSQL truth, and its spine is that **a missing Redis key is not missing Job truth**: PostgreSQL `app.jobs` owns the authoritative Job lifecycle/audit truth, Object Storage owns large bytes, and Redis owns only small, temporary, **rebuildable** acceleration views plus lightweight broker transport. So an evicted progress key (TTL expiry, `maxmemory` eviction, restart, or RDB/AOF loss) triggers a **controlled PostgreSQL fallback** — never a Job-failed verdict and never a blind Provider re-call — and a whole Job lifecycle under a 24h TTL is rejected because the record simply vanishes at hour 25. Structures are chosen by **access pattern** (String scalar/counter via `INCR`; Hash for named mutable fields, where a JSON String would lose concurrent read-modify-write updates; List ordered-with-duplicates; Set unique membership as a **view**, not ownership; Sorted Set unique-plus-score for recent-100 completions), keys are **tenant-namespaced and versioned** (`ai:tenant:{tenant_id}:job-progress:v1:{job_id}`) with a new version only for an **incompatible** change (not an additive optional field) and logical databases being a namespace, **not** isolation. A **single command is atomic** but a two-command read-modify-write is not, and `HSET` then `EXPIRE` can crash into a permanent key (composition — `MULTI`/`EXEC`, Lua — is Day41); `maxmemory`/eviction is a **correctness** boundary where only rebuildable keys may be evicted; RDB/AOF shrink but never close the loss window and never confer ownership; broker messages carry `job_id` + `tenant_id` + trace metadata (never truth, never a 300 MB PDF) with `202` still returned after the durable Accept; a Redis outage degrades via a **bounded** PostgreSQL fallback that protects the database; and the missing-TTL incident is fixed by a **TTL-config rollback + prefix-scoped `SCAN`/cleanup**, never `FLUSHALL`.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day39 lesson exists and Day39 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day38 student quote appears in `Day38_Repository_Update_Input.md`; Markdown fence balance (lesson and artifact); relative-link resolution (including the new `redis/` cross-links and the Day37->Day38 Next Lesson link); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets, connection strings, or tenant data in the lesson, artifact, cheat sheet, or interview).
+- **Day38 has NO runtime evidence — RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.** No Redis server, `redis-cli`, configuration, key/command, RDB/AOF file, cluster, memory/eviction event, workload, benchmark, or application/Worker/Provider/Object Storage integration was run, measured, or inspected in class or during the repository update. Any figure reused from Day37 is a placeholder, not a measurement. Static reasoning review of every boundary was completed.
+- Scope: no Day39 lesson was created; cache consistency, messaging/Streams/Pub-Sub, atomic composition, and full rate limiting are mentioned only as future Day39-41 boundaries; no SQLAlchemy/Alembic or Playwright content was added; the artifact invents no command output, Redis version, benchmark, latency, or memory figure; the protected prompt/template files are unchanged; and no real secrets, connection strings, tenant identifiers, or production data were added.
+
+---
+
 ## v0.1.79 — Day37 Review Fixes: completion guard, backup identities, date, timeout wording
 
 Date: 2026-07-23

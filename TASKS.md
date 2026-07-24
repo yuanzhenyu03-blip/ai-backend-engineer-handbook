@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day38 — Redis Foundations and Data Structures
+Day39 — Redis Cache Design and Consistency
 
 Status:
 Planned / Not started
@@ -28,10 +28,63 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day38 — Redis Foundations and Data Structures (see the Day38 Preparation block below).
+- [ ] Prepare for Day39 — Redis Cache Design and Consistency (see the Day39 Preparation block below).
 
-(Day29-Day34 are complete; their work is recorded under the Completed Day29/Day30/Day31/Day32/Day33/Day34
-sections and the corresponding Preparation history blocks.)
+(Day29-Day38 are complete; their work is recorded under the Completed Day** sections and the corresponding
+Preparation history blocks.)
+
+---
+
+## Completed Day38 Tasks
+
+- [x] Complete Day38 Redis Foundations and Data Structures classroom learning.
+- [x] Generate the Day38 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day37->Day38 mental-model evolution).
+- [x] State the ownership model (PostgreSQL truth / Object Storage bytes / Redis rebuildable acceleration).
+- [x] Fall back to PostgreSQL on a missing progress key; never fail the Job or re-call the Provider.
+- [x] Reject a whole Job lifecycle stored in Redis under a TTL.
+- [x] Choose String/Hash/List/Set/Sorted Set by access pattern and defend each.
+- [x] Explain why a Hash beats a JSON String for concurrent field updates and why HINCRBY is atomic.
+- [x] Design the tenant-namespaced, versioned key contract and the incompatible-change versioning rule.
+- [x] Distinguish single-command atomicity from a multi-command race and the HSET+EXPIRE crash window.
+- [x] Treat maxmemory/eviction as a correctness boundary (only rebuildable keys may be evicted).
+- [x] Compare RDB/AOF loss windows and explain neither confers ownership.
+- [x] Apply the broker-payload rule (job_id + tenant_id + trace metadata; 202 after the durable Accept).
+- [x] Design a bounded Redis-outage fallback that protects PostgreSQL.
+- [x] Solve the missing-TTL incident with a config rollback + prefix-scoped cleanup (no FLUSHALL).
+- [x] Preserve the real student answers, the English interview answers, and the final Chinese synthesis.
+
+---
+
+## Completed Day38 Repository Tasks
+
+- [x] Add `docs/redis/day38-redis-foundations-and-data-structures.md` (new `docs/redis/` directory).
+- [x] Add `projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md` (new `redis/` subdir).
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day38 increment (artifact link, components, honest NOT-RUN limits).
+- [x] Add `cheat_sheets/redis.md` (new file) with the Day38 section.
+- [x] Append Day38 questions to `interview/redis.md` (existing stub extended; no duplicate file created).
+- [x] Update `docs/README.md` (add the `redis/` tree and the Day38 lesson link).
+- [x] Update the Day37 lesson Next Lesson link to the released Day38 lesson.
+- [x] Update `CURRICULUM.md` (Day38 Completed; Day39 remains Planned).
+- [x] Update `ROADMAP.md` (Day38 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day38 Interview Tasks
+
+- [x] Add the ownership/missing-key and Redis-only-lifecycle questions with the student's actual answers.
+- [x] Add the Hash-vs-JSON-String, structure-by-access-pattern, and key/versioning questions.
+- [x] Add the atomicity, AOF-ownership, outage-fallback, and missing-TTL/FLUSHALL questions.
+- [x] Preserve the three verbatim English answers and add model answers/assessments.
+
+---
+
+## Completed Day38 Homework
+
+- [x] Complete the ownership-classification and key-contract/versioning exercises.
+- [x] Complete the multi-command race (HINCRBY / HSET+EXPIRE) exercise.
+- [x] Complete the bounded-outage-fallback exercise.
+- [x] Complete the missing-TTL incident end-to-end exercise.
 
 ---
 
@@ -410,15 +463,27 @@ sections and the corresponding Preparation history blocks.)
 
 ---
 
-### Day38 Preparation — Redis Foundations and Data Structures
+### Day39 Preparation — Redis Cache Design and Consistency
 
-- [ ] Read the Day38 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md` and hold the boundary that PostgreSQL stays the durable, recoverable Job source of truth.
-- [ ] Preview the Redis server/database/key/value model and single-command atomicity.
-- [ ] Preview strings/hashes/lists/sets/sorted sets by access pattern, key naming/versioning/tenant namespace, and TTL/expiration.
-- [ ] Preview memory limits and eviction as correctness concerns, and the RDB/AOF overview (Redis is not the Job source of truth).
-- [ ] Remember appropriate Redis uses (ephemeral progress, cache, broker transport, rate-limit counters) vs inappropriate ones (authoritative Job lifecycle, large documents).
-- [ ] Keep SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day39 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md` and hold the boundary that PostgreSQL stays the durable Job source of truth while Redis is rebuildable acceleration.
+- [ ] Preview cache-aside read/write, cache key/version and serialization, and TTL selection with jitter.
+- [ ] Preview invalidation on durable-state change, stampede/single-flight/stale-while-revalidate, and negative-caching/penetration/hot-key risk.
+- [ ] Preview stale cache vs PostgreSQL source of truth and hit-ratio/latency/eviction/memory/correctness metrics.
+- [ ] Preview fail-open vs fail-closed by sensitivity.
+- [ ] Keep Redis transactions/Lua, messaging/Streams, and full rate limiting (Day40-41) and SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day38 Preparation — Redis Foundations and Data Structures (completed)
+
+- [x] Read the Day38 input.
+- [x] Reviewed `projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md` and held the boundary that PostgreSQL stays the durable, recoverable Job source of truth.
+- [x] Previewed the Redis server/database/key/value model and single-command atomicity.
+- [x] Previewed strings/hashes/lists/sets/sorted sets by access pattern, key naming/versioning/tenant namespace, and TTL/expiration.
+- [x] Previewed memory limits and eviction as correctness concerns, and the RDB/AOF overview (Redis is not the Job source of truth).
+- [x] Held appropriate Redis uses (ephemeral progress, cache, broker transport, rate-limit counters) vs inappropriate ones (authoritative Job lifecycle, large documents).
+- [x] Kept SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 

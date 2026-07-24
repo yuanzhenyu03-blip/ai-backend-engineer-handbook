@@ -16,7 +16,7 @@ Prerequisite: Day36 — Schema Evolution and Safe Migrations
 
 Previous Lesson: [Day36 — Schema Evolution and Safe Migrations](day36-schema-evolution-and-safe-migrations.md)
 
-Next Lesson: Day38 — Redis Foundations and Data Structures (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day38 lesson file does not exist yet)
+Next Lesson: [Day38 — Redis Foundations and Data Structures](../redis/day38-redis-foundations-and-data-structures.md)
 
 Engineering Artifact: The Day37 production reliability runbook (`projects/ai-backend-data-layer/runbooks/postgresql-production-reliability.md`) — connection-capacity worksheet, transaction boundaries, timeout/health/monitoring matrices, long-transaction/Vacuum + credential-rotation + backup/PITR procedures, replica-promotion gate, and the 420-vs-300 incident, all labelled conceptual/static — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

@@ -4,15 +4,17 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day37 — a production reliability runbook** that operates the durable PostgreSQL truth
+Current increment: **Day38 — a Redis acceleration-layer design** that adds Redis as *transient* state
+around the durable PostgreSQL truth: the ownership model (PostgreSQL truth / Object Storage bytes / Redis
+rebuildable acceleration), a tenant-scoped versioned key contract, a data-structure decision table, TTL and
+multi-command boundaries, memory/eviction as correctness, RDB/AOF loss windows, Redis-outage degradation,
+and the missing-TTL incident — design and evidence only, nothing executed. (See the Day37 note below for the
+prior increment.)
+
+Prior increment (Day37): **a production reliability runbook** that operates the durable PostgreSQL truth
 after Day36 made the schema deployable: bounded connections, short transactions, timeout/health/monitoring
 matrices, Vacuum + credential-rotation + backup/PITR procedures, a replica-promotion gate, and the 420-vs-300
-incident — design and evidence only, nothing executed. (See the Day36 note below for the prior increment.)
-
-Prior increment (Day36): **a safe-migration design pack** that evolves the populated Day31/Day34
-`app.jobs` into a Lease-aware model without breaking old code: the phased Expand -> Backfill -> Validate ->
-Switch -> Contract, with safe/unsafe DDL, a bounded recovery template, and rollback-vs-forward-fix
-boundaries — design and evidence only, nothing executed.
+incident — design and evidence only, nothing executed.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -24,6 +26,7 @@ Lessons:
 - Day35 (indexes): [`docs/postgresql/day35-postgresql-indexes-and-query-planning.md`](../../docs/postgresql/day35-postgresql-indexes-and-query-planning.md)
 - Day36 (migrations): [`docs/postgresql/day36-schema-evolution-and-safe-migrations.md`](../../docs/postgresql/day36-schema-evolution-and-safe-migrations.md)
 - Day37 (production reliability): [`docs/postgresql/day37-postgresql-production-reliability.md`](../../docs/postgresql/day37-postgresql-production-reliability.md)
+- Day38 (Redis foundations): [`docs/redis/day38-redis-foundations-and-data-structures.md`](../../docs/redis/day38-redis-foundations-and-data-structures.md)
 
 ---
 
@@ -32,6 +35,8 @@ Lessons:
 ```text
 projects/ai-backend-data-layer/
 ├── README.md
+├── redis/
+│   └── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 ├── runbooks/
 │   └── postgresql-production-reliability.md            # Day37: production reliability runbook (design + evidence, not executed)
 └── sql/
@@ -88,6 +93,59 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day38 increment — Redis acceleration-layer design
+
+`redis/redis-acceleration-layer-design.md` adds Redis as *transient* acceleration around the durable
+PostgreSQL truth. It is a design / evidence pack, not a runnable service and not an executed procedure:
+**every key, command, structure, and threshold is CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT RUN,
+PRODUCTION NOT VALIDATED.**
+
+### What the design contains
+
+| Section | Contents |
+| --- | --- |
+| Ownership model | PostgreSQL owns durable Job truth; Object Storage owns large bytes; Redis owns small, temporary, rebuildable acceleration + lightweight transport; a missing key is a cache-miss, not missing truth |
+| Key contract | `ai:tenant:{tenant_id}:job-progress:v1:{job_id}` — tenant namespace + version; a version marks an incompatible change, not an additive field; logical DBs are a namespace, not isolation |
+| Data-structure decision table | String / Hash / List / Set / Sorted Set chosen by access pattern; Hash vs JSON String for concurrent field updates; `INCR`/`HINCRBY` |
+| TTL + multi-command boundary | TTL is a contract that a key may disappear; `HSET`+`EXPIRE` crash window; two-Worker `percent` race; single-command atomicity vs composition (Day41) |
+| Memory / eviction | `maxmemory`/eviction as a correctness boundary — only rebuildable keys may be evicted |
+| RDB / AOF | snapshot vs append loss windows; neither confers ownership |
+| Redis-outage degradation | bounded PostgreSQL fallback within Day37 budgets; 202 still returned after the durable Accept |
+| Missing-TTL incident | detect -> contain -> prefix-scoped SCAN -> TTL/cleanup -> verify; never `FLUSHALL`/`FLUSHDB` |
+
+### Rules encoded
+
+```text
+PostgreSQL owns durable Job truth; Object Storage owns bytes; Redis owns rebuildable acceleration + transport
+a missing Redis key is a cache-miss -> fall back to PostgreSQL, never fail the Job or re-call the Provider
+no authoritative Job lifecycle under a TTL (a 24h TTL loses the Job at hour 25)
+choose String/Hash/List/Set/Sorted Set by access pattern; a Hash beats a JSON String for concurrent fields
+keys are tenant-namespaced + versioned; a version = an incompatible change, not an additive field
+a single command is atomic; HSET+EXPIRE and a two-command read-modify-write are NOT (use HINCRBY / Day41 composition)
+maxmemory/eviction is a correctness boundary: only rebuildable keys may be evicted
+RDB/AOF shrink the loss window but never confer ownership
+broker messages carry job_id + tenant_id + trace metadata, never truth and never large bytes; 202 after the durable Accept
+a Redis outage degrades via a BOUNDED PostgreSQL fallback that protects the database
+fix a missing-TTL leak with a config rollback + prefix-scoped cleanup, NEVER FLUSHALL
+```
+
+> **What this design deliberately does not do:** it starts no Redis server, runs no `redis-cli`, command,
+> config, RDB/AOF file, cluster, or workload, and measures no latency, memory, throughput, or eviction. It
+> contains no real secrets, connection strings, tenant identifiers, or production data, and invents no Redis
+> version or benchmark. PostgreSQL stays the durable source of truth.
+
+### Day38 known gaps (deliberate)
+
+```text
+Day39        Redis cache design and consistency (cache-aside, invalidation, stampede, fail-open/closed)
+Day40        Redis messaging / queue semantics (Lists / Pub-Sub / Streams)
+Day41        atomic multi-command composition (MULTI/EXEC, Lua), coordination, full rate limiting
+Day42        capstone integrating PostgreSQL operation/recovery with Redis failure boundaries
+Phase 4      SQLAlchemy/Alembic
+```
 
 ---
 
@@ -1223,6 +1281,17 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day38 (`redis/redis-acceleration-layer-design.md`)
+
+| Level | Day38 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one AI Job scenario reasoned end to end: ownership, missing-key fallback, Redis-only-lifecycle rejection, structure-by-access-pattern, key/versioning, atomicity, eviction, RDB/AOF, broker payload, outage degradation, missing-TTL incident |
+| Static reasoning review | **Completed** | static review of the ownership boundary, the key contract and versioning rule, the data-structure decision table, the TTL/multi-command boundaries (`HSET`+`EXPIRE`, two-Worker race, `HINCRBY`), eviction-as-correctness, RDB/AOF loss windows, the broker-payload rule, bounded outage degradation, and the prefix-scoped (not `FLUSHALL`) incident recovery |
+| Artifact syntax / runtime validation | **NOT RUN** | no Redis server, `redis-cli`, config, or command (`String`/`Hash`/`List`/`Set`/`Sorted Set`, `INCR`/`HINCRBY`/`HSET`/`EXPIRE`/`SCAN`) was executed; the command snippets are read for shape and naming only |
+| Disposable-Redis validation | **NOT RUN** | no key/TTL/expiry, eviction under `maxmemory`, RDB/AOF file, or cluster behaviour was run or measured |
+| Application integration validation | **NOT RUN** | no application/Worker/Provider/Object Storage/broker integration; no progress projection, cache, or rate-limit path exercised |
+| Production validation | **NOT RUN** | no production Redis inspected/changed; no production accessed; any figure reused from Day37 is a placeholder, not a measurement; cache consistency/messaging/composition are Day39-41 |
 
 ### Day37 (`runbooks/postgresql-production-reliability.md`)
 

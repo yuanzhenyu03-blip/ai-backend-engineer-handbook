@@ -20,7 +20,9 @@ docs/
 │   ├── day34-concurrency-control-mvcc-and-worker-claims.md
 │   ├── day35-postgresql-indexes-and-query-planning.md
 │   ├── day36-schema-evolution-and-safe-migrations.md
-│   └── day37-postgresql-production-reliability.md                     # latest
+│   └── day37-postgresql-production-reliability.md
+├── redis/         # Day38+ Redis (transient acceleration around the durable truth)
+│   └── day38-redis-foundations-and-data-structures.md                 # latest
 ├── fastapi/
 ├── playwright/
 └── n8n/

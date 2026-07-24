@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day37 — PostgreSQL Production Reliability
+Day38 — Redis Foundations and Data Structures
 
 Next Lesson:
 
-Day38 — Redis Foundations and Data Structures (Planned / Not started; see ROADMAP.md)
+Day39 — Redis Cache Design and Consistency (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 
