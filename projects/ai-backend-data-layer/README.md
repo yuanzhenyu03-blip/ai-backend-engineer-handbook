@@ -4,17 +4,18 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day38 — a Redis acceleration-layer design** that adds Redis as *transient* state
-around the durable PostgreSQL truth: the ownership model (PostgreSQL truth / Object Storage bytes / Redis
-rebuildable acceleration), a tenant-scoped versioned key contract, a data-structure decision table, TTL and
-multi-command boundaries, memory/eviction as correctness, RDB/AOF loss windows, Redis-outage degradation,
-and the missing-TTL incident — design and evidence only, nothing executed. (See the Day37 note below for the
+Current increment: **Day39 — a Redis cache consistency design** that turns the Day38 ownership boundary
+into an explicit per-endpoint cache contract: cache-aside reads, commit-before-invalidate ordering (with the
+pre-commit re-cache race), cache key versioning, TTL + jitter, stampede/single-flight/stale-while-revalidate,
+a fail-open vs fail-closed table, negative caching, correctness metrics, Outbox invalidation recovery, and the
+v2 cache-contract incident — design and evidence only, nothing executed. (See the Day38 note below for the
 prior increment.)
 
-Prior increment (Day37): **a production reliability runbook** that operates the durable PostgreSQL truth
-after Day36 made the schema deployable: bounded connections, short transactions, timeout/health/monitoring
-matrices, Vacuum + credential-rotation + backup/PITR procedures, a replica-promotion gate, and the 420-vs-300
-incident — design and evidence only, nothing executed.
+Prior increment (Day38): **a Redis acceleration-layer design** that adds Redis as *transient* state around
+the durable PostgreSQL truth: the ownership model (PostgreSQL truth / Object Storage bytes / Redis rebuildable
+acceleration), a tenant-scoped versioned key contract, a data-structure decision table, TTL and multi-command
+boundaries, memory/eviction as correctness, RDB/AOF loss windows, Redis-outage degradation, and the
+missing-TTL incident — design and evidence only, nothing executed.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -27,6 +28,7 @@ Lessons:
 - Day36 (migrations): [`docs/postgresql/day36-schema-evolution-and-safe-migrations.md`](../../docs/postgresql/day36-schema-evolution-and-safe-migrations.md)
 - Day37 (production reliability): [`docs/postgresql/day37-postgresql-production-reliability.md`](../../docs/postgresql/day37-postgresql-production-reliability.md)
 - Day38 (Redis foundations): [`docs/redis/day38-redis-foundations-and-data-structures.md`](../../docs/redis/day38-redis-foundations-and-data-structures.md)
+- Day39 (Redis cache consistency): [`docs/redis/day39-redis-cache-design-and-consistency.md`](../../docs/redis/day39-redis-cache-design-and-consistency.md)
 
 ---
 
@@ -36,7 +38,8 @@ Lessons:
 projects/ai-backend-data-layer/
 ├── README.md
 ├── redis/
-│   └── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
+│   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
+│   └── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
 ├── runbooks/
 │   └── postgresql-production-reliability.md            # Day37: production reliability runbook (design + evidence, not executed)
 └── sql/
@@ -93,6 +96,62 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day39 increment — Redis cache consistency design
+
+`redis/redis-cache-consistency-design.md` turns the Day38 ownership boundary into an explicit **per-endpoint
+cache consistency contract**. It is a design / evidence pack, not a running cache and not an executed
+procedure: **every contract, key, TTL, and threshold is CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT
+RUN, PRODUCTION NOT VALIDATED.**
+
+### What the design contains
+
+| Section | Contents |
+| --- | --- |
+| Ownership recap | PostgreSQL COMMIT = authority; the cache is a rebuildable projection that may be stale/absent; a hit is not truth, a miss is not a Job failure |
+| Cache-aside read | hit-if-tolerable / miss -> PostgreSQL + best-effort repopulate; a cache write failure never invalidates a correct response |
+| Invalidation | commit FIRST, then invalidate EVERY affected view; the pre-commit re-cache race; invalidate-after-commit (not write-through guessed values) |
+| Representation / versioning | incompatible change (progress 42 [0-100] -> 0.42 [0-1]) = new v-key; additive optional field = same version |
+| TTL + jitter | fixed synchronized TTL = avalanche; jitter distributes expiry; single-flight is one hot key, not synchronized expiry |
+| Stampede / single-flight / SWR | one leader + bounded followers + backoff/jitter; SWR for tolerant reads only |
+| Fail-open vs fail-closed | `GET /progress` open; `POST /cancel` closed on PostgreSQL authorization + guarded write |
+| Negative caching | short tenant-scoped; invalidate on creation; load protection, not a security control |
+| Correctness metrics | commit->invalidation delay/failure/backlog, cache age, stale-terminal, Redis-vs-PostgreSQL agreement (not hit ratio alone) |
+| Invalidation recovery | Outbox invalidation intent + retryable idempotent DEL; never redo a transition or Provider call |
+| v2 incident | reconcile first; roll back the cache contract only on proven incompatibility; never PostgreSQL truth or Provider |
+
+### Rules encoded
+
+```text
+PostgreSQL COMMIT = authority; the Redis cache is a rebuildable projection that may be stale or absent
+a cache hit is not truth; a cache miss is not a Job failure
+cache-aside: hit if tolerable; miss -> PostgreSQL + best-effort repopulate; a failed SET never fails a correct response
+COMMIT first, then invalidate EVERY affected view (job-detail AND recent-completed); pre-commit delete re-caches stale
+incompatible representation = new versioned key; additive optional field = same version
+TTL + jitter prevents avalanche; single-flight protects ONE hot key, not a million distinct keys expiring together
+hot reads: one single-flight leader + bounded followers + backoff/jitter; SWR for tolerant reads only
+GET may fail open; sensitive POST fails closed on the guarded PostgreSQL write; a cache never authorizes
+short tenant-scoped negative caching stops penetration; it is load protection, not a security control
+a high hit ratio is not health; measure freshness/correctness, not hit ratio alone
+invalidation recovery = Outbox intent + retryable idempotent DEL; never redo a transition or re-call the Provider
+roll back the CACHE contract only on proven incompatibility; never committed PostgreSQL truth or Provider work
+```
+
+> **What this design deliberately does not do:** it starts no Redis or PostgreSQL, runs no cache API, Outbox
+> Relay, Worker, Provider, or benchmark, and measures no latency, hit ratio, eviction, stampede, or hot key.
+> It contains no real secrets, connection strings, tenant identifiers, or production data. Numbers (10s,
+> 50,000, TTL/jitter ranges) are illustrative. PostgreSQL stays the durable source of truth.
+
+### Day39 known gaps (deliberate)
+
+```text
+Day40        Redis messaging / queue semantics (Lists / Pub-Sub / Streams, consumer groups, redelivery)
+Day41        atomic multi-command composition (MULTI/EXEC, Lua), coordination, full rate-limiting algorithms
+Day42        the complete data ownership + failure + recovery/verification model
+Phase 4      SQLAlchemy / Alembic
+```
 
 ---
 
@@ -1281,6 +1340,17 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day39 (`redis/redis-cache-consistency-design.md`)
+
+| Level | Day39 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one AI Job cache scenario reasoned end to end: stale-vs-committed, cache-aside, commit-then-invalidate, affected views, representation versioning, TTL/jitter, stampede/single-flight/SWR, fail-open/closed, negative caching, hot key, correctness metrics, Outbox recovery, and the v2 incident |
+| Static reasoning review | **Completed** | static review of every cache contract, the commit-before-invalidate ordering and pre-commit race, the versioning rule, TTL/jitter vs single-flight, the fail-open/closed table, negative-caching constraints, the correctness-metric list, the Outbox + idempotent DEL recovery, and the v2 rollback target |
+| Artifact syntax / runtime validation | **NOT RUN** | no Redis, `redis-cli`, cache API, or command was executed; key patterns and the DEL/Outbox flow are read for shape and naming only |
+| Disposable-Redis / PostgreSQL validation | **NOT RUN** | no cache stampede, avalanche, eviction, hot key, TTL, jitter, or PostgreSQL commit/invalidation was run or measured |
+| Application integration validation | **NOT RUN** | no FastAPI/Worker/Relay/Outbox/Provider/Object Storage integration; no cache-aside, invalidation, or negative-cache path exercised |
+| Production validation | **NOT RUN** | no production cache inspected/changed; no production accessed; numbers (10s, 50,000, TTL/jitter) are illustrative, not measured; messaging/composition are Day40-41 |
 
 ### Day38 (`redis/redis-acceleration-layer-design.md`)
 

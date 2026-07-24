@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day39 — Redis Cache Design and Consistency
+Day40 — Redis Messaging and Queue Semantics
 
 Status:
 Planned / Not started
@@ -28,10 +28,62 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day39 — Redis Cache Design and Consistency (see the Day39 Preparation block below).
+- [ ] Prepare for Day40 — Redis Messaging and Queue Semantics (see the Day40 Preparation block below).
 
-(Day29-Day38 are complete; their work is recorded under the Completed Day** sections and the corresponding
+(Day29-Day39 are complete; their work is recorded under the Completed Day** sections and the corresponding
 Preparation history blocks.)
+
+---
+
+## Completed Day39 Tasks
+
+- [x] Complete Day39 Redis Cache Design and Consistency classroom learning.
+- [x] Generate the Day39 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day38->Day39 mental-model evolution).
+- [x] Explain why a cache hit is not truth and a cache miss is not a Job failure, judged against the committed PostgreSQL state.
+- [x] Implement cache-aside reads so a cache write failure never invalidates a correct PostgreSQL response.
+- [x] Order state changes commit-first, invalidate-after, and explain the pre-commit re-cache race.
+- [x] Invalidate every affected view (Job detail and the tenant recent-completed list).
+- [x] Decide when a representation change needs a new versioned key vs an additive optional field.
+- [x] Apply TTL + jitter for avalanche and explain single-flight (one hot key) vs jitter (synchronized expiry).
+- [x] Design hot-key protection with a single-flight leader, bounded followers, backoff+jitter, and SWR for tolerant reads.
+- [x] Classify fail-open vs fail-closed and defend the guarded PostgreSQL write for POST /cancel.
+- [x] Use short tenant-scoped negative caching against penetration without making it a security decision.
+- [x] Measure cache correctness (commit->invalidation delay, cache age, stale-terminal, Redis-vs-PostgreSQL agreement), not just hit ratio.
+- [x] Recover an unknown cache-delete outcome with an Outbox intent + idempotent DEL, never redoing a transition or Provider call.
+- [x] Choose the correct rollback target (the cache contract) in the v2 incident, never PostgreSQL truth or Provider work.
+- [x] Preserve the real student answers, the English interview answers, and the final Chinese synthesis.
+
+---
+
+## Completed Day39 Repository Tasks
+
+- [x] Add `docs/redis/day39-redis-cache-design-and-consistency.md`.
+- [x] Add `projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day39 increment (artifact link, components, honest NOT-RUN limits).
+- [x] Append the Day39 section to `cheat_sheets/redis.md`.
+- [x] Append Day39 questions to `interview/redis.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day39 is now the latest Redis lesson).
+- [x] Update the Day38 lesson Next Lesson link to the released Day39 lesson.
+- [x] Update `CURRICULUM.md` (Day39 Completed; Day40 remains Planned).
+- [x] Update `ROADMAP.md` (Day39 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day39 Interview Tasks
+
+- [x] Add the stale-vs-committed, cache-aside, and invalidation-ordering questions with the student's actual answers.
+- [x] Add the affected-view, representation-versioning, TTL/jitter, and stampede/SWR questions.
+- [x] Add the fail-open/closed, negative-caching, hot-key/metrics, invalidation-recovery, and v2-incident questions.
+- [x] Preserve the three verbatim English answers and add strong model answers.
+
+---
+
+## Completed Day39 Homework
+
+- [x] Complete the stale-vs-committed and invalidation-ordering exercises.
+- [x] Complete the cache-aside miss and hot-key stampede/SWR exercises.
+- [x] Complete the fail-open/closed table and v2 cache-contract incident exercises.
 
 ---
 
@@ -463,15 +515,26 @@ Preparation history blocks.)
 
 ---
 
-### Day39 Preparation — Redis Cache Design and Consistency
+### Day40 Preparation — Redis Messaging and Queue Semantics
 
-- [ ] Read the Day39 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md` and hold the boundary that PostgreSQL stays the durable Job source of truth while Redis is rebuildable acceleration.
-- [ ] Preview cache-aside read/write, cache key/version and serialization, and TTL selection with jitter.
-- [ ] Preview invalidation on durable-state change, stampede/single-flight/stale-while-revalidate, and negative-caching/penetration/hot-key risk.
-- [ ] Preview stale cache vs PostgreSQL source of truth and hit-ratio/latency/eviction/memory/correctness metrics.
-- [ ] Preview fail-open vs fail-closed by sensitivity.
-- [ ] Keep Redis transactions/Lua, messaging/Streams, and full rate limiting (Day40-41) and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day40 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md` and hold the boundary that Redis transport/cache does not own durable Job truth.
+- [ ] Preview Lists / Pub-Sub / Streams as different messaging models, and durable backlog vs no-replay.
+- [ ] Preview Streams consumer groups, pending entries, ack, claim/redelivery, and trimming.
+- [ ] Preview ordering scope and consumer concurrency, and at-most-once vs at-least-once (idempotent consumers still required).
+- [ ] Keep Redis transactions/Lua and full rate limiting (Day41) and SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day39 Preparation — Redis Cache Design and Consistency (completed)
+
+- [x] Read the Day39 input.
+- [x] Reviewed `projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md` and held the boundary that PostgreSQL stays the durable Job source of truth while Redis is rebuildable acceleration.
+- [x] Previewed cache-aside read/write, cache key/version and serialization, and TTL selection with jitter.
+- [x] Previewed invalidation on durable-state change, stampede/single-flight/stale-while-revalidate, and negative-caching/penetration/hot-key risk.
+- [x] Previewed stale cache vs PostgreSQL source of truth and hit-ratio/latency/eviction/memory/correctness metrics.
+- [x] Previewed fail-open vs fail-closed by sensitivity.
+- [x] Kept Redis transactions/Lua, messaging/Streams, and full rate limiting (Day40-41) and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 

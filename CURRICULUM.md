@@ -1060,7 +1060,34 @@ penetration and hot keys; stale cache vs PostgreSQL source of truth; hit ratio/l
 correctness metrics; fail-open vs fail-closed by sensitivity.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/redis/day39-redis-cache-design-and-consistency.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day38 — Redis Foundations and Data Structures
+
+Next Lesson:
+Day40 — Redis Messaging and Queue Semantics
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md` — a design/evidence pack: the
+per-endpoint cache-aside/invalidation contracts, commit-before-invalidate ordering with the pre-commit race,
+cache key versioning, TTL and jitter, stampede/single-flight/stale-while-revalidate, the fail-open vs
+fail-closed table, negative caching, correctness metrics, Outbox invalidation recovery, and the v2
+cache-contract incident — every section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN /
+PRODUCTION NOT VALIDATED. No messaging or composition (Day40-41)
+
+Validation Limits:
+Day39 classroom status is conceptual reasoning and static review only — nothing was executed. No Redis
+server, `redis-cli`, cache API, PostgreSQL integration, Outbox Relay, Worker, Provider, Object Storage,
+benchmark, cache stampede, eviction, hot key, TTL, or jitter was run, measured, or inspected. Numbers (10s,
+50,000, TTL/jitter ranges) are illustrative, not measured. Redis messaging/Streams (Day40), transactions/Lua
+and full rate limiting (Day41) are future boundaries. RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.
 
 ---
 

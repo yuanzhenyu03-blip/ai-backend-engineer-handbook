@@ -28,10 +28,11 @@ Last completed lesson:
 * Day36 — Schema Evolution and Safe Migrations
 * Day37 — PostgreSQL Production Reliability
 * Day38 — Redis Foundations and Data Structures
+* Day39 — Redis Cache Design and Consistency
 
 Next:
 
-* Day39 — Redis Cache Design and Consistency (Planned / Not started; see `ROADMAP.md`)
+* Day40 — Redis Messaging and Queue Semantics (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

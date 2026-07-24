@@ -159,3 +159,198 @@ at risk — the leaked keys are rebuildable projections.
 
 Assessment: The exam is recognizing the shared-keyspace blast radius and choosing prefix-scoped cleanup over
 a global flush.
+
+---
+
+## Day39 Redis Cache Design and Consistency
+
+Pair with [`cheat_sheets/redis.md`](../cheat_sheets/redis.md) and the
+[Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md).
+
+### Q1 — PostgreSQL committed `succeeded` but Redis serves `running`. Which wins, and does a short TTL fix it?
+
+Model answer:
+
+PostgreSQL's committed state is authoritative; the cache is a projection allowed to lag. A short TTL only
+bounds the stale lifetime — it is not synchronization and does not push the new state into Redis (and a very
+short TTL raises PostgreSQL load). Durable changes need post-commit invalidation.
+
+Student's actual answer (preserved verbatim):
+
+> "API应该以postgresql持久化状态为准。TTL设置短，只能加快cache清理的过程，清理后也不是马上去数据库同步状态。"
+
+Assessment: Correct, including that a short TTL bounds staleness rather than synchronizing.
+
+### Q2 — Walk the cache-aside read and say what happens on a miss.
+
+Model answer:
+
+`GET` the key; on a hit return the cached view only if the endpoint tolerates staleness; on a miss read
+PostgreSQL, return it, then best-effort repopulate Redis with a TTL. A cache write failure must never
+invalidate an already-correct PostgreSQL response.
+
+Student's actual answer (preserved verbatim):
+
+> "从PostgreSQL数据库中加载数据并在redis填充缓存。"
+
+Assessment: Correct miss path; the full contract adds hit-if-tolerable and best-effort repopulate.
+
+### Q3 — Delete the cache before or after the PostgreSQL commit?
+
+Model answer:
+
+After. Pre-commit delete races: another request misses, reads the old `running` row, and re-caches it with a
+fresh TTL before the commit. Commit first, then invalidate; a small stale window remains because the cache is
+a view, not truth.
+
+Student's actual answer (preserved verbatim):
+
+> "提交后删除"
+
+Assessment: Correct; the important addition is the pre-commit re-cache race that reverse ordering opens.
+
+### Q4 — The Job status changed. Is invalidating the Job-detail cache enough?
+
+Model answer:
+
+No — invalidate every affected view. On `running -> succeeded`, invalidate both the Job-detail cache and the
+tenant recent-completed-Jobs view; invalidating only the detail leaves the list inconsistent. Prefer deleting
+affected keys after commit over directly writing guessed values.
+
+Student's actual answer (preserved verbatim):
+
+> "先更新A再，更新B，因为B的意思是最近完成的job。"
+
+Assessment: Correct that there are two affected views; the correction is to invalidate-after-commit rather
+than direct guessed updates.
+
+### Q5 — Can the cache keep the same key when `progress` changes from `42` (0-100) to `0.42` (0-1)?
+
+Model answer:
+
+No — that is an incompatible representation change, so it needs a new versioned key (`v2`) while old and new
+APIs coexist. An additive optional field would not require a new version.
+
+Student's actual answer (preserved verbatim):
+
+> "因为会造成兼容性问题。"
+
+Assessment: Correct — identifies the compatibility break; the precision is incompatible-change-only versioning.
+
+### Q6 — Many keys share one fixed TTL and expire together. What breaks, and what fixes it?
+
+Model answer:
+
+A cache avalanche — many distinct keys expire together and all fall back to PostgreSQL. TTL jitter distributes
+expiry and fixes it. Single-flight protects one hot key after a miss; it cannot solve a million distinct keys
+expiring together.
+
+Student's actual answer (preserved verbatim):
+
+> "会发生所有的cache会一起丢掉...需要用其中一个作为leader来请求，其他进行等待。"
+
+Assessment: The avalanche is correct; the correction is jitter for synchronized expiry vs single-flight for
+one hot key.
+
+### Q7 — 50,000 requests miss one hot key. Serve them safely; what may a progress page return meanwhile?
+
+Model answer:
+
+Elect one single-flight leader to read PostgreSQL/rebuild; followers wait within a bounded deadline or take an
+allowed stale value. On leader timeout use bounded retry + backoff + jitter, not a full fan-out. A progress
+page may return the stale `running` view immediately (stale-while-revalidate) — but SWR is not allowed for
+sensitive operations.
+
+Student's actual answers (preserved verbatim):
+
+> "会造成缓存雪崩PostgreSQL请求压力增大，连接池被耗尽，应该让其中一个请求负责回源和重建 cache。"
+
+> "先立刻返回旧的running。"
+
+Assessment: Both correct; the additions are the bounded deadline, no-full-fallback rule, and the SWR
+sensitive-op boundary.
+
+### Q8 — Classify `GET /progress` and `POST /cancel` as fail-open or fail-closed.
+
+Model answer:
+
+`GET /progress` may fail open (bounded SWR, short stale `running`). `POST /cancel` must fail closed on
+PostgreSQL authorization plus a guarded state transition — a cache cannot authorize a cancel, and a Job that
+already committed `succeeded` cannot be cancelled, so even a PostgreSQL pre-read is not a substitute for the
+guarded write.
+
+Student's actual answers (preserved verbatim):
+
+> "A. B"
+
+> "不能，POST /jobs/{job_id}/cancel有的job已经success，是无法进行cancel。"
+
+Assessment: Correct classification and domain reasoning; the guarded-write point is the key production rule.
+
+### Q9 — Random non-existent Job IDs keep missing the cache. What is it, and how do you protect PostgreSQL?
+
+Model answer:
+
+Cache penetration (attack or broken client). Use a short, tenant-scoped negative cache for "not found"; keep
+it short-lived, invalidate it on successful Job creation, and never treat it as a security/authorization
+decision.
+
+Student's actual answer (preserved verbatim):
+
+> "这个问题应该是负载攻击。可以把Job 不存在的结果短暂缓存。"
+
+Assessment: Right instinct; sharpened from "load attack" to cache penetration with the short-TTL/creation-
+invalidation constraints.
+
+### Q10 — Hit ratio is 99% but a `succeeded` Job shows `running`. What does hit ratio prove, and can a hit overload you?
+
+Model answer:
+
+Hit ratio measures efficiency, not truth — and yes, a cache hit can overload Redis when 50,000 requests hit
+one key/node/path. To catch a stale `succeeded`, measure correctness: commit→invalidation delay/failure/
+backlog, cache age, stale-terminal rate, and sampled Redis-vs-PostgreSQL agreement.
+
+Student's actual answers (preserved verbatim):
+
+> (hot key) "不知道"
+
+> (high hit ratio but stale) "miss ratio"
+
+Assessment: Honest "don't know" on the hot key; the correction is that neither hit nor miss ratio measures
+truth — freshness/agreement metrics do.
+
+### Q11 — The cache `DEL` timed out after a `succeeded` commit. Most dangerous action, and the safe recovery?
+
+Model answer:
+
+Most dangerous: redoing the Job transition or re-calling the Provider. Safe recovery: record the invalidation
+intent transactionally with the state change (Outbox) and have a Relay retry an idempotent `DEL`; TTL bounds
+the residual stale window. Cache-delete idempotency is unlike Provider retries, which need a stable idempotency
+key and Artifact reconciliation.
+
+Student's actual answers (preserved verbatim):
+
+> "最危险的操作动作是直接重新提交。手动删除。"
+
+> "因为重新调用provider需要结合幂等key,防止二次调用。"
+
+Assessment: Correct that resubmitting is the danger; "manual delete" is upgraded to the durable Outbox +
+retryable idempotent `DEL`.
+
+### Q12 — v2 cache deployed, PostgreSQL `succeeded`, invalidation Relay timed out, 50,000 users read v1 `running`. Roll back to v1?
+
+Model answer:
+
+No. v1 is stale too, and there is no evidence the v2 contract is faulty. Reconcile/retry invalidation, serve
+bounded SWR/single-flight, and protect PostgreSQL first. Roll back the Redis v2 cache contract/traffic only if
+evidence proves v2 misinterprets the data (e.g. `0.42` shown as `42%`), then invalidate v2 keys and rebuild
+from PostgreSQL — never roll back committed PostgreSQL Job truth or rerun Provider work.
+
+Student's actual answers (preserved verbatim):
+
+> "先回滚到V1版本。"
+
+> "Redis v2 cache contract，因为v2不兼容错误解释数据，PostgreSQL 的 Job state是权威持久化状态，provieder避免二次调用。"
+
+Assessment: The student self-corrected from an automatic v1 rollback to rolling back only the cache contract,
+naming PostgreSQL as authoritative and the Provider as not-to-be-recalled.

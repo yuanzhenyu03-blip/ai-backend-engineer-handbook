@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.81 — Day39 Redis Cache Design and Consistency
+
+Date: 2026-07-24
+
+### Added
+
+- Added `docs/redis/day39-redis-cache-design-and-consistency.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day38->Day39 mental-model evolution).
+- Added `projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md` — the Day39 **cache consistency design / evidence pack**: the per-endpoint cache-aside/invalidation contracts, commit-before-invalidate ordering with the pre-commit re-cache race, cache key versioning, TTL and jitter, stampede/single-flight/stale-while-revalidate, a fail-open vs fail-closed table, negative caching, correctness metrics, Outbox invalidation recovery, and the v2 cache-contract incident. Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**, with no real secrets, connection strings, or tenant data.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day39 increment: a design-contents table, the encoded rules, an explicit statement of what the design does not do, Day39 known gaps, a new `redis-cache-consistency-design.md` entry in the structure tree, and a separate Day39 validation matrix.
+- Appended a Day39 rapid-reference section (cache-aside, invalidation ordering, TTL/jitter, stampede/SWR, fail-open/closed, negative caching, metrics, recovery, weak-vs-strong answers) to `cheat_sheets/redis.md`.
+- Appended Day39 questions to `interview/redis.md`, preserving the student's real answers verbatim — including the stale-vs-committed `API应该以postgresql持久化状态为准...` answer, `提交后删除`, the cache-aside miss answer, the stampede/`缓存雪崩` answer, `先立刻返回旧的running`, the `不能，POST /jobs/{job_id}/cancel有的job已经success` cancel answer, `先更新A再，更新B`, `因为会造成兼容性问题`, the negative-caching `负载攻击` answer, the `miss ratio` answer, `最危险的操作动作是直接重新提交。手动删除`, the initial `先回滚到V1版本` and the corrected `Redis v2 cache contract` answer, and the three English answers (no duplicate Redis interview file created).
+- Updated `docs/README.md` (Day39 is now the latest Redis lesson), and pointed the Day38 lesson's Next Lesson at the released Day39 lesson.
+- Updated `CURRICULUM.md` and `ROADMAP.md` to mark Day39 completed with its released lesson/artifact (Day40 remains Planned).
+- Updated `PROJECT_STATUS.md` (Day39 last completed with artifact + validation boundary; Current/Next is Day40 Planned / Not started), `TASKS.md` (completed Day39 blocks, Day39 preparation converted to history, Day40 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day39 turns the Day38 ownership boundary into an explicit **per-endpoint cache consistency contract**, and its spine is that **a PostgreSQL COMMIT is the moment of authority while the Redis cache is a rebuildable projection that may be stale or absent**: a cache hit is not truth and a cache miss is not a Job failure, and a short TTL only **bounds** staleness (it is not synchronization and can raise PostgreSQL load). Cache-aside reads return a hit only when the endpoint tolerates it, else read PostgreSQL and best-effort repopulate with a TTL (a cache `SET` failure never invalidates a correct response). Invalidation is **commit-first**, then delete **every** affected view (Job-detail **and** the tenant recent-completed list), because a pre-commit delete races a reader into re-caching the old `running` state with a fresh TTL. An incompatible representation change (`progress` `42` [0-100] -> `0.42` [0-1]) needs a new versioned key (`v2`) while additive optional fields keep the version. A fixed synchronized TTL causes a **cache avalanche** fixed by **TTL jitter**, while **single-flight** protects only **one** hot key (one leader rebuilds; followers wait within a bounded deadline or take an allowed stale value; on leader timeout use bounded retry + backoff + jitter, not a full fan-out), and **stale-while-revalidate** serves a short stale `running` view for tolerant reads only. `GET /progress` may **fail open** while `POST /cancel` **fails closed** on PostgreSQL authorization + a **guarded** state transition (a cache never authorizes, and a Job already `succeeded` cannot be cancelled). A short tenant-scoped **negative cache** absorbs penetration by non-existent IDs but is load protection, not a security control, and is invalidated on creation. A **high hit ratio is not health** (a hit can overload a hot key; measure freshness/correctness — commit->invalidation delay, cache age, stale-terminal rate, sampled Redis-vs-PostgreSQL agreement). An unknown cache-`DEL` outcome is recovered via a **Transactional Outbox** invalidation intent + a retryable **idempotent `DEL`** (never redo the Job transition or re-call the Provider), and the **v2 cache-contract incident** is handled by reconciling/retrying invalidation + bounded SWR + protecting PostgreSQL **first**, rolling back only the Redis v2 cache **contract** on proven incompatibility — never committed PostgreSQL Job truth and never Provider work.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day40 lesson exists and Day40 remains Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day39 student quote appears in `Day39_Repository_Update_Input.md`; Markdown fence balance (lesson and artifact); relative-link resolution (including the new `redis-cache-consistency-design.md` cross-links and the Day38->Day39 Next Lesson link); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets, connection strings, or tenant data in the lesson, artifact, cheat sheet, or interview).
+- **Day39 has NO runtime evidence — RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.** No Redis server, `redis-cli`, cache API, PostgreSQL integration, Outbox Relay, Worker, Provider, Object Storage, benchmark, cache stampede, eviction, hot key, TTL, or jitter was run, measured, or inspected in class or during the repository update. Numbers (10s, 50,000, TTL/jitter ranges) are illustrative, not measured. Static reasoning review of every contract was completed.
+- Scope: no Day40 lesson was created; messaging/Streams/Pub-Sub, atomic composition, and full rate limiting are mentioned only as future Day40-41 boundaries; no SQLAlchemy/Alembic or Playwright content was added; the artifact invents no command output, Redis version, hit ratio, latency, or eviction figure; the protected prompt/template files are unchanged; and no real secrets, connection strings, tenant identifiers, or production data were added.
+
+---
+
 ## v0.1.80 — Day38 Redis Foundations and Data Structures
 
 Date: 2026-07-24

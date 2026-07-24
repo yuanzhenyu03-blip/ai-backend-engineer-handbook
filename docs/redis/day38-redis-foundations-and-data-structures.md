@@ -16,7 +16,7 @@ Prerequisite: Day37 — PostgreSQL Production Reliability
 
 Previous Lesson: [Day37 — PostgreSQL Production Reliability](../postgresql/day37-postgresql-production-reliability.md)
 
-Next Lesson: Day39 — Redis Cache Design and Consistency (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day39 lesson file does not exist yet)
+Next Lesson: [Day39 — Redis Cache Design and Consistency](day39-redis-cache-design-and-consistency.md)
 
 Engineering Artifact: The Day38 Redis acceleration-layer design (`projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md`) — the ownership model, keyspace/versioning contract, data-structure decision table, TTL/eviction and RDB/AOF boundaries, outage degradation, and the missing-TTL incident, all labelled conceptual/static — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
