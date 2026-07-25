@@ -44,7 +44,7 @@ By the end of this lesson you can:
 1. Explain why an unacknowledged (Pending) Stream delivery is not proof of a completed Job, and which PostgreSQL facts decide business completion.
 2. Compare at-most-once (early ACK) and at-least-once (delayed ACK) delivery, and defend persisting a durable processing decision before `XACK`.
 3. Choose between Lists, Pub/Sub, and Streams by their delivery and failure semantics, and reject Pub/Sub for recoverable Job dispatch.
-4. Design Consumer Group topology so distinct effects (Job execution vs notification delivery) use distinct groups, each with an independent PEL/ACK/Claim lifecycle.
+4. Design the event/group topology so distinct lifecycle events drive distinct effects — Accept commits a job-dispatch Outbox intent to `g:job-exec`, Complete commits a job.completed Outbox intent to `g:notify-delivery` — each group with an independent PEL/ACK/Claim lifecycle, and a completion email is never derived from a dispatch entry.
 5. Explain why concurrent consumers do not guarantee business-effect completion order, and how PostgreSQL guarded transitions + idempotency preserve validity.
 6. Keep Stream payloads to small references and keep large bytes in Object Storage with durable references/provenance in PostgreSQL.
 7. Classify a poison message correctly (transient vs permanent message-contract failure) and design bounded retry → quarantine/dead-letter → alert → repair → controlled replay.
@@ -124,7 +124,7 @@ transport, not cache).
 1. Crash before ACK          -> a Pending entry is not proof of completion; PostgreSQL decides
 2. At-least-once + idempotency-> persist a durable decision BEFORE XACK; early ACK = at-most-once loss
 3. Pub/Sub vs Streams         -> Pub/Sub has no backlog/replay; Streams+Groups are recoverable
-4. Consumer Groups + ordering -> one message -> one consumer; transport order != completion order
+4. Events + Groups + ordering -> dispatch vs job.completed events; one message -> one consumer; transport order != completion order
 5. Lists / payloads / Celery  -> Lists lack the recovery lifecycle; small references; don't rebuild Celery
 6. Poison messages + retry    -> bounded retry -> quarantine -> alert -> repair -> controlled replay
 7. Safe trim                  -> retention policy; never trim Pending / recovery evidence
@@ -148,7 +148,9 @@ at-most-once  = ACK before processing -> a crash silently LOSES the Job         
 at-least-once = process + persist, THEN ACK -> may REDELIVER -> safe with idempotency  (chosen)
 Redis alone CANNOT give exactly-once across (Redis ACK + PostgreSQL commit + external Provider call).
 
-one group -> one consumer per message (competing consumers); distinct effects -> distinct groups.
+one group -> one consumer per message (competing consumers); distinct lifecycle events -> distinct streams/groups
+(Accept -> job-dispatch -> g:job-exec; Complete -> job.completed events -> g:notify-delivery). A completion
+email is driven ONLY by a committed job.completed Outbox/Event, never by a dispatch entry.
 payload = small references (tenant_id, job_id, event_id, trace); bytes in Object Storage, refs in PostgreSQL.
 poison message -> bounded retry -> durable quarantine -> alert -> repair producer -> controlled replay.
 trim = retention policy; NEVER trim Pending or recovery/quarantine evidence.
@@ -267,11 +269,19 @@ the guard. On ordering, the student answered directly that it cannot be guarante
 
 The ordering answer is correct: Stream append order is **transport** order, and concurrent consumers do **not**
 guarantee business-effect completion order — **PostgreSQL guarded state transitions** and **idempotency**
-preserve business validity under concurrent/out-of-order processing. On grouping, the fix is structural: within
-**one** Consumer Group a message is delivered to **one** consumer (competing consumers), **not** broadcast to
-all. Two independently interested effects — Job execution and notification delivery — need **separate groups**,
-each with its own PEL/ACK/Claim lifecycle, so one does not consume the other's deliveries. Using the database
-to guard against premature effects is right and complements (does not replace) correct group topology.
+preserve business validity under concurrent/out-of-order processing. The student's grouping instinct — that a
+notifier could fire while the executor is still working, and that the database's committed fact must gate it —
+is exactly right, and it points past a common half-fix. Separate Consumer Groups only solve "two groups can
+each **receive** the same Stream entry"; within **one** group a message goes to **one** consumer (competing
+consumers). But separate groups do **not** turn a **dispatch** entry into a **completion** event: a
+`job-dispatch` event is emitted at **Accept**, when the Job is not finished, so a completion email must never be
+derived from it. The correct structure is distinct **committed events at distinct lifecycle points**, published
+by the Relay from PostgreSQL Outbox intents (Day33): the **Accept** transaction commits a `job-dispatch` intent
+→ `ai:stream:job-dispatch:v1` → `g:job-exec`; the **Complete** transaction commits a `job.completed` intent →
+`ai:stream:job-events:v1` (or one shared event stream with an explicit `event_type`) → `g:notify-delivery`. The
+completion notification is driven **only** by a committed `job.completed` Outbox/Event — the student's "用数据库
+中持久化的事实拦住" — never by an accept/dispatch entry. A Redis delivery is still not business truth, and
+Provider and email each keep their own stable idempotency identity.
 
 ### Engineering Thinking
 
@@ -392,8 +402,11 @@ Checking durable state before repeating a side effect is the right reflex, but a
 prove an email was delivered** — notification delivery needs its **own** durable delivery identity/record. And
 one `job_id` cannot be the only idempotency key, because completion, failure, and admin-alert notifications are
 **separate** effects. Use a **delivery-specific** key per effect, for example
-`job:{job_id}:notification:completion:v1`. Job completion does not prove email delivery; the email has its own
-delivery fact.
+`job:{job_id}:notification:completion:v1`. The completion notification is triggered only by a committed
+`job.completed` event (published by the Relay from the Complete transaction's Outbox intent, consumed by
+`g:notify-delivery` on the events stream) — not by the accept/dispatch entry — so "Job completion does not
+prove email delivery" is enforced structurally: the email has its own committed trigger and its own delivery
+fact.
 
 ### Engineering Thinking
 
@@ -484,7 +497,9 @@ How to remember: persistence ≠ recovery lifecycle.
 One group as broadcast
 
 ❌ "Put every consumer in one group and they all get the message."
-✅ Within one group a message goes to one consumer. Independently interested services need independent groups.
+✅ Within one group a message goes to one consumer. Independently interested effects need their own groups, and
+distinct lifecycle effects (dispatch vs completion) are driven by distinct committed events — a completion email
+comes from a committed job.completed event, never from a dispatch entry.
 
 Why beginners think this: "group" sounds like "everyone in the group."
 How to remember: one group = competing consumers; separate effects = separate groups.
@@ -647,16 +662,20 @@ Explanation: trim is a retention contract, not memory cleanup.
 
 Follow-up Question: what must the retention contract protect before a trim is allowed?
 
-### Exercise 7: Independent Consumer Groups for execution and notification
+### Exercise 7: Dispatch vs completion event topology
 
-Question: design the group topology for Job execution and completion notifications on one Stream.
+Question: design the event/group topology so Job execution runs at dispatch and completion emails fire only when
+the Job actually completes.
 
-Expected Output: two groups (`g:job-exec`, `g:notify-delivery`) on the same Stream, each with its own
-PEL/ACK/Claim; one message → one consumer within a group.
+Expected Output: the Accept transaction commits a `job-dispatch` Outbox intent → Relay → `ai:stream:job-dispatch:v1`
+→ `g:job-exec`; the Complete transaction commits a `job.completed` Outbox intent → Relay → `ai:stream:job-events:v1`
+(or one shared event stream with an explicit `event_type`) → `g:notify-delivery`; each group has its own
+PEL/ACK/Claim and one message → one consumer within a group.
 
-Explanation: distinct effects need distinct groups so neither consumes the other's deliveries.
+Explanation: separate groups only mean both could receive the same entry; a completion email must be driven by a
+committed `job.completed` event, never by a dispatch entry.
 
-Follow-up Question: why can't both effects share one group?
+Follow-up Question: why can't `g:notify-delivery` just read the dispatch stream and send the email?
 
 ### Exercise 8: Recover dual consumer crashes after external calls but before ACK (reusable artifact)
 
@@ -757,7 +776,8 @@ Strong answer:
 
 > "Pub/Sub is live broadcast with no durable backlog, ACK, or replay, so a subscriber that is offline or
 > crashes when a message is published permanently misses it — it is only for loss-tolerant live notifications.
-> Redis Streams with Consumer Groups keep a durable backlog and a per-group Pending Entries List with ACK and
+> Redis Streams with Consumer Groups retain a backlog (subject to configured persistence and failover loss
+> windows) and a per-group Pending Entries List with ACK and
 > Claim, so a crashed consumer's message stays recoverable. For recoverable background Job dispatch I use
 > Streams, not Pub/Sub."
 
@@ -811,7 +831,9 @@ contract that must never remove Pending or recovery evidence."
 5.  At-least-once + idempotency is the default; Redis alone gives NO exactly-once across ACK+commit+Provider.
 6.  Pub/Sub = live broadcast, no backlog/ACK/PEL/Claim/replay -> only loss-tolerant notifications.
 7.  Streams + Consumer Groups = recoverable delivery for background work.
-8.  One group -> one consumer per message; distinct effects -> distinct groups with independent PEL/ACK/Claim.
+8.  One group -> one consumer per message; distinct lifecycle events -> distinct streams/groups (Accept ->
+    job-dispatch -> g:job-exec; Complete -> job.completed -> g:notify-delivery); completion email is driven
+    ONLY by a committed job.completed event, never by a dispatch entry.
 9.  Stream append order = transport order; concurrent consumers do NOT guarantee completion order.
 10. Lists may persist but lack Consumer Group / PEL / ACK / Claim / redelivery; don't hand-build Celery.
 11. Payloads are small references; Object Storage owns bytes, PostgreSQL owns references/provenance.
@@ -826,8 +848,9 @@ Initial: no ACK means the task is still queued (and might be re-run); an ACK mea
 Reasoning: the student saw that unacknowledged work may actually have completed, that early ACK removes the PEL
 recovery path, that Pub/Sub cannot recover an offline subscriber, and that unsafe trim breaks replay.
 Correction: transport state is not business truth; ACK closes delivery for one group, not the business; a retry
-limit is containment, not classification; a bad contract cannot be retried into success; independent effects
-need independent groups and delivery identities.
+limit is containment, not classification; a bad contract cannot be retried into success; distinct lifecycle
+events drive distinct effects on distinct streams/groups (a completion email comes from a committed
+job.completed event, never a dispatch entry), each with its own delivery identity.
 Final: PostgreSQL decides completion; Redis Streams provide recoverable at-least-once transport; idempotency +
 guarded transitions + reconciliation make redelivery safe; poison messages are quarantined and replayed after
 repair; trimming respects a retention contract; Redis alone never provides exactly-once.

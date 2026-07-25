@@ -42,7 +42,7 @@ Preparation history blocks.)
 - [x] Explain why an unacknowledged (Pending) delivery is not proof of completion; PostgreSQL decides.
 - [x] Compare at-most-once (early ACK) vs at-least-once (delayed ACK) and persist a durable decision before XACK.
 - [x] Choose Lists vs Pub/Sub vs Streams by delivery/failure semantics; reject Pub/Sub for recoverable dispatch.
-- [x] Design distinct Consumer Groups for Job execution and notification delivery, each with its own PEL/ACK/Claim.
+- [x] Design the event lifecycle/topology: Accept -> job-dispatch Outbox -> g:job-exec; Complete -> job.completed Outbox -> g:notify-delivery, so completion email is driven only by a committed job.completed event (never a dispatch entry), each group with its own PEL/ACK/Claim.
 - [x] Explain why concurrent consumers do not guarantee business-completion order.
 - [x] Keep Stream payloads to small references; keep large bytes in Object Storage with PostgreSQL references.
 - [x] Classify poison messages and design bounded retry -> quarantine -> alert -> repair -> controlled replay.

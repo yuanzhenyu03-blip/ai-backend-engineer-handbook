@@ -9,6 +9,22 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.83 — Day40 Review Fixes: dispatch/completion event semantics; conditioned durable-backlog wording
+
+Date: 2026-07-24
+
+### Fixed
+
+- **Dispatch vs completion event lifecycle.** The Day40 artifact and lesson placed both `g:job-exec` and `g:notify-delivery` on the single stream `ai:stream:job-dispatch:v1`, which wrongly implied the notification Consumer could derive "Job completed, send completion email" from a **dispatch** entry — but a `job-dispatch` event is emitted at **Accept**, when the Job is not finished, and separate Consumer Groups only solve "two groups can each receive the same entry." Corrected to an explicit, Outbox-driven lifecycle: the **Accept** transaction commits a `job-dispatch` Outbox intent → Relay → `ai:stream:job-dispatch:v1` → `g:job-exec`; the **Complete** transaction commits a `job.completed` Outbox intent → Relay → `ai:stream:job-events:v1` (or one shared event stream with an explicit `event_type`) → `g:notify-delivery`. The completion email is now driven **only** by a committed `job.completed` Outbox/Event, never by an accept/dispatch entry; events still carry small references only (`tenant_id`, `job_id`, `event_id`, `event_type`, `trace_id`), PostgreSQL committed Outbox/Event remains the event source, a Redis delivery is still not business truth, and Provider/email keep their own stable idempotency identities. Updated the lesson (Objective 4, Lesson Map, Core Mental Model, Concept 4 review, Concept 8 review, Exercise 7, the "one group as broadcast" misconception, Mental Model Summary), the artifact (payload contract §3, topology §4, recovery matrix §10, decision summary), the project README (contents table + encoded rules), the cheat sheet, the interview (Q12, Q13), `PROJECT_STATUS.md`, and `TASKS.md`. Student answers were preserved verbatim; the architecture semantics were corrected only in Tech Lead Review / Mental Model / artifact / summaries — the student's "用数据库中持久化的事实拦住" instinct is now shown to be exactly the committed-`job.completed`-gates-the-email rule.
+- **Absolute "Durable backlog = yes" wording.** The List/Pub-Sub/Streams decision table asserted an unconditional `Durable backlog = yes` for List and Streams, inconsistent with the Day38 Redis RDB/AOF, replication, and failover loss-window boundary. Reworded to **"Retained backlog, subject to configured Redis persistence and replication/failover loss windows,"** with an explicit note that Redis Streams/Lists may retain transport entries and persistence reduces loss windows but does **not** make Redis durable business truth — **PostgreSQL remains the authoritative durable Job/Attempt/Event/Outbox/Notification truth.** Applied in the artifact decision table, the cheat sheet decision table, the project README contents table + encoded rules, and the lesson's English-interview model answer (Pub/Sub genuinely has **no** backlog, which is left unchanged).
+
+### Validation
+
+- Static checks actually performed: `git diff --check`; changed-file scope; a repository search confirming `g:notify-delivery` no longer consumes `ai:stream:job-dispatch:v1` with completion semantics and that the completion notification is driven only by a committed `job.completed` Outbox/Event; a search confirming no unconditional `Durable backlog = yes` / "durable backlog + " wording remains for List/Streams; confirmation that Day40 still states Redis transport is not business truth, Redis provides no exactly-once across ACK + PostgreSQL commit + Provider, and no Celery replacement is built; Day41 still Planned with no Day41 lesson; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); Markdown fence balance; and relative-link resolution.
+- **Runtime NOT RUN; INTEGRATION NOT RUN; PRODUCTION NOT VALIDATED.** This round changed only wording/architecture semantics; no Redis, Stream, Consumer Group, `XACK`, Claim, trim, Pub/Sub, PostgreSQL, Celery, Provider, or email was executed.
+
+---
+
 ## v0.1.82 — Day40 Redis Messaging and Queue Semantics
 
 Date: 2026-07-24
@@ -16,7 +32,7 @@ Date: 2026-07-24
 ### Added
 
 - Added `docs/redis/day40-redis-messaging-and-queue-semantics.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day39->Day40 mental-model evolution).
-- Added `projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md` — the Day40 **messaging and queue semantics design / evidence pack**: the List/Pub-Sub/Streams decision table, the small Stream payload contract, the Job-Worker and notification Consumer Group topology, the PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary, per-side-effect idempotency/reconciliation, the retry classification and quarantine/dead-letter boundary, the safe trim/retention contract, and the integrated failure/recovery matrix. Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**; Redis is **not** claimed to provide exactly-once and **no** Celery replacement is built; no real secrets, connection strings, or tenant data.
+- Added `projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md` — the Day40 **messaging and queue semantics design / evidence pack**: the List/Pub-Sub/Streams decision table, the small Stream payload contract, the event lifecycle and Consumer Group topology (Accept -> job-dispatch stream -> g:job-exec; Complete -> job.completed events stream -> g:notify-delivery), the PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary, per-side-effect idempotency/reconciliation, the retry classification and quarantine/dead-letter boundary, the safe trim/retention contract, and the integrated failure/recovery matrix. Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**; Redis is **not** claimed to provide exactly-once and **no** Celery replacement is built; no real secrets, connection strings, or tenant data.
 
 ### Changed
 

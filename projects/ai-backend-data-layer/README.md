@@ -116,9 +116,9 @@ provide exactly-once, and this is not a Celery replacement.**
 | Section | Contents |
 | --- | --- |
 | Ownership recap | PostgreSQL owns Job/Attempt/Event/Outbox/Notification truth; a Stream delivery (even an `XACK`) is transport state, not business completion |
-| List vs Pub/Sub vs Streams | decision table by durable backlog / PEL / ACK / Claim / replay; Pub/Sub only for loss-tolerant notifications; Streams+Groups for recoverable dispatch |
+| List vs Pub/Sub vs Streams | decision table by retained backlog (subject to Redis persistence/failover loss windows, Day38) / PEL / ACK / Claim / replay; Pub/Sub only for loss-tolerant notifications; Streams+Groups for recoverable dispatch |
 | Small payload contract | references only (`tenant_id`, `job_id`, `event_id`, trace); Object Storage owns bytes; PostgreSQL owns references/provenance |
-| Consumer Group topology | one group per distinct effect (`g:job-exec`, `g:notify-delivery`); within a group one message -> one consumer |
+| Event lifecycle & topology | distinct committed events on distinct streams: Accept -> `job-dispatch` Outbox -> `ai:stream:job-dispatch:v1` -> `g:job-exec`; Complete -> `job.completed` Outbox -> `ai:stream:job-events:v1` -> `g:notify-delivery`; completion email driven only by a committed `job.completed` event, never a dispatch entry |
 | PEL/ACK/Claim lifecycle | `XREADGROUP` -> PEL -> persist durable decision -> `XACK`; crash pre-ACK -> Pending -> `XCLAIM`/`XAUTOCLAIM` -> reconcile -> ACK |
 | Delivery vs completion | at-most-once (early ACK, loses work) vs at-least-once (delayed ACK + idempotency); no exactly-once across ACK + commit + Provider |
 | Per-side-effect idempotency | `job:{job_id}:notification:completion:v1`; completion/failure/admin are distinct; `job_id` alone is insufficient |
@@ -133,7 +133,11 @@ PostgreSQL owns Job/Attempt/Event/Outbox/Notification truth; a Redis delivery/AC
 persist a durable, recoverable decision BEFORE XACK; early ACK = at-most-once = silent loss
 at-least-once + idempotency is the default; Redis alone gives NO exactly-once across ACK + commit + Provider
 Pub/Sub has no backlog/ACK/PEL/Claim/replay -> loss-tolerant notifications only; Streams+Groups are recoverable
-one group -> one consumer per message; distinct effects -> distinct groups with independent PEL/ACK/Claim
+Streams/Lists RETAIN a backlog subject to Redis persistence (RDB/AOF) + replication/failover loss windows (Day38);
+  persistence reduces loss windows but Redis is NOT durable business truth -- PostgreSQL is authoritative
+dispatch vs completion are DISTINCT committed events: Accept -> job-dispatch -> g:job-exec; Complete -> job.completed
+  events -> g:notify-delivery; completion email is driven ONLY by a committed job.completed event, never a dispatch
+  entry; one group -> one consumer per message, each group with its own PEL/ACK/Claim
 stream append order = transport order; concurrent consumers != business-completion order (guard + idempotency)
 Lists may persist but lack Consumer Group/PEL/ACK/Claim/redelivery; do NOT hand-build a Celery replacement
 payloads carry small references; Object Storage owns bytes; PostgreSQL owns references/provenance

@@ -517,27 +517,36 @@ Student's actual answer (preserved verbatim):
 
 Assessment: correct large-byte ownership boundary.
 
-### Q12 — Can two independently interested services share one Consumer Group?
+### Q12 — Should Job execution and completion notification share one stream/group, and what actually gates the completion email?
 
 Model answer:
 
-No. Within one group a message goes to one consumer (competing consumers), so a shared group means one service
-consumes the other's deliveries. Job execution and notification delivery need separate groups, each with its own
-PEL/ACK/Claim; use guarded PostgreSQL state to prevent premature effects.
+No — and separate groups alone are not the real fix. Within one group a message goes to one consumer, so a
+shared group would let one effect consume the other's deliveries; separate groups only mean both could *receive*
+the same entry. The deeper issue is lifecycle: a `job-dispatch` event is emitted at Accept, when the Job is not
+finished, so a completion email must not be derived from it. Model them as distinct committed events published
+by the Relay from PostgreSQL Outbox intents: the Accept transaction commits a `job-dispatch` intent →
+`ai:stream:job-dispatch:v1` → `g:job-exec`; the Complete transaction commits a `job.completed` intent →
+`ai:stream:job-events:v1` (or one shared event stream with an explicit `event_type`) → `g:notify-delivery`. The
+completion email is driven only by a committed `job.completed` event — the student's "用数据库中持久化的事实拦住"
+— never by a dispatch entry.
 
 Student's actual answer (preserved verbatim):
 
 > "会发生一个work已经发送用户通知的服务，而执行 Job 的 Worker还在处理。应该用数据库中持久化的事实拦住。"
 
-Assessment: the race and the database guard are right; the structural fix is separate Consumer Groups per effect.
+Assessment: the race and the "gate it with the committed database fact" instinct are exactly right; the
+structural fix is distinct committed lifecycle events (dispatch vs job.completed) on distinct streams/groups, not
+merely separate groups on one dispatch stream.
 
 ### Q13 — Can you decide "email already sent?" from the Job's Attempt/Event and one `job_id` key?
 
 Model answer:
 
 No — a Job Attempt/Event does not prove an email was delivered, and one `job_id` cannot key completion, failure,
-and admin notifications because they are separate effects. Use a delivery-specific identity, e.g.
-`job:{job_id}:notification:completion:v1`.
+and admin notifications because they are separate effects. The completion email is triggered only by a committed
+`job.completed` event (from the Complete transaction's Outbox intent, consumed by `g:notify-delivery`), and it
+uses its own delivery-specific identity, e.g. `job:{job_id}:notification:completion:v1`.
 
 Student's actual answer (preserved verbatim):
 

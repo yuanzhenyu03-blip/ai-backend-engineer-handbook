@@ -236,7 +236,9 @@ Redis alone gives NO exactly-once across (Redis ACK + PostgreSQL commit + extern
 ```text
 List       persisted FIFO, NO group/PEL/ACK/Claim/redelivery         simple queue (recovery handled elsewhere)
 Pub/Sub    live broadcast, NO backlog/ACK/PEL/Claim/replay            loss-tolerant live notifications only
-Streams+CG durable backlog + per-group PEL/ACK/Claim/redelivery       recoverable Job dispatch + notifications
+Streams+CG retained backlog* + per-group PEL/ACK/Claim/redelivery     recoverable Job dispatch + notifications
+* retained backlog is subject to configured Redis persistence (RDB/AOF) + replication/failover loss windows
+  (Day38); persistence reduces loss windows but Redis is NOT durable business truth -- PostgreSQL is authoritative
 List gap vs Stream: persistence != a consumer recovery lifecycle
 ```
 
@@ -250,13 +252,17 @@ at-least-once = process + persist, THEN ACK -> may REDELIVER -> safe with idempo
 XACK closes delivery for ONE group; it is not business truth and not other groups' responsibility
 ```
 
-### Groups / ordering / payload
+### Events / groups / ordering / payload
 
 ```text
-one group -> ONE consumer per message (competing consumers); distinct effects -> distinct groups
+Accept commits job-dispatch Outbox intent -> Relay -> ai:stream:job-dispatch:v1 -> g:job-exec (Worker)
+Complete commits job.completed Outbox intent -> Relay -> ai:stream:job-events:v1 -> g:notify-delivery (email)
+one group -> ONE consumer per message (competing consumers); separate groups only mean both can RECEIVE an entry
+completion email is driven ONLY by a committed job.completed event -- NEVER by an accept/dispatch entry
+  (a shared event stream with an explicit event_type is fine if notify-delivery ignores dispatch events)
 stream append order = TRANSPORT order; concurrent consumers != business-completion order
-  -> PostgreSQL guarded transitions + idempotency preserve validity
-payload = small references (tenant_id, job_id, event_id, trace); bytes in Object Storage, refs in PostgreSQL
+  -> PostgreSQL committed Outbox/Event is the source; guarded transitions + idempotency preserve validity
+payload = small references (tenant_id, job_id, event_id, event_type, trace); bytes in Object Storage, refs in PostgreSQL
 do NOT hand-build a Celery replacement from raw Lists/Streams
 ```
 

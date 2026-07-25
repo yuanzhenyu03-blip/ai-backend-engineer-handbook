@@ -34,13 +34,17 @@ decided by PostgreSQL Job/Attempt/Event/Outbox/Notification records plus Provide
 
 ## 2. List vs Pub/Sub vs Streams (decision table)
 
-| Model | Durable backlog | Per-consumer ownership / PEL | ACK | Claim / redelivery | Replay | Use for | Not for |
+| Model | Retained backlog (see note *) | Per-consumer ownership / PEL | ACK | Claim / redelivery | Replay | Use for | Not for |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| **List** (`LPUSH`/`BRPOP`) | yes (if Redis persisted) | no | no | no | no | a simple in-order queue where loss/redelivery handling is built elsewhere | recoverable Job dispatch needing ownership + redelivery |
+| **List** (`LPUSH`/`BRPOP`) | retained if Redis-persisted * | no | no | no | no | a simple in-order queue where loss/redelivery handling is built elsewhere | recoverable Job dispatch needing ownership + redelivery |
 | **Pub/Sub** | **no** | no | no | no | **no** | loss-tolerant **live** notifications (a dashboard tick) | recoverable Job dispatch; an offline/crashed subscriber permanently misses the message |
-| **Streams + Consumer Groups** | yes | **yes (PEL per group)** | **yes (`XACK`)** | **yes (`XCLAIM`/`XAUTOCLAIM`)** | yes | recoverable background Job dispatch and notification delivery | as a substitute for durable business truth (that is PostgreSQL) |
+| **Streams + Consumer Groups** | retained * | **yes (PEL per group)** | **yes (`XACK`)** | **yes (`XCLAIM`/`XAUTOCLAIM`)** | yes | recoverable background Job dispatch and notification delivery | as a substitute for durable business truth (that is PostgreSQL) |
 
 ```text
+* Retained backlog is SUBJECT TO configured Redis persistence (RDB/AOF) and replication/failover loss windows
+  (Day38). Redis Streams / Lists may RETAIN transport entries, and persistence REDUCES loss windows, but it
+  does NOT make Redis durable business truth. PostgreSQL remains the AUTHORITATIVE durable Job / Attempt /
+  Event / Outbox / Notification truth.
 Key gap of a List vs a Stream: a List may be PERSISTED, but it lacks native Consumer Group ownership, a PEL,
 ACK, Claim, and redelivery lifecycle. Persistence is not a consumer recovery lifecycle.
 Pub/Sub is live broadcast with NO backlog/ACK/PEL/Claim/replay -- only for loss-tolerant live notifications.
@@ -48,30 +52,57 @@ Pub/Sub is live broadcast with NO backlog/ACK/PEL/Claim/replay -- only for loss-
 
 ---
 
-## 3. Small Stream payload contract
+## 3. Small Stream payload contract (Outbox-published)
+
+Each Stream entry is published by the **Relay** from a **committed PostgreSQL Outbox intent** (Day33). The
+event's meaning comes from the committed transaction that produced it, not from the Stream:
 
 ```text
+# Accept transaction commits (Job queued + job-dispatch Outbox intent); the Relay then publishes:
 XADD ai:stream:job-dispatch:v1 * \
-     tenant_id {tenant_id}  job_id {job_id}  event_id {event_id}  trace {trace_id}      # STATIC example only
+     tenant_id {tenant_id}  job_id {job_id}  event_id {event_id}  event_type job.dispatch  trace {trace_id}   # STATIC example only
 
-Payload = small REFERENCES only: tenant_id, job_id, event_id, trace metadata.
-The Worker loads Job/Attempt metadata from PostgreSQL and large bytes (300 MB PDF, result Artifact) from
-Object Storage BY REFERENCE. PostgreSQL owns durable artifact references/provenance.
+# Complete transaction commits (Job running -> succeeded + job.completed Outbox intent); the Relay then publishes:
+XADD ai:stream:job-events:v1 * \
+     tenant_id {tenant_id}  job_id {job_id}  event_id {event_id}  event_type job.completed  trace {trace_id}   # STATIC example only
+
+Payload = small REFERENCES only: tenant_id, job_id, event_id, event_type, trace metadata.
+The Worker/Consumer loads Job/Attempt metadata from PostgreSQL and large bytes (300 MB PDF, result Artifact)
+from Object Storage BY REFERENCE. PostgreSQL owns durable artifact references/provenance and is the event
+SOURCE (committed Outbox / Event); a Redis delivery is not business truth.
 Never put a large document or result bytes in a Stream payload (memory, replication, and redelivery cost).
 ```
 
 ---
 
-## 4. Consumer Group topology (distinct effects = distinct groups)
+## 4. Event lifecycle and Consumer Group topology (distinct events, not just distinct groups)
+
+Dispatch and completion are **different committed events at different points in the Job lifecycle**. A
+`job-dispatch` event is emitted at **Accept** (the Job is not finished), so a completion email must **not** be
+derived from it. Separate Consumer Groups only solve "two groups can each receive the same Stream entry"; they
+do **not** turn a dispatch entry into a completion event.
 
 ```text
-Stream: ai:stream:job-dispatch:v1
-  ├── Group  g:job-exec         (Job Worker executes the model/Provider work)   -> own PEL / ACK / Claim
-  └── Group  g:notify-delivery  (notification Consumer sends completion email)   -> own PEL / ACK / Claim
+Accept Transaction (Day33 Outbox)
+  Job queued + job-dispatch Outbox intent committed
+  -> Relay publishes a small dispatch reference
+  -> ai:stream:job-dispatch:v1
+       └── Group  g:job-exec        (Worker executes / reconciles Provider work)        -> own PEL / ACK / Claim
 
-Within ONE group, a message goes to ONE consumer (competing consumers), NOT broadcast to all.
-Independently interested services need SEPARATE groups, each with an independent PEL/ACK/Claim lifecycle.
-Job execution and notification delivery are different effects -> different groups.
+Complete Transaction (Day33 Outbox)
+  Job running -> succeeded committed + job.completed Outbox intent committed
+  -> Relay publishes a small completed-event reference
+  -> ai:stream:job-events:v1
+       └── Group  g:notify-delivery (Notification Consumer reconciles / sends completion email) -> own PEL / ACK / Claim
+
+Within ONE group a message goes to ONE consumer (competing consumers), NOT broadcast to all.
+The completion email is driven ONLY by a committed job.completed Outbox/Event -- NEVER by an accept/dispatch
+entry. The event SOURCE is the PostgreSQL committed Outbox/Event; a Redis delivery is not business truth.
+
+Alternative (one shared event stream): ai:stream:job-events:v1 carrying an explicit event_type, where the
+notification Consumer processes ONLY committed job.completed events and IGNORES accept/dispatch events. Same
+rules apply: small references only; PostgreSQL Outbox/Event is the source; Provider and email each use their
+own stable idempotency identity.
 ```
 
 ---
@@ -171,7 +202,7 @@ Scenario: the Job Worker and the notification Consumer both crash **after** thei
 | 1 | **Preserve evidence** | do not trim Pending entries or quarantine/recovery evidence |
 | 2 | **Inspect PostgreSQL** | Job / Attempt / Event / Outbox / Notification-Delivery facts decide what really happened |
 | 3 | **Reconcile external outcomes** | use stable ids to check Provider and email results before repeating them |
-| 4 | **Each group Claims its own Pending** | `g:job-exec` and `g:notify-delivery` recover independently via their own PEL |
+| 4 | **Each group Claims its own Pending** | `g:job-exec` (on `ai:stream:job-dispatch:v1`) and `g:notify-delivery` (on the `job.completed` events stream) recover independently via their own PEL |
 | 5 | **ACK only after the recovered durable decision** | `XACK` closes transport responsibility once the durable truth is established |
 
 ```text
@@ -186,7 +217,9 @@ aggressively Trim Pending recovery evidence.
 ```text
 model        -> List (simple queue, no recovery lifecycle) / Pub-Sub (live, lossy) / Streams+Groups (recoverable)
 payload      -> small references (tenant_id, job_id, event_id, trace); bytes in Object Storage, refs in PostgreSQL
-topology     -> one group per distinct effect; within a group one message -> one consumer
+topology     -> distinct lifecycle events on distinct streams (Accept->job-dispatch->g:job-exec;
+                Complete->job.completed events->g:notify-delivery); within a group one message -> one consumer;
+                completion email driven ONLY by a committed job.completed event, never by a dispatch entry
 lifecycle    -> XREADGROUP -> PEL -> persist durable decision -> XACK (this group only)
 crash pre-ACK-> entry stays Pending -> XCLAIM/XAUTOCLAIM -> reconcile durable state -> XACK
 delivery     -> at-least-once + idempotency; NO exactly-once across ACK + commit + Provider
