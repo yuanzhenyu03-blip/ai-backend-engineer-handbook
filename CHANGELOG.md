@@ -11,7 +11,7 @@ This project follows a practical versioning style:
 
 ## v0.1.83 — Day40 Review Fixes: dispatch/completion event semantics; conditioned durable-backlog wording
 
-Date: 2026-07-24
+Date: 2026-07-25
 
 ### Fixed
 
