@@ -354,3 +354,204 @@ Student's actual answers (preserved verbatim):
 
 Assessment: The student self-corrected from an automatic v1 rollback to rolling back only the cache contract,
 naming PostgreSQL as authoritative and the Provider as not-to-be-recalled.
+
+---
+
+## Day40 Redis Messaging and Queue Semantics
+
+Pair with [`cheat_sheets/redis.md`](../cheat_sheets/redis.md) and the
+[Day40 lesson](../docs/redis/day40-redis-messaging-and-queue-semantics.md).
+
+### Q1 — A Worker consumed a Stream message, may have done the work, and crashed before `XACK`. Is the Job done?
+
+Model answer:
+
+Unknown until reconciled. The entry is Pending in the Consumer Group's PEL and must remain recoverable via
+Claim/redelivery. Redis cannot know whether the business effect happened; PostgreSQL Job/Attempt/Event/Outbox
+records plus Provider reconciliation decide completion. `XACK` closes delivery for one group; it does not create
+business truth.
+
+Student's actual answer (preserved verbatim):
+
+> "视为已处理，因为没有ACK确认，任务还在queue中。但是实际上已经处理结束了"
+
+Assessment: the student spotted that the work may actually have finished; the correction is that a Pending entry
+is "unknown," decided by durable state and reconciliation — not "already processed."
+
+### Q2 — Before replaying a redelivered message, how do you avoid a duplicate Provider call?
+
+Model answer:
+
+Inspect durable PostgreSQL state (Attempt/Event) and the stable idempotency evidence, reconcile the real
+outcome, and only then decide whether to repeat the side effect.
+
+Student's actual answer (preserved verbatim):
+
+> "检查postgresql，主要是查看attempt和event的状态，结合幂等键，防止二次调用provider"
+
+Assessment: correct direction — durable state + stable idempotency before replaying a Provider side effect.
+
+### Q3 — Why can't Pub/Sub be used for recoverable Job dispatch?
+
+Model answer:
+
+Pub/Sub is live broadcast with no durable backlog, ACK, PEL, Claim, or replay, so an offline or crashed
+subscriber permanently misses the message. It is only for loss-tolerant live notifications; use Streams Consumer
+Groups for recoverable dispatch.
+
+Student's actual answer (preserved verbatim):
+
+> "因为pub/sub只是做广播。并不负责对方是否收到，如果sub在pub发送消息之后，崩溃了没有收到消息，重新上线之后也不会找回pub发送的消息"
+
+Assessment: correct — Pub/Sub has no durable backlog or replay for an offline/crashed subscriber.
+
+### Q4 — What does ACKing immediately (before processing) cost you?
+
+Model answer:
+
+Early `XACK` removes the group's PEL recovery path, so a crash after ACK silently loses the Job — at-most-once.
+Persist a durable, recoverable decision first, then `XACK`, for at-least-once with a recovery path.
+
+Student's actual answer (preserved verbatim):
+
+> "立刻XACK,redis内部就会删除work的PEL，这个时候崩溃了这条PEL就找不到了，就不会再有work执行这个job，属于at-most-once"
+
+Assessment: correct — early ACK removes the Group recovery path and risks lost work.
+
+### Q5 — Why prefer delayed ACK (possible redelivery) over early ACK?
+
+Model answer:
+
+Controlled duplicate delivery is recoverable — durable state + idempotency make a redelivered message safe —
+whereas early ACK can lose a recoverable processing path, and if PostgreSQL never persisted the state, that row
+is never updated again.
+
+Student's actual answer (preserved verbatim):
+
+> "因为重投可以通过持久化状态结合幂等键进行可控投递，而提前ACK意味PEL提前被redis内部移除。如果这个时候PostgreSQL的状态也没有写入，就代表这条数据库的状态再也不会更新"
+
+Assessment: correct — controlled duplicate delivery is safer than losing a recoverable path.
+
+### Q6 — Does Stream append order guarantee the order business effects complete under concurrent consumers?
+
+Model answer:
+
+No. Append order is transport order; concurrent consumers complete out of order. PostgreSQL guarded state
+transitions and idempotency preserve business validity regardless of arrival order.
+
+Student's actual answer (preserved verbatim):
+
+> "不能保障"
+
+Assessment: correct — transport order is not business-completion order.
+
+### Q7 — A poison message keeps failing and holds a connection retrying. What do you do?
+
+Model answer:
+
+Contain through durable quarantine/dead-letter evidence, alert, repair the producer/contract, and controlled-
+replay a corrected message; `XACK` the original only after quarantine evidence exists. Never silently delete a
+failed Job message.
+
+Student's actual answer (preserved verbatim):
+
+> "会造成redis一直处于重试状态，一直占用连接。我觉得应该先contain，再删除"
+
+Assessment: the "contain first" instinct is right; the correction is quarantine-then-ACK, never silent delete.
+
+### Q8 — Is hitting the retry limit proof the error is permanent? And a fixed payload missing `tenant_id`?
+
+Model answer:
+
+No — a retry limit is a capacity/containment policy, not an error classifier. A fixed immutable payload missing
+required `tenant_id` is a permanent message-contract failure: retrying the identical message can't repair it.
+Repair the producer/contract and controlled-replay a corrected message.
+
+Student's actual answers (preserved verbatim):
+
+> "不能，因为有一个重试上限"
+
+> "瞬时错误，我会修复后重试"
+
+Assessment: the retry-limit answer is correct; the missing-field case was corrected from "transient" to a
+permanent contract failure that cannot be retried into success.
+
+### Q9 — What does an unsafe Stream trim destroy?
+
+Model answer:
+
+Claim/redelivery/replay capability — trimming Pending entries or recovery/quarantine evidence deletes exactly
+what recovery depends on. Trimming is a retention/capacity contract, not memory cleanup.
+
+Student's actual answer (preserved verbatim):
+
+> "破坏重放能力"
+
+Assessment: correct — unsafe trim destroys Claim/redelivery/replay evidence.
+
+### Q10 — Why isn't a persisted List a durable work queue equal to a Stream?
+
+Model answer:
+
+A List may be persisted, but it lacks native Consumer Group ownership, a PEL, ACK, Claim, and redelivery
+lifecycle — persistence is not a consumer recovery lifecycle. Streams add those semantics; don't hand-build a
+Celery replacement from raw Lists/Streams.
+
+Student's actual answer (preserved verbatim):
+
+> "list缺少streams持久化保存信息的机制"
+
+Assessment: correct gap; the precision is that Lists may persist — the missing piece is the recovery lifecycle.
+
+### Q11 — What belongs in a Stream payload when a Job produces a 300 MB PDF?
+
+Model answer:
+
+Small references only (`tenant_id`, `job_id`, `event_id`, trace). Object Storage owns the large bytes and
+PostgreSQL owns the durable references/provenance; large payloads in messages inflate memory, replication, and
+redelivery cost.
+
+Student's actual answer (preserved verbatim):
+
+> "object storage保存大文档，stream保存大文档会造成内存压力增大"
+
+Assessment: correct large-byte ownership boundary.
+
+### Q12 — Can two independently interested services share one Consumer Group?
+
+Model answer:
+
+No. Within one group a message goes to one consumer (competing consumers), so a shared group means one service
+consumes the other's deliveries. Job execution and notification delivery need separate groups, each with its own
+PEL/ACK/Claim; use guarded PostgreSQL state to prevent premature effects.
+
+Student's actual answer (preserved verbatim):
+
+> "会发生一个work已经发送用户通知的服务，而执行 Job 的 Worker还在处理。应该用数据库中持久化的事实拦住。"
+
+Assessment: the race and the database guard are right; the structural fix is separate Consumer Groups per effect.
+
+### Q13 — Can you decide "email already sent?" from the Job's Attempt/Event and one `job_id` key?
+
+Model answer:
+
+No — a Job Attempt/Event does not prove an email was delivered, and one `job_id` cannot key completion, failure,
+and admin notifications because they are separate effects. Use a delivery-specific identity, e.g.
+`job:{job_id}:notification:completion:v1`.
+
+Student's actual answer (preserved verbatim):
+
+> "根据数据库持久化attempt与event结合幂等键判断是否已经发送邮件"
+
+Assessment: checking durable state is the right reflex; the correction is a dedicated per-effect notification
+delivery identity/record.
+
+### Q14 — English interview: why can't Redis Streams alone give exactly-once?
+
+Model answer:
+
+Because exactly-once would require Redis ACK, the PostgreSQL commit, and the external Provider call to succeed or
+fail together, which Redis cannot coordinate. Redis gives at-least-once with Consumer Groups; exactly-once is
+engineered with durable state, guarded transitions, per-side-effect idempotency, and reconciliation.
+
+Assessment: names the three-way boundary and the at-least-once + idempotency resolution.

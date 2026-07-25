@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day40 — Redis Messaging and Queue Semantics
+Day41 — Redis Coordination and Production Safety
 
 Status:
 Planned / Not started
@@ -28,10 +28,61 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day40 — Redis Messaging and Queue Semantics (see the Day40 Preparation block below).
+- [ ] Prepare for Day41 — Redis Coordination and Production Safety (see the Day41 Preparation block below).
 
-(Day29-Day39 are complete; their work is recorded under the Completed Day** sections and the corresponding
+(Day29-Day40 are complete; their work is recorded under the Completed Day** sections and the corresponding
 Preparation history blocks.)
+
+---
+
+## Completed Day40 Tasks
+
+- [x] Complete Day40 Redis Messaging and Queue Semantics classroom learning.
+- [x] Generate the Day40 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day39->Day40 mental-model evolution).
+- [x] Explain why an unacknowledged (Pending) delivery is not proof of completion; PostgreSQL decides.
+- [x] Compare at-most-once (early ACK) vs at-least-once (delayed ACK) and persist a durable decision before XACK.
+- [x] Choose Lists vs Pub/Sub vs Streams by delivery/failure semantics; reject Pub/Sub for recoverable dispatch.
+- [x] Design distinct Consumer Groups for Job execution and notification delivery, each with its own PEL/ACK/Claim.
+- [x] Explain why concurrent consumers do not guarantee business-completion order.
+- [x] Keep Stream payloads to small references; keep large bytes in Object Storage with PostgreSQL references.
+- [x] Classify poison messages and design bounded retry -> quarantine -> alert -> repair -> controlled replay.
+- [x] Define a safe trim/retention contract that never destroys Pending or recovery evidence.
+- [x] Give each notification side effect its own delivery identity rather than reusing job_id.
+- [x] Recover dual consumer crashes with evidence preservation, PostgreSQL inspection, reconciliation, per-group Claim, ACK-after-decision.
+- [x] State honestly that Redis alone cannot provide exactly-once, and do not hand-build a Celery replacement.
+- [x] Preserve the real student answers, corrections, and the final Chinese mental model.
+
+---
+
+## Completed Day40 Repository Tasks
+
+- [x] Add `docs/redis/day40-redis-messaging-and-queue-semantics.md`.
+- [x] Add `projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day40 increment (artifact link, components, honest NOT-RUN limits).
+- [x] Append the Day40 section to `cheat_sheets/redis.md`.
+- [x] Append Day40 questions to `interview/redis.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day40 is now the latest Redis lesson).
+- [x] Update the Day39 lesson Next Lesson link to the released Day40 lesson.
+- [x] Update `CURRICULUM.md` (Day40 Completed; Day41 remains Planned).
+- [x] Update `ROADMAP.md` (Day40 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day40 Interview Tasks
+
+- [x] Add the crash-before-ACK, reconcile-before-replay, and Pub/Sub-vs-Streams questions with the student's actual answers.
+- [x] Add the early-ACK, delayed-ACK, ordering, poison-message, retry-limit, and trim questions.
+- [x] Add the Lists-vs-Streams, payload, Consumer-Group, notification-identity, and exactly-once questions.
+- [x] Preserve the verbatim student answers and add strong model answers.
+
+---
+
+## Completed Day40 Homework
+
+- [x] Complete the crash-before-ACK and Pub/Sub-vs-Streams exercises.
+- [x] Complete the early-ACK-vs-delayed-ACK and ordering exercises.
+- [x] Complete the poison-message, unsafe-trim, group-topology, and dual-crash-recovery exercises.
 
 ---
 
@@ -515,14 +566,26 @@ Preparation history blocks.)
 
 ---
 
-### Day40 Preparation — Redis Messaging and Queue Semantics
+### Day41 Preparation — Redis Coordination and Production Safety
 
-- [ ] Read the Day40 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md` and hold the boundary that Redis transport/cache does not own durable Job truth.
-- [ ] Preview Lists / Pub-Sub / Streams as different messaging models, and durable backlog vs no-replay.
-- [ ] Preview Streams consumer groups, pending entries, ack, claim/redelivery, and trimming.
-- [ ] Preview ordering scope and consumer concurrency, and at-most-once vs at-least-once (idempotent consumers still required).
-- [ ] Keep Redis transactions/Lua and full rate limiting (Day41) and SQLAlchemy/Alembic (Phase 4) out of scope.
+- [ ] Read the Day41 input when provided.
+- [ ] Review `projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md` and hold the boundary that Redis transport does not own durable business truth.
+- [ ] Preview atomic command vs multi-command race, and transactions/Lua only where atomic composition is required.
+- [ ] Preview fixed/sliding-window/token-bucket rate limits.
+- [ ] Preview lock vs lease, ownership token, expiry, safe release, and the fencing-token boundary (why a Redis lock alone cannot protect an external system from a paused/expired owner).
+- [ ] Preview idempotency + PostgreSQL constraints as the final durable-write protection, and eviction/RDB/AOF/replication/failover data-loss windows.
+- [ ] Keep SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day40 Preparation — Redis Messaging and Queue Semantics (completed)
+
+- [x] Read the Day40 input.
+- [x] Reviewed `projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md` and held the boundary that Redis transport/cache does not own durable Job truth.
+- [x] Previewed Lists / Pub-Sub / Streams as different messaging models, and durable backlog vs no-replay.
+- [x] Previewed Streams consumer groups, pending entries, ack, claim/redelivery, and trimming.
+- [x] Previewed ordering scope and consumer concurrency, and at-most-once vs at-least-once (idempotent consumers still required).
+- [x] Kept Redis transactions/Lua and full rate limiting (Day41) and SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 

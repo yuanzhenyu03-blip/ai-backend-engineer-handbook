@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day39 — Redis Cache Design and Consistency
+Day40 — Redis Messaging and Queue Semantics
 
 Next Lesson:
 
-Day40 — Redis Messaging and Queue Semantics (Planned / Not started; see ROADMAP.md)
+Day41 — Redis Coordination and Production Safety (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

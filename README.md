@@ -29,10 +29,11 @@ Last completed lesson:
 * Day37 — PostgreSQL Production Reliability
 * Day38 — Redis Foundations and Data Structures
 * Day39 — Redis Cache Design and Consistency
+* Day40 — Redis Messaging and Queue Semantics
 
 Next:
 
-* Day40 — Redis Messaging and Queue Semantics (Planned / Not started; see `ROADMAP.md`)
+* Day41 — Redis Coordination and Production Safety (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

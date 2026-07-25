@@ -1104,7 +1104,37 @@ truth; Celery broker boundary (do not hand-build a Celery replacement); poison m
 letter/quarantine at a conceptual boundary.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/redis/day40-redis-messaging-and-queue-semantics.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day39 — Redis Cache Design and Consistency
+
+Next Lesson:
+Day41 — Redis Coordination and Production Safety
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md` — a design/evidence
+pack: the List/Pub-Sub/Streams decision table, the small Stream payload contract, the Job-Worker and
+notification Consumer Group topology, the PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-
+completion boundary, per-side-effect idempotency/reconciliation, the retry classification and
+quarantine/dead-letter boundary, the safe trim/retention contract, and the integrated failure/recovery
+matrix — every section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT
+VALIDATED. Redis is not claimed to provide exactly-once, and no Celery replacement is built. No composition
+(Day41)
+
+Validation Limits:
+Day40 classroom status is conceptual reasoning and static review only — nothing was executed. No Redis
+server, `redis-cli`, Stream, Consumer Group, PEL, `XACK`, `XCLAIM`/`XAUTOCLAIM`, trim, Pub/Sub, List, or
+PostgreSQL/Celery/Worker/Provider/email/Object Storage integration was run, measured, or inspected. Redis is
+not claimed to provide exactly-once processing across Redis ACK + PostgreSQL commit + external Provider call.
+Atomic composition/coordination/locks-leases/rate limiting are Day41. RUNTIME NOT RUN; PRODUCTION NOT
+VALIDATED.
 
 ---
 

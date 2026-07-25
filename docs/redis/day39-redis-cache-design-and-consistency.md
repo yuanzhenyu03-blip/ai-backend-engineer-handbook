@@ -16,7 +16,7 @@ Prerequisite: Day38 — Redis Foundations and Data Structures
 
 Previous Lesson: [Day38 — Redis Foundations and Data Structures](day38-redis-foundations-and-data-structures.md)
 
-Next Lesson: Day40 — Redis Messaging and Queue Semantics (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day40 lesson file does not exist yet)
+Next Lesson: [Day40 — Redis Messaging and Queue Semantics](day40-redis-messaging-and-queue-semantics.md)
 
 Engineering Artifact: The Day39 Redis cache consistency design (`projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md`) — the per-endpoint cache-aside/invalidation contracts, commit-before-invalidate ordering, key versioning, TTL+jitter, stampede/single-flight/SWR, fail-open vs fail-closed table, negative caching, correctness metrics, Outbox invalidation recovery, and the v2 cache-contract incident, all labelled conceptual/static — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

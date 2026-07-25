@@ -221,7 +221,93 @@ for hot tolerant reads, fail-closed guarded writes, Outbox+idempotent DEL recove
 
 ---
 
+## Day40 Redis Messaging and Queue Semantics
+
+Central rule:
+
+```text
+PostgreSQL = authoritative Job/Attempt/Event/Outbox/Notification truth.
+A Redis Stream delivery -- even an XACK -- is TRANSPORT state, NOT business completion.
+Redis alone gives NO exactly-once across (Redis ACK + PostgreSQL commit + external Provider call).
+```
+
+### List vs Pub/Sub vs Streams
+
+```text
+List       persisted FIFO, NO group/PEL/ACK/Claim/redelivery         simple queue (recovery handled elsewhere)
+Pub/Sub    live broadcast, NO backlog/ACK/PEL/Claim/replay            loss-tolerant live notifications only
+Streams+CG durable backlog + per-group PEL/ACK/Claim/redelivery       recoverable Job dispatch + notifications
+List gap vs Stream: persistence != a consumer recovery lifecycle
+```
+
+### Lifecycle + delivery semantics
+
+```text
+XREADGROUP -> entry in the group PEL -> persist a durable decision in PostgreSQL -> XACK (this group only)
+crash BEFORE XACK -> entry stays PENDING -> XCLAIM/XAUTOCLAIM -> reconcile durable state -> XACK after decision
+at-most-once  = ACK before processing -> crash LOSES the Job (rejected)
+at-least-once = process + persist, THEN ACK -> may REDELIVER -> safe with idempotency (chosen)
+XACK closes delivery for ONE group; it is not business truth and not other groups' responsibility
+```
+
+### Groups / ordering / payload
+
+```text
+one group -> ONE consumer per message (competing consumers); distinct effects -> distinct groups
+stream append order = TRANSPORT order; concurrent consumers != business-completion order
+  -> PostgreSQL guarded transitions + idempotency preserve validity
+payload = small references (tenant_id, job_id, event_id, trace); bytes in Object Storage, refs in PostgreSQL
+do NOT hand-build a Celery replacement from raw Lists/Streams
+```
+
+### Poison messages / trim / notifications
+
+```text
+retry LIMIT = capacity-containment policy, NOT an error classifier; a bad immutable contract cannot self-heal
+poison path: bounded retry -> durable quarantine/dead-letter -> alert -> repair producer -> controlled replay
+  ACK the original ONLY after durable quarantine evidence exists; NEVER silently delete a failed Job message
+trim (XTRIM/MAXLEN) = retention/capacity contract; NEVER trim Pending or recovery/quarantine evidence
+per-side-effect idempotency: job:{job_id}:notification:completion:v1 (completion/failure/admin are SEPARATE)
+  a Job Attempt/Event does NOT prove an email was delivered
+```
+
+### Dual-crash recovery
+
+```text
+preserve evidence -> inspect PostgreSQL (Job/Attempt/Event/Outbox/Notification) -> reconcile Provider/email by
+stable ids -> each group Claims its OWN Pending -> ACK after the recovered durable decision
+NEVER: blindly rerun all Jobs / repeat Provider/email / silently delete / aggressively trim Pending evidence
+```
+
+### Weak vs strong (Day40)
+
+```text
+Weak:   "No ACK means it didn't run; an ACK means the business is done."
+Strong: "A Pending entry proves neither. PostgreSQL + reconciliation decide completion; ACK is transport only."
+
+Weak:   "ACK immediately so it isn't redelivered."
+Strong: "Early ACK = at-most-once = silent loss. Persist a durable decision first, then XACK (at-least-once)."
+
+Weak:   "Streams give exactly-once."
+Strong: "Redis gives at-least-once; exactly-once is engineered with durable state + idempotency + reconciliation."
+
+Weak:   "It hit the retry limit, so the error is permanent."
+Strong: "A retry limit is capacity containment, not an error classifier. Classify by evidence/contract semantics."
+
+Weak:   "Memory is tight — trim the stream."
+Strong: "Trim is a retention contract. Never trim Pending or recovery/quarantine evidence; it kills replay."
+```
+
+### One-line mental model
+
+```text
+Redis messaging is recoverable TRANSPORT, not business truth: Streams+Groups for at-least-once dispatch,
+persist-then-XACK, per-side-effect idempotency + PostgreSQL reconciliation, quarantine poison, retain before trim.
+```
+
 ---
 
-Related: [Day38 lesson](../docs/redis/day38-redis-foundations-and-data-structures.md) · [Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md) ·
-[Redis acceleration-layer design](../projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) · [Redis cache consistency design](../projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md)
+---
+
+Related: [Day38 lesson](../docs/redis/day38-redis-foundations-and-data-structures.md) · [Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md) · [Day40 lesson](../docs/redis/day40-redis-messaging-and-queue-semantics.md) ·
+[Redis acceleration-layer design](../projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) · [Redis cache consistency design](../projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md) · [Redis messaging and queue semantics design](../projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md)

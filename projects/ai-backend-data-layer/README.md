@@ -4,18 +4,19 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day39 — a Redis cache consistency design** that turns the Day38 ownership boundary
-into an explicit per-endpoint cache contract: cache-aside reads, commit-before-invalidate ordering (with the
+Current increment: **Day40 — a Redis messaging and queue semantics design** that uses Redis Lists,
+Pub/Sub, and Streams by their delivery/failure semantics while PostgreSQL stays durable Job truth: the
+List/Pub-Sub/Streams decision table, a small Stream payload contract, the Job-Worker and notification Consumer
+Group topology, the PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary,
+per-side-effect idempotency/reconciliation, retry/quarantine/dead-letter, a safe trim/retention contract, and
+the integrated failure/recovery matrix — design and evidence only, nothing executed; Redis is not claimed to
+give exactly-once and no Celery replacement is built. (See the Day39 note below for the prior increment.)
+
+Prior increment (Day39): **a Redis cache consistency design** that turns the Day38 ownership boundary into an
+explicit per-endpoint cache contract: cache-aside reads, commit-before-invalidate ordering (with the
 pre-commit re-cache race), cache key versioning, TTL + jitter, stampede/single-flight/stale-while-revalidate,
 a fail-open vs fail-closed table, negative caching, correctness metrics, Outbox invalidation recovery, and the
-v2 cache-contract incident — design and evidence only, nothing executed. (See the Day38 note below for the
-prior increment.)
-
-Prior increment (Day38): **a Redis acceleration-layer design** that adds Redis as *transient* state around
-the durable PostgreSQL truth: the ownership model (PostgreSQL truth / Object Storage bytes / Redis rebuildable
-acceleration), a tenant-scoped versioned key contract, a data-structure decision table, TTL and multi-command
-boundaries, memory/eviction as correctness, RDB/AOF loss windows, Redis-outage degradation, and the
-missing-TTL incident — design and evidence only, nothing executed.
+v2 cache-contract incident — design and evidence only, nothing executed.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -29,6 +30,7 @@ Lessons:
 - Day37 (production reliability): [`docs/postgresql/day37-postgresql-production-reliability.md`](../../docs/postgresql/day37-postgresql-production-reliability.md)
 - Day38 (Redis foundations): [`docs/redis/day38-redis-foundations-and-data-structures.md`](../../docs/redis/day38-redis-foundations-and-data-structures.md)
 - Day39 (Redis cache consistency): [`docs/redis/day39-redis-cache-design-and-consistency.md`](../../docs/redis/day39-redis-cache-design-and-consistency.md)
+- Day40 (Redis messaging): [`docs/redis/day40-redis-messaging-and-queue-semantics.md`](../../docs/redis/day40-redis-messaging-and-queue-semantics.md)
 
 ---
 
@@ -39,7 +41,8 @@ projects/ai-backend-data-layer/
 ├── README.md
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
-│   └── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
+│   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
+│   └── redis-messaging-and-queue-semantics-design.md  # Day40: Redis messaging and queue semantics design (design + evidence, not executed)
 ├── runbooks/
 │   └── postgresql-production-reliability.md            # Day37: production reliability runbook (design + evidence, not executed)
 └── sql/
@@ -96,6 +99,64 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day40 increment — Redis messaging and queue semantics design
+
+`redis/redis-messaging-and-queue-semantics-design.md` defines how Redis **Lists**, **Pub/Sub**, and
+**Streams** are used by their delivery/failure semantics for recoverable Job dispatch and notification
+delivery, while PostgreSQL stays durable Job truth and idempotency makes redelivery safe. It is a design /
+evidence pack, not a running queue and not an executed procedure: **every model, command, and contract is
+CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT RUN, PRODUCTION NOT VALIDATED. Redis is not claimed to
+provide exactly-once, and this is not a Celery replacement.**
+
+### What the design contains
+
+| Section | Contents |
+| --- | --- |
+| Ownership recap | PostgreSQL owns Job/Attempt/Event/Outbox/Notification truth; a Stream delivery (even an `XACK`) is transport state, not business completion |
+| List vs Pub/Sub vs Streams | decision table by durable backlog / PEL / ACK / Claim / replay; Pub/Sub only for loss-tolerant notifications; Streams+Groups for recoverable dispatch |
+| Small payload contract | references only (`tenant_id`, `job_id`, `event_id`, trace); Object Storage owns bytes; PostgreSQL owns references/provenance |
+| Consumer Group topology | one group per distinct effect (`g:job-exec`, `g:notify-delivery`); within a group one message -> one consumer |
+| PEL/ACK/Claim lifecycle | `XREADGROUP` -> PEL -> persist durable decision -> `XACK`; crash pre-ACK -> Pending -> `XCLAIM`/`XAUTOCLAIM` -> reconcile -> ACK |
+| Delivery vs completion | at-most-once (early ACK, loses work) vs at-least-once (delayed ACK + idempotency); no exactly-once across ACK + commit + Provider |
+| Per-side-effect idempotency | `job:{job_id}:notification:completion:v1`; completion/failure/admin are distinct; `job_id` alone is insufficient |
+| Retry / quarantine | bounded retry -> durable quarantine/dead-letter -> alert -> repair producer -> controlled replay; ACK only after quarantine evidence; never silent delete |
+| Safe trim / retention | trim is a retention/capacity contract; never trim Pending or recovery/quarantine evidence |
+| Failure / recovery matrix | dual-crash recovery: preserve evidence -> inspect PostgreSQL -> reconcile -> per-group Claim -> ACK after durable decision |
+
+### Rules encoded
+
+```text
+PostgreSQL owns Job/Attempt/Event/Outbox/Notification truth; a Redis delivery/ACK is transport, not completion
+persist a durable, recoverable decision BEFORE XACK; early ACK = at-most-once = silent loss
+at-least-once + idempotency is the default; Redis alone gives NO exactly-once across ACK + commit + Provider
+Pub/Sub has no backlog/ACK/PEL/Claim/replay -> loss-tolerant notifications only; Streams+Groups are recoverable
+one group -> one consumer per message; distinct effects -> distinct groups with independent PEL/ACK/Claim
+stream append order = transport order; concurrent consumers != business-completion order (guard + idempotency)
+Lists may persist but lack Consumer Group/PEL/ACK/Claim/redelivery; do NOT hand-build a Celery replacement
+payloads carry small references; Object Storage owns bytes; PostgreSQL owns references/provenance
+retry limit = capacity policy, NOT an error classifier; a bad immutable contract cannot self-heal
+poison path: bounded retry -> durable quarantine/dead-letter -> alert -> repair producer -> controlled replay
+trim = retention contract; NEVER trim Pending or recovery/quarantine evidence
+each side effect (completion/failure/admin) needs its OWN delivery identity; job_id alone is insufficient
+dual-crash recovery: preserve evidence -> inspect PostgreSQL -> reconcile -> per-group Claim -> ACK after decision
+```
+
+> **What this design deliberately does not do:** it starts no Redis or PostgreSQL, runs no Stream, Consumer
+> Group, `XACK`, Claim, trim, Pub/Sub, List, Celery, Worker, Provider, or email integration, and measures
+> nothing. It does **not** claim Redis provides exactly-once processing and does **not** hand-build a Celery
+> replacement. It contains no real secrets, connection strings, tenant identifiers, or production data.
+> PostgreSQL stays the durable source of truth.
+
+### Day40 known gaps (deliberate)
+
+```text
+Day41        atomic composition (MULTI/EXEC, Lua), coordination, locks/leases + fencing, full rate limiting
+Day42        the complete data ownership + failure + recovery/verification model
+Phase 4      SQLAlchemy / Alembic; a production broker (e.g. Celery) is used as a broker, not hand-rebuilt
+```
 
 ---
 
@@ -1340,6 +1401,17 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day40 (`redis/redis-messaging-and-queue-semantics-design.md`)
+
+| Level | Day40 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one AI Job messaging scenario reasoned end to end: crash-before-ACK, at-least-once/idempotency, Pub/Sub-vs-Streams, Consumer Groups/ordering, Lists/payload/Celery boundary, poison messages/retry, safe trim, notification identities, and dual-crash recovery |
+| Static reasoning review | **Completed** | static review of the List/Pub-Sub/Streams decision table, the payload contract, the group topology, the PEL/ACK/Claim lifecycle, the delivery-vs-completion boundary, per-side-effect idempotency, the retry/quarantine path, the trim/retention contract, and the recovery matrix |
+| Artifact syntax / runtime validation | **NOT RUN** | no Redis, `redis-cli`, Stream, Consumer Group, `XACK`, `XCLAIM`/`XAUTOCLAIM`, `XTRIM`, Pub/Sub, or List command was executed; the `XADD`/`XREADGROUP`/`XACK`/`XCLAIM`/`XTRIM` examples are read for shape and naming only |
+| Disposable-Redis / PostgreSQL validation | **NOT RUN** | no Stream/Group/PEL/Claim/redelivery/trim behaviour and no PostgreSQL commit/reconciliation was run or measured |
+| Application integration validation | **NOT RUN** | no Celery/Worker/Provider/email/Object Storage integration; no Claim/ACK/redelivery/Trim runtime; no dispatch, quarantine, or notification path exercised |
+| Production validation | **NOT RUN** | no production message loss, redelivery, poison message, or trim incident observed; Redis is not claimed to provide exactly-once; composition is Day41 |
 
 ### Day39 (`redis/redis-cache-consistency-design.md`)
 
