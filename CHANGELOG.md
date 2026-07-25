@@ -27,7 +27,7 @@ Date: 2026-07-24
 
 ## v0.1.82 — Day40 Redis Messaging and Queue Semantics
 
-Date: 2026-07-24
+Date: 2026-07-25
 
 ### Added
 

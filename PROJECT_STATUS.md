@@ -77,7 +77,7 @@ None.
 Day40 — Redis Messaging and Queue Semantics
 
 Completed Time:
-2026-07-24
+2026-07-25
 
 Main Artifact:
 Day40 Redis messaging and queue semantics design (projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md) — a design/evidence pack: the List/Pub-Sub/Streams decision table, the small Stream payload contract, the event lifecycle and Consumer Group topology (Accept -> job-dispatch stream -> g:job-exec; Complete -> job.completed events stream -> g:notify-delivery), the PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary, per-side-effect idempotency/reconciliation, the retry classification and quarantine/dead-letter boundary, the safe trim/retention contract, and the integrated failure/recovery matrix — every section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED
