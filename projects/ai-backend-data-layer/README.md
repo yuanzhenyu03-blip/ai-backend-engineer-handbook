@@ -5,7 +5,7 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 time (Day29-Day42).
 
 Current increment: **Day41 — a Redis coordination and production-safety design** that uses Redis for
-narrow, bounded coordination/protection (atomic rate-limit admission, leases, fencing acquisition) while
+narrow, bounded coordination/protection (atomic rate-limit admission and short leases; the fencing generation itself is durable in PostgreSQL) while
 PostgreSQL stays the durable business authority: the atomic admission contract, the algorithm decision table
 (fixed/first-write-TTL/sliding/token-bucket), the API idempotency boundary, the lease safety model (token/
 expiry/renew/atomic compare-and-delete release + paused-owner timeline), the fencing model, the PostgreSQL
@@ -125,8 +125,8 @@ business truth and no exactly-once is claimed.**
 | Algorithm decision table | clock-aligned fixed / first-write TTL / sliding window / token bucket by burst, fairness, cost, use case (token-bucket cap 10 refill 1/s example) |
 | API idempotency boundary | client key + PostgreSQL `(tenant_id, idempotency_key)` uniqueness; separate API / Provider / notification identities |
 | Lease safety model | `SET NX PX` + opaque token, renew, atomic compare-and-delete release, paused-owner timeline; expiry does not stop external work |
-| Fencing model | monotonic generation; durable downstream rejects stale writes; distinct from an opaque lease token and from Provider idempotency |
-| PostgreSQL completion guard | running + current token + unexpired lease + current/greater generation (extends Day34/Day37; reuses existing lease columns) |
+| Fencing model | a monotonic generation minted durably in a PostgreSQL claim/takeover tx (NOT a rollback-able Redis INCR); durable downstream rejects stale writes; generic rule `last_accepted_fence < incoming_fence`; distinct from an opaque lease token and from Provider idempotency |
+| PostgreSQL completion guard | running + current lease token + unexpired lease + `fencing_generation` = the current persisted generation (equality); the generation is advanced/persisted in a PostgreSQL claim/takeover tx, extending Day34/Day37 |
 | Redis loss/capacity matrix | RDB / AOF / async replication / failover / eviction / TTL as bounded protection degradation; isolate coordination capacity from cache |
 | Security matrix | network boundary, auth, ACL command + `ratelimit:*` prefix least privilege, TLS, dangerous-command restriction, audit/monitoring |
 | Integrated failure runbook | Redis unavailable vs recovered-with-lost-counters; API fail-closed admission; no Worker mass restart; drain/reconcile |
@@ -143,8 +143,9 @@ API idempotency = client key + PG UNIQUE (tenant_id, idempotency_key); API/Provi
 a Redis lock reduces optional duplicate work; the PG unique constraint is the final Job-identity authority
 lease expiry permits TAKEOVER; it does NOT stop a paused owner or an in-flight Provider call
 safe release = atomic compare-and-delete (delete only if the stored token is mine); it cannot stop external work
-fencing = MONOTONIC generation a durable downstream compares to reject stale writes; a UUID token cannot fence
-completion guard = running + current token + unexpired lease + current/greater generation
+fencing = MONOTONIC generation minted/persisted in a PostgreSQL claim/takeover tx (NEVER a rollback-able Redis INCR); a UUID token cannot fence
+Job Complete guard = running + current lease token + unexpired lease + fencing_generation = the current PERSISTED generation (EQUALITY)
+generic downstream fence (separate model): accept only last_accepted_fence < incoming_fence, then persist it
 RDB/AOF/replication/failover/eviction can lose counters = TEMPORARY protection degradation; isolate from evictable cache
 security = private net (necessary, not sufficient) + auth + ACL (command + ratelimit:* prefix) + TLS + deny FLUSHALL/CONFIG + audit
 managed Redis runs infra, NOT business responsibility

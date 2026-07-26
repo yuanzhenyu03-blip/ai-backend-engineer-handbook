@@ -48,8 +48,8 @@ By the end of this lesson you can:
 5. Compare clock-aligned fixed window, first-write TTL interval, sliding window, and token bucket by burst, fairness, cost, and use case, including a token-bucket capacity/refill calculation.
 6. Design API idempotency with a client key and a PostgreSQL `(tenant_id, idempotency_key)` uniqueness boundary, and keep API, Provider, and notification identities separate.
 7. Model a lease (acquire/token/expiry/renew/atomic compare-and-delete release) and explain why expiry permits takeover but does not stop a paused owner or an in-flight Provider call.
-8. Distinguish an opaque lease token from a monotonic fencing token, and use a fencing generation so a durable downstream rejects stale writes.
-9. State the final PostgreSQL completion guard (running + current token + unexpired lease + current/greater generation) and why a stale Worker cannot write `succeeded`.
+8. Distinguish an opaque (losable, Redis) lease token from a monotonic fencing generation that is minted durably in a PostgreSQL claim/takeover transaction, so a durable downstream rejects stale writes.
+9. State the final PostgreSQL completion guard (running + current lease token + unexpired lease + `fencing_generation` = the current persisted generation) and why a stale Worker cannot write `succeeded`.
 10. Analyze Redis data-loss windows (RDB/AOF/replication/failover/eviction) as bounded protection degradation, and isolate coordination capacity from ordinary cache.
 11. Design Redis security (network, auth, ACL command + `ratelimit:*` prefix least privilege, TLS, dangerous-command restriction, audit/monitoring) and explain why managed Redis does not transfer business responsibility.
 12. Contain an integrated failover + lease-expiry + paused-Provider incident by failing closed on new admission, not mass-restarting Workers, and reconciling durable facts.
@@ -144,7 +144,8 @@ API identity  = client idempotency key + PG UNIQUE (tenant_id, idempotency_key);
 lease         = SET NX PX + opaque token; renew while owner; ATOMIC compare-and-delete release.
 lease expiry permits TAKEOVER; it does NOT stop a paused owner or an in-flight Provider call.
 fencing       = MONOTONIC generation a durable downstream uses to REJECT stale writes; a UUID token cannot fence.
-completion    = PostgreSQL guard: running + current token + unexpired lease + current/greater generation.
+completion    = PostgreSQL guard: running + current lease token + unexpired lease + fencing_generation = the
+                current PERSISTED generation (the generation is minted durably at claim/takeover in PostgreSQL, never by Redis).
 loss/capacity = RDB/AOF/replication/failover/eviction can lose counters -> TEMPORARY protection degradation (monitor; isolate from cache).
 outage        = API fail-closed on new expensive admission; no Worker mass-restart; drain + reconcile durable facts.
 ```
@@ -377,15 +378,29 @@ described a fencing comparison in the database.
 
 ### Tech Lead Review
 
-The fencing description is exactly right: a **monotonically increasing** ownership generation, where the durable
-store accepts a newer generation and rejects an older one. The correction to the first answer: it's not only
-that a Provider can't distinguish tokens — a **UUID lease token is unordered**, so **even a cooperating
-downstream store** cannot decide which of two tokens is newer. Fencing needs a monotonic generation. In the Job
-model, completion is guarded by current ownership/fencing state, `running` state, current lease token, and
-unexpired lease, so a stale Worker cannot write `succeeded` after the newer owner takes over. And the boundary to
-keep: ordinary AI Providers generally do **not** compare the application's fencing token, so **stable Provider
-idempotency keys + Artifact reconciliation** remain required for external effects — fencing protects a
-cooperating **durable downstream**, not the Provider.
+The student's rule — accept the newer generation, reject the older — is the correct **generalized** downstream
+fence rule (`last_accepted_fence < incoming_fence`, then persist `incoming_fence`). Two precisions matter for
+correctness. First, the correction to the first answer: it's not only that a Provider can't distinguish tokens —
+a **UUID lease token is unordered**, so **even a cooperating downstream store** cannot decide which of two tokens
+is newer; fencing needs a **monotonic generation**. Second, and critical: the fencing generation's correctness
+**must not depend on rollback-able Redis** — it is advanced and **persisted in a PostgreSQL durable
+claim/takeover transaction** (never allocated by a Redis `INCR`, which a failover could hand out smaller or
+duplicated). For the **Job Complete** predicate specifically, the guard uses **equality** with the current
+persisted generation, not a loose `>=`:
+
+```text
+Claim/takeover: advance + persist a NEW, strictly greater current_fencing_generation (PostgreSQL, durable).
+Complete allowed only when:
+      job_status = 'running'
+  AND lease_token = the current worker lease token
+  AND lease_expires_at > now()
+  AND fencing_generation = the current persisted fencing generation      (EQUALITY)
+```
+
+A stale Worker A completing with its **old** generation cannot equal the current persisted generation → rejected;
+and even if A's token has not yet been replaced, an expired lease already fails the guard. Ordinary AI Providers
+do **not** compare the fencing generation, so **stable Provider idempotency keys + Artifact reconciliation**
+remain required for external effects — fencing protects a cooperating **durable downstream**, not the Provider.
 
 ### Engineering Thinking
 
@@ -772,12 +787,13 @@ Follow-up Question: do ordinary Providers compare fencing tokens?
 
 Question: write the completion guard.
 
-Expected Output: `running` + current lease token + `lease_expires_at > now()` + current/greater ownership
-generation; a stale Worker's `succeeded` is rejected.
+Expected Output: `running` + current lease token + `lease_expires_at > now()` + `fencing_generation` = the
+current persisted fencing generation (equality); a stale Worker's `succeeded` is rejected because its old
+generation cannot equal the current one. The generation is minted durably at claim/takeover in PostgreSQL.
 
-Explanation: reuses the Day34/Day37 guard plus the fencing generation.
+Explanation: reuses the Day34/Day37 guard plus a durably-allocated fencing generation (not a Redis value).
 
-Follow-up Question: which existing lease columns does this reuse?
+Follow-up Question: which existing lease columns does this reuse, and where is the generation advanced?
 
 ### Exercise 11: Rate-limit loss during RDB/AOF/replication/failover
 
@@ -846,7 +862,7 @@ Follow-up Question: what are the containment targets, and what is explicitly not
 
 PostgreSQL is the durable authority behind every Redis coordination control: the Accept transaction (Job +
 Outbox) is the acceptance truth, `(tenant_id, idempotency_key)` uniqueness decides Job identity, and the guarded
-completion write (running + current token + unexpired lease + current generation) rejects stale-owner writes.
+completion write (running + current lease token + unexpired lease + `fencing_generation` = the current persisted generation, minted durably at claim/takeover) rejects stale-owner writes.
 Watch that admission, locks, and leases never become the authority for identity or completion.
 
 ## Redis (atomic commands, Lua, MULTI/EXEC/WATCH)
@@ -900,9 +916,10 @@ admission protects every other tenant's capacity and cost.
 ## Durable business facts vs coordination state
 
 Job/Attempt/Event/Outbox in PostgreSQL and the deterministic Artifact in Object Storage are the business facts;
-Redis admission counters, leases, and fencing acquisition are coordination that can be lost or rolled back on
-failover/eviction. The reconciliation after any incident reads the durable facts, never the Redis coordination
-state.
+Redis admission counters and short leases are coordination that can be lost or rolled back on failover/eviction;
+the fencing **generation**, by contrast, is a **durable PostgreSQL** value minted at claim/takeover precisely so
+it survives a Redis failover. The reconciliation after any incident reads the durable facts, never the losable
+Redis coordination state.
 
 ---
 
@@ -967,7 +984,7 @@ Correction and strong spoken answer:
 > failover, admission volume, and reject rate. Worker B must not call the Provider only because it acquired a new
 > Redis lease. It should reconcile PostgreSQL durable facts such as the Job, Attempt, Event, and Outbox records,
 > check the stable Provider idempotency key, and verify the deterministic Artifact. A paused Worker A may resume,
-> so final PostgreSQL writes must be guarded by current ownership and fencing generation, while the Provider side
+> so final PostgreSQL writes must be guarded by the current lease token, an unexpired lease, and equality with the current persisted fencing generation (minted durably at takeover), while the Provider side
 > effect is protected by its own idempotency key. Redis coordinates work, but PostgreSQL remains the durable
 > business authority."
 
@@ -1005,8 +1022,8 @@ monitor the degradation."
 8.  A Redis lock reduces optional duplicate work; the PG unique constraint is the final Job-identity authority.
 9.  Lease expiry permits TAKEOVER; it does NOT stop a paused owner or an in-flight Provider call.
 10. Safe release = atomic compare-and-delete (delete only if the stored token is mine); it can't stop external work.
-11. Fencing = MONOTONIC generation; a durable downstream rejects an older generation; a UUID token cannot fence.
-12. Completion guard = running + current token + unexpired lease + current/greater generation.
+11. Fencing = a MONOTONIC generation minted durably in a PostgreSQL claim/takeover tx (NOT a rollback-able Redis INCR); a UUID lease token cannot fence. Generic downstream rule: accept only last_accepted_fence < incoming_fence, then persist it.
+12. Job Complete guard = running + current lease token + unexpired lease + fencing_generation = the current PERSISTED generation (EQUALITY, not >= / >).
 13. RDB/AOF/replication/failover/eviction can lose counters = TEMPORARY protection degradation (monitor; isolate from cache).
 14. Security = network + auth + ACL (command + ratelimit:* prefix) + TLS + deny FLUSHALL/CONFIG + audit/monitor.
 15. Managed Redis runs infra, NOT business responsibility; Redis is memory-resident (persistence is a disk/recovery cost).
@@ -1019,7 +1036,7 @@ Reasoning: the student protected PostgreSQL from compensation coupling, chose sl
 reasoned that a lease can't stop external work, and described a monotonic fencing comparison in the database.
 Correction: the race needs atomicity not a lock; keep check+increment+TTL in one atomic step; a lease permits
 takeover but can't stop a paused owner; API identity is a client key + PG uniqueness (Worker facts may not exist);
-fencing must be ordered; managed infra does not transfer correctness responsibility.
+fencing must be ordered AND durably allocated in PostgreSQL (not by a rollback-able Redis INCR), with the Job Complete guard using equality with the current persisted generation; managed infra does not transfer correctness responsibility.
 Final: Redis only coordinates/protects; durable facts stay PostgreSQL Job/Attempt/Event/Outbox + reconciled
 Provider/Artifact; lease expiry enables takeover but not a stop; fencing is an ordered generation a durable
 downstream uses to reject stale writes; eviction/failover temporarily weaken protection; the API fail-closes new
@@ -1033,7 +1050,7 @@ expensive admission during a Redis outage and Workers are drained/reconciled, no
 Redis coordinates and protects; PostgreSQL remains the durable business authority. Make admission an atomic
 read-modify-write (a short Lua), treat a consumed token as an allowed attempt rather than a created Job, decide
 Job identity at a PostgreSQL uniqueness boundary, and remember that a lease permits takeover but never stops a
-paused owner or an in-flight Provider call — so stale writes are rejected by a monotonic fencing generation and
+paused owner or an in-flight Provider call — so stale writes are rejected by a durably-allocated (PostgreSQL) monotonic fencing generation compared by equality and
 the PostgreSQL completion guard, and external effects are protected by stable Provider idempotency and Artifact
 reconciliation.
 

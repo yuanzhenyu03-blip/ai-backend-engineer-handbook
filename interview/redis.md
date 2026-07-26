@@ -697,8 +697,12 @@ Assessment: correct on both the unsafe-delete hazard and the limit of safe relea
 Model answer:
 
 A UUID is unordered, so even a cooperating downstream can't tell newer from older. A fencing token is a
-monotonically increasing generation; the durable store records the newest and rejects older ones. Completion is
-guarded by running + current token + unexpired lease + current/greater generation.
+monotonically increasing generation whose correctness must not depend on rollback-able Redis — it is advanced and
+persisted in a PostgreSQL claim/takeover transaction (never a Redis `INCR`, which a failover could hand out
+smaller or duplicate). Generically, a downstream accepts a write only when `last_accepted_fence < incoming_fence`
+and then persists it. For the Job Complete predicate specifically, the guard uses equality: `running` + current
+lease token + `lease_expires_at > now()` + `fencing_generation` = the current persisted generation, so a stale
+owner's old generation can't equal the current one and is rejected.
 
 Student's actual answers (preserved verbatim):
 
@@ -706,8 +710,10 @@ Student's actual answers (preserved verbatim):
 
 > "通过比较fencing token,如果新加入的大于前一个就允许，如果小于就拒绝"
 
-Assessment: the fencing comparison is right; the correction is that the UUID's lack of ordering (not just the
-Provider) is the reason it can't fence.
+Assessment: the fencing comparison (newer accepted, older rejected) is the right generic rule; the corrections are
+that the UUID's lack of ordering (not just the Provider) is why it can't fence, that the generation must be minted
+durably in PostgreSQL (not a losable Redis value), and that the Job Complete guard uses equality with the current
+persisted generation.
 
 ### Q10 — Redis fails over and loses recent counters. Does a low count mean the tenant is under limit? And should coordination state share cache capacity?
 
@@ -817,7 +823,7 @@ Strong answer:
 > failover, admission volume, and reject rate. Worker B must not call the Provider only because it acquired a new
 > Redis lease. It should reconcile PostgreSQL durable facts such as the Job, Attempt, Event, and Outbox records,
 > check the stable Provider idempotency key, and verify the deterministic Artifact. A paused Worker A may resume,
-> so final PostgreSQL writes must be guarded by current ownership and fencing generation, while the Provider side
+> so final PostgreSQL writes must be guarded by the current lease token, an unexpired lease, and equality with the current persisted fencing generation (minted durably at takeover), while the Provider side
 > effect is protected by its own idempotency key. Redis coordinates work, but PostgreSQL remains the durable
 > business authority."
 

@@ -354,12 +354,17 @@ token bucket         burst up to capacity + refill bounds average (cap 10, refil
 ### Lease / safe release / fencing
 
 ```text
-lease   = SET lock_key <token> NX PX 30000; token = OPAQUE ownership id (UUID-like); renew while owner
+lease   = SET lock_key <token> NX PX 30000; token = OPAQUE ownership id (UUID-like); LOSABLE Redis coordination; renew while owner
 release = ATOMIC compare-and-delete (Lua): delete ONLY if stored token == mine (blind DEL lets old A delete new B's lease)
 lease EXPIRY permits TAKEOVER; it does NOT stop a paused owner or an in-flight Provider call
-fencing = MONOTONIC generation; durable downstream records newest + REJECTS older; a UUID token cannot fence (unordered)
-completion guard (PG) = running + current token + lease_expires_at > now() + current/greater generation (Day34/37 + fencing)
-Providers usually don't compare fencing -> external effects still need stable Provider idempotency + Artifact reconciliation
+fencing generation = MONOTONIC; correctness must NOT depend on rollback-able Redis -> minted + persisted in a
+  PostgreSQL claim/takeover tx (NEVER a Redis INCR, which a failover could hand out smaller/duplicate)
+Claim/takeover: advance + persist a NEW strictly-greater current_fencing_generation (durable, PostgreSQL)
+Job Complete guard (PG) = job_status='running' AND lease_token=current token AND lease_expires_at > now()
+  AND fencing_generation = the current PERSISTED generation   (EQUALITY -- not >= and not >)
+generic downstream fence (SEPARATE model, not Job Complete): accept only last_accepted_fence < incoming_fence, then persist it
+a UUID token cannot fence (unordered); Providers usually don't compare fencing -> external effects still need
+  stable Provider idempotency + Artifact reconciliation
 ```
 
 ### Loss / capacity / security / outage
@@ -386,7 +391,7 @@ Weak:   "A Redis lock guarantees one Job per POST."
 Strong: "PostgreSQL UNIQUE (tenant_id, idempotency_key) decides Job identity; the lock only reduces optional duplicate work."
 
 Weak:   "The lease expired, so the old Worker stopped."
-Strong: "Expiry permits takeover; it can't stop a paused owner or its in-flight Provider call. Use fencing + idempotency."
+Strong: "Expiry permits takeover; it can't stop a paused owner or its in-flight Provider call. Use a durable PostgreSQL fencing generation (equality guard) + Provider idempotency."
 
 Weak:   "A UUID lease token can fence stale writes."
 Strong: "UUIDs are unordered. Fencing needs a monotonic generation the durable downstream compares."
@@ -398,7 +403,7 @@ Strong: "Lost counters are temporary protection degradation. Monitor; fail close
 ### One-line mental model
 
 ```text
-Redis coordinates/protects (atomic admission, leases, fencing acquisition) but is LOSABLE; PostgreSQL uniqueness +
+Redis coordinates/protects (atomic admission, short leases) but is LOSABLE; the fencing generation is durable in PostgreSQL; PostgreSQL uniqueness +
 guarded/fenced writes + stable Provider idempotency + Artifact reconciliation are the durable final authority.
 ```
 

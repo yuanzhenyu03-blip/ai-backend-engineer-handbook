@@ -28,8 +28,10 @@ Related: [Day41 lesson](../../../docs/redis/day41-redis-coordination-and-product
 ```text
 PostgreSQL = AUTHORITATIVE Job/Attempt/Event/Outbox truth; unique constraints + guarded transitions decide it.
 Object Storage = large bytes / deterministic result Artifacts (reconciled by stable reference).
-Redis (Day41) = a COORDINATION / PROTECTION control only: atomic admission (rate limits), leases, fencing
-                acquisition. It may be LOST or ROLLED BACK on eviction/failover and is NOT business truth.
+Redis (Day41) = a COORDINATION / PROTECTION control only: atomic admission (rate limits) and short leases. It
+                may be LOST or ROLLED BACK on eviction/failover and is NOT business truth. The fencing
+                GENERATION is NOT a Redis-allocated value -- it is minted durably in a PostgreSQL claim/takeover
+                transaction (Section 6/7), precisely because Redis state can roll back.
 
 Redis admission (a consumed rate-limit token) is NOT durable Job success.
 A Redis lease grants takeover eligibility; it does NOT stop a paused owner or an in-flight Provider call.
@@ -132,35 +134,57 @@ Safe release stops A from deleting B's lease; it does NOT stop A's already-start
 
 ```text
 Lease token   = OPAQUE ownership id (UUID-like), UNORDERED -> good for renew/safe-release, useless for "who is newer".
-Fencing token = MONOTONICALLY INCREASING ownership generation.
-  A durable downstream store records the NEWEST accepted generation and REJECTS writes carrying an older one.
+                It is short-lived Redis COORDINATION and is ALLOWED to be lost/rolled back on eviction/failover.
+Fencing generation = a MONOTONICALLY INCREASING ownership generation whose CORRECTNESS MUST NOT depend on
+                     rollback-able Redis state.
+
+Allocation source (critical): the fencing generation is advanced and PERSISTED in a PostgreSQL DURABLE
+OWNERSHIP TRANSACTION at Claim/takeover -- NOT allocated by a Redis INCR. If Redis assigned it, a failover
+could hand a new owner a SMALLER or DUPLICATE generation and the downstream could no longer reliably reject a
+stale owner's write. Redis may hold a short lease for coordination; PostgreSQL owns the durable generation.
 
 Why a UUID lease token cannot fence: it has no ordering, so even a cooperating downstream cannot decide which
-of two tokens is newer. Fencing requires a monotonic generation.
+of two tokens is newer. Fencing requires a monotonic, durably-allocated generation.
 
-Ordinary AI Providers generally do NOT compare the application's fencing token, so external model effects
+Ordinary AI Providers generally do NOT compare the application's fencing generation, so external model effects
 still require stable Provider idempotency keys + Artifact reconciliation. Fencing protects a cooperating
 DURABLE DOWNSTREAM store (e.g. PostgreSQL) from stale writes; it does not itself de-duplicate a Provider call.
 ```
+
+Generalized downstream fence rule (a SEPARATE model, not the Job completion predicate): for a generic resource
+write to a downstream that has **not** already stored the current owner generation, the downstream accepts a
+write only when `last_accepted_fence < incoming_fence`, then persists `incoming_fence`. The Day41 **Job
+Complete** design does **not** use this inequality — it uses **equality with the current persisted generation**
+(Section 7).
 
 ---
 
 ## 7. Final PostgreSQL completion guard (extends Day34/Day37)
 
 ```text
-Complete (running -> succeeded) is guarded by the established Day34/Day37 condition:
+Claim / takeover (PostgreSQL durable ownership transaction):
+  ADVANCE and PERSIST the Job's current_fencing_generation (a new, strictly greater generation), together with
+  claim_owner / lease_token / lease_expires_at. This is the ONLY place the generation is minted -- durably, in
+  PostgreSQL, never by a rollback-able Redis INCR.
+
+Complete (running -> succeeded) is allowed ONLY when ALL hold:
      job_id
  AND job_status = 'running'
- AND lease_token = the current token
+ AND lease_token = the current worker lease token
  AND lease_expires_at > now()
-Day41 adds the ownership-GENERATION dimension for stale-owner rejection: the durable store also records the
-current ownership/fencing generation and REJECTS a write carrying an older generation. A stale Worker A cannot
-write `succeeded` after newer owner B has taken over, because A's token is no longer current AND/OR A's
-generation is older than the recorded one.
+ AND fencing_generation = the current persisted fencing generation      (EQUALITY, not >= and not >)
+
+Why it is safe:
+ - Claim/takeover writes a NEW, greater current_fencing_generation.
+ - A stale Worker completing with its OLD generation cannot EQUAL the current persisted generation -> rejected.
+ - A stale Worker must ALSO satisfy an unexpired lease with the current token -- even if its token has not yet
+   been replaced, an expired lease already fails the guard.
+ - Providers do NOT understand the fencing generation, so duplicate external side effects are still handled by
+   a stable Provider idempotency key + deterministic Artifact reconciliation.
 
 This reuses the repository's existing lease columns (claim_owner / lease_token / lease_expires_at, Day34/Day36)
--- Day41 does NOT invent a conflicting schema; the fencing generation is the conceptual monotonic ordering on
-top of that ownership model. No SQL was executed.
+and adds a durable current_fencing_generation to the same ownership model -- Day41 does NOT invent a conflicting
+schema and executed NO SQL.
 ```
 
 ---
@@ -235,7 +259,7 @@ Provider call, its Redis lease expires, and Worker B acquires a new lease for th
 | New expensive admission (Redis unavailable) | **fail closed** — return a deliberate retryable response | do not silently remove the cost/capacity protection |
 | Worker B holding a fresh lease | **do NOT call the Provider on the lease alone** — reconcile PostgreSQL Job/Attempt/Event/Outbox + stable Provider idempotency + deterministic Artifact | a fresh Redis lease is not proof the work is undone |
 | Worker fleet | **do NOT mass-restart** — avoid new Redis-dependent claim/coordination with bounded backoff; drain/preserve running external work, then hand off/reconcile after recovery | a mass restart interrupts in-flight Provider calls |
-| Paused Worker A resumes | final PostgreSQL writes guarded by current ownership + fencing generation; the Provider effect protected by its own idempotency key | a stale owner must not overwrite newer work |
+| Paused Worker A resumes | final PostgreSQL writes guarded by the current lease token + unexpired lease + equality with the current persisted fencing generation (minted durably at takeover); the Provider effect protected by its own idempotency key | a stale owner must not overwrite newer work |
 | Lost counters | treat as a temporary **protection-degradation** window; monitor eviction/memory/failover/admission/reject | it is degradation, not durable quota correctness |
 
 ```text
@@ -256,7 +280,8 @@ API idempotency -> client key + PG UNIQUE (tenant_id, idempotency_key); Provider
 lease         -> SET NX PX + opaque token; renew while owner; ATOMIC compare-and-delete release (Lua)
 lease != stop -> expiry allows takeover; it does NOT stop a paused owner or an in-flight Provider call
 fencing       -> MONOTONIC generation; durable downstream rejects older generation; UUID token cannot fence
-completion    -> PG guard: running + current token + unexpired lease + current/greater generation (Day34/37 + fencing)
+completion    -> PG guard: running + current token + unexpired lease + fencing_generation = current PERSISTED generation
+                 (Day34/37 guard + durable fencing; the generation is minted in a PostgreSQL claim/takeover tx, never Redis)
 loss/capacity -> RDB/AOF/replication/failover/eviction can lose counters = temporary protection degradation; isolate from cache
 security      -> private net + auth + ACL (command + ratelimit:* prefix) + TLS + deny FLUSHALL/CONFIG + audit/monitor
 outage        -> API fail-closed on new expensive admission; no Worker mass-restart; drain + reconcile; monitor degradation

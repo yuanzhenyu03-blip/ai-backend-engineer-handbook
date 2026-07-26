@@ -46,7 +46,7 @@ Preparation history blocks.)
 - [x] Compare fixed/first-write-TTL/sliding/token-bucket and do the capacity-10 refill-1/s calculation.
 - [x] Design API idempotency with a client key + PostgreSQL (tenant_id, idempotency_key); keep API/Provider/notification identities separate.
 - [x] Model lease acquire/token/expiry/renew/atomic compare-and-delete release; explain expiry cannot stop a paused owner or in-flight Provider call.
-- [x] Distinguish opaque lease token from monotonic fencing token; state the completion guard (running + current token + unexpired lease + generation).
+- [x] Distinguish an opaque (losable Redis) lease token from a durably-allocated monotonic fencing generation (minted/persisted in a PostgreSQL claim/takeover tx); state the Job Complete guard (running + current lease token + unexpired lease + fencing_generation = the current persisted generation, equality).
 - [x] Analyze RDB/AOF/replication/failover/eviction as bounded protection degradation; isolate coordination capacity from cache.
 - [x] Design Redis security (network/auth/ACL command + ratelimit:* prefix/TLS/dangerous-command) and explain managed Redis does not transfer responsibility.
 - [x] Contain the integrated failover + lease + Provider incident (fail-closed admission, no mass restart, reconcile durable facts).
