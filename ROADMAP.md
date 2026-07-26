@@ -159,6 +159,11 @@ Turn the Day28–Day42 conceptual architecture and data contracts into a runnabl
 Backend API (FastAPI + SQLAlchemy + Alembic + Redis/Outbox/Worker + Object Storage + OpenAI-compatible
 provider, with auth and tenant isolation).
 
+Day55 note: Celery runs long-running Provider work on a **supported Celery broker transport** and reuses the
+Day40 delivery-semantics mental model (at-least-once, redelivery, ACK timing, idempotency, poison messages).
+It does **not** consume the Day40 custom Redis Streams / Consumer Group design and does **not** hand-build a
+Celery replacement (see `CURRICULUM.md` Day55 and Day40).
+
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
 | Day43 | AI Backend Product Contract and FastAPI Request Lifecycle | Planned |
@@ -314,6 +319,11 @@ Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Enginee
 Completion does not by itself demonstrate Senior or Staff level. Phases 4–8 carry a cross-cutting
 employment-readiness thread (Python/SQL practice, English technical explanation, system-design communication,
 runtime validation evidence, weekly README + interview review) whose goal is accumulated capability evidence,
-not an offer guarantee.
+not an offer guarantee. Testing and observability are continuous engineering disciplines from Day43, not
+end-of-phase add-ons: baseline tests, structured logging, correlation IDs (`job_id`/`trace_id`/`attempt_id`),
+and validation evidence begin on Day43 and evolve with every Engineering Artifact, so Day57 advances an
+existing test suite and Day58 integrates existing observability rather than starting them. Every
+implementation day adds proportionate tests and validation evidence; no phase accumulates untested code and
+postpones correctness to its Capstone (see `CURRICULUM.md`, Cross-cutting Engineering Discipline).
 
 ---

@@ -1233,22 +1233,54 @@ PostgreSQL/SQL mental models from Phase 3.
 
 Per-day topics (Topic + concise scope; each Status: Planned, no lesson generated yet):
 
-- Day43 — AI Backend Product Contract and FastAPI Request Lifecycle. Scope: request/response lifecycle, routing, the AI Job API product contract over the Day42 model.
-- Day44 — Pydantic v2 and Structured AI Input/Output Contracts. Scope: validation, typed request/response, structured AI output contracts and error shapes.
-- Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters. Scope: DI, app lifespan, settings/secrets boundary, a provider-adapter seam.
-- Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model. Scope: map Job/Attempt/Event/Outbox/Upload Session/Artifact to the durable schema without changing ownership.
-- Day47 — Async Sessions, Transactions, Repository and Unit of Work. Scope: async session lifecycle, transaction boundaries, repository + unit-of-work over the Day33 guarantees.
-- Day48 — Alembic and Safe AI Backend Schema Evolution. Scope: Alembic migrations enforcing the Day36 Expand/Backfill/Validate/Switch/Contract discipline.
-- Day49 — Upload Sessions, Object Storage and Artifact Verification. Scope: presigned upload sessions, Object Storage boundary, deterministic artifact reference/verification.
-- Day50 — Idempotent AI Job API and Transactional Outbox Integration. Scope: the client-idempotency-key + `(tenant_id, idempotency_key)` boundary and the Outbox dispatch intent end to end.
-- Day51 — Authentication, Password Security and JWT. Scope: password hashing, JWT issuance/verification, session/token boundaries.
-- Day52 — Authorization, Tenant Isolation, Quotas and API Security. Scope: tenant isolation, per-tenant quotas/rate limits, authorization and API security boundaries.
-- Day53 — OpenAI SDK, Provider Boundaries and Structured Output. Scope: OpenAI-compatible SDK usage, provider boundary, structured-output parsing and validation.
-- Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation. Scope: streaming responses, disconnect/timeout handling, cooperative cancellation.
-- Day55 — Celery, Worker Execution and Long-running AI Jobs. Scope: Celery workers over the Day40 transport, long-running Provider jobs, claim/complete lifecycle.
-- Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure. Scope: retries/backoff, provider rate limits, token-cost control, backpressure and degradation.
-- Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection. Scope: fake/deterministic providers, contract tests, failure injection, runtime evidence.
-- Day58 — Production AI API Capstone, Observability and English Interview. Scope: integrate the phase into a runnable API with observability; phase-level English interview.
+- Day43 — AI Backend Product Contract and FastAPI Request Lifecycle.
+  Scope: request/response lifecycle, routing, the AI Job API product contract over the Day42 model.
+  Connection: turns the Day42 data-ownership and failure contracts into an HTTP API boundary; Day44 formalizes its typed request/response contracts.
+- Day44 — Pydantic v2 and Structured AI Input/Output Contracts.
+  Scope: validation, typed request/response, structured AI output contracts and error shapes.
+  Connection: takes the Day43 API boundary and adds validated, typed AI input/output contracts; Day45 wires them through dependency injection and provider adapters.
+- Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters.
+  Scope: DI, app lifespan, settings/secrets boundary, a provider-adapter seam.
+  Connection: gives the Day44 contracts their runtime wiring (DI, lifespan, config, provider seam); Day46 persists them through SQLAlchemy over the Day42 model.
+- Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model.
+  Scope: map Job/Attempt/Event/Outbox/Upload Session/Artifact to the durable schema without changing ownership.
+  Connection: maps the Day42 durable model into SQLAlchemy without changing ownership; Day47 drives it with async sessions, transactions, and a repository/unit-of-work.
+- Day47 — Async Sessions, Transactions, Repository and Unit of Work.
+  Scope: async session lifecycle, transaction boundaries, repository + unit-of-work over the Day33 guarantees.
+  Connection: adds transactional persistence over the Day33 guarantees behind the Day46 mapping; Day48 evolves that schema safely with Alembic.
+- Day48 — Alembic and Safe AI Backend Schema Evolution.
+  Scope: Alembic migrations enforcing the Day36 Expand/Backfill/Validate/Switch/Contract discipline.
+  Connection: brings the Day36 safe-migration discipline to the Day46/47 SQLAlchemy schema via Alembic; Day49 adds the upload and Object-Storage boundary on top.
+- Day49 — Upload Sessions, Object Storage and Artifact Verification.
+  Scope: presigned upload sessions, Object Storage boundary, deterministic artifact reference/verification.
+  Connection: adds presigned uploads and Object-Storage artifact verification to the persisted model; Day50 makes Job acceptance idempotent with the Outbox.
+- Day50 — Idempotent AI Job API and Transactional Outbox Integration.
+  Scope: the client-idempotency-key + `(tenant_id, idempotency_key)` boundary and the Outbox dispatch intent end to end.
+  Connection: makes Job acceptance idempotent (client key + PostgreSQL uniqueness) and wires the Outbox dispatch intent; Day51 secures who may call it.
+- Day51 — Authentication, Password Security and JWT.
+  Scope: password hashing, JWT issuance/verification, session/token boundaries.
+  Connection: adds authentication (passwords + JWT) to the Day43-50 API; Day52 turns identity into tenant isolation and authorization.
+- Day52 — Authorization, Tenant Isolation, Quotas and API Security.
+  Scope: tenant isolation, per-tenant quotas/rate limits, authorization and API security boundaries.
+  Connection: enforces tenant isolation, quotas, and authorization over the authenticated API; Day53 connects the real AI provider behind that boundary.
+- Day53 — OpenAI SDK, Provider Boundaries and Structured Output.
+  Scope: OpenAI-compatible SDK usage, provider boundary, structured-output parsing and validation.
+  Connection: introduces the OpenAI-compatible provider and structured output behind the Day45 adapter seam; Day54 handles its streaming and cancellation.
+- Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation.
+  Scope: streaming responses, disconnect/timeout handling, cooperative cancellation.
+  Connection: adds streaming, disconnects, timeouts, and cancellation to the provider calls; Day55 moves long-running Provider work to background workers.
+- Day55 — Celery, Worker Execution and Long-running AI Jobs.
+  Scope: reuses the Day40 delivery-semantics mental model (at-least-once delivery, redelivery, ACK timing, idempotency, poison-message handling) while running long-running Provider work on a SUPPORTED Celery broker transport. Do not equate Celery's broker implementation with the Day40 custom Redis Streams / Consumer Group design, and do not hand-build a Celery replacement.
+  Connection: moves long-running Provider jobs to Celery workers, reusing the Day40 delivery-semantics mental model on a supported Celery broker (not the custom Streams design); Day56 hardens provider resilience and cost.
+- Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure.
+  Scope: retries/backoff, provider rate limits, token-cost control, backpressure and degradation.
+  Connection: adds retries/backoff, provider rate limits, token-cost control, and backpressure to the worker path; Day57 verifies all of it with tests and failure injection.
+- Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection.
+  Scope: fake/deterministic providers, contract tests, failure injection, runtime evidence.
+  Connection: advances the Day43-baseline test suite into fake-provider, contract, integration, and failure-injection tests with recovery verification; Day58 integrates and verifies observability to close the phase.
+- Day58 — Production AI API Capstone, Observability and English Interview.
+  Scope: integrate the phase into a runnable API with observability; phase-level English interview.
+  Connection: integrates and verifies observability (structured logs, job_id/trace_id/attempt_id correlation, metrics, traces, runtime evidence) into the runnable API and runs the phase English interview; Phase 5 (Day59) makes this backend a callable browser-automation capability.
 
 Phase deliverable:
 
@@ -1290,16 +1322,36 @@ Reused project directories: `projects/playwright-login/`, `projects/playwright-s
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day59 — Playwright Runtime Model: Browser, Context, Page and Async Lifecycle. Scope: the runtime object model and async lifecycle.
-- Day60 — Locator, Auto-waiting and Reliable Interaction. Scope: locators, auto-waiting, deterministic interaction over brittle selectors.
-- Day61 — Authentication, Storage State and Browser Context Isolation. Scope: storage state, per-tenant/session context isolation.
-- Day62 — Dynamic-page Extraction and Structured Output. Scope: extracting structured output from dynamic pages.
-- Day63 — Network Events, Downloads, Uploads and Artifact Evidence. Scope: network interception, downloads/uploads, artifact evidence into Object Storage.
-- Day64 — Timeouts, Retries, Diagnostics, Screenshots and Error Recovery. Scope: timeout/retry policy, diagnostics, screenshots/traces, recovery.
-- Day65 — Browser Security, SSRF, Credentials, Website Policy and Prompt-injection Boundaries. Scope: SSRF/credential handling, website policy/authorization, prompt-injection boundaries (no bypass of security controls, captchas, or anti-automation).
-- Day66 — Queue-backed Browser Worker and Durable Job Integration. Scope: a durable, queue-backed browser worker integrated with the Day40/Day55 job lifecycle.
-- Day67 — Playwright as an AI Agent Tool. Scope: expose browser automation as a constrained, permissioned agent tool.
-- Day68 — FastAPI + Playwright Production Capstone and English Interview. Scope: integrate API + browser worker; phase-level English interview.
+- Day59 — Playwright Runtime Model: Browser, Context, Page and Async Lifecycle.
+  Scope: the runtime object model and async lifecycle.
+  Connection: builds on the Day58 Production AI API capstone by adding a Playwright runtime model as a callable capability; Day60 makes its interactions reliable.
+- Day60 — Locator, Auto-waiting and Reliable Interaction.
+  Scope: locators, auto-waiting, deterministic interaction over brittle selectors.
+  Connection: adds reliable locator/auto-waiting interaction to the Day59 runtime; Day61 isolates authenticated browser contexts per tenant/session.
+- Day61 — Authentication, Storage State and Browser Context Isolation.
+  Scope: storage state, per-tenant/session context isolation.
+  Connection: adds storage-state and per-tenant context isolation to reliable interaction; Day62 extracts structured output from dynamic pages.
+- Day62 — Dynamic-page Extraction and Structured Output.
+  Scope: extracting structured output from dynamic pages.
+  Connection: turns isolated browsing into structured extraction; Day63 captures network events, downloads/uploads, and artifact evidence.
+- Day63 — Network Events, Downloads, Uploads and Artifact Evidence.
+  Scope: network interception, downloads/uploads, artifact evidence into Object Storage.
+  Connection: adds network/download/upload artifact evidence into the Day49 Object-Storage boundary; Day64 makes it robust with timeouts, retries, and diagnostics.
+- Day64 — Timeouts, Retries, Diagnostics, Screenshots and Error Recovery.
+  Scope: timeout/retry policy, diagnostics, screenshots/traces, recovery.
+  Connection: adds timeout/retry/diagnostic/screenshot recovery to extraction and evidence; Day65 secures the browser against SSRF, credential, and prompt-injection risks.
+- Day65 — Browser Security, SSRF, Credentials, Website Policy and Prompt-injection Boundaries.
+  Scope: SSRF/credential handling, website policy/authorization, prompt-injection boundaries (no bypass of security controls, captchas, or anti-automation).
+  Connection: adds browser security, website-policy authorization, and prompt-injection boundaries; Day66 runs it as a durable, queue-backed worker.
+- Day66 — Queue-backed Browser Worker and Durable Job Integration.
+  Scope: a durable, queue-backed browser worker integrated with the Day40/Day55 job lifecycle.
+  Connection: turns the secured browser into a durable, queue-backed worker on the Day40/Day55 job lifecycle; Day67 exposes it as a permissioned agent tool.
+- Day67 — Playwright as an AI Agent Tool.
+  Scope: expose browser automation as a constrained, permissioned agent tool.
+  Connection: exposes the browser worker as a constrained, permissioned agent tool; Day68 integrates it with the FastAPI backend and closes the phase.
+- Day68 — FastAPI + Playwright Production Capstone and English Interview.
+  Scope: integrate API + browser worker; phase-level English interview.
+  Connection: integrates the API and browser worker into a capstone and runs the phase English interview; Phase 6 (Day69) orchestrates these backends with n8n.
 
 Phase deliverable:
 
@@ -1334,12 +1386,24 @@ Reused project directory: `projects/n8n-workflows/` (workflow-integration eviden
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day69 — n8n Workflow Model, Triggers, Nodes and Responsibility Boundaries. Scope: workflow model and where responsibility stays in the backend, not the low-code layer.
-- Day70 — Webhooks, Schedules, FastAPI Integration and Authentication. Scope: webhook/schedule triggers, authenticated FastAPI integration.
-- Day71 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency. Scope: polling/callback correlation and idempotency for long AI jobs.
-- Day72 — Human Approval and AI-assisted Business Workflows. Scope: human-in-the-loop approval and AI-assisted workflows.
-- Day73 — Retry, Error Workflow, Secrets, Audit and Production Operations. Scope: retry/error workflows, secrets handling, audit, operations.
-- Day74 — n8n + FastAPI + AI Workflow Capstone and Interview. Scope: integrate workflows with the backend; phase-level interview.
+- Day69 — n8n Workflow Model, Triggers, Nodes and Responsibility Boundaries.
+  Scope: workflow model and where responsibility stays in the backend, not the low-code layer.
+  Connection: builds on the Day68 FastAPI+Playwright capstone by adding n8n as an orchestration layer with clear responsibility boundaries; Day70 wires triggers and authenticated integration.
+- Day70 — Webhooks, Schedules, FastAPI Integration and Authentication.
+  Scope: webhook/schedule triggers, authenticated FastAPI integration.
+  Connection: adds webhook/schedule triggers and authenticated FastAPI integration to the workflow model; Day71 handles long-running AI jobs via polling/callback correlation.
+- Day71 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency.
+  Scope: polling/callback correlation and idempotency for long AI jobs.
+  Connection: adds polling/callback correlation and idempotency for long AI jobs; Day72 inserts human approval and AI-assisted steps.
+- Day72 — Human Approval and AI-assisted Business Workflows.
+  Scope: human-in-the-loop approval and AI-assisted workflows.
+  Connection: adds human-in-the-loop approval and AI-assisted workflows; Day73 hardens retry, error workflows, secrets, and audit.
+- Day73 — Retry, Error Workflow, Secrets, Audit and Production Operations.
+  Scope: retry/error workflows, secrets handling, audit, operations.
+  Connection: adds retry/error workflows, secrets handling, and audit/operations; Day74 integrates the workflow layer into a capstone.
+- Day74 — n8n + FastAPI + AI Workflow Capstone and Interview.
+  Scope: integrate workflows with the backend; phase-level interview.
+  Connection: integrates n8n + FastAPI + AI workflows into a capstone and runs the phase interview; Phase 7 (Day75) builds the AI agent backend these workflows will call.
 
 Phase deliverable:
 
@@ -1373,22 +1437,54 @@ Reused project directory: `projects/ai-agent/` (Agent, RAG, Tool Calling, MCP, M
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day75 — LLM Application Architecture, Tokens, Context and Model Failure Modes. Scope: architecture, token/context limits, model failure modes.
-- Day76 — Prompt Contracts, Structured Output and Function Calling. Scope: prompt contracts, structured output, function calling.
-- Day77 — Tool Registry, Tool Schemas, Permissions and Execution Boundaries. Scope: tool registry/schemas, permissions, execution sandboxing boundaries.
-- Day78 — Agent Loop, State, Termination, Retry and Error Handling. Scope: agent loop, state, termination/retry, error handling.
-- Day79 — MCP Foundations: Client, Server, Resources and Tools. Scope: MCP client/server, resources, tools.
-- Day80 — MCP Authentication, Authorization, Security and Production Operations. Scope: MCP auth/authorization, security, operations.
-- Day81 — RAG Ingestion: Parsing, Chunking, Metadata and Provenance. Scope: ingestion, chunking, metadata, provenance.
-- Day82 — Embeddings, Vector Database and Index Design. Scope: embeddings, vector store, index design.
-- Day83 — Retrieval Quality: Hybrid Search, Filtering and Re-ranking. Scope: hybrid search, filtering, re-ranking.
-- Day84 — Grounding, Citations, Hallucination Boundaries and Source Verification. Scope: grounding, citations, hallucination boundaries, source verification.
-- Day85 — Conversation Memory and Durable Memory Boundaries. Scope: conversation vs durable memory boundaries.
-- Day86 — Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing. Scope: prompt injection, tool abuse, exfiltration, sandboxing.
-- Day87 — Durable Agent Jobs, Checkpoints, Recovery and Human Escalation. Scope: durable agent jobs, checkpoints, recovery, human escalation.
-- Day88 — Evaluation Datasets, Golden Sets, Graders, Trials and Traces. Scope: eval datasets/golden sets, graders, trials, traces.
-- Day89 — AI Observability, Cost, Model Routing, Regression and Release Gates. Scope: observability, cost, model routing, regression, release gates.
-- Day90 — Production AI Agent Backend Capstone and English Interview. Scope: integrate the agent backend; phase-level English interview.
+- Day75 — LLM Application Architecture, Tokens, Context and Model Failure Modes.
+  Scope: architecture, token/context limits, model failure modes.
+  Connection: builds on the Day74 workflow capstone by establishing LLM application architecture, token/context limits, and model failure modes; Day76 formalizes prompt contracts and function calling.
+- Day76 — Prompt Contracts, Structured Output and Function Calling.
+  Scope: prompt contracts, structured output, function calling.
+  Connection: adds prompt contracts, structured output, and function calling; Day77 builds the tool registry, schemas, and permission boundaries.
+- Day77 — Tool Registry, Tool Schemas, Permissions and Execution Boundaries.
+  Scope: tool registry/schemas, permissions, execution sandboxing boundaries.
+  Connection: adds a permissioned tool registry with execution boundaries; Day78 drives it with an agent loop, state, and termination/retry.
+- Day78 — Agent Loop, State, Termination, Retry and Error Handling.
+  Scope: agent loop, state, termination/retry, error handling.
+  Connection: adds the agent loop, state, termination, and error handling; Day79 introduces MCP as a standard tool/resource boundary.
+- Day79 — MCP Foundations: Client, Server, Resources and Tools.
+  Scope: MCP client/server, resources, tools.
+  Connection: adds MCP client/server, resources, and tools; Day80 secures MCP with auth, authorization, and operations.
+- Day80 — MCP Authentication, Authorization, Security and Production Operations.
+  Scope: MCP auth/authorization, security, operations.
+  Connection: adds MCP authentication, authorization, and production operations; Day81 begins RAG ingestion with provenance.
+- Day81 — RAG Ingestion: Parsing, Chunking, Metadata and Provenance.
+  Scope: ingestion, chunking, metadata, provenance.
+  Connection: adds RAG ingestion, chunking, metadata, and provenance; Day82 builds embeddings and the vector index.
+- Day82 — Embeddings, Vector Database and Index Design.
+  Scope: embeddings, vector store, index design.
+  Connection: adds embeddings, the vector database, and index design; Day83 improves retrieval quality.
+- Day83 — Retrieval Quality: Hybrid Search, Filtering and Re-ranking.
+  Scope: hybrid search, filtering, re-ranking.
+  Connection: adds hybrid search, filtering, and re-ranking; Day84 grounds answers with citations and hallucination boundaries.
+- Day84 — Grounding, Citations, Hallucination Boundaries and Source Verification.
+  Scope: grounding, citations, hallucination boundaries, source verification.
+  Connection: adds grounding, citations, and source verification; Day85 adds conversation and durable memory boundaries.
+- Day85 — Conversation Memory and Durable Memory Boundaries.
+  Scope: conversation vs durable memory boundaries.
+  Connection: adds conversation vs durable memory boundaries; Day86 secures the agent against injection, tool abuse, and exfiltration.
+- Day86 — Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
+  Scope: prompt injection, tool abuse, exfiltration, sandboxing.
+  Connection: adds prompt-injection, tool-abuse, exfiltration, and sandboxing defenses; Day87 makes agent jobs durable and recoverable.
+- Day87 — Durable Agent Jobs, Checkpoints, Recovery and Human Escalation.
+  Scope: durable agent jobs, checkpoints, recovery, human escalation.
+  Connection: adds durable agent jobs, checkpoints, recovery, and human escalation; Day88 measures quality with evaluation datasets and graders.
+- Day88 — Evaluation Datasets, Golden Sets, Graders, Trials and Traces.
+  Scope: eval datasets/golden sets, graders, trials, traces.
+  Connection: adds evaluation datasets, golden sets, graders, trials, and traces; Day89 turns evaluation into observability and release gates.
+- Day89 — AI Observability, Cost, Model Routing, Regression and Release Gates.
+  Scope: observability, cost, model routing, regression, release gates.
+  Connection: adds AI observability, cost/model routing, regression, and release gates; Day90 integrates the agent backend and closes the phase.
+- Day90 — Production AI Agent Backend Capstone and English Interview.
+  Scope: integrate the agent backend; phase-level English interview.
+  Connection: integrates the AI agent backend into a capstone and runs the phase English interview; Phase 8 (Day91) assembles everything into the final capstone and portfolio.
 
 Phase deliverable:
 
@@ -1424,16 +1520,36 @@ Reused project directory: `projects/final-capstone/` (the final integrated proje
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day91 — Product Requirements, Architecture Review and Scope Control. Scope: requirements, architecture review, scope control.
-- Day92 — Final Capstone Skeleton, Contracts and Threat Model. Scope: skeleton, contracts, threat model.
-- Day93 — FastAPI + PostgreSQL + Redis + Object Storage Integration. Scope: integrate the core backend stack.
-- Day94 — Agent + RAG + MCP + Playwright + n8n Integration. Scope: integrate agent, retrieval, tools, browser worker, workflows.
-- Day95 — Failure Recovery, Load, Security and Data-repair Drills. Scope: failure recovery, load, security, data-repair drills.
-- Day96 — Cloud Deployment, Managed Services and Production Configuration. Scope: cloud deployment, managed services, production config.
-- Day97 — Evaluation Report, Observability, SLO and Operational Runbook. Scope: evaluation report, observability, SLOs, runbook.
-- Day98 — AI Backend System Design and Python/SQL Coding Interview. Scope: system-design + Python/SQL coding interview practice.
-- Day99 — English Project Story, Behavioral Interview, Resume and Open-source Evidence. Scope: project story, behavioral interview, resume, open-source evidence.
-- Day100 — Final Mock Interview, Portfolio Review and Job-application Readiness. Scope: final mock interview, portfolio review, application readiness.
+- Day91 — Product Requirements, Architecture Review and Scope Control.
+  Scope: requirements, architecture review, scope control.
+  Connection: builds on the Day90 agent-backend capstone by defining final-capstone product requirements, architecture review, and scope control; Day92 turns them into a skeleton, contracts, and threat model.
+- Day92 — Final Capstone Skeleton, Contracts and Threat Model.
+  Scope: skeleton, contracts, threat model.
+  Connection: adds the capstone skeleton, contracts, and threat model; Day93 integrates the core FastAPI+PostgreSQL+Redis+Object-Storage stack.
+- Day93 — FastAPI + PostgreSQL + Redis + Object Storage Integration.
+  Scope: integrate the core backend stack.
+  Connection: integrates the core backend stack from Phases 3-4; Day94 adds the agent, retrieval, tools, browser worker, and workflows from Phases 5-7.
+- Day94 — Agent + RAG + MCP + Playwright + n8n Integration.
+  Scope: integrate agent, retrieval, tools, browser worker, workflows.
+  Connection: integrates agent + RAG + MCP + Playwright + n8n; Day95 proves it under failure, load, security, and data-repair drills.
+- Day95 — Failure Recovery, Load, Security and Data-repair Drills.
+  Scope: failure recovery, load, security, data-repair drills.
+  Connection: adds failure-recovery, load, security, and data-repair drills; Day96 deploys to the cloud with managed services and production config.
+- Day96 — Cloud Deployment, Managed Services and Production Configuration.
+  Scope: cloud deployment, managed services, production config.
+  Connection: adds cloud deployment, managed services, and production configuration; Day97 produces the evaluation report, observability, SLOs, and runbook.
+- Day97 — Evaluation Report, Observability, SLO and Operational Runbook.
+  Scope: evaluation report, observability, SLOs, runbook.
+  Connection: adds the evaluation report, observability, SLOs, and operational runbook; Day98 practices system-design and coding interviews on the finished system.
+- Day98 — AI Backend System Design and Python/SQL Coding Interview.
+  Scope: system-design + Python/SQL coding interview practice.
+  Connection: turns the finished system into AI backend system-design and Python/SQL coding interview practice; Day99 builds the English project story, behavioral answers, and resume.
+- Day99 — English Project Story, Behavioral Interview, Resume and Open-source Evidence.
+  Scope: project story, behavioral interview, resume, open-source evidence.
+  Connection: builds the English project story, behavioral interview, resume, and open-source evidence; Day100 runs the final mock interview and portfolio review.
+- Day100 — Final Mock Interview, Portfolio Review and Job-application Readiness.
+  Scope: final mock interview, portfolio review, application readiness.
+  Connection: consolidates everything into a final mock interview, portfolio review, and job-application readiness for overseas AI Backend Engineer roles — the endpoint is the portfolio and the job application itself, not a Day101.
 
 Final Capstone must include:
 
@@ -1481,6 +1597,38 @@ validation evidence, a weekly project README update, and a weekly interview revi
 at least 2–3 Python/SQL coding exercises, one English project explanation, one production failure scenario,
 and one artifact/runtime-evidence review. The goal is accumulated capability evidence, not a "problem-count
 guarantees an offer" model.
+
+---
+
+## Cross-cutting Engineering Discipline (Day43–Day100)
+
+Baseline tests, structured logging, correlation IDs (`job_id` / `trace_id` / `attempt_id`), and validation
+evidence begin on **Day43** and evolve with **every** Engineering Artifact. Testing and observability are
+continuous engineering disciplines, not end-of-phase add-ons.
+
+Day57 is **not** the first testing lesson. Day57 advances the existing test suite into:
+
+```text
+- fake / deterministic provider tests
+- contract tests
+- integration tests
+- failure injection
+- recovery verification
+```
+
+Day58 is **not** the first observability lesson. Day58 integrates and verifies:
+
+```text
+- structured logs
+- job_id / trace_id / attempt_id correlation
+- metrics
+- traces
+- runtime evidence
+```
+
+Every implementation day must add proportionate tests and validation evidence. No phase may accumulate
+untested code and postpone correctness until its Capstone. (This applies to every phase's implementation
+days, not only Phase 4.)
 
 ---
 

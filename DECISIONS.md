@@ -164,6 +164,9 @@ Specific decisions:
   only with real, saved evidence: runnable code, tests, runtime traces, evaluation datasets/reports, and
   failure/recovery drills. Conceptual/static review is distinguished from executed runtime/production
   validation, and production-grade claims require executed, recorded evidence.
+- **Testing and observability are continuous engineering disciplines from Day43, not end-of-phase add-ons.**
+  Baseline tests, structured logging, and correlation IDs begin on Day43 and evolve with every Engineering
+  Artifact; every implementation day adds proportionate tests and validation evidence.
 - **The goal is employment readiness, not an offer guarantee.** The curriculum targets Junior / Developing
   AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent products. It does
   not guarantee a job, and 100 days is not equivalent to years of production experience or to Senior/Staff

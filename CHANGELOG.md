@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.87 — Curriculum Review Fixes: Day55 Celery boundary; per-day Connections; continuous test/observability
+
+Date: 2026-07-26
+
+### Fixed
+
+- **Day55 Celery transport boundary.** `CURRICULUM.md` Day55 scope said "Celery workers over the Day40 transport," which could be misread as Celery consuming the Day40 custom Redis Streams / Consumer Group. Rewrote the Day55 scope to state that Day55 **reuses the Day40 delivery-semantics mental model** (at-least-once delivery, redelivery, ACK timing, idempotency, poison-message handling) while running long-running Provider work on a **supported Celery broker transport**, and that Celery's broker implementation is **not** equated with the Day40 custom Streams design and **no** Celery replacement is hand-built. Day55 Topic is unchanged. Synced a concise Day55 note into the `ROADMAP.md` Phase 4 objective (table rows unchanged).
+- **Per-day Knowledge Connection for Day43–Day100.** The previous entry claimed every future day had a knowledge connection, but `CURRICULUM.md` only carried phase-level connections. Added a compact `Connection:` line to each of the 58 future days (previous capability → current missing capability → next lesson usage): Day43 inherits Day42; Day44 inherits Day43 and connects Day45; each phase's first day connects the previous phase's capstone; each phase's last day connects the next phase; Day100 connects the final portfolio and job application (no fictional Day101). Connections are short and do not pre-expand future lessons. `ROADMAP.md` stays a concise table with day/topic identical to `CURRICULUM.md`.
+- **Testing and observability are continuous from Day43.** Added a "Cross-cutting Engineering Discipline (Day43–Day100)" section to `CURRICULUM.md` stating that baseline tests, structured logging, correlation IDs (`job_id`/`trace_id`/`attempt_id`), and validation evidence begin on Day43 and evolve with every Engineering Artifact; that Day57 advances an existing test suite (fake/deterministic provider, contract, integration, failure-injection, recovery) rather than being the first testing lesson; that Day58 integrates and verifies existing observability (structured logs, correlation, metrics, traces, runtime evidence) rather than being the first observability lesson; and that every implementation day adds proportionate tests/evidence with no phase postponing correctness to its capstone. Synced this principle into the `ROADMAP.md` employment-readiness paragraph and added one sentence to `DECISIONS.md` Decision 006 (Decision 006 not otherwise rewritten).
+
+### Validation
+
+- Protected files unchanged: `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`. No new Master Prompt.
+- Status preserved: Day01–Day41 Completed; Day42 Planned / Not started and still the Current Lesson; Last Completed Lesson still Day41; Day43–Day100 all Planned. No Day42/future lesson files created, no new project directories, no project code or student answers changed.
+- Consistency: `CURRICULUM.md` and `ROADMAP.md` list identical Day43–Day100 days and topics (verified, no gaps/duplicates/overlaps); 58 per-day Connections present.
+- Static checks: `git diff --check`; Markdown fence balance; internal relative-link resolution; secret scan (no real secrets/keys/tokens/connection strings/client data). Planning-only change; no runtime or production validation was executed or claimed.
+
+---
+
 ## v0.1.86 — Curriculum Planning: Day43–Day100 AI Backend Product Thread (Phases 4–8)
 
 Date: 2026-07-26
