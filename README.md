@@ -36,6 +36,17 @@ Next:
 
 * Day42 — Backend Data Design Capstone (Planned / Not started; see `ROADMAP.md`)
 
+Future direction (Day43–Day100, planned — see `ROADMAP.md` and `CURRICULUM.md`):
+
+* Phase 4 — Production AI API Engineering (FastAPI, SQLAlchemy/Alembic, Redis/Outbox/Worker, OpenAI-compatible provider)
+* Phase 5 — Playwright Browser Automation and Agent Tools
+* Phase 6 — n8n AI Workflow Orchestration
+* Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering
+* Phase 8 — Final Capstone, Portfolio and Overseas Interview
+
+The final goal remains becoming an overseas AI Backend Engineer with a runnable, deployable, verifiable
+portfolio. This builds capability and evidence; it does not guarantee a job.
+
 ---
 
 ## Learning Principles

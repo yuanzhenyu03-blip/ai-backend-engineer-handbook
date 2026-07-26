@@ -29,9 +29,10 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 ## Today's Tasks
 
 - [ ] Prepare for Day42 — Backend Data Design Capstone (see the Day42 Preparation block below).
+- [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
 (Day29-Day41 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks.)
+Preparation history blocks. Day42 is the current lesson and remains Planned / Not started.)
 
 ---
 
@@ -625,6 +626,20 @@ Preparation history blocks.)
 - [ ] Prepare the final data ownership/lifecycle map (Upload Session, Document, Job, Attempt, Event, Outbox, Result Artifact, cache entries, messages, Object Storage bytes).
 - [ ] Prepare the failure matrix, recovery priority/degraded modes, reconciliation, data repair, and verification.
 - [ ] Keep SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day43 Preparation — AI Backend Product Contract and FastAPI Request Lifecycle (do NOT start until Day42 Repository Update is complete)
+
+Gate: Day43 preparation may begin ONLY after the Day42 Backend Data Design Capstone lesson and its Repository
+Update are complete. Day42 is Phase 3's final lesson; Phase 4 (FastAPI) starts at Day43. Do not start Day43,
+create any Day43 lesson file, or begin Phase 4 project code before that gate.
+
+- [ ] (blocked on Day42) Read the Day43 input when provided.
+- [ ] (blocked on Day42) Review the Day42 data-ownership/failure model and the `projects/ai-backend-data-layer/` foundation that Phase 4 will make executable.
+- [ ] (blocked on Day42) Preview the FastAPI request/response lifecycle and the AI Job API product contract over the Day42 model.
+- [ ] (blocked on Day42) Confirm the reused project directories for Phase 4 (`fastapi-todo` warm-up, `fastapi-auth`, `ai-backend-data-layer`); do not create new project directories.
+- [ ] (blocked on Day42) Keep runtime/production claims honest: SQLAlchemy/Alembic and provider adapters are executed only when actually run and recorded.
 
 ---
 

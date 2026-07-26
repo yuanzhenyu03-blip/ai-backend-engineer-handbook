@@ -107,6 +107,25 @@ Planned / Not started
 
 ---
 
+## Future Roadmap (Day43–Day100 planned)
+
+The Day43–Day100 curriculum was planned ahead of Day42 as a single AI Backend product capability chain
+(see `CURRICULUM.md`, `ROADMAP.md`, and Decision 006 in `DECISIONS.md`). All of the following are **Planned /
+Not started**; no future lesson files or new project directories were created, and nothing below has begun.
+
+- Phase 4 — Production AI API Engineering (Day43–Day58): runnable FastAPI AI backend (SQLAlchemy/Alembic, Redis/Outbox/Worker, Object Storage, OpenAI-compatible provider, auth/tenant isolation, tests).
+- Phase 5 — Playwright Browser Automation and Agent Tools (Day59–Day68): isolated, recoverable, auditable browser worker + agent tool.
+- Phase 6 — n8n AI Workflow Orchestration (Day69–Day74): workflow integration over correct backends (not a low-code replacement).
+- Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day75–Day90): agent + tool calling + MCP + RAG + memory + evaluation with runtime traces.
+- Phase 8 — Final Capstone, Portfolio and Overseas Interview (Day91–Day100): deployable capstone, portfolio, and English system-design/behavioral/resume readiness.
+
+Employment-readiness boundary: the curriculum builds core AI Backend capability and portfolio evidence but
+does not guarantee a job; target roles are Junior / Developing AI Backend Engineer, AI Startup Backend
+Engineer, and Backend Engineer on LLM/RAG/Agent products. Runtime/production evidence is claimed only when
+executed and saved.
+
+---
+
 ## Learning Progress
 
 Completed Python Foundations:

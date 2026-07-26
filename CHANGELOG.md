@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.86 — Curriculum Planning: Day43–Day100 AI Backend Product Thread (Phases 4–8)
+
+Date: 2026-07-26
+
+### Changed
+
+- Planned the Day43–Day100 curriculum ahead of Day42 as a single AI Backend product capability chain (a **Multi-tenant AI Research and Automation Platform**), not a set of unrelated framework tutorials. This change updates planning, decisions, status, and navigation only — it does **not** start Day42, generate any future lesson, implement any future project, or mark any future course as started/completed.
+- `CURRICULUM.md`: added Phase 4 (Day43–Day58, Production AI API Engineering), Phase 5 (Day59–Day68, Playwright Browser Automation and Agent Tools), Phase 6 (Day69–Day74, n8n AI Workflow Orchestration), Phase 7 (Day75–Day90, AI Agent/RAG/MCP/Evaluation), and Phase 8 (Day91–Day100, Final Capstone, Portfolio and Overseas Interview). Each future day has a Topic, a concise scope, `Status: Planned`, and a knowledge connection; each phase has an objective, deliverable, and validation requirement. Also added an employment-readiness boundary and a cross-cutting employment-training thread. Day01–Day42 content and statuses are unchanged; Day42 remains Planned.
+- `ROADMAP.md`: replaced the skeletal Phase 4–8 sections with full Day43–Day100 phase tables (all `Planned`), the complete Day42→Day100 knowledge chain, phase deliverables, and the employment-readiness boundary — kept fully consistent with `CURRICULUM.md` (day numbers and topics verified identical, no gaps/duplicates/overlaps).
+- `DECISIONS.md`: added **Decision 006 — AI Backend Product Thread Across Day43–Day100** (Accepted): why not isolated framework tutorials; FastAPI/Playwright core and n8n as integration layer (extending Decision 004); AI in scope from Phase 4; runtime evidence/evaluation/portfolio as completion conditions; employment readiness (not an offer guarantee, not Senior/Staff). Existing decisions 001–005 unchanged.
+- `PROJECT_STATUS.md`: added a "Future Roadmap (Day43–Day100 planned)" section; Current Lesson stays Day42 (Planned / Not started) and Last Completed Lesson stays Day41. Nothing future marked started/completed.
+- `TASKS.md`: recorded "Future Curriculum Planning (Day43–Day100) completed", kept the Day42 Preparation block, and added a Day43 Preparation block explicitly gated to start only after the Day42 Repository Update is complete. No historical tasks deleted.
+- `README.md` and `AGENTS.md`: kept Current Lesson = Day42 and concisely noted the planned Phase 4–8 future direction and the overseas AI Backend Engineer goal, without duplicating the full curriculum.
+
+### Notes
+
+- FastAPI and Playwright are the core engineering skills; n8n is an integration layer that does not replace backend correctness (durable truth stays in PostgreSQL). AI enters the unified scenario from Phase 4 rather than only at the end. The existing project directories (`fastapi-todo`, `fastapi-auth`, `fastapi-playwright`, `playwright-login`, `playwright-scraper`, `n8n-workflows`, `ai-agent`, `final-capstone`, `ai-backend-data-layer`) are reused; **no new project directories were created**.
+- Employment-readiness is stated honestly: the curriculum builds core capability and portfolio evidence but does not guarantee a job, and 100 days is not equivalent to years of production experience or to Senior/Staff level. Target roles: Junior / Developing AI Backend Engineer, AI Startup Backend Engineer, Backend Engineer on LLM/RAG/Agent products.
+
+### Validation
+
+- Protected files unchanged: `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`. No new Master Prompt was created.
+- Consistency verified: Day01–Day41 remain Completed and Day42 remains Planned / Not started across the status files; Current Lesson is still Day42; every Day43–Day100 entry is `Planned`; `CURRICULUM.md` and `ROADMAP.md` list identical days and topics with continuous, non-overlapping, non-duplicated numbering; no future lesson files were created; and no new project directories were created.
+- Static checks: `git diff --check`; Markdown fence balance; internal relative-link resolution; and a secret scan (no real secrets, API keys, tokens, connection strings, or client data added).
+- This is a **planning-only** change. No lesson was taught, no future course was started, and nothing runtime/production was executed or validated.
+
+---
+
 ## v0.1.85 — Day41 Review Fixes: durable fencing generation + unambiguous completion guard; date
 
 Date: 2026-07-26
