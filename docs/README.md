@@ -24,7 +24,8 @@ docs/
 ├── redis/         # Day38+ Redis (transient acceleration around the durable truth)
 │   ├── day38-redis-foundations-and-data-structures.md
 │   ├── day39-redis-cache-design-and-consistency.md
-│   └── day40-redis-messaging-and-queue-semantics.md                   # latest
+│   ├── day40-redis-messaging-and-queue-semantics.md
+│   └── day41-redis-coordination-and-production-safety.md              # latest
 ├── fastapi/
 ├── playwright/
 └── n8n/

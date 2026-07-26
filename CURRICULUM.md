@@ -1152,7 +1152,39 @@ replication/failover data-loss windows; Redis security/isolation/auth/TLS/danger
 capacity; managed vs self-operated.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/redis/day41-redis-coordination-and-production-safety.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day40 — Redis Messaging and Queue Semantics
+
+Next Lesson:
+Day42 — Backend Data Design Capstone
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/redis/redis-coordination-and-production-safety-design.md` — a design/evidence
+pack: the atomic rate-limit admission contract, the algorithm decision table (fixed/first-write-TTL/sliding/
+token-bucket), the API idempotency boundary, the lease safety model (acquire/token/expiry/renew/atomic
+compare-and-delete release + paused-owner timeline), the fencing model, the PostgreSQL completion guard
+(running + current token + unexpired lease + fencing generation, extending Day34/Day37), the Redis loss/
+capacity matrix (RDB/AOF/replication/failover/eviction), the security matrix (network/auth/ACL/TLS/dangerous-
+command), and the integrated failure runbook — every section labelled CONCEPTUAL / STATICALLY REVIEWED /
+RUNTIME NOT RUN / PRODUCTION NOT VALIDATED. Redis is not promoted to business truth; no exactly-once is
+claimed. No capstone integration (Day42)
+
+Validation Limits:
+Day41 classroom status is conceptual reasoning and static review only — nothing was executed. No Redis server,
+Sentinel, Cluster, managed Redis, `redis-cli`, Lua, `MULTI`/`EXEC`/`WATCH`, ACL, TLS, persistence, eviction,
+failover, rate limiter, FastAPI endpoint, PostgreSQL Job/Attempt/Event/Outbox/lease/fencing SQL, Provider,
+Object Storage, or Worker drain/handoff was run, measured, or inspected. Every number (60/min, 30s, capacity
+10, refill 1/s) is a static design example. Redis remains a coordination/protection control; PostgreSQL stays
+the durable business authority. The Day42 capstone is a future boundary. RUNTIME NOT RUN; PRODUCTION NOT
+VALIDATED.
 
 ---
 

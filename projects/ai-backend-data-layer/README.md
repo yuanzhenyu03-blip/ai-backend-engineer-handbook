@@ -4,19 +4,22 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day40 — a Redis messaging and queue semantics design** that uses Redis Lists,
-Pub/Sub, and Streams by their delivery/failure semantics while PostgreSQL stays durable Job truth: the
-List/Pub-Sub/Streams decision table, a small Stream payload contract, the Job-Worker and notification Consumer
-Group topology, the PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary,
-per-side-effect idempotency/reconciliation, retry/quarantine/dead-letter, a safe trim/retention contract, and
-the integrated failure/recovery matrix — design and evidence only, nothing executed; Redis is not claimed to
-give exactly-once and no Celery replacement is built. (See the Day39 note below for the prior increment.)
+Current increment: **Day41 — a Redis coordination and production-safety design** that uses Redis for
+narrow, bounded coordination/protection (atomic rate-limit admission, leases, fencing acquisition) while
+PostgreSQL stays the durable business authority: the atomic admission contract, the algorithm decision table
+(fixed/first-write-TTL/sliding/token-bucket), the API idempotency boundary, the lease safety model (token/
+expiry/renew/atomic compare-and-delete release + paused-owner timeline), the fencing model, the PostgreSQL
+completion guard (extending Day34/Day37), the Redis loss/capacity matrix, the security matrix, and the
+integrated failure runbook — design and evidence only, nothing executed; Redis is not promoted to business
+truth and no exactly-once is claimed. (See the Day40 note below for the prior increment.)
 
-Prior increment (Day39): **a Redis cache consistency design** that turns the Day38 ownership boundary into an
-explicit per-endpoint cache contract: cache-aside reads, commit-before-invalidate ordering (with the
-pre-commit re-cache race), cache key versioning, TTL + jitter, stampede/single-flight/stale-while-revalidate,
-a fail-open vs fail-closed table, negative caching, correctness metrics, Outbox invalidation recovery, and the
-v2 cache-contract incident — design and evidence only, nothing executed.
+Prior increment (Day40): **a Redis messaging and queue semantics design** that uses Redis Lists, Pub/Sub, and
+Streams by their delivery/failure semantics while PostgreSQL stays durable Job truth: the List/Pub-Sub/Streams
+decision table, a small Stream payload contract, the event lifecycle and Consumer Group topology, the
+PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary, per-side-effect
+idempotency/reconciliation, retry/quarantine/dead-letter, a safe trim/retention contract, and the integrated
+failure/recovery matrix — design and evidence only, nothing executed; Redis is not claimed to give exactly-once
+and no Celery replacement is built.
 
 Lessons:
 - Day29 (schema): [`docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md`](../../docs/postgresql/day29-postgresql-foundations-and-durable-relational-state.md)
@@ -31,6 +34,7 @@ Lessons:
 - Day38 (Redis foundations): [`docs/redis/day38-redis-foundations-and-data-structures.md`](../../docs/redis/day38-redis-foundations-and-data-structures.md)
 - Day39 (Redis cache consistency): [`docs/redis/day39-redis-cache-design-and-consistency.md`](../../docs/redis/day39-redis-cache-design-and-consistency.md)
 - Day40 (Redis messaging): [`docs/redis/day40-redis-messaging-and-queue-semantics.md`](../../docs/redis/day40-redis-messaging-and-queue-semantics.md)
+- Day41 (Redis coordination): [`docs/redis/day41-redis-coordination-and-production-safety.md`](../../docs/redis/day41-redis-coordination-and-production-safety.md)
 
 ---
 
@@ -42,7 +46,8 @@ projects/ai-backend-data-layer/
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
-│   └── redis-messaging-and-queue-semantics-design.md  # Day40: Redis messaging and queue semantics design (design + evidence, not executed)
+│   ├── redis-messaging-and-queue-semantics-design.md  # Day40: Redis messaging and queue semantics design (design + evidence, not executed)
+│   └── redis-coordination-and-production-safety-design.md  # Day41: Redis coordination and production-safety design (design + evidence, not executed)
 ├── runbooks/
 │   └── postgresql-production-reliability.md            # Day37: production reliability runbook (design + evidence, not executed)
 └── sql/
@@ -99,6 +104,66 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day41 increment — Redis coordination and production-safety design
+
+`redis/redis-coordination-and-production-safety-design.md` uses Redis for **narrow, explicitly bounded**
+coordination and protection (atomic admission, leases, stale-owner protection, failure windows, capacity
+isolation, security) while **PostgreSQL remains the durable business authority**. It is a design / evidence
+pack, not a running system and not an executed procedure: **every contract, command, limit, and threshold is
+CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT RUN, PRODUCTION NOT VALIDATED. Redis is not promoted to
+business truth and no exactly-once is claimed.**
+
+### What the design contains
+
+| Section | Contents |
+| --- | --- |
+| Ownership recap | PostgreSQL owns Job/Attempt/Event/Outbox truth; Redis coordination (admission/lease/fencing) is losable and not business truth |
+| Rate-limit admission contract | atomic read -> limit decision -> INCR-if-allowed -> TTL -> allow/reject (one Lua step); admission != durable Job success; Lua vs MULTI/EXEC/WATCH |
+| Algorithm decision table | clock-aligned fixed / first-write TTL / sliding window / token bucket by burst, fairness, cost, use case (token-bucket cap 10 refill 1/s example) |
+| API idempotency boundary | client key + PostgreSQL `(tenant_id, idempotency_key)` uniqueness; separate API / Provider / notification identities |
+| Lease safety model | `SET NX PX` + opaque token, renew, atomic compare-and-delete release, paused-owner timeline; expiry does not stop external work |
+| Fencing model | monotonic generation; durable downstream rejects stale writes; distinct from an opaque lease token and from Provider idempotency |
+| PostgreSQL completion guard | running + current token + unexpired lease + current/greater generation (extends Day34/Day37; reuses existing lease columns) |
+| Redis loss/capacity matrix | RDB / AOF / async replication / failover / eviction / TTL as bounded protection degradation; isolate coordination capacity from cache |
+| Security matrix | network boundary, auth, ACL command + `ratelimit:*` prefix least privilege, TLS, dangerous-command restriction, audit/monitoring |
+| Integrated failure runbook | Redis unavailable vs recovered-with-lost-counters; API fail-closed admission; no Worker mass restart; drain/reconcile |
+
+### Rules encoded
+
+```text
+Redis coordinates/protects; PostgreSQL Job/Attempt/Event/Outbox is the durable business authority
+rate-limit decision = atomic read-modify-write (short Lua); NOT GET->check->SET, NOT INCR-then-DECR compensate
+Lua is the atomic boundary; MULTI/EXEC can't decide from a prior external GET; don't nest MULTI/EXEC or wrap one command
+Redis admission = an ALLOWED ATTEMPT, not durable Job success; don't compensate the counter (TTL resets)
+durable acceptance = INSERT Job(queued) + INSERT Outbox(dispatch intent) -> COMMIT -> 202 + job_id
+API idempotency = client key + PG UNIQUE (tenant_id, idempotency_key); API/Provider/notification identities are SEPARATE
+a Redis lock reduces optional duplicate work; the PG unique constraint is the final Job-identity authority
+lease expiry permits TAKEOVER; it does NOT stop a paused owner or an in-flight Provider call
+safe release = atomic compare-and-delete (delete only if the stored token is mine); it cannot stop external work
+fencing = MONOTONIC generation a durable downstream compares to reject stale writes; a UUID token cannot fence
+completion guard = running + current token + unexpired lease + current/greater generation
+RDB/AOF/replication/failover/eviction can lose counters = TEMPORARY protection degradation; isolate from evictable cache
+security = private net (necessary, not sufficient) + auth + ACL (command + ratelimit:* prefix) + TLS + deny FLUSHALL/CONFIG + audit
+managed Redis runs infra, NOT business responsibility
+outage: API fail-closed on new expensive admission; no Worker mass-restart; bounded backoff; drain + reconcile durable facts
+```
+
+> **What this design deliberately does not do:** it starts no Redis/Sentinel/Cluster/managed Redis, runs no
+> `redis-cli`, Lua, `MULTI/EXEC`, `WATCH`, ACL, TLS, persistence, eviction, failover, rate limiter, FastAPI
+> endpoint, PostgreSQL SQL, Provider, or Object Storage, and measures nothing. It does **not** promote Redis to
+> business truth, does **not** claim exactly-once, and does **not** hand-build a broker or rate limiter. It
+> contains no real secrets, connection strings, certificates, or client data. Every number (60/min, 30s,
+> capacity 10, refill 1/s) is a static design example. PostgreSQL stays the durable source of truth.
+
+### Day41 known gaps (deliberate)
+
+```text
+Day42        the integrated data ownership + failure + recovery + verification capstone
+Phase 4      SQLAlchemy / Alembic; a real rate-limiter / broker / managed Redis is operated, not hand-rebuilt
+```
 
 ---
 
@@ -1405,6 +1470,18 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day41 (`redis/redis-coordination-and-production-safety-design.md`)
+
+| Level | Day41 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one evolving multi-Pod AI Job admission + Worker lease + Redis-failure scenario reasoned end to end: admission race, atomic Lua, admission-vs-success, algorithms, API idempotency, lease/safe-release, fencing, loss/capacity, security/ACL, managed responsibility, and integrated failure |
+| Static reasoning review | **Completed** | static review of atomicity vs Lua/MULTI/EXEC/WATCH scope, rate-limit algorithm semantics (incl. the 120-request boundary burst and the capacity-10/refill-1/s rejection), API idempotency, safe release, fencing, the PostgreSQL guard, RDB/AOF/replication/failover/eviction effects, security/ACL isolation, monitoring, and managed responsibility |
+| Artifact syntax / runtime validation | **NOT RUN** | no Redis, Sentinel, Cluster, managed Redis, `redis-cli`, Lua, `MULTI/EXEC`, `WATCH`, ACL, TLS, persistence, or eviction command was executed; the Lua/compare-and-delete/`SET NX PX`/ACL examples are read for shape and naming only |
+| Disposable Redis/PostgreSQL validation | **NOT RUN** | no rate limiter, connection pool, FastAPI endpoint, API idempotency implementation, or PostgreSQL Job/Attempt/Event/Outbox/lease/fencing SQL was run |
+| Failover / eviction / security drill | **NOT RUN** | no RDB/AOF/replication/failover/data-loss measurement, eviction test, ACL/TLS/Secret/certificate, or dangerous-command policy was applied |
+| Application integration validation | **NOT RUN** | no Provider/Object Storage request, idempotency query, Artifact reconciliation, notification delivery, Worker drain/handoff, or fail-closed endpoint |
+| Production validation | **NOT RUN** | no production accessed; every number (60/min, 30s, capacity 10, refill 1/s) is a static design example; the Day42 capstone is a future boundary |
 
 ### Day40 (`redis/redis-messaging-and-queue-semantics-design.md`)
 

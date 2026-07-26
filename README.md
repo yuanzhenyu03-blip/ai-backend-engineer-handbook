@@ -30,10 +30,11 @@ Last completed lesson:
 * Day38 — Redis Foundations and Data Structures
 * Day39 — Redis Cache Design and Consistency
 * Day40 — Redis Messaging and Queue Semantics
+* Day41 — Redis Coordination and Production Safety
 
 Next:
 
-* Day41 — Redis Coordination and Production Safety (Planned / Not started; see `ROADMAP.md`)
+* Day42 — Backend Data Design Capstone (Planned / Not started; see `ROADMAP.md`)
 
 ---
 

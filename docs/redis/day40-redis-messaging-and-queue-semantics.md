@@ -16,7 +16,7 @@ Prerequisite: Day39 — Redis Cache Design and Consistency
 
 Previous Lesson: [Day39 — Redis Cache Design and Consistency](day39-redis-cache-design-and-consistency.md)
 
-Next Lesson: Day41 — Redis Coordination and Production Safety (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day41 lesson file does not exist yet)
+Next Lesson: [Day41 — Redis Coordination and Production Safety](day41-redis-coordination-and-production-safety.md)
 
 Engineering Artifact: The Day40 Redis messaging and queue semantics design (`projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md`) — the List/Pub-Sub/Streams decision table, small Stream payload contract, Consumer Group topology, PEL/ACK/Claim/redelivery lifecycle, the delivery-vs-durable-completion boundary, per-side-effect idempotency, retry/quarantine/dead-letter path, safe trim/retention contract, and the integrated failure/recovery matrix, all labelled conceptual/static — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

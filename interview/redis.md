@@ -564,3 +564,262 @@ fail together, which Redis cannot coordinate. Redis gives at-least-once with Con
 engineered with durable state, guarded transitions, per-side-effect idempotency, and reconciliation.
 
 Assessment: names the three-way boundary and the at-least-once + idempotency resolution.
+
+---
+
+## Day41 Redis Coordination and Production Safety
+
+Pair with [`cheat_sheets/redis.md`](../cheat_sheets/redis.md) and the
+[Day41 lesson](../docs/redis/day41-redis-coordination-and-production-safety.md).
+
+### Q1 — Two API Pods both read the rate count as 59 and both admit. What property is missing?
+
+Model answer:
+
+Atomicity, not necessarily a lock. The bug is a `read → check → write` split across Pods. Use an atomic
+read-modify-write — a short Lua that reads, checks the limit, increments only when allowed, and sets the TTL as
+one step. A distributed lock would work but adds its own expiry/safe-release/recovery risks.
+
+Student's actual answer (preserved verbatim):
+
+> "缺少并发控制的锁"
+
+Assessment: reasonable lock instinct; the correction is that the missing property is atomic read-modify-write.
+
+### Q2 — Is `INCR` then `DECR`-on-rejection a safe way to enforce the limit?
+
+Model answer:
+
+No — a crash or interleave between `INCR` and `DECR` leaves the counter inflated; a rejected request must not
+depend on a later compensating decrement. Keep check + allowed increment + TTL in one atomic Lua step.
+
+Student's actual answer (preserved verbatim):
+
+> "先判断是否大于60，如果大于60计数-1返回拒绝"
+
+Assessment: the compensation idea is the misconception; the fix is one atomic server-side operation.
+
+### Q3 — Redis admitted the request but the PostgreSQL Accept failed. Roll the counter back?
+
+Model answer:
+
+No. The counter is an allowed attempt, not a created Job; the TTL resets the window, and compensating adds a
+second Redis/PostgreSQL uncertainty boundary. PostgreSQL Job + Outbox is the durable acceptance truth.
+
+Student's actual answer (preserved verbatim):
+
+> "不需要回退。而且每分钟60次还设置了TTL，到时间了就会重新开始一个新的限流计数"
+
+Assessment: correct — admission is not durable success, so don't couple the counter to durable state.
+
+### Q4 — Does a clock-aligned fixed window allow a boundary burst, and which algorithm for expensive AI Jobs?
+
+Model answer:
+
+Yes — 60 at `12:00:59` plus 60 at `12:01:00` is 120 in about a second. A sliding window prevents that and is
+right for expensive Job creation (smooth/fair, costlier); a first-write TTL is request-anchored with different
+semantics; a token bucket allows a bounded burst.
+
+Student's actual answers (preserved verbatim):
+
+> "不会允许，因为12:01:59才会刷新，而这里只是经过了一秒又发了60次"
+
+> "我更倾向于滑动窗口"
+
+Assessment: the sliding-window preference is right; the correction is that a clock-aligned fixed window *does*
+permit the boundary burst.
+
+### Q5 — Token bucket capacity 10, refill 1/s: is the 11th request 0.2s after ten tokens are consumed allowed?
+
+Model answer:
+
+No — about zero tokens are available 0.2s later, so it's rejected and can be given a retry estimate (~0.8s to the
+next token). Capacity permits the burst; refill bounds the long-run average.
+
+Student's actual answers (preserved verbatim):
+
+> "令牌桶"
+
+> "无法请求"
+
+Assessment: correct algorithm choice and rejection.
+
+### Q6 — How do you de-duplicate a timed-out `POST /jobs` retry, and is a Redis lock the authority?
+
+Model answer:
+
+Use a stable client idempotency key plus a PostgreSQL `(tenant_id, idempotency_key)` uniqueness boundary to
+create-or-return the same Job + Outbox intent and replay the same `202 + job_id`. Attempt/Event may not exist
+before a Worker starts, so they can't dedup a first POST. A Redis lock only reduces optional duplicate
+preliminary work; the PostgreSQL unique constraint is the final authority.
+
+Student's actual answers (preserved verbatim):
+
+> "根据数据库持久化事实attempt、event、outbox intent来判断"
+
+> "需要，因为redis锁可以保护多个请求的并发"
+
+Assessment: durable-fact reflex is right but Worker facts may not exist; the DB unique constraint (not the Redis
+lock) is the authority.
+
+### Q7 — Worker A holds a 30s lease, pauses at 29s, expires, B takes over, A resumes. Can a lease alone prevent both calling the Provider?
+
+Model answer:
+
+No. Lease expiry permits reassignment; it doesn't prove A died before external work and can't stop a paused A or
+its in-flight Provider call. External-effect safety comes from stable Provider idempotency + Artifact
+reconciliation, and durable-write safety from the PostgreSQL guard.
+
+Student's actual answer (preserved verbatim):
+
+> "不能"
+
+Assessment: correct — a lease coordinates the next owner, not external work.
+
+### Q8 — Why is `DEL lock_key` after expiry unsafe, and what replaces it?
+
+Model answer:
+
+Old A can delete new B's lease, letting a third Worker enter. Replace with atomic compare-and-delete (Lua):
+delete only when the stored token equals the caller's token. Safe release still does not stop A's already-started
+Provider call.
+
+Student's actual answers (preserved verbatim):
+
+> "会导致下一个work再次进入到A的业务内"
+
+> "不能，锁本身只能保证下一个work不会执行当前work中的任务，并不会在当前锁过期后，外部的业务就停止了"
+
+Assessment: correct on both the unsafe-delete hazard and the limit of safe release.
+
+### Q9 — Why can't a UUID lease token act as a fencing token, and how does PostgreSQL reject a stale owner?
+
+Model answer:
+
+A UUID is unordered, so even a cooperating downstream can't tell newer from older. A fencing token is a
+monotonically increasing generation; the durable store records the newest and rejects older ones. Completion is
+guarded by running + current token + unexpired lease + current/greater generation.
+
+Student's actual answers (preserved verbatim):
+
+> "因为下游的provider不能区分lease_token的区别"
+
+> "通过比较fencing token,如果新加入的大于前一个就允许，如果小于就拒绝"
+
+Assessment: the fencing comparison is right; the correction is that the UUID's lack of ordering (not just the
+Provider) is the reason it can't fence.
+
+### Q10 — Redis fails over and loses recent counters. Does a low count mean the tenant is under limit? And should coordination state share cache capacity?
+
+Model answer:
+
+No — a low/missing counter is degraded protection, not "under limit"; a missing counter can temporarily allow
+extra requests and raise pressure. RDB loses post-snapshot changes, AOF loss depends on fsync, and a promoted
+replica can lack recent writes. Isolate coordination state from LRU-evictable cache (separate instance/cluster)
+with explicit memory/TTL/eviction/alerts.
+
+Student's actual answers (preserved verbatim):
+
+> "不说明，应该是为了防止在这期间无限制调用"
+
+> "可能多放行一部分请求，造成段短时间请求压力增大"
+
+> "因为复制的是之前的的限流计数"
+
+> "应该分开放在不同实例，防止缓存挤掉保护数据"
+
+Assessment: correct — treat loss as monitored protection degradation and isolate the guardrail from the cache.
+
+### Q11 — Is private-network placement enough Redis security, what ACL scope for a rate-limit client, and does managed Redis remove responsibility?
+
+Model answer:
+
+Private network is necessary but insufficient; add auth, ACLs, TLS, dangerous-command restriction, audit, and
+monitoring. Scope the rate-limit client to its required commands and the `ratelimit:*` prefix — no arbitrary
+keys, `FLUSHALL`, or `CONFIG`. Managed Redis runs infrastructure but does not transfer business responsibility
+(semantics, capacity/eviction, ACL/TLS, monitoring, loss windows, incidents stay the team's).
+
+Student's actual answers (preserved verbatim):
+
+> "不能"
+
+> "不能，对待高风险命令应该严格限制，只能在规定范围的key前缀进行读写权限"
+
+> "不能,因为实际业务还是需要自运维进行配置"
+
+Assessment: correct on all three — layered least-privilege security and retained business responsibility.
+
+### Q12 — Redis fails over (lost counters) while A pauses mid-Provider-call, its lease expires, and B gets a new lease. Contain it.
+
+Model answer:
+
+Fail closed on new expensive Job admission; do not mass-restart Workers (it interrupts in-flight calls); use
+bounded backoff on new Redis-dependent actions and drain/reconcile after recovery. B must not call the Provider on
+the fresh lease alone — reconcile PostgreSQL Job/Attempt/Event/Outbox + stable Provider idempotency + the
+deterministic Artifact; guard final writes by ownership + fencing. Treat lost counters as monitored protection
+degradation. Contain new admissions/coordination on unhealthy Redis; don't "roll back" Provider calls.
+
+Student's actual answers (preserved verbatim):
+
+> "fail-closed，因为主要是post一类的请求，需要修改持久化数据状态。"
+
+> "不能，要先根据数据库持久化事实结合idempotency进行判断是否要再次调用，以及如果A恢复后可能会继续执行业务"
+
+> "不会，因为还是要与数据库持久化事实结合idemotency key进行判断"
+
+> "eviction、以及是否限流器失去了作用，请求增大"
+
+Assessment: correct throughout — fail-closed admission, no mass restart, reconcile durable facts, monitor
+degradation.
+
+### Q13 — (Beginner, English) Why can `GET → check → INCR` race, and what is safer?
+
+Student answer (verbatim):
+
+> because these comman in a same Atomicity transaction ,use lua script instead of comman.
+
+Strong answer:
+
+> "`GET`, checking the value, and `INCR` are separate operations. Two API instances can read the same old value
+> before either increments, so both may allow the request. A safer approach is a short Lua script that reads,
+> checks, increments, and sets the TTL atomically."
+
+Assessment: correct tool (Lua); the strong answer explains the read-before-increment race.
+
+### Q14 — (Intermediate, English) Lease token vs fencing token; why isn't a lease token enough for a paused worker?
+
+Student answer (verbatim):
+
+> lease token just avoid a worker running stop,lease token expire.other worker continue  working.the worker wake up continue running.lease token can't continue beacuse lease token different.but the real bussiness can't stop.fencing token store database,the next fencing token must more than before fencing token
+
+Strong answer:
+
+> "A lease token is an opaque ownership identifier. It helps a worker renew or safely release its current lease,
+> but it cannot stop a paused worker after the lease expires. A fencing token is a monotonically increasing
+> ownership generation. The downstream durable store records the newest token and rejects writes from older
+> tokens, so a stale worker cannot overwrite newer work. External providers may not support fencing, so they
+> still need stable idempotency keys and reconciliation."
+
+Assessment: the student had the core (lease can't stop the business; fencing is stored + monotonic); the strong
+answer adds opaque-vs-ordered and the Provider-idempotency boundary.
+
+### Q15 — (Senior, English) Contain a failover that lost counters plus a paused-A / new-B lease conflict.
+
+Student answer (verbatim):
+
+> use the durable database truth,such as event\attempt\oubox intex and idepmotency key reconcil artifact.
+
+Strong answer:
+
+> "First, I would fail closed for new expensive Job admission while the Redis rate limiter is unavailable, and I
+> would not restart all workers because that could interrupt in-flight Provider calls. After failover, I would
+> treat lost rate-limit counters as a temporary protection degradation and monitor evictions, memory pressure,
+> failover, admission volume, and reject rate. Worker B must not call the Provider only because it acquired a new
+> Redis lease. It should reconcile PostgreSQL durable facts such as the Job, Attempt, Event, and Outbox records,
+> check the stable Provider idempotency key, and verify the deterministic Artifact. A paused Worker A may resume,
+> so final PostgreSQL writes must be guarded by current ownership and fencing generation, while the Provider side
+> effect is protected by its own idempotency key. Redis coordinates work, but PostgreSQL remains the durable
+> business authority."
+
+Assessment: the student named the durable-facts + idempotency + Artifact foundation; the strong answer adds
+fail-closed admission, no mass restart, degradation monitoring, and the ownership/fencing guard.

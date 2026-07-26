@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day41 — Redis Coordination and Production Safety
+Day42 — Backend Data Design Capstone
 
 Status:
 Planned / Not started
@@ -28,10 +28,61 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day41 — Redis Coordination and Production Safety (see the Day41 Preparation block below).
+- [ ] Prepare for Day42 — Backend Data Design Capstone (see the Day42 Preparation block below).
 
-(Day29-Day40 are complete; their work is recorded under the Completed Day** sections and the corresponding
+(Day29-Day41 are complete; their work is recorded under the Completed Day** sections and the corresponding
 Preparation history blocks.)
+
+---
+
+## Completed Day41 Tasks
+
+- [x] Complete Day41 Redis Coordination and Production Safety classroom learning.
+- [x] Generate the Day41 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day40->Day41 mental-model evolution).
+- [x] Diagnose the two-Pod admission race and explain atomicity vs a distributed lock.
+- [x] Compose atomic read -> check -> INCR-if-allowed -> TTL in Lua; reject GET->check->SET and INCR-then-DECR.
+- [x] Choose Lua vs MULTI/EXEC vs WATCH+MULTI/EXEC and avoid wrapping a single command.
+- [x] Explain admission != durable success; keep PostgreSQL Job + Outbox as acceptance truth (no counter compensation).
+- [x] Compare fixed/first-write-TTL/sliding/token-bucket and do the capacity-10 refill-1/s calculation.
+- [x] Design API idempotency with a client key + PostgreSQL (tenant_id, idempotency_key); keep API/Provider/notification identities separate.
+- [x] Model lease acquire/token/expiry/renew/atomic compare-and-delete release; explain expiry cannot stop a paused owner or in-flight Provider call.
+- [x] Distinguish opaque lease token from monotonic fencing token; state the completion guard (running + current token + unexpired lease + generation).
+- [x] Analyze RDB/AOF/replication/failover/eviction as bounded protection degradation; isolate coordination capacity from cache.
+- [x] Design Redis security (network/auth/ACL command + ratelimit:* prefix/TLS/dangerous-command) and explain managed Redis does not transfer responsibility.
+- [x] Contain the integrated failover + lease + Provider incident (fail-closed admission, no mass restart, reconcile durable facts).
+- [x] Preserve the real student answers, the three verbatim English answers, and the final Chinese mental model.
+
+---
+
+## Completed Day41 Repository Tasks
+
+- [x] Add `docs/redis/day41-redis-coordination-and-production-safety.md`.
+- [x] Add `projects/ai-backend-data-layer/redis/redis-coordination-and-production-safety-design.md`.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day41 increment (artifact link, components, honest NOT-RUN limits).
+- [x] Append the Day41 section to `cheat_sheets/redis.md`.
+- [x] Append Day41 questions to `interview/redis.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day41 is now the latest Redis lesson).
+- [x] Update the Day40 lesson Next Lesson link to the released Day41 lesson.
+- [x] Update `CURRICULUM.md` (Day41 Completed; Day42 remains Planned).
+- [x] Update `ROADMAP.md` (Day41 Completed only).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day41 Interview Tasks
+
+- [x] Add the admission-race, atomic-Lua, admission-vs-success, algorithm, and token-bucket questions with the student's actual answers.
+- [x] Add the API-idempotency, lease/safe-release, fencing, loss/capacity, and security/ACL/managed questions.
+- [x] Add the integrated-failure question and the three verbatim Beginner/Intermediate/Senior English answers with strong model answers.
+
+---
+
+## Completed Day41 Homework
+
+- [x] Complete the admission-race, atomic-admission, and admission-compensation exercises.
+- [x] Complete the algorithm-comparison and token-bucket-calculation exercises.
+- [x] Complete the API-idempotency, lease/safe-release, and fencing exercises.
+- [x] Complete the loss/capacity, ACL/security, monitoring, and integrated-failure exercises.
 
 ---
 
@@ -566,15 +617,26 @@ Preparation history blocks.)
 
 ---
 
-### Day41 Preparation — Redis Coordination and Production Safety
+### Day42 Preparation — Backend Data Design Capstone
 
-- [ ] Read the Day41 input when provided.
-- [ ] Review `projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md` and hold the boundary that Redis transport does not own durable business truth.
-- [ ] Preview atomic command vs multi-command race, and transactions/Lua only where atomic composition is required.
-- [ ] Preview fixed/sliding-window/token-bucket rate limits.
-- [ ] Preview lock vs lease, ownership token, expiry, safe release, and the fencing-token boundary (why a Redis lock alone cannot protect an external system from a paused/expired owner).
-- [ ] Preview idempotency + PostgreSQL constraints as the final durable-write protection, and eviction/RDB/AOF/replication/failover data-loss windows.
+- [ ] Read the Day42 input when provided.
+- [ ] Review the full Redis design set (`redis-acceleration-layer-design.md`, `redis-cache-consistency-design.md`, `redis-messaging-and-queue-semantics-design.md`, `redis-coordination-and-production-safety-design.md`) and the PostgreSQL runbook/SQL packs.
+- [ ] Prepare to integrate PostgreSQL schema/constraints/queries/transactions/concurrency/indexes/migrations/operations with the Redis cache/messaging/coordination boundaries (durable truth stays in PostgreSQL).
+- [ ] Prepare the final data ownership/lifecycle map (Upload Session, Document, Job, Attempt, Event, Outbox, Result Artifact, cache entries, messages, Object Storage bytes).
+- [ ] Prepare the failure matrix, recovery priority/degraded modes, reconciliation, data repair, and verification.
 - [ ] Keep SQLAlchemy/Alembic (Phase 4) out of scope.
+
+---
+
+### Day41 Preparation — Redis Coordination and Production Safety (completed)
+
+- [x] Read the Day41 input.
+- [x] Reviewed `projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md` and held the boundary that Redis transport does not own durable business truth.
+- [x] Previewed atomic command vs multi-command race, and transactions/Lua only where atomic composition is required.
+- [x] Previewed fixed/sliding-window/token-bucket rate limits.
+- [x] Previewed lock vs lease, ownership token, expiry, safe release, and the fencing-token boundary (why a Redis lock alone cannot protect an external system from a paused/expired owner).
+- [x] Previewed idempotency + PostgreSQL constraints as the final durable-write protection, and eviction/RDB/AOF/replication/failover data-loss windows.
+- [x] Kept SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 

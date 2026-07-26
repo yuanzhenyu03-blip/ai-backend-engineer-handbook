@@ -41,11 +41,11 @@ Phase 3 — Backend Foundations (In Progress)
 
 Last Completed Lesson:
 
-Day40 — Redis Messaging and Queue Semantics
+Day41 — Redis Coordination and Production Safety
 
 Next Lesson:
 
-Day41 — Redis Coordination and Production Safety (Planned / Not started; see ROADMAP.md)
+Day42 — Backend Data Design Capstone (Planned / Not started; see ROADMAP.md)
 
 Do not skip ahead unless explicitly instructed.
 

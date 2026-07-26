@@ -313,7 +313,96 @@ persist-then-XACK, per-side-effect idempotency + PostgreSQL reconciliation, quar
 
 ---
 
+## Day41 Redis Coordination and Production Safety
+
+Central rule:
+
+```text
+Redis COORDINATES and PROTECTS; PostgreSQL Job/Attempt/Event/Outbox is the DURABLE BUSINESS AUTHORITY.
+Redis admission (a consumed rate-limit token) != durable Job success. A lease grants takeover, not a stop.
+```
+
+### Atomic rate-limit admission
+
+```text
+atomic read -> check limit -> INCR only if allowed -> TTL -> allow/reject   (ONE Lua step = the atomic boundary)
+the two-Pod "both read 59" race is missing ATOMICITY, not necessarily a lock
+WRONG: GET -> check -> SET/INCR (split across Pods) | INCR-then-DECR compensate (crash/interleave inflates counter)
+Lua vs MULTI/EXEC: MULTI/EXEC can't make a decision from a prior external GET atomic; WATCH+MULTI/EXEC = optimistic+retry
+do NOT nest MULTI/EXEC in Lua; do NOT wrap a single command (one command is already atomic)
+```
+
+### Admission != durable success / API idempotency
+
+```text
+Redis admission = an ALLOWED ATTEMPT; do NOT compensate the counter (TTL resets; compensation = 2nd uncertainty boundary)
+durable acceptance = INSERT Job(queued) + INSERT Outbox(dispatch intent) -> COMMIT -> 202 + job_id
+API idempotency = client key + PG UNIQUE (tenant_id, idempotency_key) -> create-or-return same Job + replay 202
+  (Attempt/Event may NOT exist yet -> can't dedup a first POST; Redis lock reduces optional work, NOT the authority)
+identities SEPARATE: API key (acceptance) | Provider key (model effect) | notification identity (email)
+```
+
+### Rate-limit algorithms
+
+```text
+fixed clock-aligned  cheap; BOUNDARY BURST (60 @12:00:59 + 60 @12:01:00 = 120 in ~1s)
+first-write TTL      request-anchored interval; DIFFERENT semantics (don't call it a clock-aligned minute)
+sliding window       smooth/fair, upper bound for ANY interval; costlier -> expensive AI Job creation
+token bucket         burst up to capacity + refill bounds average (cap 10, refill 1/s: 11th req @0.2s -> REJECT)
+```
+
+### Lease / safe release / fencing
+
+```text
+lease   = SET lock_key <token> NX PX 30000; token = OPAQUE ownership id (UUID-like); renew while owner
+release = ATOMIC compare-and-delete (Lua): delete ONLY if stored token == mine (blind DEL lets old A delete new B's lease)
+lease EXPIRY permits TAKEOVER; it does NOT stop a paused owner or an in-flight Provider call
+fencing = MONOTONIC generation; durable downstream records newest + REJECTS older; a UUID token cannot fence (unordered)
+completion guard (PG) = running + current token + lease_expires_at > now() + current/greater generation (Day34/37 + fencing)
+Providers usually don't compare fencing -> external effects still need stable Provider idempotency + Artifact reconciliation
+```
+
+### Loss / capacity / security / outage
+
+```text
+RDB/AOF/async-replication/failover/eviction can LOSE/RESET counters = TEMPORARY protection degradation (monitor, don't trust as ledger)
+a low/missing counter is NOT "under limit"; repeated eviction keeps weakening protection
+ISOLATE coordination state from LRU-evictable cache (separate instance/cluster) + define memory/TTL/eviction/alerts/loss-window
+security = private net (necessary NOT sufficient) + auth + ACL (command set + ratelimit:* prefix) + TLS + deny FLUSHALL/CONFIG + audit
+managed Redis runs infra, NOT business responsibility (team owns semantics/capacity/ACL/monitoring/incident)
+OUTAGE: API FAIL-CLOSED on new expensive admission; NO Worker mass-restart; bounded backoff; drain + reconcile durable facts
+```
+
+### Weak vs strong (Day41)
+
+```text
+Weak:   "Two Pods read 59 -> add a distributed lock."
+Strong: "Missing property is atomicity. Use an atomic command / short Lua read-check-INCR-TTL; a lock adds expiry/release risk."
+
+Weak:   "INCR then DECR on reject."
+Strong: "A crash between them inflates the counter. Keep check+increment+TTL in one atomic server-side step."
+
+Weak:   "A Redis lock guarantees one Job per POST."
+Strong: "PostgreSQL UNIQUE (tenant_id, idempotency_key) decides Job identity; the lock only reduces optional duplicate work."
+
+Weak:   "The lease expired, so the old Worker stopped."
+Strong: "Expiry permits takeover; it can't stop a paused owner or its in-flight Provider call. Use fencing + idempotency."
+
+Weak:   "A UUID lease token can fence stale writes."
+Strong: "UUIDs are unordered. Fencing needs a monotonic generation the durable downstream compares."
+
+Weak:   "Redis failed over -> the low counter means we're under limit."
+Strong: "Lost counters are temporary protection degradation. Monitor; fail closed on new expensive admission."
+```
+
+### One-line mental model
+
+```text
+Redis coordinates/protects (atomic admission, leases, fencing acquisition) but is LOSABLE; PostgreSQL uniqueness +
+guarded/fenced writes + stable Provider idempotency + Artifact reconciliation are the durable final authority.
+```
+
 ---
 
-Related: [Day38 lesson](../docs/redis/day38-redis-foundations-and-data-structures.md) · [Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md) · [Day40 lesson](../docs/redis/day40-redis-messaging-and-queue-semantics.md) ·
-[Redis acceleration-layer design](../projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) · [Redis cache consistency design](../projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md) · [Redis messaging and queue semantics design](../projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md)
+Related: [Day38 lesson](../docs/redis/day38-redis-foundations-and-data-structures.md) · [Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md) · [Day40 lesson](../docs/redis/day40-redis-messaging-and-queue-semantics.md) · [Day41 lesson](../docs/redis/day41-redis-coordination-and-production-safety.md) ·
+[Redis acceleration-layer design](../projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) · [Redis cache consistency design](../projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md) · [Redis messaging and queue semantics design](../projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md) · [Redis coordination and production safety design](../projects/ai-backend-data-layer/redis/redis-coordination-and-production-safety-design.md)
