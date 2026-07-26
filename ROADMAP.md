@@ -164,6 +164,9 @@ Day40 delivery-semantics mental model (at-least-once, redelivery, ACK timing, id
 It does **not** consume the Day40 custom Redis Streams / Consumer Group design and does **not** hand-build a
 Celery replacement (see `CURRICULUM.md` Day55 and Day40).
 
+Implementation boundaries (Day50 Outbox scope vs Day55 Celery; Day54 streaming kinds and cancellation
+lifecycles) are recorded in `CURRICULUM.md` under "Future Lesson Implementation Boundaries."
+
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
 | Day43 | AI Backend Product Contract and FastAPI Request Lifecycle | Planned |
@@ -272,6 +275,11 @@ Deliverables:
 
 Objective:
 Convert all capabilities into deployable, demonstrable, interview-ready employment evidence.
+
+Implementation boundaries (Day91 updates `projects/final-capstone/README.md` and is placeholder-until-then;
+Day94 is a thin end-to-end vertical integration of already-built components, not a re-implementation day;
+Day95 uses limited, representative drills rather than exhaustive failure enumeration) are recorded in
+`CURRICULUM.md` under "Future Lesson Implementation Boundaries."
 
 | Day | Topic | Status |
 |------|-------------------------------|-----------|

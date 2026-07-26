@@ -1257,6 +1257,7 @@ Per-day topics (Topic + concise scope; each Status: Planned, no lesson generated
 - Day50 — Idempotent AI Job API and Transactional Outbox Integration.
   Scope: the client-idempotency-key + `(tenant_id, idempotency_key)` boundary and the Outbox dispatch intent end to end.
   Connection: makes Job acceptance idempotent (client key + PostgreSQL uniqueness) and wires the Outbox dispatch intent; Day51 secures who may call it.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day50) below.
 - Day51 — Authentication, Password Security and JWT.
   Scope: password hashing, JWT issuance/verification, session/token boundaries.
   Connection: adds authentication (passwords + JWT) to the Day43-50 API; Day52 turns identity into tenant isolation and authorization.
@@ -1269,6 +1270,7 @@ Per-day topics (Topic + concise scope; each Status: Planned, no lesson generated
 - Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation.
   Scope: streaming responses, disconnect/timeout handling, cooperative cancellation.
   Connection: adds streaming, disconnects, timeouts, and cancellation to the provider calls; Day55 moves long-running Provider work to background workers.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day54) below.
 - Day55 — Celery, Worker Execution and Long-running AI Jobs.
   Scope: reuses the Day40 delivery-semantics mental model (at-least-once delivery, redelivery, ACK timing, idempotency, poison-message handling) while running long-running Provider work on a SUPPORTED Celery broker transport. Do not equate Celery's broker implementation with the Day40 custom Redis Streams / Consumer Group design, and do not hand-build a Celery replacement.
   Connection: moves long-running Provider jobs to Celery workers, reusing the Day40 delivery-semantics mental model on a supported Celery broker (not the custom Streams design); Day56 hardens provider resilience and cost.
@@ -1523,6 +1525,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
 - Day91 — Product Requirements, Architecture Review and Scope Control.
   Scope: requirements, architecture review, scope control.
   Connection: builds on the Day90 agent-backend capstone by defining final-capstone product requirements, architecture review, and scope control; Day92 turns them into a skeleton, contracts, and threat model.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day91) below.
 - Day92 — Final Capstone Skeleton, Contracts and Threat Model.
   Scope: skeleton, contracts, threat model.
   Connection: adds the capstone skeleton, contracts, and threat model; Day93 integrates the core FastAPI+PostgreSQL+Redis+Object-Storage stack.
@@ -1532,9 +1535,11 @@ Per-day topics (Topic + concise scope; each Status: Planned):
 - Day94 — Agent + RAG + MCP + Playwright + n8n Integration.
   Scope: integrate agent, retrieval, tools, browser worker, workflows.
   Connection: integrates agent + RAG + MCP + Playwright + n8n; Day95 proves it under failure, load, security, and data-repair drills.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day94) below.
 - Day95 — Failure Recovery, Load, Security and Data-repair Drills.
   Scope: failure recovery, load, security, data-repair drills.
   Connection: adds failure-recovery, load, security, and data-repair drills; Day96 deploys to the cloud with managed services and production config.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day95) below.
 - Day96 — Cloud Deployment, Managed Services and Production Configuration.
   Scope: cloud deployment, managed services, production config.
   Connection: adds cloud deployment, managed services, and production configuration; Day97 produces the evaluation report, observability, SLOs, and runbook.
@@ -1629,6 +1634,138 @@ Day58 is **not** the first observability lesson. Day58 integrates and verifies:
 Every implementation day must add proportionate tests and validation evidence. No phase may accumulate
 untested code and postpone correctness until its Capstone. (This applies to every phase's implementation
 days, not only Phase 4.)
+
+---
+
+## Future Lesson Implementation Boundaries (Day50, Day54, Day91, Day94, Day95)
+
+These are confirmed implementation boundaries recorded ahead of time so a future teaching chat, lacking the
+current context, does not mis-scope, over-implement, or over-claim validation. They constrain scope and
+validation honesty only; they do not lock a specific implementation and do not change any Day Topic. Future
+days remain `Planned`; no lesson or code is generated here.
+
+### Day50 — Transactional Outbox scope (vs Day55 Celery)
+
+Day50 should complete:
+
+```text
+Job + Outbox committed in ONE PostgreSQL transaction
+-> Outbox Relay contract
+-> Transport Adapter boundary
+-> executable tests against a fake / in-memory transport
+-> idempotent dispatch intent and failure retention
+```
+
+Validation honesty: tests against a fake / in-memory transport MAY be real, executed runtime tests, but they
+do **not** mean a real broker, a Celery worker, or the production delivery chain has been validated.
+
+Day50 must NOT: claim Celery runtime is done; treat the Day40 custom Redis Streams / Consumer Group design as
+Celery's internal implementation; hand-build a Celery replacement; or claim exactly-once across PostgreSQL,
+broker, and worker.
+
+Day55 (not Day50) completes:
+
+```text
+Outbox Relay -> a supported Celery broker transport -> Celery Worker
+-> ACK timing -> redelivery -> idempotent processing -> poison-task handling -> recovery validation
+```
+
+Day50 and Day55 Topics are unchanged.
+
+### Day54 — two kinds of streaming and three lifecycles
+
+Distinguish two streaming kinds:
+
+```text
+A. token streaming of a synchronous Provider call
+B. progress / event streaming of an already-persisted background Job
+```
+
+Distinguish three lifecycles:
+
+```text
+HTTP client connection lifecycle
+Provider request lifecycle
+durable background Job lifecycle
+```
+
+Production boundary to state explicitly:
+
+```text
+HTTP client disconnect
+  != the Provider call necessarily stops
+  != an already-persisted background Job auto-cancels
+  != an already-accepted business commitment disappears
+```
+
+A background Job is cancelled only through an explicit, durable, auditable cancellation protocol, e.g.:
+
+```text
+cancel request
+-> PostgreSQL durable cancellation state / intent
+-> Worker cooperative cancellation check
+-> guarded terminal transition
+-> observable result
+```
+
+Do not lock a specific implementation, but keep the **durable, auditable, guarded, cooperative** constraints.
+Day54 Topic is unchanged.
+
+### Day94 — a thin end-to-end vertical integration loop
+
+Day94 is an **integration day** for components already built in Phases 5–7, not a development day that
+re-implements Agent, RAG, MCP, Playwright, or n8n.
+
+Day94 integrates and validates one bounded but complete vertical user path, e.g.:
+
+```text
+user submits a research task
+-> FastAPI persists and accepts the Job
+-> Agent retrieves with RAG
+-> a permissioned tool is called via MCP
+-> a Playwright Worker fetches authorized data
+-> n8n triggers human approval
+-> result, citations, Artifact, and audit evidence are persisted
+```
+
+Acceptance focus: one full path really runs; correlation IDs are preserved; component failures have a clear
+state and recovery path; result / citations / Artifact / audit evidence are traceable; and mock vs static
+validation vs local runtime vs integration runtime vs production validation are clearly distinguished. Do not
+chase five disconnected demos, and do not re-implement previously completed components in Day94. Day94 Topic
+is unchanged.
+
+### Day95 — representative drills, not exhaustive failure enumeration
+
+Day95 still covers `failure recovery`, `load`, `security`, and `data repair`, but with a **limited,
+representative** drill set — it does not exhaustively enumerate every production failure in one day. Each
+category picks representative scenarios that prove the core mental model, and preferentially saves:
+
+```text
+failure-injection condition
+expected behavior
+actual command / test executed
+log / trace / metric / database evidence
+recovery steps
+data-repair steps
+unvalidated limitations
+which class it is: static / local runtime / integration runtime / production validation
+```
+
+A limited scope must not be described as "comprehensive production validation." Day95 Topic is unchanged.
+
+### Day91 — when the Final Capstone README is updated
+
+`projects/final-capstone/README.md` may remain an early placeholder until Day91. It must **not** be rewritten
+into a fictional completed capstone before then.
+
+```text
+When Day91 confirms the formal Product Requirements, Architecture, and Scope,
+it must simultaneously update projects/final-capstone/README.md so the README becomes the entry point to the
+final Capstone's real scope, run instructions, validation evidence, and limitations.
+```
+
+Before Day91, that README is a placeholder and must not be treated as the latest complete implementation
+evidence. Day91 Topic is unchanged.
 
 ---
 

@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.88 — Curriculum Planning: preserve future lesson implementation boundaries (Day50/54/91/94/95)
+
+Date: 2026-07-26
+
+### Changed
+
+- Recorded confirmed implementation boundaries for Day50, Day54, Day91, Day94, and Day95 so a future teaching chat (lacking current context) does not mis-scope, over-implement, or over-claim validation. This is a small planning correction, not a redesign of Day43–Day100: no Day Topic changed, no phase order changed, no future lesson or project code was created, and every day remains `Planned`.
+- `CURRICULUM.md`: added a "Future Lesson Implementation Boundaries" section and a one-line `Implementation boundary:` pointer on the Day50, Day54, Day91, Day94, and Day95 bullets. The recorded boundaries:
+  - **Day50 (Transactional Outbox scope).** Day50 completes Job + Outbox in one PostgreSQL transaction, the Outbox Relay contract, the transport-adapter boundary, executable tests against a fake/in-memory transport, and idempotent dispatch intent + failure retention. A fake/in-memory transport test MAY be a real runtime test but does NOT mean a real broker, Celery worker, or production delivery chain is validated. Day50 must not claim Celery runtime is done, must not treat the Day40 custom Redis Streams / Consumer Group as Celery's internal implementation, must not hand-build a Celery replacement, and must not claim exactly-once across PostgreSQL + broker + worker. Day55 (not Day50) completes the Celery broker transport, worker, ACK timing, redelivery, idempotent processing, poison-task handling, and recovery validation.
+  - **Day54 (streaming and lifecycles).** Distinguish token streaming of a synchronous Provider call from progress/event streaming of an already-persisted background Job, and distinguish the HTTP client connection, Provider request, and durable background Job lifecycles. State that an HTTP client disconnect does not necessarily stop the Provider call, does not auto-cancel an already-persisted background Job, and does not erase an accepted business commitment; background-Job cancellation goes through an explicit durable/auditable/guarded/cooperative cancellation protocol.
+  - **Day94 (thin vertical integration).** Day94 integrates already-built Phase 5–7 components (Agent, RAG, MCP, Playwright, n8n) along one bounded but complete vertical user path with preserved correlation IDs, clear component-failure states/recovery, and traceable result/citation/Artifact/audit evidence — clearly distinguishing mock / static / local runtime / integration runtime / production validation. It does not re-implement completed components or chase five disconnected demos.
+  - **Day95 (representative drills).** Day95 covers failure recovery, load, security, and data repair with a limited, representative drill set (not exhaustive enumeration), saving injection condition, expected behavior, actual command/test, evidence, recovery/data-repair steps, unvalidated limitations, and the validation class; a limited scope must not be described as comprehensive production validation.
+  - **Day91 (Final Capstone README timing).** `projects/final-capstone/README.md` stays a placeholder until Day91; when Day91 confirms product requirements/architecture/scope it must simultaneously update that README into the real entry point (scope, run instructions, validation evidence, limitations). Before Day91 it must not be treated as complete implementation evidence.
+- `ROADMAP.md`: added brief cross-references from Phase 4 (Day50/Day54) and Phase 8 (Day91/Day94/Day95) to the `CURRICULUM.md` "Future Lesson Implementation Boundaries" section; the Day43–Day100 tables (days and Topics) are unchanged.
+
+### Notes
+
+- These boundaries operationalize the existing Decision 006 (runtime evidence/evaluation/portfolio as completion conditions; testing/observability continuous from Day43); `DECISIONS.md` was therefore not modified. `PROJECT_STATUS.md` and `TASKS.md` were not modified (no contradiction). The `projects/final-capstone/README.md` placeholder was intentionally left unchanged.
+
+### Validation
+
+- Protected files unchanged: `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`. No new Master Prompt.
+- Status preserved: Day01–Day41 Completed; Day42 Planned / Not started and still the Current Lesson; Last Completed Lesson still Day41; Day43–Day100 all Planned. Day43–Day100 remain 58 continuous days with unchanged Topics and the 58 existing `Connection:` lines intact.
+- Consistency: `CURRICULUM.md` and `ROADMAP.md` Day43–Day100 days/topics identical (no gaps/duplicates/overlaps). No future lesson files, no new project directories, no project code or student answers changed.
+- Static checks: `git diff --check`; Markdown fence balance; internal relative-link resolution; secret scan (no real secrets/keys/tokens/connection strings/client data). Planning-only change; no runtime or production validation was executed or claimed.
+
+---
+
 ## v0.1.87 — Curriculum Review Fixes: Day55 Celery boundary; per-day Connections; continuous test/observability
 
 Date: 2026-07-26
