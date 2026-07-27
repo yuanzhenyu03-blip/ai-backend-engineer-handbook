@@ -37,22 +37,22 @@ When generating code:
 
 Current Phase:
 
-Phase 3 — Backend Foundations (In Progress)
+Phase 3 — Backend Foundations (Complete); Phase 4 — Production AI API Engineering (next)
 
 Last Completed Lesson:
 
-Day41 — Redis Coordination and Production Safety
+Day42 — Backend Data Design Capstone (Phase 3 capstone)
 
 Next Lesson:
 
-Day42 — Backend Data Design Capstone (Planned / Not started; see ROADMAP.md)
+Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4; Planned / Not started; see ROADMAP.md)
 
 Future direction (Day43–Day100, planned only; see ROADMAP.md, CURRICULUM.md, and Decision 006 in
 DECISIONS.md): Phase 4 Production AI API Engineering (FastAPI) -> Phase 5 Playwright Browser Automation and
 Agent Tools -> Phase 6 n8n Workflow Orchestration -> Phase 7 AI Agent/RAG/MCP/Evaluation -> Phase 8 Final
 Capstone, Portfolio and Overseas Interview. FastAPI and Playwright are core; n8n is the integration layer;
 AI is in scope from Phase 4. The goal is overseas AI Backend Engineer employment readiness, not a guaranteed
-offer. Day42 is the current lesson; Phase 4 begins only at Day43 after Day42 completes.
+offer. Day42 closed Phase 3; Phase 4 begins at Day43 (the current lesson).
 
 Do not skip ahead unless explicitly instructed.
 

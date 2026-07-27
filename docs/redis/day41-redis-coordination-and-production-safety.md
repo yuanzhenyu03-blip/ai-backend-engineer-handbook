@@ -16,7 +16,7 @@ Prerequisite: Day40 — Redis Messaging and Queue Semantics
 
 Previous Lesson: [Day40 — Redis Messaging and Queue Semantics](day40-redis-messaging-and-queue-semantics.md)
 
-Next Lesson: Day42 — Backend Data Design Capstone (planned — see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day42 lesson file does not exist yet)
+Next Lesson: [Day42 — Backend Data Design Capstone](day42-backend-data-design-capstone.md)
 
 Engineering Artifact: The Day41 Redis coordination and production-safety design (`projects/ai-backend-data-layer/redis/redis-coordination-and-production-safety-design.md`) — the atomic rate-limit admission contract, algorithm decision table, API idempotency boundary, lease safety model, fencing model, the PostgreSQL completion guard, the Redis loss/capacity matrix, the security matrix, and the integrated failure runbook, all labelled conceptual/static — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

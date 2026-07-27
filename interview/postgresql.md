@@ -1743,3 +1743,23 @@ Weak:   "420 vs 300 connections — raise max_connections."
 Strong: "Contain demand and roll back the pool config via a gradual rollout, draining in-flight Workers. The
         rollback target is the pool configuration; Provider cost and Artifacts are reconciled, not undone."
 ```
+
+---
+
+## Day42 Backend Data Design Capstone (Phase 3 close — cross-boundary)
+
+The Phase 3 capstone system-design interview integrates the durable PostgreSQL truth with the Redis
+coordination boundary and Object Storage. The full Beginner/Intermediate/Senior question set (with the
+student's verbatim answers and the final Chinese synthesis) lives in
+[`interview/redis.md`](redis.md) under "Day42 Backend Data Design Capstone"; the lesson is
+[`docs/redis/day42-backend-data-design-capstone.md`](../docs/redis/day42-backend-data-design-capstone.md)
+and the design is
+[`projects/ai-backend-data-layer/capstone-backend-data-design.md`](../projects/ai-backend-data-layer/capstone-backend-data-design.md).
+
+PostgreSQL-side one-liners for that interview:
+
+- "PostgreSQL is the single source of durable truth; Redis is losable coordination; Object Storage owns bytes."
+- "Durable at `202` = Job + `(tenant_id, idempotency_key)` uniqueness + Outbox intent, in one transaction."
+- "Completion is a short guarded transaction: running + current lease token + unexpired lease + `fencing_generation` = the current persisted generation."
+- "Tenant isolation = authenticated tenant predicate + Job ID + composite tenant-aware foreign keys; audit is append-only."
+- "`EXPLAIN ANALYZE` in a disposable environment is evidence, not production validation."

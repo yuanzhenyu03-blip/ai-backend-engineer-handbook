@@ -25,7 +25,8 @@ docs/
 │   ├── day38-redis-foundations-and-data-structures.md
 │   ├── day39-redis-cache-design-and-consistency.md
 │   ├── day40-redis-messaging-and-queue-semantics.md
-│   └── day41-redis-coordination-and-production-safety.md              # latest
+│   ├── day41-redis-coordination-and-production-safety.md
+│   └── day42-backend-data-design-capstone.md                          # Phase 3 capstone (latest)
 ├── fastapi/
 ├── playwright/
 └── n8n/

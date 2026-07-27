@@ -722,3 +722,21 @@ Scope: Day37 = design + reasoning only. **RUNTIME NOT RUN / PRODUCTION NOT VALID
 - "Replication is not backup; it copies bad writes. Recovery evidence = isolated restore + PITR + business checks + RPO/RTO."
 - "RPO/RTO are recovery objectives, not health probes; promote a lagging replica only with a replay position + explicit RPO decision + split-brain prevention."
 - "420-vs-300: contain demand + roll back the pool config; reconcile irreversible Provider effects; resize the DB only on evidence."
+
+---
+
+## Day42 Backend Data Design Capstone (Phase 3 close — cross-boundary)
+
+The Phase 3 capstone integrates the durable PostgreSQL truth with the Redis coordination boundary and Object
+Storage. The consolidated quick reference lives in [`cheat_sheets/redis.md`](redis.md) (Day42 section); the
+full design is [`projects/ai-backend-data-layer/capstone-backend-data-design.md`](../projects/ai-backend-data-layer/capstone-backend-data-design.md)
+and the lesson is [`docs/redis/day42-backend-data-design-capstone.md`](../docs/redis/day42-backend-data-design-capstone.md).
+
+PostgreSQL-side essentials:
+
+```text
+durable at 202 = Job + (tenant_id, idempotency_key) UNIQUE + Outbox intent (ONE tx); Attempt/Event/lease/fencing come later
+completion = SHORT guarded tx guarded by running + current lease token + unexpired lease + fencing_generation = current PERSISTED generation (EQUALITY)
+tenant safety = authenticated tenant predicate + Job ID + composite tenant-aware FKs; append-only audit; tombstone Artifact refs on retention
+performance = disposable EXPLAIN ANALYZE evidence != production validation (NOT run here); fencing rollout = Expand->Contract, drain/upgrade old Workers
+```

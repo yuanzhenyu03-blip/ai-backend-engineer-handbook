@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day42 — Backend Data Design Capstone
+Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4)
 
 Status:
 Planned / Not started
@@ -28,11 +28,60 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [ ] Prepare for Day42 — Backend Data Design Capstone (see the Day42 Preparation block below).
+- [x] Complete Day42 Backend Data Design Capstone (Phase 3 close) — lesson, capstone artifact, cheat-sheet/interview cross-references, and status updates.
+- [ ] Prepare for Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4; see the Day43 Preparation block below). The Day43 gate (Day42 Repository Update complete) is now satisfied.
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
-(Day29-Day41 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Day42 is the current lesson and remains Planned / Not started.)
+(Day29-Day42 are complete; their work is recorded under the Completed Day** sections and the corresponding
+Preparation history blocks. Phase 3 is closed; Day43 opens Phase 4.)
+
+---
+
+## Completed Day42 Tasks
+
+- [x] Complete Day42 Backend Data Design Capstone classroom learning (single evolving multi-tenant AI Job scenario).
+- [x] Generate the Day42 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day41->Day42 mental-model evolution).
+- [x] State the integrated ownership map (PostgreSQL truth / Object Storage bytes / Redis losable coordination) across all entities.
+- [x] Define the acceptance contract (durable-at-202 = Job + (tenant_id, idempotency_key) uniqueness + Outbox intent).
+- [x] Drive dispatch from unpublished Outbox intents; treat at-least-once duplicates as normal and guard the transition.
+- [x] Design the short guarded completion transaction and Artifact reconciliation (verify identity/ownership/fencing/result).
+- [x] Choose degraded modes for Redis/PostgreSQL/Object Storage failures, scoped to the affected admission path.
+- [x] Verify an Upload Session before admission; design tenant-safe reads + composite tenant-aware FKs.
+- [x] Keep audit append-only and tombstone Artifact references on retention.
+- [x] Distinguish disposable EXPLAIN ANALYZE evidence from production validation (method only; not run).
+- [x] Plan the fencing-generation Expand->Contract migration with drained/upgraded old Workers.
+- [x] Solve the integrated failover + paused-Worker + Artifact-reconciliation recovery scenario.
+- [x] Preserve the real student answers (typos included) and the final Chinese synthesis; complete the three English interview stages.
+
+---
+
+## Completed Day42 Repository Tasks
+
+- [x] Add `docs/redis/day42-backend-data-design-capstone.md`.
+- [x] Add `projects/ai-backend-data-layer/capstone-backend-data-design.md` (cross-boundary capstone design).
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day42 capstone increment (artifact link, ownership/validation boundaries).
+- [x] Add the Day42 section to `cheat_sheets/redis.md` and a cross-reference in `cheat_sheets/postgresql.md`.
+- [x] Add the Day42 phase-capstone system-design interview material to `interview/redis.md` and a cross-reference in `interview/postgresql.md`.
+- [x] Update `docs/README.md` (Day42 is the Phase 3 capstone / latest lesson).
+- [x] Update the Day41 lesson Next Lesson link to the released Day42 lesson.
+- [x] Update `CURRICULUM.md` (Day42 Completed; Phase 3 Complete; Day43 remains Planned) and `ROADMAP.md` (Day42 Completed).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day42 Interview Tasks
+
+- [x] Add Beginner ownership/acceptance and Intermediate duplicate-delivery/completion/degraded/tenant questions with the student's actual answers.
+- [x] Add Senior takeover-completion, fencing-migration, and EXPLAIN-ANALYZE-vs-production questions.
+- [x] Preserve the verbatim student answers and the final Chinese synthesis; add strong model answers.
+
+---
+
+## Completed Day42 Homework
+
+- [x] Complete the acceptance, dispatch/duplicate, and completion/reconciliation exercises.
+- [x] Complete the degraded-modes, tenant/audit/retention, and performance-evidence exercises.
+- [x] Complete the fencing-migration and integrated-recovery exercises.
 
 ---
 
@@ -618,28 +667,28 @@ Preparation history blocks. Day42 is the current lesson and remains Planned / No
 
 ---
 
-### Day42 Preparation — Backend Data Design Capstone
+### Day42 Preparation — Backend Data Design Capstone (completed)
 
-- [ ] Read the Day42 input when provided.
-- [ ] Review the full Redis design set (`redis-acceleration-layer-design.md`, `redis-cache-consistency-design.md`, `redis-messaging-and-queue-semantics-design.md`, `redis-coordination-and-production-safety-design.md`) and the PostgreSQL runbook/SQL packs.
-- [ ] Prepare to integrate PostgreSQL schema/constraints/queries/transactions/concurrency/indexes/migrations/operations with the Redis cache/messaging/coordination boundaries (durable truth stays in PostgreSQL).
-- [ ] Prepare the final data ownership/lifecycle map (Upload Session, Document, Job, Attempt, Event, Outbox, Result Artifact, cache entries, messages, Object Storage bytes).
-- [ ] Prepare the failure matrix, recovery priority/degraded modes, reconciliation, data repair, and verification.
-- [ ] Keep SQLAlchemy/Alembic (Phase 4) out of scope.
+- [x] Read the Day42 input.
+- [x] Reviewed the full Redis design set (`redis-acceleration-layer-design.md`, `redis-cache-consistency-design.md`, `redis-messaging-and-queue-semantics-design.md`, `redis-coordination-and-production-safety-design.md`) and the PostgreSQL runbook/SQL packs.
+- [x] Integrated PostgreSQL schema/constraints/queries/transactions/concurrency/indexes/migrations/operations with the Redis cache/messaging/coordination boundaries (durable truth stays in PostgreSQL).
+- [x] Produced the final data ownership/lifecycle map (Upload Session, Document, Job, Attempt, Event, Outbox, Result Artifact, cache entries, messages, Object Storage bytes).
+- [x] Produced the failure matrix, recovery priority/degraded modes, reconciliation, data repair, and verification.
+- [x] Kept SQLAlchemy/Alembic (Phase 4) out of scope.
 
 ---
 
-### Day43 Preparation — AI Backend Product Contract and FastAPI Request Lifecycle (do NOT start until Day42 Repository Update is complete)
+### Day43 Preparation — AI Backend Product Contract and FastAPI Request Lifecycle (gate satisfied: Day42 complete)
 
-Gate: Day43 preparation may begin ONLY after the Day42 Backend Data Design Capstone lesson and its Repository
-Update are complete. Day42 is Phase 3's final lesson; Phase 4 (FastAPI) starts at Day43. Do not start Day43,
-create any Day43 lesson file, or begin Phase 4 project code before that gate.
+Gate: SATISFIED — the Day42 Backend Data Design Capstone lesson and its Repository Update are complete, so
+Day43 preparation may begin. Day43 opens Phase 4 (FastAPI). Still do not create a Day43 lesson file or begin
+Phase 4 project code until the Day43 teaching session itself runs.
 
-- [ ] (blocked on Day42) Read the Day43 input when provided.
-- [ ] (blocked on Day42) Review the Day42 data-ownership/failure model and the `projects/ai-backend-data-layer/` foundation that Phase 4 will make executable.
-- [ ] (blocked on Day42) Preview the FastAPI request/response lifecycle and the AI Job API product contract over the Day42 model.
-- [ ] (blocked on Day42) Confirm the reused project directories for Phase 4 (`fastapi-todo` warm-up, `fastapi-auth`, `ai-backend-data-layer`); do not create new project directories.
-- [ ] (blocked on Day42) Keep runtime/production claims honest: SQLAlchemy/Alembic and provider adapters are executed only when actually run and recorded.
+- [ ] Read the Day43 input when provided.
+- [ ] Review the Day42 data-ownership/failure model and the `projects/ai-backend-data-layer/` foundation (incl. `capstone-backend-data-design.md`) that Phase 4 will make executable.
+- [ ] Preview the FastAPI request/response lifecycle and the AI Job API product contract over the Day42 model.
+- [ ] Confirm the reused project directories for Phase 4 (`fastapi-todo` warm-up, `fastapi-auth`, `ai-backend-data-layer`); do not create new project directories.
+- [ ] Keep runtime/production claims honest: SQLAlchemy/Alembic and provider adapters are executed only when actually run and recorded.
 
 ---
 

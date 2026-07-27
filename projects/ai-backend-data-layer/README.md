@@ -4,14 +4,24 @@ The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownersh
 **PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
 time (Day29-Day42).
 
-Current increment: **Day41 — a Redis coordination and production-safety design** that uses Redis for
-narrow, bounded coordination/protection (atomic rate-limit admission and short leases; the fencing generation itself is durable in PostgreSQL) while
-PostgreSQL stays the durable business authority: the atomic admission contract, the algorithm decision table
-(fixed/first-write-TTL/sliding/token-bucket), the API idempotency boundary, the lease safety model (token/
-expiry/renew/atomic compare-and-delete release + paused-owner timeline), the fencing model, the PostgreSQL
-completion guard (extending Day34/Day37), the Redis loss/capacity matrix, the security matrix, and the
-integrated failure runbook — design and evidence only, nothing executed; Redis is not promoted to business
-truth and no exactly-once is claimed. (See the Day40 note below for the prior increment.)
+Current increment: **Day42 — the Backend Data Design Capstone** that closes Phase 3 by integrating the
+durable PostgreSQL truth (Day29-Day37) with the transient Redis coordination (Day38-Day41) and the Object
+Storage artifact boundary into one failure-aware ownership/recovery/verification contract: the ownership/
+lifecycle map, the acceptance contract (durable-at-202), dispatch and at-least-once duplicate handling, the
+short guarded completion transaction and Artifact reconciliation, the failure/degraded matrix, the Upload
+Session verification contract, tenant isolation + append-only audit + tombstoned retention, the disposable
+`EXPLAIN ANALYZE` performance-evidence method, the fencing-generation Expand->Contract migration, and the
+integrated recovery runbook — design and evidence only, nothing executed; PostgreSQL stays the single source of
+durable truth and SQLAlchemy/Alembic remain Phase 4. (See the Day41 note below for the prior increment.)
+
+Prior increment (Day41): **a Redis coordination and production-safety design** that uses Redis for narrow,
+bounded coordination/protection (atomic rate-limit admission and short leases; the fencing generation itself is
+durable in PostgreSQL) while PostgreSQL stays the durable business authority: the atomic admission contract, the
+algorithm decision table (fixed/first-write-TTL/sliding/token-bucket), the API idempotency boundary, the lease
+safety model (token/expiry/renew/atomic compare-and-delete release + paused-owner timeline), the fencing model,
+the PostgreSQL completion guard (extending Day34/Day37), the Redis loss/capacity matrix, the security matrix,
+and the integrated failure runbook — design and evidence only, nothing executed; Redis is not promoted to
+business truth and no exactly-once is claimed.
 
 Prior increment (Day40): **a Redis messaging and queue semantics design** that uses Redis Lists, Pub/Sub, and
 Streams by their delivery/failure semantics while PostgreSQL stays durable Job truth: the List/Pub-Sub/Streams
@@ -35,6 +45,7 @@ Lessons:
 - Day39 (Redis cache consistency): [`docs/redis/day39-redis-cache-design-and-consistency.md`](../../docs/redis/day39-redis-cache-design-and-consistency.md)
 - Day40 (Redis messaging): [`docs/redis/day40-redis-messaging-and-queue-semantics.md`](../../docs/redis/day40-redis-messaging-and-queue-semantics.md)
 - Day41 (Redis coordination): [`docs/redis/day41-redis-coordination-and-production-safety.md`](../../docs/redis/day41-redis-coordination-and-production-safety.md)
+- Day42 (capstone): [`docs/redis/day42-backend-data-design-capstone.md`](../../docs/redis/day42-backend-data-design-capstone.md)
 
 ---
 
@@ -43,6 +54,7 @@ Lessons:
 ```text
 projects/ai-backend-data-layer/
 ├── README.md
+├── capstone-backend-data-design.md                    # Day42: Phase 3 capstone design (PostgreSQL + Redis + Object Storage; design + evidence, not executed)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -104,6 +116,62 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day42 increment — Backend Data Design Capstone (Phase 3 close)
+
+`capstone-backend-data-design.md` closes Phase 3 by integrating the durable PostgreSQL truth (Day29-Day37),
+the transient Redis coordination (Day38-Day41), and the Object Storage artifact boundary into **one**
+failure-aware ownership, recovery, and verification contract for a multi-tenant AI Research and Automation
+Platform. It is a design / evidence pack, not a running system: **every contract, key, and threshold is
+CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT RUN, PRODUCTION NOT VALIDATED. `EXPLAIN ANALYZE` and
+disposable-environment measurement are a described future method, not a performed result. SQLAlchemy/Alembic
+are Phase 4 and are not implemented here.**
+
+### What the capstone contains
+
+| Section | Contents |
+| --- | --- |
+| Ownership + lifecycle map | PostgreSQL durable truth / Object Storage bytes / Redis losable coordination, per entity (Upload Session, Document, Job, Attempt, Event, Outbox, Result Artifact, cache/messages/counters/leases) |
+| Acceptance contract | durable-at-202 = Job + `(tenant_id, idempotency_key)` uniqueness + Outbox intent in one transaction; Attempt/Event/lease/fencing appear later |
+| Dispatch + duplicate | Relay publishes unpublished Outbox intents; at-least-once duplicates are normal; guarded `queued -> running` rejects the duplicate effect |
+| Completion + reconciliation | short guarded transaction; verify identity/integrity/ownership + fencing equality + result before completing; Artifact-first + rollback -> reconcile, never blind delete/re-call |
+| Failure / degraded matrix | Redis unhealthy / PostgreSQL down / input Object Storage down — scoped fail-closed |
+| Upload contract | verify tenant ownership, verified state, non-expiry, registered key, hash/size, content-type/scan |
+| Tenant / audit / retention | authenticated tenant predicate + composite tenant-aware FKs; append-only Events; tombstoned Artifact references |
+| Performance evidence | disposable `EXPLAIN ANALYZE` method (not run); not production validation |
+| Fencing migration | Expand -> Contract; strictly greater durable generation; drain/upgrade old Workers |
+| Integrated recovery | failover + paused-Worker + Artifact reconciliation; contain + reconcile + guarded completion |
+
+### Rules encoded
+
+```text
+PostgreSQL = single source of durable truth; Object Storage = verified bytes; Redis = transient, losable coordination
+durable at 202 = Job + (tenant_id, idempotency_key) UNIQUE + Outbox intent (one tx); Attempt/Event/lease/fencing come later
+dispatch = publish UNPUBLISHED Outbox intents; at-least-once duplicates normal; guarded queued->running rejects the effect
+completion = short guarded tx guarded by running + current lease token + unexpired lease + fencing_generation = current PERSISTED generation
+Artifact existence != success -> verify identity/integrity/ownership + fencing + Provider/result; reconcile on rollback, never blind delete/re-call
+degrade by boundary: Redis unhealthy=fail-closed admission; PostgreSQL down=no new accepts; input Object Storage down=fail-closed THAT admission only
+tenant safety = authenticated predicate + Job ID + composite tenant-aware FKs; a cache key is not authorization
+audit = append-only; retention = tombstone Artifact reference + append artifact_expired/deleted; never edit history
+performance = disposable EXPLAIN ANALYZE evidence (a method here, NOT run) != production validation
+fencing = durable generation via Expand->Contract; drain/upgrade old Workers; lease expiry != a stop
+recovery = contain + reconcile (Job/Attempt/Provider idempotency/Artifact) + guarded completion; never blind re-call, never Artifact-as-ownership
+```
+
+> **What this capstone deliberately does not do:** it starts no PostgreSQL/Redis/Object Storage/Provider/
+> Celery/Relay/Worker/FastAPI, runs no migration and no `EXPLAIN ANALYZE`, and performs no failover/load/
+> security/data-repair test. It does not implement SQLAlchemy/Alembic (Phase 4), a runnable rate limiter, a
+> real Worker, real Object Storage integration, a real schema change, a real queue, a real Provider call, or a
+> runtime test. No real secrets, connection strings, or client data. Every key/ID/threshold is a static example.
+
+### Day42 known gaps (deliberate)
+
+```text
+Day43-58 (Phase 4)  turn this contract into a runnable FastAPI AI backend (SQLAlchemy/Alembic at Day46-48)
+Phase 5-8           Playwright/n8n/agent/RAG/MCP/evaluation and the final capstone + portfolio
+```
 
 ---
 
@@ -1471,6 +1539,18 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day42 (`capstone-backend-data-design.md`)
+
+| Level | Day42 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one evolving multi-tenant AI Job scenario reasoned end to end: ownership/acceptance, dispatch/duplicate, completion/Artifact reconciliation, degraded modes, upload contract, tenant/audit/retention, performance-evidence method, fencing migration, and integrated recovery |
+| Static reasoning review | **Completed** | static review of the durable-at-202 anchor, the guarded transition, the short guarded completion + fencing-equality guard, the scoped fail-closed degraded modes, composite tenant-aware FKs, append-only audit/tombstone retention, and the Expand->Contract fencing rollout, integrating Day29-Day41 |
+| Artifact syntax / runtime validation | **NOT RUN** | no PostgreSQL, Redis, Object Storage, Provider, Celery/Relay/Worker, or FastAPI command was executed; SQL-shaped and key-shaped examples are read for shape and naming only |
+| Disposable PostgreSQL/Redis validation | **NOT RUN** | no migration and no `EXPLAIN ANALYZE` were run; the performance-evidence method is described, not performed |
+| Failover / load / security / data-repair drill | **NOT RUN** | no failover, load, security, or data-repair test was executed |
+| Application / integration validation | **NOT RUN** | no queue, Worker, Provider call, Object Storage integration, or FastAPI endpoint; SQLAlchemy/Alembic are Phase 4 |
+| Production validation | **NOT RUN** | no production accessed; every key/ID/threshold is a static design example |
 
 ### Day41 (`redis/redis-coordination-and-production-safety-design.md`)
 

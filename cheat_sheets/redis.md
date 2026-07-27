@@ -409,5 +409,72 @@ guarded/fenced writes + stable Provider idempotency + Artifact reconciliation ar
 
 ---
 
-Related: [Day38 lesson](../docs/redis/day38-redis-foundations-and-data-structures.md) · [Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md) · [Day40 lesson](../docs/redis/day40-redis-messaging-and-queue-semantics.md) · [Day41 lesson](../docs/redis/day41-redis-coordination-and-production-safety.md) ·
-[Redis acceleration-layer design](../projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) · [Redis cache consistency design](../projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md) · [Redis messaging and queue semantics design](../projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md) · [Redis coordination and production safety design](../projects/ai-backend-data-layer/redis/redis-coordination-and-production-safety-design.md)
+## Day42 Backend Data Design Capstone (Phase 3 close)
+
+Central rule:
+
+```text
+PostgreSQL = single source of DURABLE TRUTH. Object Storage = large BYTES. Redis = TRANSIENT, LOSABLE coordination.
+Acceptance, completion, tenant isolation, and audit are decided by guarded/verified/append-only PostgreSQL facts.
+```
+
+### Ownership + acceptance + dispatch
+
+```text
+durable at 202 = Job + (tenant_id, idempotency_key) UNIQUE + Outbox intent (ONE tx before 202)
+  NOT required at 202: Attempt, Event, lease token, fencing generation (appear at claim/takeover)
+dispatch = Relay publishes UNPUBLISHED Outbox intents (published_at IS NULL); NOT a scan of `queued`
+at-least-once DUPLICATE delivery is normal -> reject the EFFECT with a guarded queued->running (one winner)
+  Redis processed markers/counters/leases are LOSABLE, never durable truth
+```
+
+### Completion + reconciliation
+
+```text
+completion = SHORT guarded tx: Artifact ref + finish Attempt + running->succeeded + job_succeeded Event
+guard = running + current lease token + unexpired lease + fencing_generation = current PERSISTED generation (EQUALITY)
+Artifact existence ALONE != success -> verify identity/integrity/ownership + fencing + Provider/result evidence
+Artifact-first write + PG rollback -> reconcile (Artifact metadata + Provider idempotency); NEVER blind delete/re-call
+```
+
+### Degraded modes (by boundary)
+
+```text
+Redis unhealthy       -> fail-closed new expensive admission; low counter != quota headroom; no mass restart; bounded backoff; drain
+PostgreSQL down        -> do NOT accept new POST /jobs (acceptance atomicity is PG-only); preserve evidence; reconcile after recovery
+input Object Storage down / upload unverifiable -> fail-closed THAT admission only (not unrelated endpoints/whole container)
+upload verify before admission = tenant ownership + verified state + non-expiry + registered key + hash/size + content-type/scan
+```
+
+### Tenant / audit / retention / performance / migration
+
+```text
+tenant safety = authenticated tenant predicate + Job ID; composite tenant-aware FKs (job_documents(tenant_id, job_id, document_id))
+  a globally-unique job_id still leaks if queried alone; a cache key (job-summary:{tenant_id}:{job_id}:v1) is NOT authorization
+audit = APPEND-only Events (never edit); retention = tombstone Artifact ref (key/checksum/created/deleted/policy) + append artifact_expired/deleted
+performance = disposable EXPLAIN ANALYZE evidence (representative data/params, actual vs estimated, before/after) != production validation (NOT run here)
+fencing migration = Expand->compatible deploy->backfill->validate->switch->contract; drain/upgrade old Workers; lease expiry != a stop
+```
+
+### Recovery (integrated)
+
+```text
+contain old claims + close legacy-guard-bypass -> no mass restart -> Relay republishes Outbox intent
+-> reconcile Job/Attempt/Provider idempotency/Artifact -> guarded atomic completion (or current-owner-only verified next action)
+NEVER blind re-call Provider on a fresh lease; NEVER use Artifact existence as ownership proof
+```
+
+### One-line mental model
+
+```text
+PostgreSQL owns durable truth and atomicity; Object Storage owns verified bytes; Redis coordinates but is losable;
+every completion is guarded + fenced, tenants isolated by predicate + composite FKs, audit append-only, recovery reconciles.
+```
+
+Validation: CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT RUN, PRODUCTION NOT VALIDATED (no PostgreSQL/
+Redis/Object Storage/Provider/Celery/FastAPI/migration/EXPLAIN ANALYZE executed). SQLAlchemy/Alembic are Phase 4.
+
+---
+
+Related: [Day38 lesson](../docs/redis/day38-redis-foundations-and-data-structures.md) · [Day39 lesson](../docs/redis/day39-redis-cache-design-and-consistency.md) · [Day40 lesson](../docs/redis/day40-redis-messaging-and-queue-semantics.md) · [Day41 lesson](../docs/redis/day41-redis-coordination-and-production-safety.md) · [Day42 capstone lesson](../docs/redis/day42-backend-data-design-capstone.md) ·
+[Redis acceleration-layer design](../projects/ai-backend-data-layer/redis/redis-acceleration-layer-design.md) · [Redis cache consistency design](../projects/ai-backend-data-layer/redis/redis-cache-consistency-design.md) · [Redis messaging and queue semantics design](../projects/ai-backend-data-layer/redis/redis-messaging-and-queue-semantics-design.md) · [Redis coordination and production safety design](../projects/ai-backend-data-layer/redis/redis-coordination-and-production-safety-design.md) · [Day42 capstone design](../projects/ai-backend-data-layer/capstone-backend-data-design.md)

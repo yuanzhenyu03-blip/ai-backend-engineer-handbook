@@ -829,3 +829,176 @@ Strong answer:
 
 Assessment: the student named the durable-facts + idempotency + Artifact foundation; the strong answer adds
 fail-closed admission, no mass restart, degradation monitoring, and the ownership/fencing guard.
+
+---
+
+## Day42 Backend Data Design Capstone — Phase 3 System-Design Interview
+
+Cross-boundary Phase 3 capstone (PostgreSQL + Redis + Object Storage). Pair with
+[`cheat_sheets/redis.md`](../cheat_sheets/redis.md) (Day42), the
+[Day42 lesson](../docs/redis/day42-backend-data-design-capstone.md), and the
+[Day42 capstone design](../projects/ai-backend-data-layer/capstone-backend-data-design.md).
+
+### Q1 (Beginner) — What owns durable truth in this AI backend, and what is Redis for?
+
+Model answer:
+
+PostgreSQL owns durable truth: Job identity/status, tenant ownership, the API idempotency uniqueness, the Outbox
+intent, Attempt/Event history, the fencing generation, and references to Object Storage artifacts. Object
+Storage holds the large document and result bytes. Redis is transient coordination (cache, queue messages,
+rate-limit counters, short leases) and is losable on eviction/failover, so it never proves a Job was accepted or
+completed.
+
+### Q2 (Beginner) — What must be durable before you return `202`?
+
+Model answer:
+
+Job + `(tenant_id, idempotency_key)` uniqueness + the Outbox dispatch intent, committed in one PostgreSQL
+transaction. Attempt, Event, lease token, and fencing generation are not required at `202` — they appear at
+claim/takeover.
+
+Student's actual answer (preserved verbatim):
+
+> "Postgresql持有attempt、event、outbox intent、stable idepmotency key、fencing token"
+
+Assessment: correct list of durable PostgreSQL-owned facts; the interview refinement is that only Job +
+idempotency uniqueness + Outbox are required *at acceptance*.
+
+### Q3 (Intermediate) — A Relay re-published a message so a Worker got it twice. How do you stay correct?
+
+Model answer:
+
+At-least-once duplicate delivery is expected; do not reject the delivery. Reject the duplicate business effect
+with a PostgreSQL guarded transition (only one `queued -> running` succeeds) plus idempotency; a Redis processed
+marker is an optional optimization, never the authority.
+
+Student's actual answers (preserved verbatim):
+
+> "重复投递应该使用拒绝"
+
+> "依赖 PostgreSQL 的 guarded 状态转换，redis不是持久化数据事实"
+
+Assessment: the second answer corrects the first — guard the effect, not the delivery.
+
+### Q4 (Intermediate) — The result Artifact is in Object Storage. Is the Job done?
+
+Model answer:
+
+No. Artifact existence alone is insufficient. Completion is a short guarded transaction (record Artifact
+reference, finish the Attempt, `running -> succeeded`, append the Event) after verifying Artifact identity/
+integrity/ownership, current ownership + fencing equality, and Provider/result evidence. If the Object Storage
+write succeeded but the completion rolled back, reconcile — never blindly delete the Artifact or re-call the
+Provider.
+
+Student's actual answers (preserved verbatim):
+
+> (is Artifact existence enough?) "不能"
+
+> "应该根据idepmotency key在provider查询结果reconcile artifact"
+
+Assessment: correct — verify + guarded completion; Artifact presence is not success.
+
+### Q5 (Intermediate) — Degraded modes: Redis, PostgreSQL, and input Object Storage each unavailable.
+
+Model answer:
+
+Redis unhealthy → fail closed on new expensive admission, do not read a low counter as headroom, no mass
+restart, bounded backoff, drain in-flight work. PostgreSQL down → do not accept new `POST /jobs` (acceptance
+atomicity is PostgreSQL-only), preserve external evidence, reconcile after recovery. Input Object Storage down /
+upload unverifiable → fail closed that admission only, not unrelated endpoints or the whole container.
+
+Student's actual answers (preserved verbatim):
+
+> "不能，因为postgresql的持久化事实是唯一事实来源"
+
+> "contain现有结果拒绝新的job admission，等待数据库恢复后，再运行原子事务提交数据库"
+
+> "不能接受，应该container停止接收新的job admission。"
+
+Assessment: correct posture; the correction is to scope the Object Storage fail-closed to the affected admission
+path, not the whole container.
+
+### Q6 (Intermediate) — How do you keep tenants isolated in reads and relationships?
+
+Model answer:
+
+Use the authenticated tenant predicate plus the Job ID on every read — a globally unique `job_id` still leaks if
+another tenant learns it and the query filters by `job_id` alone. Prevent cross-tenant links with composite
+tenant-aware foreign keys, e.g. `job_documents(tenant_id, job_id, document_id)` referencing both `(tenant_id,
+job_id)` and `(tenant_id, document_id)`.
+
+Student's actual answers (preserved verbatim):
+
+> "必须包含租户id"
+
+> "不安全，一个job_id可能有多个租户"
+
+> "使用unique约束job_id,tenant_id,document_id为唯一组合"
+
+Assessment: right conclusions; the reasoning refinement is that the leak is A learning B's unique UUID, and that
+composite FKs (not mere unique association) prevent cross-tenant links.
+
+### Q7 (Senior) — Walk through completing a Job after Worker A paused mid-Provider-call, its lease expired, and Worker B took over and found the Artifact.
+
+Model answer:
+
+A fresh lease is permission to reconcile, not to repeat expensive work. B must not call the Provider just
+because it holds the lease, and must not treat the Artifact's existence as success. B reconciles Job / Attempt /
+Event / Outbox / stable Provider idempotency and verifies the deterministic Artifact's identity/integrity/
+ownership. Completion is a short guarded transaction guarded by `running` + current lease token + unexpired
+lease + equality with the current persisted fencing generation, so A's stale completion (older generation)
+fails the guard. Ensure the legacy completion path cannot bypass the guard (drain/upgrade old Workers); a fence
+only protects writers that verify it.
+
+Student's actual answer (preserved verbatim):
+
+> "contain先停止旧work接新的job admission，对旧的在运行的work进行brain，确认旧work无法再按照旧路径写入， B先对账 Job / Attempt / Provider idempotency / Artifact，再决定是否调用 Provider 或提交完成事务绝对不能重新调用proveider,绝对不能把artifact存在替代ownership的检查。"
+
+Assessment: complete and correct — contain, reconcile, guarded completion, and the two absolutes (never blind
+re-call, never Artifact-as-ownership).
+
+### Q8 (Senior) — Roll out the `current_fencing_generation` with old Workers still running.
+
+Model answer:
+
+Expand (add nullable) → compatible deploy (tolerate NULL) → backfill → validate all running Jobs/completion
+paths → switch (claim/takeover writes a strictly greater durable generation; enforce the guard) → contract. Do
+not shorten the lease to "force" takeover and do not hand the old Worker a smaller generation — expiry never
+stops a paused old Worker and old code may bypass the fence. Drain/upgrade old Workers or enforce the guard on
+every durable completion path; Provider effects still rely on idempotency + reconciliation.
+
+Student's actual answers (preserved verbatim):
+
+> "先nullable新字段保持新旧版本兼容性，切换traffic让新的job都带上这个字段，对还在运行的旧work brain"
+
+> "lease token的过期时间短，让新worker可以接管。之后新worker获得fencing generation，然后给旧work一个小于或等于新work的generation，下游就会拒绝旧work"
+
+Assessment: the Expand-first instinct is right; the correction is that lease-shortening + a smaller generation
+cannot stop old code — drain/upgrade or enforce the guard universally.
+
+### Q9 (Senior) — How do you justify a proposed index, and is `EXPLAIN ANALYZE` production validation?
+
+Model answer:
+
+In a disposable isolated environment collect representative schema/index/data/params, run `EXPLAIN ANALYZE`,
+compare actual vs estimated rows, timing, and buffers before/after the index. That is disposable runtime
+evidence, not production validation — real deployment and telemetry are a separate, later tier.
+
+Student's actual answers (preserved verbatim):
+
+> "在隔离环境使用explan analyze"
+
+> (is that production validation?) "不能，因为还需要真实环境迁移后测试"
+
+Assessment: correct on both — measure in a disposable environment and label the evidence tier honestly.
+
+### Final Chinese synthesis (preserved verbatim)
+
+> PostgreSQL owns durable business facts; Redis transports information and stores cache/counters; Object Storage
+> stores documents and large binary files; Job + stable idempotency key + Outbox intent commit before 202; Relay
+> scans unpublished Outbox; Worker updates Attempt/Event/Job; recovery uses Attempt/Event/Outbox/idempotency/
+> Artifact; PostgreSQL durable facts are the single source of truth.
+
+Validation: CONCEPTUAL / STATICALLY REVIEWED only — RUNTIME NOT RUN, PRODUCTION NOT VALIDATED. No PostgreSQL/
+Redis/Object Storage/Provider/Celery/FastAPI/migration/`EXPLAIN ANALYZE` was executed. SQLAlchemy/Alembic are
+Phase 4.

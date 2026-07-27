@@ -587,7 +587,7 @@ LESSON_TEMPLATE_v2
 ## Phase 3 — Backend Foundations (Day29-Day42)
 
 Status:
-In Progress
+Complete
 
 Objective:
 Turn the conceptual state ownership established in Day28 into an executable, failure-aware data layer.
@@ -1203,7 +1203,37 @@ audit; phase-level Beginner/Intermediate/Senior English system-design interview;
 results and limitations.
 
 Status:
-Planned
+✅ Completed
+
+Released Lesson:
+`docs/redis/day42-backend-data-design-capstone.md`
+
+Template:
+LESSON_TEMPLATE_v2
+
+Previous Lesson:
+Day41 — Redis Coordination and Production Safety
+
+Next Lesson:
+Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4)
+
+Released Engineering Artifact:
+`projects/ai-backend-data-layer/capstone-backend-data-design.md` — the Phase 3 capstone design/evidence pack
+integrating Day29-Day41: the ownership/lifecycle map, the acceptance contract (durable-at-202), dispatch and
+at-least-once duplicate handling, the short guarded completion transaction and Artifact reconciliation, the
+failure/degraded matrix (Redis/PostgreSQL/Object Storage), the Upload Session verification contract, tenant
+isolation (authenticated predicate + composite tenant-aware FKs) with append-only audit and tombstoned
+retention, the disposable `EXPLAIN ANALYZE` performance-evidence method, the fencing-generation
+Expand->Contract migration, and the integrated failover/paused-Worker/Artifact recovery runbook — every
+section labelled CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED
+
+Validation Limits:
+Day42 classroom status is conceptual reasoning and static review only — nothing was executed. No PostgreSQL,
+Redis, Object Storage, Provider, Celery/Relay/Worker, or FastAPI command was run; no migration and no
+`EXPLAIN ANALYZE` were executed; no failover/load/security/data-repair test was performed. `EXPLAIN ANALYZE`
+and disposable-environment measurement are described as a future validation method only. Every key/ID/threshold
+is a static design example. SQLAlchemy/Alembic are Phase 4 and are not implemented or taught here. This closes
+Phase 3; Phase 4 begins at Day43. RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.
 
 ---
 

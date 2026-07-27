@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.89 — Day42 Backend Data Design Capstone (Phase 3 close)
+
+Date: 2026-07-26
+
+### Added
+
+- Added `docs/redis/day42-backend-data-design-capstone.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day41->Day42 mental-model evolution). This is the Phase 3 capstone.
+- Added `projects/ai-backend-data-layer/capstone-backend-data-design.md` — the Day42 **capstone design / evidence pack** integrating Day29-Day41 (PostgreSQL + Redis + Object Storage) into one ownership/recovery/verification contract: the ownership/lifecycle map, the acceptance contract (durable-at-202), dispatch + at-least-once duplicate handling, the short guarded completion transaction + Artifact reconciliation, the failure/degraded matrix, the Upload Session verification contract, tenant isolation + append-only audit + tombstoned retention, the disposable `EXPLAIN ANALYZE` performance-evidence method, the fencing-generation Expand->Contract migration, and the integrated failover/paused-Worker/Artifact recovery runbook. Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**; no real secrets, connection strings, or client data.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day42 capstone increment (contents table, encoded rules, what-it-does-not-do, known gaps, a new `capstone-backend-data-design.md` root-level structure entry, and a Day42 validation matrix); demoted Day41 to the prior increment.
+- Added a Day42 cross-boundary quick-reference to `cheat_sheets/redis.md` and a discoverability cross-reference in `cheat_sheets/postgresql.md` (no mechanical duplication).
+- Added the Day42 phase-capstone system-design interview material to `interview/redis.md` (Beginner/Intermediate/Senior with the student's verbatim answers and the final Chinese synthesis) and a discoverability cross-reference in `interview/postgresql.md`.
+- Updated `docs/README.md` (Day42 is the Phase 3 capstone / latest Redis-folder lesson), and pointed the Day41 lesson's Next Lesson at the released Day42 lesson.
+- Updated `CURRICULUM.md` (Day42 Completed; Phase 3 marked Complete; Day43 remains Planned) and `ROADMAP.md` (Day42 Completed). Day43–Day100 planning, topics, and the 58 per-day connections are unchanged.
+- Updated `PROJECT_STATUS.md` (Day42 last completed with artifact + validation boundary; Current Phase is now Phase 4 with Current/Next = Day43 Planned; Phase 3 marked Complete), `TASKS.md` (completed Day42 blocks, Day42 preparation converted to history, the Day43 gate marked satisfied), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day42 integrates the whole Phase 3 arc over one evolving multi-tenant AI Research and Automation Platform scenario, and its spine is that **PostgreSQL is the single source of durable truth, Object Storage owns verified bytes, and Redis coordinates but is losable**: what is durable at `202` is only Job + `(tenant_id, idempotency_key)` uniqueness + the Outbox intent; dispatch publishes unpublished Outbox intents and at-least-once duplicate delivery is normal (rejected as a business effect by a guarded `queued -> running`, not by a Redis marker); completion is a short guarded transaction guarded by `running` + current lease token + unexpired lease + `fencing_generation` = the current persisted generation, and Artifact existence alone is never success; degraded modes are scoped by boundary (Redis unhealthy = fail-closed new expensive admission; PostgreSQL down = no new accepts; input Object Storage down = fail-closed that admission only); tenant isolation uses the authenticated predicate + composite tenant-aware foreign keys; audit is append-only with tombstoned Artifact retention; performance is justified by disposable `EXPLAIN ANALYZE` evidence that is not production validation; the fencing generation is rolled out durably via Expand->Contract with old Workers drained/upgraded; and integrated recovery reconciles Job/Attempt/Provider idempotency/Artifact under a universally-honored guard, never blindly re-calling the Provider and never using Artifact existence as ownership proof. This closes Phase 3; Phase 4 (FastAPI) begins at Day43.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day43+ lesson exists and Day43–Day100 remain Planned; LESSON_TEMPLATE_v2 16-section order and heading check; a provenance check asserting every Day42 verbatim student quote appears in `Day42_Repository_Update_Input.md`; Markdown fence balance (lesson and artifact); relative-link resolution (new capstone cross-links and the Day41->Day42 Next Lesson link); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets, connection strings, or client data).
+- **Day42 has NO runtime evidence — RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.** No PostgreSQL, Redis, Object Storage, Provider, Celery/Relay/Worker, or FastAPI command was run; no migration and no `EXPLAIN ANALYZE` were executed; no failover/load/security/data-repair test was performed. `EXPLAIN ANALYZE` and disposable measurement are a described future method only.
+- Scope: no runnable rate limiter, real Worker, real Object Storage integration, real schema change, real queue, real Provider call, or runtime test is claimed; SQLAlchemy/Alembic are named only as Phase 4 future connections; the protected prompt/template files are unchanged; no new project directory was created (the capstone artifact lives inside the existing `projects/ai-backend-data-layer/`); and Day43–Day100 curriculum planning was not altered.
+
+---
+
 ## v0.1.88 — Curriculum Planning: preserve future lesson implementation boundaries (Day50/54/91/94/95)
 
 Date: 2026-07-26
