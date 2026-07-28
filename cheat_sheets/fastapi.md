@@ -220,7 +220,7 @@ do NOT wait for an 8-min Provider call; an in-process BackgroundTask is NOT a du
 Relay scans published_at IS NULL; crash after publish before checkpoint -> expected at-least-once DUPLICATE
 FIRST duplicate gate = guarded queued->running: 1 row winner may create Attempt/Event + call Provider; 0 rows -> STOP
   (lease/fencing protects stale COMPLETION later, not the first gate)
-Artifact existence != success; cancel via POST /jobs/{id}/cancel (durable audited INTENT, not DELETE)
+Artifact existence != success; cancel via POST /jobs/{id}/cancel (durable audited INTENT; semantics = "cancel requested, terminal outcome pending", not a resource DELETE)
 cancel requested != cancellation completed (a Provider call may be in flight; terminal mechanics = Day54)
 rollback a pre-COMMIT-202 release: roll back the CODE + reconcile committed facts; an idempotent 202 for the SAME Job is fine
 ```

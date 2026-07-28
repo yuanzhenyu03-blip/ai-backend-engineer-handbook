@@ -150,7 +150,7 @@ DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), durable ca
 | Tenant isolation | `WHERE tenant + job_id`; cross-tenant `404` (no existence oracle); allowlisted public fields; a UUID is not authorization |
 | HTTP vs durable lifecycle | short HTTP response vs Relay -> Worker claim -> Provider -> guarded completion; no 8-min wait; BackgroundTask != durable Worker |
 | Outbox + guarded-claim gate | at-least-once duplicate delivery is normal; guarded `queued -> running` (1 row winner / 0 rows stop) is the first gate |
-| Cancellation-intent boundary | `POST /cancel` durable audited intent (not `DELETE`); `cancel requested != completed` |
+| Cancellation-intent boundary | `POST /cancel` durable audited intent ("requested, terminal outcome pending", a semantic `DELETE` does not express); `cancel requested != completed` |
 | Integrated failure / rollback | T1-T6 sequence + the pre-`COMMIT`-`202` release rollback |
 
 ### Rules encoded
@@ -164,7 +164,7 @@ routing resolves method+path BEFORE handler/DB: 404 no route, 405 wrong method; 
 GET reads committed truth WHERE tenant + job_id; cross-tenant -> 404 (no existence oracle); allowlist public fields
 HTTP lifecycle is short; durable work = Relay -> Worker claim -> Provider -> guarded completion; BackgroundTask != durable Worker
 at-least-once duplicate is normal; guarded queued->running (1 row winner / 0 rows STOP) is the FIRST gate; fencing protects completion later
-Artifact existence != success; cancel via POST /cancel (durable audited INTENT, not DELETE); cancel requested != completed
+Artifact existence != success; cancel via POST /cancel (durable audited INTENT; semantics = "cancel requested, terminal outcome pending", not a resource DELETE); cancel requested != completed
 rollback a pre-COMMIT-202 release: roll back the CODE + reconcile committed facts; an idempotent 202 for the SAME Job is fine
 ```
 

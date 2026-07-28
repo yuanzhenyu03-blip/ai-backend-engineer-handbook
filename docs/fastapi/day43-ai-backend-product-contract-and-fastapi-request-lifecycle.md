@@ -50,7 +50,7 @@ By the end of this lesson you can:
 5. Design tenant-scoped Job reads (`tenant + job_id`) that return `404` cross-tenant, avoid an existence oracle, and allowlist public representation fields.
 6. Separate the HTTP request lifecycle from the durable background lifecycle, and reject an in-process Background Task as a durable Worker.
 7. Explain the Outbox/at-least-once boundary and why the guarded `queued -> running` (1 row winner / 0 rows stop) is the first duplicate-delivery gate.
-8. Reject Artifact existence as completion proof, and design cancellation as a persisted, audited intent (`POST /cancel`, not destructive delete) that is not the same as completed cancellation.
+8. Reject Artifact existence as completion proof, and design cancellation as a persisted, audited intent (`POST /cancel`, whose semantics express "requested, outcome pending" rather than a resource `DELETE`) that is not the same as completed cancellation.
 9. Solve the integrated lost-response + duplicate-dispatch + cross-tenant-read failure sequence and the senior pre-`COMMIT` `202` rollback.
 10. Answer Beginner/Intermediate/Senior English interview questions on the AI Job API contract.
 
@@ -417,8 +417,8 @@ cancel — `DELETE`?
 
 ### Student Thinking
 
-The student anchored completion on durable database facts, and rejected `DELETE` because it destroys durable
-facts and auditability.
+The student anchored completion on durable database facts, and preferred a `POST /cancel` over `DELETE`
+semantics for recoverability and auditability.
 
 ### Student Answer
 
@@ -430,18 +430,22 @@ facts and auditability.
 
 Both correct. If Object Storage holds an Artifact but the PostgreSQL completion rolled back and the Job is
 `running`, `GET` returns `running` — **Artifact existence is not success** (Day42), and only the durable database
-fact decides completion. For cancellation, use **`POST /jobs/{job_id}/cancel`**, not destructive `DELETE`
-semantics, exactly for the student's reason: a delete erases durable facts and audit history and makes the Job
-unrecoverable and un-auditable. Persist the cancellation **intent** and preserve audit history — and note that
-**`cancel requested != Job cancellation completed`**: a running Provider call may still be in flight. A retry
-returns the current committed representation and must **not** duplicate the same logical cancellation-state
-event. (The durable/cooperative cancellation protocol and terminal-transition mechanics are Day54.)
+fact decides completion. For cancellation, use **`POST /jobs/{job_id}/cancel`**. The strongest reason is
+**semantic**, not a claim about what `DELETE` must do: cancelling an asynchronous Job is not "remove a resource,"
+it is recording that **cancellation was requested**, and `cancel requested != Job cancellation completed`
+because a Provider call may still be in flight. `POST /cancel` expresses that intent-plus-in-flight state and
+keeps an auditable record. (A `DELETE` need not physically erase data — it can be implemented as a
+tombstone/soft delete — but `DELETE` semantics model *removing the resource*, which misrepresents an
+async cancellation whose terminal outcome is still pending.) Persist the cancellation **intent** and preserve
+audit history; a retry returns the current committed representation and must **not** duplicate the same logical
+cancellation-state event. (The durable/cooperative cancellation protocol and terminal-transition mechanics are
+Day54.)
 
 ### Engineering Thinking
 
-Completion and cancellation are durable, audited state transitions — not the presence of a file and not a
-destructive delete. "Requested" is an intent recorded now; "completed" is a guarded transition that may come
-later.
+Completion and cancellation are durable, audited state transitions — not the presence of a file, and not a
+"remove the resource" operation. "Requested" is an intent recorded now; "completed" is a guarded transition
+that may come later.
 
 ## Concept 10: Integrated failure and rollback
 
@@ -599,11 +603,12 @@ Returning `404` for a cross-tenant Job hides existence (no oracle) but gives the
 is more informative but confirms the resource exists. For tenant isolation of sensitive resources, prefer the
 existence-hiding `404`.
 
-## `POST /cancel` intent vs destructive `DELETE`
+## `POST /cancel` intent vs `DELETE` semantics
 
-A `POST /cancel` records an audited intent and preserves recovery/audit; a `DELETE` is simpler but destroys
-durable facts and history and cannot express "requested but a Provider call is still in flight." Use the
-intent-based cancel for durable, auditable systems.
+A `POST /cancel` records an audited cancellation **intent** and models "requested, terminal outcome pending." A
+`DELETE` models *removing the resource* — even implemented as a tombstone/soft delete, that semantic does not
+express "cancellation requested but a Provider call is still in flight." Use the intent-based cancel because it
+accurately represents an asynchronous cancellation, not because `DELETE` must erase data.
 
 ---
 
@@ -682,7 +687,7 @@ Explanation: durable truth over stored bytes.
 
 Follow-up: what must be reconciled before completing such a Job (Day42)?
 
-### Exercise 7: Cancellation intent without destructive delete
+### Exercise 7: Cancellation intent vs a resource `DELETE`
 
 Question: design cancellation.
 
@@ -690,7 +695,7 @@ Expected Output: `POST /jobs/{job_id}/cancel` persists an audited cancellation *
 `cancel requested != completed` (a Provider call may be in flight); a retry returns current representation and
 does not duplicate the cancellation-state event.
 
-Explanation: durable, auditable state transitions, not deletion.
+Explanation: durable, auditable state transitions; `POST /cancel` expresses "requested, outcome pending", which a resource `DELETE` does not.
 
 Follow-up: which lesson owns the terminal cancellation mechanics? (Day54.)
 

@@ -279,16 +279,17 @@ completion.
 
 Model answer:
 
-Use `POST /jobs/{job_id}/cancel`, not `DELETE`. `DELETE` erases durable facts and audit history and makes the Job
-unrecoverable. Persist an audited cancellation intent; `cancel requested != cancellation completed` (a Provider
-call may be in flight); a retry returns the current representation without duplicating the cancellation event
-(terminal mechanics are Day54).
+Use `POST /jobs/{job_id}/cancel`. The reason is semantic, not a claim about what `DELETE` must do: cancelling an
+async Job records that cancellation was *requested* (terminal outcome pending), which `DELETE` — a "remove the
+resource" verb, even as a tombstone/soft delete — does not express. Persist an audited cancellation intent;
+`cancel requested != cancellation completed` (a Provider call may be in flight); a retry returns the current
+representation without duplicating the cancellation event (terminal mechanics are Day54).
 
 Student's actual answer (preserved verbatim):
 
 > "POST /jobs/{job_id}/cancel，因为DELETE会在数据库中删除持久化事实，之后无法恢复job，也无法进行审计"
 
-Assessment: correct — cancellation is a durable, auditable intent, not a destructive delete.
+Assessment: correct — cancellation is a durable, auditable intent whose semantics ("requested, outcome pending") a resource `DELETE` does not express.
 
 ### Q9 (Senior) — A bad release returned `202` before Job + Outbox commit. Contain and recover.
 

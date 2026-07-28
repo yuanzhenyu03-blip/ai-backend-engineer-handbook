@@ -142,8 +142,9 @@ If Object Storage holds an Artifact but the PostgreSQL completion rolled back an
 GET returns running. Artifact existence is NOT success (Day42).
 
 Cancellation:
-  use POST /jobs/{job_id}/cancel -- NOT a destructive DELETE (DELETE would erase durable facts + audit and
-  make the Job unrecoverable and un-auditable).
+  use POST /jobs/{job_id}/cancel. Reason is SEMANTIC: cancelling an async Job records that cancellation was
+  REQUESTED (terminal outcome pending), which DELETE (a "remove the resource" verb) does not express -- even a
+  tombstone/soft DELETE. This is not a claim that DELETE must physically erase data.
   persist cancellation INTENT and preserve audit history.
   cancel requested != Job cancellation completed -- a running Provider call may still be in flight.
   a retry returns the current committed representation and must NOT duplicate the same logical
