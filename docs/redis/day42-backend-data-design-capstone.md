@@ -16,7 +16,7 @@ Prerequisite: Day41 — Redis Coordination and Production Safety
 
 Previous Lesson: [Day41 — Redis Coordination and Production Safety](day41-redis-coordination-and-production-safety.md)
 
-Next Lesson: Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (planned — Phase 4; see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day43 lesson file does not exist yet)
+Next Lesson: [Day43 — AI Backend Product Contract and FastAPI Request Lifecycle](../fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md)
 
 Engineering Artifact: The Day42 Backend Data Design Capstone (`projects/ai-backend-data-layer/capstone-backend-data-design.md`) — the integrated ownership/lifecycle map, acceptance contract, dispatch/duplicate handling, completion + Artifact reconciliation, failure/degraded matrix, upload contract, tenant isolation/audit/retention model, performance-evidence method, fencing-generation migration, and integrated recovery runbook, all labelled conceptual/static — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 

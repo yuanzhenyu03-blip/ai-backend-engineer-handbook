@@ -1,18 +1,27 @@
 # Production AI Backend Data Layer
 
-The evolving Phase 3 engineering artifact. It turns the Day28 conceptual ownership rule —
-**PostgreSQL owns durable Job truth** — into an executable, failure-aware data layer, one lesson at a
-time (Day29-Day42).
+The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foundation the API is built on.
+It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
+data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day42 — the Backend Data Design Capstone** that closes Phase 3 by integrating the
-durable PostgreSQL truth (Day29-Day37) with the transient Redis coordination (Day38-Day41) and the Object
-Storage artifact boundary into one failure-aware ownership/recovery/verification contract: the ownership/
-lifecycle map, the acceptance contract (durable-at-202), dispatch and at-least-once duplicate handling, the
-short guarded completion transaction and Artifact reconciliation, the failure/degraded matrix, the Upload
-Session verification contract, tenant isolation + append-only audit + tombstoned retention, the disposable
+Current increment: **Day43 — the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
+data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
+boundary, the route/method/error/status matrix, the idempotency decision table (unique constraint + atomic
+create-or-return), tenant isolation at the read boundary (cross-tenant `404`, no existence oracle, allowlisted
+fields), the HTTP-vs-durable lifecycle boundary + the guarded-claim duplicate gate, the cancellation-intent
+boundary, and the integrated failure/rollback exercise — contract and design only, nothing executed; an HTTP
+response is a promise about committed state and PostgreSQL stays the durable authority. (See the Day42 note
+below for the prior increment.)
+
+Prior increment (Day42): **the Backend Data Design Capstone** that closes Phase 3 by integrating the durable
+PostgreSQL truth (Day29-Day37) with the transient Redis coordination (Day38-Day41) and the Object Storage
+artifact boundary into one failure-aware ownership/recovery/verification contract: the ownership/lifecycle map,
+the acceptance contract (durable-at-202), dispatch and at-least-once duplicate handling, the short guarded
+completion transaction and Artifact reconciliation, the failure/degraded matrix, the Upload Session
+verification contract, tenant isolation + append-only audit + tombstoned retention, the disposable
 `EXPLAIN ANALYZE` performance-evidence method, the fencing-generation Expand->Contract migration, and the
 integrated recovery runbook — design and evidence only, nothing executed; PostgreSQL stays the single source of
-durable truth and SQLAlchemy/Alembic remain Phase 4. (See the Day41 note below for the prior increment.)
+durable truth and SQLAlchemy/Alembic remain Phase 4.
 
 Prior increment (Day41): **a Redis coordination and production-safety design** that uses Redis for narrow,
 bounded coordination/protection (atomic rate-limit admission and short leases; the fencing generation itself is
@@ -46,6 +55,7 @@ Lessons:
 - Day40 (Redis messaging): [`docs/redis/day40-redis-messaging-and-queue-semantics.md`](../../docs/redis/day40-redis-messaging-and-queue-semantics.md)
 - Day41 (Redis coordination): [`docs/redis/day41-redis-coordination-and-production-safety.md`](../../docs/redis/day41-redis-coordination-and-production-safety.md)
 - Day42 (capstone): [`docs/redis/day42-backend-data-design-capstone.md`](../../docs/redis/day42-backend-data-design-capstone.md)
+- Day43 (API contract): [`docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md`](../../docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md)
 
 ---
 
@@ -55,6 +65,8 @@ Lessons:
 projects/ai-backend-data-layer/
 ├── README.md
 ├── capstone-backend-data-design.md                    # Day42: Phase 3 capstone design (PostgreSQL + Redis + Object Storage; design + evidence, not executed)
+├── api/
+│   └── day43-ai-job-api-contract.md                   # Day43: AI Job API contract over the Day42 model (contract + design, not executed)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -116,6 +128,60 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day43 increment — AI Job API contract (Phase 4 open)
+
+`api/day43-ai-job-api-contract.md` exposes the Day42 durable data-ownership/failure model as a precise
+multi-tenant AI Job HTTP API — as a **contract**, not a running application. It is a design pack: **every
+route, status code, and payload is CONCEPTUAL / STATICALLY REVIEWED only — FastAPI / PostgreSQL / Relay-Worker /
+Redis-Object-Storage-Provider / integration / production runtime NOT RUN.** Pydantic v2 (Day44),
+DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), and Celery
+(Day55) are not implemented here.
+
+### What the contract contains
+
+| Section | Contents |
+| --- | --- |
+| Commit-before-`202` boundary | return `202` only after one PostgreSQL tx commits Job + `(tenant_id, idempotency_key)` uniqueness + Outbox intent |
+| Route / method / error / status matrix | `202`/`201`/`200`; `4xx` client contract; `409` same-key-different-input; `5xx` dependency outage; `404` vs `405` |
+| Idempotency decision table | unique constraint + atomic create-or-return (not `SELECT`-then-`INSERT`); key bound to meaning; API vs Provider idempotency |
+| Tenant isolation | `WHERE tenant + job_id`; cross-tenant `404` (no existence oracle); allowlisted public fields; a UUID is not authorization |
+| HTTP vs durable lifecycle | short HTTP response vs Relay -> Worker claim -> Provider -> guarded completion; no 8-min wait; BackgroundTask != durable Worker |
+| Outbox + guarded-claim gate | at-least-once duplicate delivery is normal; guarded `queued -> running` (1 row winner / 0 rows stop) is the first gate |
+| Cancellation-intent boundary | `POST /cancel` durable audited intent (not `DELETE`); `cancel requested != completed` |
+| Integrated failure / rollback | T1-T6 sequence + the pre-`COMMIT`-`202` release rollback |
+
+### Rules encoded
+
+```text
+an HTTP response is a PROMISE about COMMITTED business state; return 202 only after the Job + Outbox COMMIT
+202 = durable async commitment (not completion); 201 = created (not a redirect); GET found = 200 + business status
+4xx = client-contract failure; 409 = same key + different input; 5xx = dependency outage (never fake 404/202)
+idempotency = (tenant_id, idempotency_key) UNIQUE + atomic create-or-return (NOT SELECT-then-INSERT); key bound to meaning
+routing resolves method+path BEFORE handler/DB: 404 no route, 405 wrong method; static routes before dynamic
+GET reads committed truth WHERE tenant + job_id; cross-tenant -> 404 (no existence oracle); allowlist public fields
+HTTP lifecycle is short; durable work = Relay -> Worker claim -> Provider -> guarded completion; BackgroundTask != durable Worker
+at-least-once duplicate is normal; guarded queued->running (1 row winner / 0 rows STOP) is the FIRST gate; fencing protects completion later
+Artifact existence != success; cancel via POST /cancel (durable audited INTENT, not DELETE); cancel requested != completed
+rollback a pre-COMMIT-202 release: roll back the CODE + reconcile committed facts; an idempotent 202 for the SAME Job is fine
+```
+
+> **What this contract deliberately does not do:** it starts no FastAPI app/route, runs no PostgreSQL query/
+> commit, Relay/Worker, Provider call, Object Storage access, or migration, and measures nothing. It does not
+> implement Pydantic v2, DI/lifespan/provider adapters, SQLAlchemy/Alembic, the durable cancellation protocol,
+> or Celery. No real secrets, connection strings, or client data; routes/IDs/status codes are static examples.
+
+### Day43 known gaps (deliberate)
+
+```text
+Day44     typed Pydantic v2 request/response/error models formalize today's decisions
+Day45     DI, lifespan, settings/secrets boundary, provider-adapter seam
+Day46-48  SQLAlchemy mapping / transactional persistence / Alembic evolution (no ownership change)
+Day54     durable cooperative cancellation protocol and terminal-transition mechanics
+Day55     long-running durable Workers on a supported Celery broker transport
+```
 
 ---
 
@@ -1539,6 +1605,18 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day43 (`api/day43-ai-job-api-contract.md`)
+
+| Level | Day43 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | one multi-tenant AI Job scenario reasoned end to end: commit-before-202, status/error classification, idempotent create-or-return, routing, tenant reads, HTTP-vs-durable lifecycle, the guarded-claim gate, cancellation intent, and the integrated failure/rollback |
+| Static contract review | **Completed** | static review of the acceptance boundary, the route/error/status matrix, the idempotency table, tenant isolation + allowlist, the lifecycle boundary, the guarded-claim gate, the cancellation-intent boundary, and the T1-T6 + rollback exercise over the Day42 model |
+| FastAPI runtime | **NOT RUN** | no FastAPI app, route, endpoint, or TestClient was executed; routes/status codes are static examples |
+| PostgreSQL runtime | **NOT RUN** | no query, commit, uniqueness, or Outbox write executed |
+| Relay / Worker runtime | **NOT RUN** | no Relay scan, guarded claim, or Worker execution |
+| Redis / Object Storage / Provider runtime | **NOT RUN** | no cache, queue, Object Storage access, or Provider call |
+| Integration / production validation | **NOT RUN** | not deployed; no production accessed; Pydantic v2/DI/SQLAlchemy/Alembic/cancellation/Celery are future boundaries |
 
 ### Day42 (`capstone-backend-data-design.md`)
 

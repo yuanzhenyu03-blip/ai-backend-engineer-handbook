@@ -26,8 +26,9 @@ docs/
 │   ├── day39-redis-cache-design-and-consistency.md
 │   ├── day40-redis-messaging-and-queue-semantics.md
 │   ├── day41-redis-coordination-and-production-safety.md
-│   └── day42-backend-data-design-capstone.md                          # Phase 3 capstone (latest)
-├── fastapi/
+│   └── day42-backend-data-design-capstone.md                          # Phase 3 capstone
+├── fastapi/       # Day43+ Phase 4 Production AI API Engineering
+│   └── day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md   # latest
 ├── playwright/
 └── n8n/
 ```

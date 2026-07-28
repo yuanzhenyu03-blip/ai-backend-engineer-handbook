@@ -16,7 +16,7 @@ Phase 3 — Backend Foundations (In Progress)
 
 ## Current Lesson
 
-Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4)
+Day44 — Pydantic v2 and Structured AI Input/Output Contracts (Phase 4)
 
 Status:
 Planned / Not started
@@ -28,12 +28,59 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [x] Complete Day42 Backend Data Design Capstone (Phase 3 close) — lesson, capstone artifact, cheat-sheet/interview cross-references, and status updates.
-- [ ] Prepare for Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4; see the Day43 Preparation block below). The Day43 gate (Day42 Repository Update complete) is now satisfied.
+- [x] Complete Day43 AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4 open) — lesson, API-contract artifact, FastAPI cheat-sheet/interview appends, and status updates.
+- [ ] Prepare for Day44 — Pydantic v2 and Structured AI Input/Output Contracts (Phase 4; see the Day44 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
-(Day29-Day42 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Phase 3 is closed; Day43 opens Phase 4.)
+(Day29-Day43 are complete; their work is recorded under the Completed Day** sections and the corresponding
+Preparation history blocks. Phase 4 is in progress; Day44 is next.)
+
+---
+
+## Completed Day43 Tasks
+
+- [x] Complete Day43 AI Backend Product Contract and FastAPI Request Lifecycle classroom learning (single multi-tenant AI Job scenario).
+- [x] Generate the Day43 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day42->Day43 mental-model evolution).
+- [x] Explain why an HTTP response is a promise about committed state and place 202 after the Job + Outbox commit.
+- [x] Classify 202/201/200 and 4xx/409/5xx (a DB timeout is 5xx, never a fake 404/202).
+- [x] Design lost-response idempotency with a unique constraint + create-or-return (not SELECT-then-INSERT).
+- [x] Resolve routing before the handler (404 vs 405; static before dynamic routes).
+- [x] Design tenant-scoped reads returning 404 cross-tenant (no existence oracle) with allowlisted fields.
+- [x] Separate the HTTP lifecycle from the durable background lifecycle; reject a Background Task as a durable Worker.
+- [x] Explain the guarded-claim duplicate gate (1 row winner / 0 rows stop).
+- [x] Reject Artifact existence as completion and design cancellation as a durable audited intent (POST /cancel, not DELETE).
+- [x] Solve the T1-T6 integrated failure sequence and the pre-COMMIT-202 release rollback.
+- [x] Preserve the real student answers (typos included) and the final Chinese synthesis; complete the three English interview stages.
+
+---
+
+## Completed Day43 Repository Tasks
+
+- [x] Add `docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md`.
+- [x] Add `projects/ai-backend-data-layer/api/day43-ai-job-api-contract.md` (reuses the Phase 3 data-layer foundation; no new project directory).
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day43 API-contract increment (artifact link, ownership/validation boundaries).
+- [x] Append the Day43 section to `cheat_sheets/fastapi.md`.
+- [x] Append Day43 questions to `interview/fastapi.md` (no duplicate file created).
+- [x] Update `docs/README.md` (add the `fastapi/` Day43 lesson as the latest lesson).
+- [x] Update the Day42 lesson Next Lesson link to the released Day43 lesson.
+- [x] Update `CURRICULUM.md` (Day43 Completed; Phase 4 In Progress; Day44-Day100 remain Planned) and `ROADMAP.md` (Day43 Completed).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day43 Interview Tasks
+
+- [x] Add the commit-before-202, status-codes, DB-timeout-vs-404, and idempotency questions with the student's actual answers.
+- [x] Add the tenant-read, HTTP-vs-durable-lifecycle, duplicate/artifact, and cancellation questions.
+- [x] Add the senior pre-COMMIT-202 rollback question and preserve the final Chinese synthesis; add strong model answers.
+
+---
+
+## Completed Day43 Homework
+
+- [x] Complete the commit-boundary, outcome-classification, and idempotency exercises.
+- [x] Complete the routing, tenant-read, and artifact/cancellation exercises.
+- [x] Complete the integrated failure-sequence and rollback exercises.
 
 ---
 
@@ -678,17 +725,23 @@ Preparation history blocks. Phase 3 is closed; Day43 opens Phase 4.)
 
 ---
 
-### Day43 Preparation — AI Backend Product Contract and FastAPI Request Lifecycle (gate satisfied: Day42 complete)
+### Day44 Preparation — Pydantic v2 and Structured AI Input/Output Contracts
 
-Gate: SATISFIED — the Day42 Backend Data Design Capstone lesson and its Repository Update are complete, so
-Day43 preparation may begin. Day43 opens Phase 4 (FastAPI). Still do not create a Day43 lesson file or begin
-Phase 4 project code until the Day43 teaching session itself runs.
+- [ ] Read the Day44 input when provided.
+- [ ] Review the Day43 request/response/error decisions and the `api/day43-ai-job-api-contract.md` artifact that Day44 will formalize as typed models.
+- [ ] Preview Pydantic v2 validation, typed request/response models, structured AI output contracts, and error shapes.
+- [ ] Preview allowlisted response representation (no lease/fencing/Provider-metadata/Object-Storage-key/Outbox/Attempt internals).
+- [ ] Keep DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), and Celery (Day55) out of scope.
 
-- [ ] Read the Day43 input when provided.
-- [ ] Review the Day42 data-ownership/failure model and the `projects/ai-backend-data-layer/` foundation (incl. `capstone-backend-data-design.md`) that Phase 4 will make executable.
-- [ ] Preview the FastAPI request/response lifecycle and the AI Job API product contract over the Day42 model.
-- [ ] Confirm the reused project directories for Phase 4 (`fastapi-todo` warm-up, `fastapi-auth`, `ai-backend-data-layer`); do not create new project directories.
-- [ ] Keep runtime/production claims honest: SQLAlchemy/Alembic and provider adapters are executed only when actually run and recorded.
+---
+
+### Day43 Preparation — AI Backend Product Contract and FastAPI Request Lifecycle (completed)
+
+- [x] Read the Day43 input.
+- [x] Reviewed the Day42 data-ownership/failure model and the `projects/ai-backend-data-layer/` foundation (incl. `capstone-backend-data-design.md`).
+- [x] Established the FastAPI request/response lifecycle and the AI Job API product contract over the Day42 model.
+- [x] Reused the Phase 3 data-layer project for the Day43 API-contract artifact (`api/`); created no new project directory.
+- [x] Kept runtime/production claims honest: FastAPI/PostgreSQL/Relay-Worker/Provider runtime NOT RUN; SQLAlchemy/Alembic remain Phase 4 (Day46-48).
 
 ---
 

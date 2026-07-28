@@ -16,7 +16,7 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 3 — Backend Foundations (Complete) -> Phase 4 — Production AI API Engineering (next)
+* Phase 4 — Production AI API Engineering (In Progress; Day43 completed)
 
 Last completed lesson:
 
@@ -32,10 +32,11 @@ Last completed lesson:
 * Day40 — Redis Messaging and Queue Semantics
 * Day41 — Redis Coordination and Production Safety
 * Day42 — Backend Data Design Capstone (Phase 3 capstone / close)
+* Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4 opens)
 
 Next:
 
-* Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4; Planned / Not started; see `ROADMAP.md`)
+* Day44 — Pydantic v2 and Structured AI Input/Output Contracts (Phase 4; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43–Day100, planned — see `ROADMAP.md` and `CURRICULUM.md`):
 

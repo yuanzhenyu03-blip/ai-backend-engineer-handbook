@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.90 — Day43 AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4 opens)
+
+Date: 2026-07-26
+
+### Added
+
+- Added `docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day42->Day43 mental-model evolution). This is the first Phase 4 lesson.
+- Added `projects/ai-backend-data-layer/api/day43-ai-job-api-contract.md` — the Day43 **AI Job API contract** exposing the Day42 durable data-ownership/failure model as a multi-tenant HTTP API: the commit-before-`202` acceptance boundary, the route/method/error/status matrix, the idempotency decision table (unique constraint + atomic create-or-return), tenant isolation at the read boundary (cross-tenant `404`, no existence oracle, allowlisted fields), the HTTP-vs-durable lifecycle boundary + the guarded-claim duplicate gate, the cancellation-intent boundary, and the integrated failure/rollback exercise. It reuses the existing Phase 3 data-layer project (a new `api/` subdirectory; **no new project directory**). Every section is labelled **CONCEPTUAL / STATICALLY REVIEWED / RUNTIME NOT RUN / PRODUCTION NOT VALIDATED**; no real secrets, connection strings, or client data.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day43 API-contract increment (contents table, encoded rules, what-it-does-not-do, known gaps, a new `api/` structure entry, and a Day43 validation matrix); noted the Phase 3 project is reused by Phase 4; demoted Day42 to the prior increment.
+- Appended a Day43 quick-reference to `cheat_sheets/fastapi.md` (status/error matrix, idempotency, routing/tenant read, lifecycle/duplicate/cancel, weak-vs-strong) and Day43 questions to `interview/fastapi.md` (with the student's verbatim answers, the final Chinese synthesis, and the three English stages).
+- Updated `docs/README.md` (added the `fastapi/` Phase 4 folder and the Day43 lesson as the latest), and pointed the Day42 lesson's Next Lesson at the released Day43 lesson.
+- Updated `CURRICULUM.md` (Day43 marked Completed with its released lesson/artifact and honest NOT-RUN limits; Phase 4 marked In Progress; Day44–Day100 remain Planned with topics and the 58 per-day connections unchanged) and `ROADMAP.md` (Day43 Completed).
+- Updated `PROJECT_STATUS.md` (Day43 last completed with artifact + validation boundary; Current Phase is now Phase 4 In Progress; Current/Next = Day44 Planned), `TASKS.md` (completed Day43 blocks, Day43 preparation converted to history, Day44 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day43 opens Phase 4 by exposing the Day42 durable contract as an HTTP API, and its spine is that **an HTTP response is a promise about committed business state**: `202` is returned only after one PostgreSQL transaction commits Job + `(tenant_id, idempotency_key)` uniqueness + the Outbox dispatch intent (an "attempt to persist" is insufficient; `202` = a durable async commitment, not completion); `201` is created (not a redirect) and a found `GET` is `200` with the business status, while a client-contract failure is `4xx`, a same-key-different-input retry is `409`, and a dependency/DB-timeout outage is `5xx` (never a fake `404`/`202`); lost-response idempotency uses the unique constraint + atomic create-or-return (not `SELECT`-then-`INSERT`) to return the original Job with no second Job/Outbox, binding the key to request meaning and keeping API idempotency separate from Provider idempotency; routing resolves method+path before the handler/DB (`404` no route, `405` wrong method) so static routes precede dynamic ones and validation cannot repair a routing mismatch; `GET` reads committed truth filtered by tenant + Job ID, returning `404` (not `403`) cross-tenant so the API is not an existence oracle (a UUID is not authorization) and allowlisting public fields; the short HTTP lifecycle is separate from the durable background lifecycle (Relay -> Worker claim -> Provider -> guarded completion) so FastAPI never waits for an 8-minute Provider call and an in-process Background Task is not a durable Worker (Day55); at-least-once duplicate delivery is normal and gated first by the guarded `queued -> running` (1 row winner / 0 rows stop) while lease/fencing protects a stale completion later; Artifact existence is not success and cancellation is a durable audited intent via `POST /cancel` (not a destructive `DELETE`) where `cancel requested != completed` (Day54); and the integrated failure/rollback exercise converges a lost-`202` retry, gates duplicate dispatch to one winner, returns `404` cross-tenant, and (for a bad pre-`COMMIT`-`202` release) rolls back the faulty API release and reconciles committed facts rather than fabricating Jobs or replaying Provider work.
+
+### Validation
+
+- Validation actually performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day44+ lesson exists and Day44–Day100 remain Planned; LESSON_TEMPLATE_v2 16-section order and heading check; Markdown fence balance (lesson and artifact); relative-link resolution (new `api/` cross-links and the Day42->Day43 Next Lesson link); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets, connection strings, or client data). The student answers were transcribed verbatim (typos preserved) from the teaching-session handoff input, which is not a committed repository artifact; that transcription was checked during authoring but is not repository-reproducible, so it is not listed as a repository validation step.
+- **Day43 has NO runtime evidence.** FastAPI runtime: NOT RUN. PostgreSQL runtime: NOT RUN. Relay/Worker runtime: NOT RUN. Redis/Object Storage/Provider runtime: NOT RUN. Integration and production validation: NOT RUN. No FastAPI app/route, PostgreSQL query/commit, Relay/Worker, Provider call, Object Storage access, or migration was executed; routes/status codes/payloads are static contract examples.
+- Scope: no runnable FastAPI application was created (the classroom executed nothing, so none is claimed); Pydantic v2 (Day44), DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), the durable cancellation protocol (Day54), and Celery (Day55) are named only as future connections; the protected prompt/template files are unchanged; no new project directory was created (the contract lives in the existing `projects/ai-backend-data-layer/`); and Day44–Day100 curriculum planning was not altered.
+
+---
+
 ## v0.1.89 — Day42 Backend Data Design Capstone (Phase 3 close)
 
 Date: 2026-07-26
