@@ -171,7 +171,7 @@ lifecycles) are recorded in `CURRICULUM.md` under "Future Lesson Implementation 
 |------|-------------------------------|-----------|
 | Day43 | AI Backend Product Contract and FastAPI Request Lifecycle | ✅ Completed |
 | Day44 | Pydantic v2 and Structured AI Input/Output Contracts | ✅ Completed |
-| Day45 | Dependency Injection, Lifespan, Configuration and AI Provider Adapters | Planned |
+| Day45 | Dependency Injection, Lifespan, Configuration and AI Provider Adapters | ✅ Completed |
 | Day46 | SQLAlchemy 2.0 Mapping for the Day42 Data Model | Planned |
 | Day47 | Async Sessions, Transactions, Repository and Unit of Work | Planned |
 | Day48 | Alembic and Safe AI Backend Schema Evolution | Planned |

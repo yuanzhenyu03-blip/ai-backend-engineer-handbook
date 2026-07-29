@@ -421,3 +421,120 @@ exception occurred.
 
 Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest -> 24 passed; in-memory completion callback,
 not PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN.
+
+---
+
+## Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4)
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day45), the
+[Day45 lesson](../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md), the
+[Day45 composition design](../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md), and the
+runnable [code](../projects/ai-backend-data-layer/api/day45_composition.py) /
+[tests](../projects/ai-backend-data-layer/api/test_day45_composition.py).
+
+### Q1 (Beginner) — What is dependency injection in FastAPI, and why create a shared Provider client in the lifespan instead of a route?
+
+Model answer:
+
+DI means a component receives its dependencies rather than constructing them, which makes code testable and
+replaceable. A shared Provider client owns long-lived HTTP connection-pool resources, so create it once in the
+application lifespan at startup and close it once at shutdown; building it inside a route causes connection
+churn, leaks Secret handling into HTTP code, and gives no controlled shutdown. `Depends` then supplies the
+already-created client.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer covers receive-not-construct, the pooled-resource lifetime, and
+why a route is the wrong place.
+
+### Q2 (Intermediate) — A Provider API key is missing in a new deployment. What should Worker startup do, and how do you roll out the fix safely?
+
+Model answer:
+
+Fail fast: `Settings` validation raises, the Worker stays not ready and claims no Jobs, and it logs a safe,
+allowlisted config event (stable code + settings version, no Secret). Roll out by starting new Workers with the
+corrected config, requiring readiness, and only then draining the old ones; if the new config is still invalid,
+keep the old healthy Workers and roll back. Config rollback is not a database rollback.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer covers fail-fast, safe logging, verify-new-before-drain-old, and
+the code-vs-DB rollback boundary.
+
+### Q3 (Senior) — A new Provider Adapter release returns invalid JSON. Day44 validation blocks completion, but several Jobs already called the Provider. Contain, recover, prevent recurrence.
+
+Model answer:
+
+Contain: stop the affected release from claiming new Jobs and route to a known-good version with correct drain.
+Preserve: release/settings version (never the Secret), provider/model, job/attempt/request/trace IDs, error
+category, and secure references to the original output. Roll back application code/config and deploy a healthy
+Worker first, without claiming any DB history rolled back. Classify by release/time/attempt/output —
+validation-before-completion does not prove the external call never happened. Recover only through an
+idempotent, guarded, audited process after checking correlation/idempotency evidence, reconciling
+Job/Attempt/Event/Artifact. Never blindly requeue/replay paid calls, mark invalid JSON succeeded, delete audit,
+or fabricate a result. Add negative regression tests and a staged rollout.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer is the full contain → preserve → roll back → classify → guarded
+audited recovery → reconcile → regression/staged-rollout arc.
+
+### Q4 (Intermediate) — Does `Depends()` create an app-wide or cross-process singleton?
+
+Model answer:
+
+No. `Depends()` supplies an already-created dependency, and its default cache is request-local (within one
+request's dependency graph), not shared across requests or processes. The shared app-scoped resource is created
+by the lifespan; `get_provider` returns that lifespan-created instance. Ownership is per-process, so 8 Worker
+processes hold 8 independent Provider clients.
+
+Student answer (verbatim):
+
+> "每个请求/Job 轻量创建"
+
+Assessment: correct that the service is created lightweight per request/Job; the addition is that `Depends`
+supplies (not creates) the shared client and its cache is request-local, and the lifespan owns the app-scoped
+resource.
+
+### Q5 (Intermediate) — Is `SecretStr` a security guarantee, and where may the API key appear?
+
+Model answer:
+
+`SecretStr` reduces accidental printing/repr/serialization exposure only; it is not memory encryption and does
+not replace permissions, rotation, or secure logging. The key comes from validated `Settings` and is read only
+at the adapter construction boundary; it never appears in Router code, Job payloads, public errors, routine
+logs, or prompt/output traces.
+
+Student answer (verbatim):
+
+> "Secret类型，不是明文的"
+
+Assessment: partially right; the correction is that `SecretStr` hides display but is not encryption/total secret
+security, and the key must never travel in payloads or logs.
+
+### Q6 (Intermediate) — During graceful Worker shutdown, in what order do you stop, drain, and close?
+
+Model answer:
+
+Stop claiming new Jobs first, wait/handle in-flight work under a bounded drain window, then close the Provider
+client — never close it first. If a drain deadline hits while a Provider call is in progress, do not blindly
+requeue it: the external result state may be unknown, the call may have cost money or may return later, so
+recovery uses correlation, idempotency, and audit (Day34 lease/fencing, Day40 at-least-once, Day55 recovery).
+
+Student answer (verbatim):
+
+> "先停止 claim 新 Job、等待/处理 in-flight Job，再关闭 client，因为provider的调用并没有停止，之后会返回错误的artifact，以及其他副作用"
+
+Assessment: the ordering is correct; the one refinement is that the interrupted external result is *unknown*,
+not necessarily a wrong artifact — hence a guarded, audited recovery rather than a blind requeue.
+
+Validation: REAL local FastAPI composition tests executed with a FAKE no-network Provider (Python 3.10.12,
+fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 12 passed; completion target is an in-memory
+list, not PostgreSQL). Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
+and production NOT RUN.

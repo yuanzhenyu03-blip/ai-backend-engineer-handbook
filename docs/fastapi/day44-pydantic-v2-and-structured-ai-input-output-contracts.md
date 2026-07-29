@@ -16,7 +16,7 @@ Prerequisite: Day43 — AI Backend Product Contract and FastAPI Request Lifecycl
 
 Previous Lesson: [Day43 — AI Backend Product Contract and FastAPI Request Lifecycle](day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md)
 
-Next Lesson: Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (planned — Phase 4; see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day45 lesson file does not exist yet)
+Next Lesson: [Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters](day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md)
 
 Phase: Phase 4 — Production AI API Engineering
 

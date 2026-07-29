@@ -349,3 +349,98 @@ PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/produc
 adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.
 
 Related: [Day44 lesson](../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md) · [Day44 contracts design](../projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md) · [code](../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) · [tests](../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py)
+
+---
+
+## Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters
+
+Central rule:
+
+```text
+Composition boundary = the ONE place infrastructure is created and closed.
+Lifespan OWNS app/process-scoped resources; Depends() SUPPLIES them; services are stateless per request/Job.
+```
+
+### Ownership + scopes
+
+```text
+Ownership is PER PROCESS: only processes that CALL the Provider create a client (8 Workers = 8 clients; separate memory)
+Provider client owns HTTP connections/pools, NOT database connections (DB pool/session = Day47)
+app/process scope: Settings, async HTTP client, ProviderAdapter (lifespan)   | request/Job scope: JobService (stateless)
+Depends() supplies an ALREADY-created dependency; default cache is request-local, NOT a cross-process singleton
+get_provider -> returns the lifespan-created AIProvider (not a new adapter per call)
+yield dependency fits a REQUEST-scoped resource (Day47 AsyncSession), NOT closing a shared app-scoped adapter
+```
+
+### Settings / secrets
+
+```text
+Settings (Pydantic v2, extra="forbid", frozen): provider_api_key: SecretStr (non-empty), provider_base_url: AnyHttpUrl,
+  provider_model: str(min_length=1), request_timeout_s: 0 < t <= 120
+Settings.load(env) -> FAIL FAST: missing/invalid -> ValidationError at startup -> not ready, no claim
+safe_log_fields() -> allowlisted + REDACTED; NEVER log the key, whole Settings, or raw model_dump()
+SecretStr reduces accidental display; it is NOT encryption and does NOT stop deliberate get_secret_value() logging
+API key comes from validated Settings; NEVER Router code, NEVER a Job payload (payloads are persisted/replayed/logged)
+local Settings validity != external Provider availability; do NOT send a PAID generation call on startup to test a key
+```
+
+### Lifespan / partial init / adapter seam
+
+```text
+import time -> declare types/routes ONLY (no Settings/client/adapter at module scope)
+create_app(settings, *, http_client_factory, provider_factory) -> explicit composition root
+lifespan order: Settings(validated) -> HTTP client -> ProviderAdapter -> PUBLISH Container -> yield -> clear -> close (REVERSE)
+partial init (adapter factory raises after client created): CLOSE the client, publish NO Container/readiness, claim NO Job
+AIProvider = small Protocol: async generate(prompt, max_tokens) -> RAW untrusted JSON
+OpenAICompatibleAdapter (production; NOT run in Day45) translates vendor errors -> ProviderTimeout/RateLimited/Authentication/Transport
+FakeAIProvider -> deterministic valid/invalid JSON or classified error (no network, no cost)
+Worker Service validates raw JSON via Day44 StructuredAIResult.model_validate_json BEFORE completion (Router validates client input, not Provider results)
+```
+
+### Test composition / rotation / drain
+
+```text
+create_app(test_settings, fake_provider_factory) + dependency_overrides for get_provider, configured BEFORE TestClient
+  (its context triggers lifespan startup; an override alone does NOT stop a lifespan creating a real resource); clear overrides after
+first safe test: fake Settings/Secret + tracking client (records close) + fake factory -> enter, deterministic call, exit
+  assert: no network, fake used, resource OPEN inside / CLOSED after, no Secret in result/log (test the EFFECT)
+rotation: start+verify NEW Workers ready -> THEN drain OLD (stop new claims) -> bounded in-flight window -> close OLD -> verify
+  never drain healthy OLD before NEW is ready; invalid new config -> keep OLD running, roll back
+shutdown order: stop new claims -> drain in-flight -> close client (NEVER close first)
+interrupted Provider call at drain deadline -> NO blind requeue (may have run/cost/return later); correlation+idempotency+audit
+code/config rollback protects the FUTURE; committed facts + interrupted calls need an idempotent guarded AUDITED repair
+```
+
+### Weak vs strong (Day45)
+
+```text
+Weak:   "Create the Provider client in the route with Depends and read the key from env."
+Strong: "The lifespan owns the client once; Depends supplies it; the key comes from validated Settings, never a route or payload."
+
+Weak:   "Depends() gives an app-wide singleton."
+Strong: "Depends supplies an already-created dependency; its cache is request-local. The lifespan owns the shared resource."
+
+Weak:   "SecretStr means the key is safe."
+Strong: "SecretStr hides accidental display only; it is not encryption and doesn't replace permissions/rotation/secure logging."
+
+Weak:   "Partial init just needs to raise / cancel the client."
+Strong: "Close the already-created client, publish no Container/readiness, and claim no Job."
+
+Weak:   "Drain the old Workers, then roll out the new config."
+Strong: "Verify new Workers ready first, then drain old; keep old running if the new config is invalid."
+```
+
+### One-line mental model
+
+```text
+Day45 composes Day44's contracts into a runnable FastAPI/Worker: lifespan owns/closes app-scoped resources, Depends supplies
+interfaces, services are stateless, Provider output stays untrusted until Day44 validation; code rollback != durable-fact repair.
+```
+
+Validation: REAL local FastAPI composition tests executed with a FAKE no-network Provider (Python 3.10.12, fastapi 0.110.0,
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 12 passed; deps pinned in
+`projects/ai-backend-data-layer/api/requirements-day45.txt`; completion target is an in-memory list, not PostgreSQL).
+Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain, and production NOT RUN.
+SQLAlchemy mapping = Day46; async sessions/tx = Day47; real Provider SDK = Day53.
+
+Related: [Day45 lesson](../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md) · [Day45 composition design](../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md) · [code](../projects/ai-backend-data-layer/api/day45_composition.py) · [tests](../projects/ai-backend-data-layer/api/test_day45_composition.py)

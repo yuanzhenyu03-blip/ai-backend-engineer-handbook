@@ -10,13 +10,13 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day43 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day45 completed)
 
 ---
 
 ## Current Lesson
 
-Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4)
+Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4)
 
 Status:
 Planned / Not started
@@ -29,11 +29,28 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 ## Today's Tasks
 
 - [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 24 passed), FastAPI cheat-sheet/interview appends, and status updates.
-- [ ] Prepare for Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4; see the Day45 Preparation block below).
+- [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4) — lesson, composition design + runnable code/tests (executed: 12 passed with a fake no-network Provider), FastAPI cheat-sheet/interview appends, and status updates.
+- [ ] Prepare for Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4; see the Day46 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
-(Day29-Day44 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Phase 4 is in progress; Day45 is next.)
+(Day29-Day45 are complete; their work is recorded under the Completed Day** sections and the corresponding
+Preparation history blocks. Phase 4 is in progress; Day46 is next.)
+
+---
+
+## Completed Day45 Tasks
+
+- [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters classroom learning.
+- [x] Generate the Day45 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day44->Day45 mental-model evolution), preserving verbatim student answers including the "不知道" responses.
+- [x] Build the runnable Day45 composition artifact inside the existing project `api/` directory (no parallel project): `day45_composition.py`, `test_day45_composition.py`, `day45-di-lifespan-configuration-and-ai-provider-adapters-design.md`, and scoped `requirements-day45.txt`.
+- [x] Run `py_compile` and `pytest` on the Day45 code and record exact results (12 passed, fake no-network Provider) as repository evidence.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day45 increment (artifact/code/test links, honest RUN vs NOT-RUN matrix).
+- [x] Append the Day45 section to `cheat_sheets/fastapi.md`.
+- [x] Append Day45 questions to `interview/fastapi.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day45 is the latest FastAPI lesson).
+- [x] Update the Day44 lesson Next Lesson link to the released Day45 lesson.
+- [x] Update `CURRICULUM.md` (Day45 Completed; Phase 4 In Progress; Day46-Day100 remain Planned) and `ROADMAP.md` (Day45 Completed).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, and `CHANGELOG.md`.
 
 ---
 
@@ -776,13 +793,22 @@ Preparation history blocks. Phase 4 is in progress; Day45 is next.)
 
 ---
 
-### Day45 Preparation — Dependency Injection, Lifespan, Configuration and AI Provider Adapters
+### Day46 Preparation — SQLAlchemy 2.0 Mapping for the Day42 Data Model
 
-- [ ] Read the Day45 input when provided.
-- [ ] Review the Day44 Pydantic models and the `api/day44-pydantic-contracts-design.md` artifact that Day45 will wire through DI.
-- [ ] Preview FastAPI dependency injection, application lifespan, and the settings/secrets/configuration boundary.
-- [ ] Preview a Provider-adapter seam that keeps the real Provider SDK (Day53) behind an interface.
-- [ ] Keep SQLAlchemy/Alembic (Day46-48), async sessions/transactions (Day47), and real Provider integration (Day53) out of scope.
+- [ ] Read the Day46 input when provided.
+- [ ] Review the Day42 durable Job/Attempt/Event/Outbox/Upload-Session/Artifact model and the Day45 dependency boundary that Day46 will persist behind.
+- [ ] Preview SQLAlchemy 2.0 mapping WITHOUT merging ORM models with the public Pydantic models (keep persistence/internal/public separate).
+- [ ] Keep async sessions/transactions/unit-of-work (Day47), Outbox acceptance (Day50), and real Provider integration (Day53) out of scope.
+
+---
+
+### Day45 Preparation — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (completed)
+
+- [x] Read the Day45 input when provided.
+- [x] Review the Day44 Pydantic models and the `api/day44-pydantic-contracts-design.md` artifact that Day45 will wire through DI.
+- [x] Preview FastAPI dependency injection, application lifespan, and the settings/secrets/configuration boundary.
+- [x] Preview a Provider-adapter seam that keeps the real Provider SDK (Day53) behind an interface.
+- [x] Keep SQLAlchemy/Alembic (Day46-48), async sessions/transactions (Day47), and real Provider integration (Day53) out of scope.
 
 ---
 

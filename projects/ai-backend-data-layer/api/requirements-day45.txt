@@ -1,0 +1,18 @@
+# Day45 Dependency Injection / Lifespan / Configuration / AI Provider Adapters —
+# pinned dependencies for the recorded repository test evidence. These are the
+# versions used to run day45_composition.py + test_day45_composition.py.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day45.txt
+#   python3 -m py_compile day45_composition.py test_day45_composition.py
+#   python3 -m pytest -q test_day45_composition.py
+#
+# Runtime scope: these validate a LOCAL FastAPI composition/lifespan with a FAKE,
+# no-network Provider only. A real Provider SDK/network, PostgreSQL, SQLAlchemy/
+# Alembic, Celery/Redis/Object Storage, Secret rotation/drain, and production are
+# NOT part of Day45 and are not required (or able) to be proven by these tests.
+pydantic==2.5.0
+pytest==7.4.3
+fastapi==0.110.0
+httpx==0.27.0

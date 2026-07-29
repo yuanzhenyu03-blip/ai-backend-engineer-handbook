@@ -4,15 +4,18 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day44 — the Pydantic v2 API and AI output contracts** that turn the Day43 static HTTP
-contract into **executable, typed** validation/serialization boundaries: the boundary ladder (JSON-valid ->
-Pydantic-valid -> authenticated -> authorized -> app invariants -> PostgreSQL constraint + tx -> committed
-truth), the request discriminated union (summarize/extract_structured), strict `MaxTokens`/`Confidence`, the
-untrusted-Provider `StructuredAIResult`, status-discriminated public responses, the public error envelope, the
-validate-before-side-effects gate, and the 37-Job `model_construct()` incident. **REAL Pydantic v2 tests were
-executed** (Pydantic 2.5.0, pytest 7.4.3 -> 24 passed; deps pinned in `api/requirements.txt`; the completion target is an in-memory callback, not
-PostgreSQL); FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. (See the Day43
-note below for the prior increment.)
+Current increment: **Day45 — dependency injection, lifespan, configuration and AI provider adapters** that
+compose the Day44 typed contracts into a runnable FastAPI/Worker WITHOUT letting Routers or business services
+own infrastructure: per-process resource ownership, a lifespan-owned `Container` (validated secret-aware
+`Settings` + async HTTP client + concrete `ProviderAdapter`) that closes in reverse order, `Depends`-supplied
+`get_provider`, a stateless per-request `JobService`, a small `AIProvider` seam with a production adapter and a
+`FakeAIProvider`, partial-initialization cleanup, Day44 Provider-output validation before an illustrative
+in-memory completion, and the rotation/drain/rollback + invalid-Provider-output incident runbook. **REAL local
+FastAPI composition tests were executed with a FAKE no-network Provider** (Python 3.10.12, fastapi 0.110.0,
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 12 passed; deps pinned in `api/requirements-day45.txt`; the
+completion target is an in-memory list, not PostgreSQL); real Provider SDK/network, PostgreSQL/SQLAlchemy,
+Celery/Redis, Secret rotation/drain, integration/production NOT RUN. (See the Day44 note below for the prior
+increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
@@ -66,6 +69,7 @@ Lessons:
 - Day42 (capstone): [`docs/redis/day42-backend-data-design-capstone.md`](../../docs/redis/day42-backend-data-design-capstone.md)
 - Day43 (API contract): [`docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md`](../../docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md)
 - Day44 (Pydantic contracts): [`docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md`](../../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md)
+- Day45 (DI/lifespan/config/adapters): [`docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md`](../../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md)
 
 ---
 
@@ -80,7 +84,11 @@ projects/ai-backend-data-layer/
 │   ├── day44-pydantic-contracts-design.md             # Day44: Pydantic v2 API + AI output contracts (design)
 │   ├── day44_pydantic_contracts.py                    # Day44: runnable Pydantic v2 models (real; tests pass)
 │   ├── test_day44_pydantic_contracts.py               # Day44: pytest cases (executed: 24 passed)
-│   └── requirements.txt                                # Day44: pinned deps (pydantic==2.5.0, pytest==7.4.3)
+│   ├── requirements.txt                                # Day44: pinned deps (pydantic==2.5.0, pytest==7.4.3)
+│   ├── day45-di-lifespan-configuration-and-ai-provider-adapters-design.md  # Day45: composition/lifespan design
+│   ├── day45_composition.py                           # Day45: runnable FastAPI composition (real; fake-Provider tests pass)
+│   ├── test_day45_composition.py                      # Day45: pytest cases (executed: 12 passed, fake no-network Provider)
+│   └── requirements-day45.txt                          # Day45: pinned deps (pydantic, pytest, fastapi, httpx)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -142,6 +150,57 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day45 increment — DI, lifespan, configuration and AI provider adapters
+
+`api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md` (with runnable `day45_composition.py`
++ `test_day45_composition.py`) composes the Day44 typed contracts into a runnable FastAPI/Worker where Routers
+and business services never own infrastructure. The composition and tests are **real, executed code** with a
+**fake, no-network Provider**: **Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 ->
+`12 passed`** (deps pinned in `api/requirements-day45.txt`). But the completion target is an **in-memory list,
+not PostgreSQL**, and a real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
+and production are **NOT RUN**.
+
+### What the composition contains
+
+| Section | Contents |
+| --- | --- |
+| Ownership | per-process: only processes that call the Provider create a client (8 Workers = 8 clients); a Provider client owns HTTP pools, not DB connections (Day47) |
+| DI + scopes | lifespan owns app-scoped Settings/HTTP-client/ProviderAdapter; `Depends` supplies them (request-local cache, not a singleton); `JobService` is stateless per request/Job |
+| Settings + secrets | validated `Settings` (`extra="forbid"`, `frozen`) with `SecretStr`; key from Settings, never a Router or Job payload; `SecretStr` hides display, is not encryption |
+| Fail-fast startup | invalid local config -> `ValidationError` -> not ready, no claim; local validity != external availability; no paid generation call at startup |
+| Lifespan + partial init | `create_app` + `asynccontextmanager`; publish `Container` only after full init; partial init closes the created client, publishes no readiness, claims no Job (reverse-order close) |
+| Provider seam | small `AIProvider` protocol; production `OpenAICompatibleAdapter` translates vendor errors to stable `Provider*` types; `FakeAIProvider` for no-network/no-cost tests |
+| Validation gate | Worker validates raw Provider JSON via Day44 `StructuredAIResult.model_validate_json` before an in-memory completion; invalid output -> empty completion list |
+| Rotation / drain / rollback | verify new Workers ready before draining old; shutdown = stop claims -> drain -> close; no blind requeue; code/config rollback != DB rollback |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day45.txt   # pydantic==2.5.0, pytest==7.4.3, fastapi==0.110.0, httpx==0.27.0
+python3 -m py_compile day45_composition.py test_day45_composition.py
+python3 -m pytest -q test_day45_composition.py
+```
+
+> **What this increment deliberately does not do:** the completion target is an in-memory list on `app.state`,
+> not a guarded PostgreSQL completion; it makes no real Provider/network call (a `FakeAIProvider` is injected),
+> and runs no PostgreSQL/SQLAlchemy transactions, Celery/Redis Worker behavior, or deployment/Secret rotation/
+> drain/production. `SecretStr` reduces accidental display but is not encryption. No real secrets, API keys,
+> connection strings, or client data; the test key is an obviously-fake `sk-fake-...` placeholder that the
+> tests assert is redacted/absent. Dependencies are pinned in `api/requirements-day45.txt`.
+
+### Day45 known gaps (deliberate)
+
+```text
+Day46-48  SQLAlchemy mapping / transactional persistence / Alembic evolution (no ORM/public-model merge)
+Day47     request-scoped AsyncSession/transaction/unit-of-work, distinct from the app-scoped Provider
+Day50     idempotent Job + Outbox acceptance path attached to this composition
+Day53     real OpenAI-compatible SDK behind this AIProvider seam
+Day54-56  streaming/cancellation, Celery drain/ACK/recovery, retries/rate-limits/cost/backpressure
+```
 
 ---
 
