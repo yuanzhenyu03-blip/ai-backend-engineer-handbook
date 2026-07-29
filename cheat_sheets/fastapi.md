@@ -282,8 +282,11 @@ UNIQUE (tenant_id, idempotency_key) + the tx stay the concurrency/commit authori
 ### Strict types / Provider output
 
 ```text
-MaxTokens = Annotated[int, Field(strict=True, ge=1, le=200000)]   # "2000" NOT coerced (billing/audit)
+MaxTokens = Annotated[StrictInt, Field(ge=1, le=8_000)]  # REQUIRED; "2000" NOT coerced; 8001 out of range (billing/audit)
 Confidence = Annotated[float, Field(strict=True, ge=0, le=1)]     # "very sure" rejected
+OutputSchema = dict[str, Literal["string","number","boolean"]] (Field min_length=1): {"company":1} / {"company":"integer"} rejected; NOT a full JSON Schema engine
+upload_session_id : UUID and public job_id : UUID (Day31 model) -> "u1"/"j1" rejected at the boundary
+Citation.url : AnyHttpUrl (scheme + host) -> a bare "https://" rejected; URL shape != source authz != SSRF != grounding
 NO global strictness (JSON represents UUIDs/timestamps as strings); conversions -> explicit tested adapter
 Provider output = FULLY untrusted input -> StructuredAIResult (extra="forbid", NO Provider job_status)
   Pydantic validates citation/URL SHAPE; it does NOT prove citations are true/grounded (shape != grounding)
@@ -340,8 +343,9 @@ Pydantic makes the Day43 contract executable but earns ONE guarantee (structure)
 authenticated/authorized/committed separate, validate Provider output before side effects, never model_construct untrusted.
 ```
 
-Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest -> 11 passed; completion target is an
-in-memory callback, not PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production
-NOT RUN. DI/lifespan/adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.
+Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 18 passed; deps pinned in
+`projects/ai-backend-data-layer/api/requirements.txt`; completion target is an in-memory callback, not
+PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. DI/lifespan/
+adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.
 
 Related: [Day44 lesson](../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md) · [Day44 contracts design](../projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md) · [code](../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) · [tests](../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py)

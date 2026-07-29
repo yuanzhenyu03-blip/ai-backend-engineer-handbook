@@ -20,7 +20,7 @@ Next Lesson: Day45 — Dependency Injection, Lifespan, Configuration and AI Prov
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day44 Pydantic v2 contracts (`projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md`) with runnable code [`day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) and tests [`test_day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py) — strict `MaxTokens`/`Confidence`, the request discriminated union, `Citation`/`StructuredAIResult`, status-discriminated public responses, the public error envelope, and the `validate_provider_output_before_completion` gate. Real Pydantic v2 tests were executed (11 passed); FastAPI/PostgreSQL/Provider/integration/production NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day44 Pydantic v2 contracts (`projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md`) with runnable code [`day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) and tests [`test_day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py) — strict `MaxTokens`/`Confidence`, the request discriminated union, `Citation`/`StructuredAIResult`, status-discriminated public responses, the public error envelope, and the `validate_provider_output_before_completion` gate. Real Pydantic v2 tests were executed (18 passed; Pydantic 2.5.0, pytest 7.4.3); FastAPI/PostgreSQL/Provider/integration/production NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -78,9 +78,11 @@ So Day44 draws four boundaries as **types**: client request, public response, pu
 and keeps each honest about what it proves. Pydantic proves declared structure; it does not prove tenant
 authorization or a database commit. That separation is the whole lesson.
 
-Unusually, Day44 has **real runtime evidence**: the Pydantic v2 models and 11 pytest cases were executed
-(classroom: Python 3.11.5 / Pydantic 2.5.0 / pytest 7.4.3 → 11 passed; repository re-run: Python 3.10.12 /
-Pydantic 2.5.0 / pytest 7.4.3 → 11 passed). But the completion target is an **in-memory callback, not
+Unusually, Day44 has **real runtime evidence**: the Pydantic v2 models and 18 pytest cases were executed
+— the repository artifact (tightened per code review: a restricted `output_schema`, UUID `upload_session_id`/
+`job_id`, an `AnyHttpUrl` citation, and a strict required `MaxTokens` bounded `1..8000`) has **18 pytest cases**
+that were executed here on Python 3.10.12 / Pydantic 2.5.0 / pytest 7.4.3 → **18 passed** (the classroom's
+earlier artifact had 11 tests). But the completion target is an **in-memory callback, not
 PostgreSQL** — and FastAPI, authentication/authorization, PostgreSQL, SQLAlchemy/Alembic, a real Provider SDK,
 Relay/Worker/Redis/Object Storage, integration, and production are all **NOT RUN**. Those are later lessons.
 
@@ -298,7 +300,10 @@ and an **invalid citations shape** (one string, not a list of citation objects).
 untrusted input**, not just untrusted lifecycle state. Parse and validate it as a `StructuredAIResult`
 (`extra="forbid"`, so a Provider-supplied `job_status` is rejected), and only then may application code perform
 **guarded completion** after its other checks. And a limit to keep honest: Pydantic can validate citation
-**structure** and URL **shape** — it cannot prove the citations are **true, grounded, or trustworthy**.
+**structure** and URL **shape** (the artifact uses `AnyHttpUrl`, which requires a scheme **and** a host, so a
+bare `https://` is rejected) — but URL-shape validation is **not** source authorization, **not** SSRF
+protection, and **not** grounding/source verification; it cannot prove the citations are **true, grounded, or
+trustworthy**.
 
 ### Engineering Thinking
 
@@ -322,7 +327,9 @@ Correct — strict types for these. The lesson rejects accidental conversion suc
 **deliberate and field-specific** where ambiguity, billing, or audit risk exists — do **not** flip on **global**
 strictness without considering values that JSON naturally represents as strings (UUIDs, timestamps). If
 compatibility conversion is genuinely required, it belongs in an **explicit, tested adapter**, not implicit
-core-model guessing.
+core-model guessing. In the Day44 artifact the concrete contract is fixed: `MaxTokens = Annotated[StrictInt,
+Field(ge=1, le=8_000)]`, **required** — so `"2000"` (a string) is rejected, `8001` (out of range) is rejected,
+and a missing value is rejected. `Confidence` is a strict `[0,1]` float.
 
 ### Engineering Thinking
 
@@ -354,8 +361,12 @@ small invariant on one model, `model_validator(mode="after")` validates a comple
 represent **genuinely different product contracts**, prefer a **discriminated union**: `task_type` selects
 `SummarizeRequest` or `ExtractStructuredRequest`, and `extra="forbid"` rejects invalid combinations. Concretely
 — `SummarizeRequest` simply does not declare `output_schema`, so `extra="forbid"` rejects it if supplied; and
-`ExtractStructuredRequest` **requires** a non-empty `output_schema`. That is exactly what the runnable artifact
-and its tests do.
+`ExtractStructuredRequest` **requires** a non-empty `output_schema`. In the artifact that `output_schema` is a
+**restricted, closed type map** — `dict[str, Literal["string", "number", "boolean"]]` with `min_length=1` — so
+`{"company": 1}` (a non-type value) and `{"company": "integer"}` (an unsupported type name) are rejected, and
+`{}` is rejected as empty. This is deliberately **not** a full JSON Schema engine (out of Day44 scope). Request
+identifiers use the Day31 durable model: `upload_session_id` is a **UUID** (and public `job_id`s are UUIDs), so
+a malformed `"u1"` is rejected at the boundary. That is exactly what the runnable artifact and its tests do.
 
 ### Engineering Thinking
 
@@ -640,8 +651,9 @@ correctness control. Reserve `model_construct()` for trusted, hot, already-valid
 
 # Hands-on Exercises
 
-These exercises map to the runnable artifact and its tests, which **were executed** (Pydantic 2.5.0, pytest →
-11 passed). The completion target is an in-memory callback, **not** PostgreSQL; FastAPI, authentication/
+These exercises map to the runnable artifact and its tests, which **were executed** (Pydantic 2.5.0, pytest 7.4.3
+→ **18 passed**; install via `requirements.txt`). The completion target is an in-memory callback, **not**
+PostgreSQL; FastAPI, authentication/
 authorization, PostgreSQL, SQLAlchemy, a real Provider SDK, and integration are **NOT RUN**.
 
 Run the tests:
@@ -658,7 +670,7 @@ Question: for `tenant_id`, `upload_session_id`, `task_type`, `max_tokens`, `job_
 mark allowed / server-owned / trusted-context / rejected.
 
 Expected Output: `tenant_id` = trusted auth context (not a body field); `upload_session_id`/`task_type` =
-allowed client intent; `max_tokens` = allowed only if the product supports it, strict + bounded; `job_status` =
+allowed client intent; `max_tokens` = required, strict int, bounded `1..8000` (reject `"2000"`, `8001`, and a missing value); `job_status` =
 server-owned (rejected from body); `unexpected_debug` = rejected by `extra="forbid"`.
 
 Follow-up: why is accepting a body `tenant_id` a cross-tenant risk?
@@ -946,8 +958,9 @@ a false `succeeded`. Most important trade-off: strict/`extra="forbid"` vs forwar
 connection: Day45 wires these models through DI and a Provider-adapter seam. Most important interview answer:
 JSON-valid, Pydantic-valid, authorized, and committed are four separate boundaries.
 
-Validation status: the Pydantic v2 models and 11 pytest cases are **real executed runtime evidence** (classroom
-Python 3.11.5 / repository re-run Python 3.10.12; both Pydantic 2.5.0, pytest 7.4.3 → 11 passed), but the
+Validation status: the Pydantic v2 models and **18 pytest cases** are **real executed runtime evidence** —
+executed here on Python 3.10.12 / Pydantic 2.5.0 / pytest 7.4.3 (pinned in `requirements.txt`) → **18 passed**
+(the classroom's earlier artifact had 11 tests before the review tightening); but the
 completion target is an **in-memory callback, not PostgreSQL**. FastAPI app/routing/serialization/exception
 handlers, authentication/authorization, PostgreSQL uniqueness/transaction/commit/rollback/repair,
 SQLAlchemy/Alembic, real Provider SDK, Relay/Worker/Redis/Object Storage, integration, and production are **NOT

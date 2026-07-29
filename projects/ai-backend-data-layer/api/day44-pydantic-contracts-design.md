@@ -13,9 +13,10 @@ authorization or durable database truth.
 > real Provider SDK/output; Relay/Worker/Redis/Object Storage; integration; production. Those are later
 > lessons (Day45-58). Contains **no secrets, real connection strings, or client data.**
 
-Code and tests:
+Code, tests, and pinned dependencies:
 [`day44_pydantic_contracts.py`](day44_pydantic_contracts.py) ·
-[`test_day44_pydantic_contracts.py`](test_day44_pydantic_contracts.py)
+[`test_day44_pydantic_contracts.py`](test_day44_pydantic_contracts.py) ·
+[`requirements.txt`](requirements.txt)
 
 Related: [Day44 lesson](../../../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md) ·
 [Day43 API contract](day43-ai-job-api-contract.md) ·
@@ -45,26 +46,33 @@ tenant, and it cannot make a commit durable.
 ```text
 tenant_id is NOT a request-body field -- it comes from trusted authentication context. Accepting a claimed
 tenant_id from the body is a cross-tenant authorization risk.
-upload_session_id / task_type / (supported) max_tokens = client intent.
-job_status = server-owned lifecycle state (rejected from the body).
+upload_session_id : UUID (matches the Day31 durable model). task_type + max_tokens = client intent.
+max_tokens : REQUIRED, strict int, bounded 1..8000 (the classroom contract). job_status = server-owned
+lifecycle state (rejected from the body).
 ConfigDict(extra="forbid") rejects undeclared input (job_status, tenant_id, unexpected_debug) instead of
 silently ignoring it.
 
 JobRequest = discriminated union on task_type:
   SummarizeRequest           -> task_type="summarize"; FORBIDS output_schema
-  ExtractStructuredRequest   -> task_type="extract_structured"; REQUIRES a non-empty output_schema
+  ExtractStructuredRequest   -> task_type="extract_structured"; REQUIRES a non-empty, type-restricted output_schema
 ```
 
-`max_tokens` is a legitimate product parameter **only when the product supports it**, and then it needs
-**strict** integer + bounded-range validation; if the product does not expose it, reject it entirely.
+`max_tokens` is a **required, strict integer bounded `1..8000`** in this contract (the classroom decision): a
+JSON string like `"2000"` is rejected (no coercion), `8001` is rejected (out of range), and a missing value is
+rejected (required). The general principle still holds — a product parameter is validated strictly where it is
+supported and rejected entirely where it is not — but the Day44 artifact fixes the concrete contract at
+`StrictInt`, `1..8000`, required.
 
 ---
 
 ## 3. Strict, field-specific aliases
 
 ```text
-MaxTokens  = Annotated[int,   Field(strict=True, ge=1, le=200000)]   # "2000" is NOT coerced to 2000
-Confidence = Annotated[float, Field(strict=True, ge=0.0, le=1.0)]    # "very sure" is rejected
+MaxTokens  = Annotated[StrictInt, Field(ge=1, le=8_000)]   # required; "2000" NOT coerced; 8001 out of range
+Confidence = Annotated[float, Field(strict=True, ge=0.0, le=1.0)]   # "very sure" is rejected
+OutputSchema = Annotated[dict[str, Literal["string","number","boolean"]], Field(min_length=1)]
+             # a restricted, non-empty type map: {"company": 1} and {"company": "integer"} are rejected;
+             # this is NOT a full JSON Schema engine (out of Day44 scope)
 ```
 
 Strictness is **deliberate and field-specific** where ambiguity, billing, or audit risk exists. Do **not**
@@ -78,7 +86,8 @@ tested adapter**, not implicit core-model guessing.
 
 ```text
 StructuredAIResult (extra="forbid"): summary:str(min1) + confidence:Confidence + citations:list[Citation]
-Citation (extra="forbid"): source_id:str(min1) + url matches ^https?://
+Citation (extra="forbid"): source_id:str(min1) + url:AnyHttpUrl (scheme + host required, so a bare "https://"
+  is rejected). URL SHAPE validation != source authorization != SSRF protection != grounding/source verification.
 ```
 
 The Provider **cannot own the Job lifecycle**, so `StructuredAIResult` has **no** `job_status`; a
@@ -200,6 +209,7 @@ incident   -> contain + preserve evidence + roll back CODE + regress + classify 
 
 ```text
 cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements.txt        # pydantic==2.5.0, pytest==7.4.3
 python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py
 python3 -m pytest -q test_day44_pydantic_contracts.py
 ```
@@ -214,11 +224,14 @@ callback; and valid Provider output reaches the callback exactly once.
 ## Validation and evidence classification
 
 ```text
-REAL RUNTIME (executed)  : Pydantic v2 model validation + the 11 pytest cases. Repository evidence below.
-                           Classroom environment: Python 3.11.5, Pydantic 2.5.0, pytest 7.4.3 -> 11 passed.
-                           Repository re-run: Python 3.10.12, Pydantic 2.5.0, pytest 7.4.3 ->
-                             `python3 -m py_compile ...` passed;
-                             `python3 -m pytest -q test_day44_pydantic_contracts.py` -> 11 passed.
+REAL RUNTIME (executed)  : Pydantic v2 model validation + the 18 pytest cases. This artifact was tightened per
+                           code review (restricted output_schema, UUID upload_session_id/job_id, AnyHttpUrl
+                           citation, strict required MaxTokens 1..8000), which grew the suite from the
+                           classroom's 11 tests to 18. Executed here:
+                             `python3 -m pip install -r requirements.txt`
+                             `python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py` passed;
+                             `python3 -m pytest -q test_day44_pydantic_contracts.py` -> 18 passed.
+                           Environment: Python 3.10.12, Pydantic 2.5.0, pytest 7.4.3 (pinned in requirements.txt).
                            The pinned/tested Pydantic version is 2.5.0; do NOT claim all Pydantic v2 releases
                            were tested.
 IN-MEMORY ONLY           : the completion target is an in-memory list callback, NOT PostgreSQL guarded completion.

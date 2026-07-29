@@ -1,0 +1,15 @@
+# Day44 Pydantic v2 API and AI output contracts — pinned dependencies for the
+# recorded repository test evidence. These are the versions used to run
+# day44_pydantic_contracts.py + test_day44_pydantic_contracts.py.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements.txt
+#   python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py
+#   python3 -m pytest -q test_day44_pydantic_contracts.py
+#
+# Runtime scope: these validate Pydantic v2 structure only. FastAPI, PostgreSQL,
+# SQLAlchemy/Alembic, a real Provider SDK, and integration/production are NOT
+# part of Day44 and are not required to run these tests.
+pydantic==2.5.0
+pytest==7.4.3

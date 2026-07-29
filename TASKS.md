@@ -28,7 +28,7 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 11 passed), FastAPI cheat-sheet/interview appends, and status updates.
+- [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 18 passed), FastAPI cheat-sheet/interview appends, and status updates.
 - [ ] Prepare for Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4; see the Day45 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
@@ -52,7 +52,7 @@ Preparation history blocks. Phase 4 is in progress; Day45 is next.)
 - [x] Distinguish model_validate/model_validate_json/model_dump/model_construct; never construct untrusted input.
 - [x] Write the negative test asserting both a ValidationError and no completion side effect.
 - [x] Contain/roll back/classify/repair/verify the 37-Job model_construct incident (code rollback != DB rollback).
-- [x] Build and RUN the runnable artifact + tests (Pydantic 2.5.0, pytest -> 11 passed); record honest evidence.
+- [x] Build and RUN the runnable artifact + tests (Pydantic 2.5.0, pytest -> 18 passed); record honest evidence.
 - [x] Preserve the real student answers (typos included), the three English stages, and the final Chinese synthesis.
 
 ---
@@ -61,7 +61,7 @@ Preparation history blocks. Phase 4 is in progress; Day45 is next.)
 
 - [x] Add `docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md`.
 - [x] Add `projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md` + runnable `day44_pydantic_contracts.py` + `test_day44_pydantic_contracts.py` (reuses the existing project; no new project directory).
-- [x] Run `py_compile` and `pytest` on the Day44 code and record exact results (11 passed) as repository evidence.
+- [x] Run `py_compile` and `pytest` on the Day44 code and record exact results (18 passed) as repository evidence.
 - [x] Update `projects/ai-backend-data-layer/README.md` with the Day44 increment (artifact/code/test links, honest RUN vs NOT-RUN matrix).
 - [x] Append the Day44 section to `cheat_sheets/fastapi.md`.
 - [x] Append Day44 questions to `interview/fastapi.md` (no duplicate file created).
@@ -790,7 +790,7 @@ Preparation history blocks. Phase 4 is in progress; Day45 is next.)
 
 - [x] Read the Day44 input.
 - [x] Reviewed the Day43 request/response/error decisions and the `api/day43-ai-job-api-contract.md` artifact and formalized them as typed models.
-- [x] Built Pydantic v2 validation, typed request/response models, structured AI output contracts, and error shapes; ran the tests (11 passed).
+- [x] Built Pydantic v2 validation, typed request/response models, structured AI output contracts, and error shapes; ran the tests (18 passed).
 - [x] Used allowlisted response representation (no lease/fencing/Provider-metadata/Object-Storage-key/Outbox/Attempt internals).
 - [x] Kept DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), and Celery (Day55) out of scope.
 

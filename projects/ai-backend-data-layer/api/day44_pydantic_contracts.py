@@ -8,25 +8,29 @@ Scope and honesty (see the Day44 lesson and validation matrix):
     * These are REAL Pydantic v2 runtime contracts, tested by
       ``test_day44_pydantic_contracts.py``.
     * ``tenant_id`` is trusted authentication context, NOT a request-body field.
-    * Structural validation is NOT authorization and NOT a durable database commit.
-    * The completion target here is an in-memory callback, NOT PostgreSQL.
+    * Structural validation is NOT authentication, NOT authorization, NOT an
+      application invariant, and NOT a durable database commit.
+    * The completion target in the tests is an in-memory callback, NOT PostgreSQL.
     * No FastAPI app/routing, PostgreSQL, SQLAlchemy/Alembic, real Provider SDK,
       Relay/Worker/Redis/Object Storage, DI/lifespan, integration, or production
       was implemented or run. Those are later-lesson boundaries (Day45-58).
 
-Tested with: Python 3.10+ and Pydantic v2 (pinned in the repository; the
-classroom and the repository evidence used Pydantic 2.5.0). Do not claim every
-Pydantic v2 release was tested.
+Dependencies (see ``requirements.txt`` in this directory): pydantic==2.5.0 and
+pytest==7.4.3 are the versions used for the recorded repository evidence. Do not
+claim every Pydantic v2 release was tested.
 """
 
 from __future__ import annotations
 
 from typing import Annotated, Callable, Literal, Optional, Union
+from uuid import UUID
 
 from pydantic import (
+    AnyHttpUrl,
     BaseModel,
     ConfigDict,
     Field,
+    StrictInt,
     TypeAdapter,
     ValidationError,
     model_validator,
@@ -35,10 +39,21 @@ from pydantic import (
 # ---------------------------------------------------------------------------
 # Strict, field-specific aliases (deliberate strictness where cost/audit risk)
 # ---------------------------------------------------------------------------
-# Strict so a JSON string like "2000" is NOT silently coerced to 2000.
-MaxTokens = Annotated[int, Field(strict=True, ge=1, le=200_000)]
+# Strict int in 1..8000 (classroom contract). A JSON string like "2000" is NOT
+# coerced, and 8001 is out of range.
+MaxTokens = Annotated[StrictInt, Field(ge=1, le=8_000)]
 # Strict float in [0, 1]; a string like "very sure" is rejected.
 Confidence = Annotated[float, Field(strict=True, ge=0.0, le=1.0)]
+
+# A deliberately SMALL, closed output-schema contract (Day44 scope): a non-empty
+# mapping of field name -> a supported type name. This is NOT a full JSON Schema
+# engine -- it only accepts the three declared primitive type names, so
+# {"company": 1} (int value) and {"company": "integer"} (unsupported name) are
+# both rejected.
+OutputSchema = Annotated[
+    dict[str, Literal["string", "number", "boolean"]],
+    Field(min_length=1),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -47,23 +62,23 @@ Confidence = Annotated[float, Field(strict=True, ge=0.0, le=1.0)]
 # tenant_id is NOT here: it comes from trusted authentication context, never the
 # request body. extra="forbid" rejects undeclared input (e.g. a client-supplied
 # job_status, tenant_id, or unexpected_debug) instead of silently ignoring it.
+# upload_session_id is a UUID, matching the Day31 durable model.
 class _RequestBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    upload_session_id: str = Field(min_length=1)
-    max_tokens: Optional[MaxTokens] = None
+    upload_session_id: UUID
+    max_tokens: MaxTokens  # required, strict, bounded 1..8000
 
 
 class SummarizeRequest(_RequestBase):
     task_type: Literal["summarize"]
-    # summarize FORBIDS output_schema (enforced structurally: field not declared,
-    # and extra="forbid" rejects it if supplied).
+    # summarize FORBIDS output_schema (field not declared + extra="forbid").
 
 
 class ExtractStructuredRequest(_RequestBase):
     task_type: Literal["extract_structured"]
-    # extract_structured REQUIRES a non-empty output_schema.
-    output_schema: dict = Field(min_length=1)
+    # extract_structured REQUIRES a non-empty, type-restricted output_schema.
+    output_schema: OutputSchema
 
 
 JobRequest = Annotated[
@@ -77,13 +92,15 @@ JobRequestAdapter: TypeAdapter[JobRequest] = TypeAdapter(JobRequest)
 # Untrusted Provider output (validated before any completion)
 # ---------------------------------------------------------------------------
 # The Provider CANNOT own the Job lifecycle, so no job_status field exists here;
-# extra="forbid" rejects a Provider-supplied job_status. Pydantic can validate
-# citation/URL SHAPE; it cannot prove the citations are true or grounded.
+# extra="forbid" rejects a Provider-supplied job_status. AnyHttpUrl validates URL
+# SHAPE (scheme + host), so a bare "https://" (no host) is rejected. URL shape
+# validation is NOT source authorization, NOT SSRF protection, and NOT grounding
+# / source verification.
 class Citation(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     source_id: str = Field(min_length=1)
-    url: str = Field(pattern=r"^https?://")
+    url: AnyHttpUrl
 
 
 class StructuredAIResult(BaseModel):
@@ -99,7 +116,8 @@ class StructuredAIResult(BaseModel):
 # ---------------------------------------------------------------------------
 # Persistence / internal / public representations are SEPARATE. Internal fields
 # (lease token, fencing generation, raw Provider metadata, raw Object Storage
-# key, Outbox id, unreviewed Attempt fields) never appear here.
+# key, Outbox id, unreviewed Attempt fields) never appear here. job_id is a UUID
+# (Day31 durable model).
 class PublicResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -120,7 +138,7 @@ class PublicFailure(BaseModel):
 class QueuedJobResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    job_id: str
+    job_id: UUID
     job_status: Literal["queued", "running"]
     # queued/running: no terminal result and no failure (no such fields exist).
 
@@ -128,7 +146,7 @@ class QueuedJobResponse(BaseModel):
 class SucceededJobResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    job_id: str
+    job_id: UUID
     job_status: Literal["succeeded"]
     result: PublicResult  # required; failure absent (no such field).
 
@@ -136,7 +154,7 @@ class SucceededJobResponse(BaseModel):
 class FailedJobResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    job_id: str
+    job_id: UUID
     job_status: Literal["failed"]
     failure: PublicFailure  # required; result absent (no such field).
 
@@ -205,6 +223,7 @@ def validate_provider_output_before_completion(
 __all__ = [
     "MaxTokens",
     "Confidence",
+    "OutputSchema",
     "SummarizeRequest",
     "ExtractStructuredRequest",
     "JobRequest",
