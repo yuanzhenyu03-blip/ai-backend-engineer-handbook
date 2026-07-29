@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.91 — Day44 Pydantic v2 and Structured AI Input/Output Contracts
+
+Date: 2026-07-26
+
+### Added
+
+- Added `docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md` (LESSON_TEMPLATE_v2, all 16 sections in order; Master Prompt v3.2 knowledge-continuity chain and a Day43->Day44 mental-model evolution).
+- Added the Day44 engineering artifact inside the existing project (no new project directory): `projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md` plus **runnable, executed** code `projects/ai-backend-data-layer/api/day44_pydantic_contracts.py` and tests `projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py` — the boundary ladder (JSON-valid -> Pydantic-valid -> authenticated -> authorized -> app invariants -> PostgreSQL constraint + tx -> committed truth), the request discriminated union (summarize/extract_structured), strict `MaxTokens`/`Confidence` aliases, the untrusted-Provider `StructuredAIResult`, status-discriminated public responses, the public error envelope, the `validate_provider_output_before_completion` gate, and the 37-Job `model_construct()` incident runbook.
+
+### Changed
+
+- Updated `projects/ai-backend-data-layer/README.md` with the Day44 increment (contents table, run instructions, what-it-does-not-do, known gaps, new `api/` code/test structure entries, and a Day44 validation matrix showing the executed Pydantic runtime evidence); demoted Day43 to the prior increment.
+- Appended a Day44 quick-reference to `cheat_sheets/fastapi.md` (boundary ladder, request models, strict types/Provider output, responses/error envelope, entry points/gate/incident, weak-vs-strong) and Day44 questions to `interview/fastapi.md` (with the student's verbatim answers, the final Chinese synthesis, and the three English stages).
+- Updated `docs/README.md` (Day44 is the latest FastAPI lesson), and pointed the Day43 lesson's Next Lesson at the released Day44 lesson.
+- Updated `CURRICULUM.md` (Day44 marked Completed with its released lesson/artifact/tests and honest RUN-vs-NOT-RUN limits; Phase 4 In Progress; Day45-Day100 remain Planned with topics and the 58 per-day connections unchanged) and `ROADMAP.md` (Day44 Completed).
+- Updated `PROJECT_STATUS.md` (Day44 last completed with artifact + validation boundary; Current/Next = Day45 Planned), `TASKS.md` (completed Day44 blocks, Day44 preparation converted to history, Day45 preparation added), `README.md`, and `AGENTS.md`.
+
+### Notes
+
+- Day44 makes the Day43 contract executable, and its spine is a **boundary ladder** where Pydantic occupies exactly one rung — declared structure — and does **not** prove authorization or a durable commit: JSON-valid -> Pydantic-valid -> authenticated -> authorized -> application invariants -> PostgreSQL constraint + atomic transaction -> committed durable truth. Client request models put `tenant_id` in trusted authentication context (never a request-body field, since a claimed body tenant_id is a cross-tenant authorization risk) and use `extra="forbid"` to reject undeclared input (a client-supplied `job_status`, `tenant_id`, or `unexpected_debug`); `max_tokens` is allowed only when the product supports it (strict int + bounded range, else rejected); and the request is a discriminated union on `task_type` (summarize forbids `output_schema`; extract_structured requires a non-empty one) while `UNIQUE (tenant_id, idempotency_key)` + the transaction stay the concurrency/commit authority (Pydantic cannot detect cross-tenant upload ownership). Strict field-specific aliases (`MaxTokens`, `Confidence`) reject accidental coercion (`"2000"`, `"very sure"`) without enabling global strictness (JSON represents UUIDs/timestamps as strings), with any needed conversion in an explicit tested adapter. Provider output is fully untrusted input validated as `StructuredAIResult` (no Provider-owned `job_status`), where Pydantic validates citation/URL shape but not grounding/truth. Public responses are allowlisted and status-discriminated (queued/running have no result/failure; succeeded requires a result; failed requires a failure) keeping persistence/internal/public representations separate, and a failed Job is a successfully read resource (HTTP 200 + status `failed`) distinct from the `PublicErrorResponse` envelope. Untrusted input uses `model_validate`/`model_validate_json` (never `model_construct`); validation precedes side effects so the gate raises before completion and the negative test asserts both a `ValidationError` and no completion call; and the 37-Job `model_construct()` incident is contained by rolling back the code (restoring validation) for future traffic and reconciling committed facts with an idempotent audited repair — code rollback is not database-history rollback.
+
+### Validation
+
+- **Day44 has REAL executed runtime evidence.** The Pydantic v2 models and 11 pytest cases were run: `python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py` passed, and `python3 -m pytest -q test_day44_pydantic_contracts.py` -> **11 passed** (classroom Python 3.11.5 / repository re-run Python 3.10.12; both Pydantic 2.5.0, pytest 7.4.3). The tested/pinned Pydantic version is 2.5.0 — not all Pydantic v2 releases were tested.
+- The completion target in the tests is an **in-memory list callback, NOT PostgreSQL**. **NOT RUN:** FastAPI app/routing/response serialization/exception handlers; authentication and tenant authorization; PostgreSQL uniqueness/transaction/commit-before-202/rollback/repair; SQLAlchemy/Alembic; real Provider SDK/output; Relay/Worker/Redis/Object Storage; integration runtime; production validation.
+- Other validation performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day45+ lesson exists and Day45-Day100 remain Planned; LESSON_TEMPLATE_v2 16-section order and heading check; Markdown fence balance; relative-link resolution (new `api/` code/test cross-links and the Day43->Day44 Next Lesson link); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets, connection strings, or client data). The student answers were transcribed verbatim (typos preserved) from the teaching-session handoff input, which is not a committed repository artifact; that transcription was checked during authoring but is not repository-reproducible, so it is not listed as a repository validation step.
+- Scope: DI/lifespan/configuration/Provider adapters (Day45), SQLAlchemy mapping (Day46), async sessions/transactions (Day47), real Provider SDK parsing (Day53), and contract/integration/failure-injection tests + observability (Day57-58) are named only as future connections; the protected prompt/template files are unchanged; no new project directory was created; and Day45-Day100 curriculum planning was not altered.
+
+---
+
 ## v0.1.90 — Day43 AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4 opens)
 
 Date: 2026-07-26

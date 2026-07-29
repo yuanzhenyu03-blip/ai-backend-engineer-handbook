@@ -256,3 +256,92 @@ Provider / integration / production runtime NOT RUN. Pydantic v2 (Day44), DI/lif
 SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), Celery (Day55) are future boundaries.
 
 Related: [Day43 lesson](../docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md) · [Day43 API contract](../projects/ai-backend-data-layer/api/day43-ai-job-api-contract.md)
+
+---
+
+## Day44 Pydantic v2 and Structured AI Input/Output Contracts
+
+Central rule:
+
+```text
+Boundary ladder: JSON-valid -> Pydantic-valid structure -> authenticated -> authorized -> app invariants
+                 -> PostgreSQL constraint + atomic tx -> committed durable truth.
+Pydantic proves ONE rung (declared structure); NOT authorization, NOT a durable commit.
+```
+
+### Request models
+
+```text
+tenant_id is TRUSTED AUTH CONTEXT, NOT a request-body field (a body tenant_id = cross-tenant authz risk)
+job_status is server-owned; extra="forbid" rejects it + tenant_id + unexpected_debug (don't silently ignore)
+max_tokens: allowed only if the product supports it -> strict int + bounded; else reject entirely
+JobRequest = discriminated union on task_type: SummarizeRequest (forbids output_schema) | ExtractStructuredRequest (requires non-empty output_schema)
+UNIQUE (tenant_id, idempotency_key) + the tx stay the concurrency/commit authority (Pydantic can't see DB ownership)
+```
+
+### Strict types / Provider output
+
+```text
+MaxTokens = Annotated[int, Field(strict=True, ge=1, le=200000)]   # "2000" NOT coerced (billing/audit)
+Confidence = Annotated[float, Field(strict=True, ge=0, le=1)]     # "very sure" rejected
+NO global strictness (JSON represents UUIDs/timestamps as strings); conversions -> explicit tested adapter
+Provider output = FULLY untrusted input -> StructuredAIResult (extra="forbid", NO Provider job_status)
+  Pydantic validates citation/URL SHAPE; it does NOT prove citations are true/grounded (shape != grounding)
+```
+
+### Responses / error envelope
+
+```text
+persistence != internal != public API representation; allowlist the public response (job_id + job_status minimal)
+JobStatusResponse = discriminated union on job_status:
+  queued/running -> NO result, NO failure | succeeded -> result REQUIRED | failed -> failure REQUIRED
+a failed Job is a successfully READ resource -> HTTP 200 + business status "failed"
+PublicErrorResponse.error = {code (stable machine), message (safe text), field_errors?, request_id?}
+  HTTP status = error CLASS; never leak SQL/tracebacks/credentials/raw Provider errors/raw keys/cross-tenant existence
+```
+
+### Entry points / gate / incident
+
+```text
+model_validate(obj) / model_validate_json(raw) -> validate UNTRUSTED input
+model_dump(model) -> serialize an ALREADY-validated model
+model_construct(...) -> SKIPS validation/validators/nested conversion/extra="forbid" -> NEVER on untrusted input
+TypeAdapter(Union[...]) -> validate a discriminated union
+validate BEFORE side effects: validate_provider_output_before_completion raises before on_completion runs
+  negative test asserts BOTH a ValidationError AND completion_calls == [] (test the effect, not just the signal)
+model_construct() incident (37 Jobs falsely succeeded): disable path + route away -> preserve evidence ->
+  roll back the CODE (restore model_validate) -> add negative regression test -> classify by release/attempt/output
+  -> idempotent guarded AUDITED repair -> reconcile Job/Attempt/Event/Artifact; code rollback != DB rollback
+```
+
+### Weak vs strong (Day44)
+
+```text
+Weak:   "Accept tenant_id from the body."
+Strong: "tenant_id is trusted auth context; a body tenant_id is a cross-tenant authz risk. Pydantic validates intent, not identity."
+
+Weak:   "The model validated, so the request is authorized and safe to commit."
+Strong: "Pydantic proves structure only; authorization and the DB constraint + tx are separate boundaries."
+
+Weak:   "Use model_construct() for speed on Provider output."
+Strong: "model_construct skips validation; untrusted input uses model_validate/model_validate_json."
+
+Weak:   "The negative test asserts a ValidationError."
+Strong: "It also asserts the completion callback never ran; a bad impl could complete before validating."
+
+Weak:   "Roll back the release and the bad Jobs are fixed."
+Strong: "Code rollback protects future traffic; committed facts need an idempotent audited repair. Code rollback != DB rollback."
+```
+
+### One-line mental model
+
+```text
+Pydantic makes the Day43 contract executable but earns ONE guarantee (structure): keep JSON-valid/Pydantic-valid/
+authenticated/authorized/committed separate, validate Provider output before side effects, never model_construct untrusted.
+```
+
+Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest -> 11 passed; completion target is an
+in-memory callback, not PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production
+NOT RUN. DI/lifespan/adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.
+
+Related: [Day44 lesson](../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md) · [Day44 contracts design](../projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md) · [code](../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) · [tests](../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py)

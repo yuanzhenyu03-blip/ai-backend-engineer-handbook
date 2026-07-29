@@ -313,3 +313,111 @@ Assessment: roll back the code that lied, then reconcile committed facts.
 Validation: CONCEPTUAL / STATIC CONTRACT REVIEW only — FastAPI / PostgreSQL / Relay-Worker / Redis-Object-Storage-
 Provider / integration / production runtime NOT RUN. Pydantic v2 (Day44), DI/lifespan/adapters (Day45),
 SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), Celery (Day55) are future boundaries.
+
+---
+
+## Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4)
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day44), the
+[Day44 lesson](../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md), the
+[Day44 contracts design](../projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md), and the
+runnable [code](../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) /
+[tests](../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py).
+
+### Q1 (Beginner) — What is the purpose of a Pydantic model at an API boundary?
+
+Model answer:
+
+To validate and serialize data at a system boundary — ensuring request, response, and provider data follow the
+declared types and constraints before the application uses them. It does not replace authorization or database
+constraints.
+
+Student answer (verbatim):
+
+> "the purpose is check client illegal enter"
+
+Assessment: the student had the core (check client input); the strong answer adds serialization, the response/
+provider boundaries, and the "not a substitute for authorization or DB constraints" limit.
+
+### Q2 (Intermediate) — Difference between valid JSON, Pydantic-valid, authorized, and committed business state?
+
+Model answer:
+
+Valid JSON only parses. Pydantic-valid also follows declared types/constraints/structure. Authorized data has
+passed identity + permission checks (e.g. the upload belongs to the authenticated tenant). Committed business
+state is durable database truth from a successful transaction. Four separate boundaries.
+
+Student answer (verbatim):
+
+> "valid JSON is not equal Pydantic-valid data,Pydantic-valid data follow the declared types and constraints.committed business state is the durable database truth.authorized data is authentic by server authentic"
+
+Assessment: JSON/Pydantic/committed are right; the correction is that authentication proves identity while
+authorization checks permission and tenant/resource ownership (the student conflated them).
+
+### Q3 (Senior) — A bad release used `model_construct()` for untrusted Provider output; 37 Jobs are marked succeeded. Contain, roll back, repair, prevent recurrence.
+
+Model answer:
+
+Disable the affected Provider-completion path and route traffic away from the faulty release; preserve evidence
+(release version, job/attempt/request/trace IDs, validation failures, original result references, audit
+history); roll back the application release and restore `model_validate()`/`model_validate_json()`; add a
+negative test proving invalid output never reaches completion; classify the affected Jobs by release window,
+attempt records, and output shape; repair only confirmed-invalid records through an idempotent, audited process
+without deleting history or blindly replaying paid Provider calls; reconcile Job/Attempt/Event/Result Artifact.
+Code rollback protects future executions; committed facts need a separate audited repair.
+
+Student answer (verbatim):
+
+> "contain influenced version provider completion path,preserve release_version\job_id\attemp_id\request_id\trace_id,and cheack failure,don't delete wrong result and audit history.recovery model_validate()/model_validate_json(),add test to check new version stop  completion callback.Identify affected set classify illegal construct result then repair these result.verify Job、Attempt、Event、Result Artifact make sure public illegal succeeded."
+
+Assessment: strong end-to-end direction (contain, preserve, restore validation, regression test, classify,
+repair, reconcile); the strong answer tightens the idempotent/audited repair and the no-blind-replay boundary.
+
+### Q4 (Intermediate) — Can Pydantic detect that an upload belongs to the authenticated tenant?
+
+Model answer:
+
+No. Pydantic validates declared structure; ownership is an authorization query using the trusted tenant ID + the
+upload-session ID against durable state. Idempotency uniqueness and the commit stay with the PostgreSQL
+constraint + transaction.
+
+Student answer (verbatim):
+
+> "不能发现"
+
+Assessment: correct — structural validity is not authorization.
+
+### Q5 (Intermediate) — `model_validate` vs `model_construct` for untrusted input?
+
+Model answer:
+
+Use `model_validate()`/`model_validate_json()` for untrusted input; `model_construct()` bypasses validation,
+validators, nested conversion, and `extra="forbid"`, so it must never touch untrusted client or Provider input.
+`model_dump()` serializes an already-validated model.
+
+Student answer (verbatim):
+
+> "model_validate()，因为可以进行验证，model_construct会跳过验证环节"
+
+Assessment: correct — construct skips validation and is a trusted-data/perf tool, not a boundary tool.
+
+### Q6 (Intermediate) — Why must a negative Provider-output test assert more than a `ValidationError`?
+
+Model answer:
+
+Because a dangerous implementation could perform the completion side effect before validating; the test must
+assert both a `ValidationError` and that the completion callback never ran (an empty completion list).
+
+Student answer (verbatim):
+
+> "最终结果检查completion_calls如果发现没有数据就说明确实拦截了，如果有数据就说明拦截失效了"
+
+Assessment: correct — the empty completion list proves the guard blocked the fake result, not merely that an
+exception occurred.
+
+### Final Chinese mental model (preserved verbatim)
+
+> "Pydantic能检查客户端输入，也可以验证公开响应和 Provider 输出，只是结构验证，不负责证明租户授权或数据库提交。客户端请求以及Provider 输出可以通过Pydantic经过验证，授权是可以确认job属于哪个租户，数据库事务在经过Pydantic验证后可以做原子事务提交。当出现事故时，回滚Pydantic版本不能保证数据库事实也回滚"
+
+Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest -> 11 passed; in-memory completion callback,
+not PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN.

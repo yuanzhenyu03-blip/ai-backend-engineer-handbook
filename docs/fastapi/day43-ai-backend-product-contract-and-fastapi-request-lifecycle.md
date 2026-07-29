@@ -16,7 +16,7 @@ Prerequisite: Day42 — Backend Data Design Capstone
 
 Previous Lesson: [Day42 — Backend Data Design Capstone](../redis/day42-backend-data-design-capstone.md)
 
-Next Lesson: Day44 — Pydantic v2 and Structured AI Input/Output Contracts (planned — Phase 4; see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day44 lesson file does not exist yet)
+Next Lesson: [Day44 — Pydantic v2 and Structured AI Input/Output Contracts](day44-pydantic-v2-and-structured-ai-input-output-contracts.md)
 
 Phase: Phase 4 — Production AI API Engineering (Day43 opens Phase 4)
 

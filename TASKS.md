@@ -16,7 +16,7 @@ Phase 4 — Production AI API Engineering (In Progress; Day43 completed)
 
 ## Current Lesson
 
-Day44 — Pydantic v2 and Structured AI Input/Output Contracts (Phase 4)
+Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4)
 
 Status:
 Planned / Not started
@@ -28,12 +28,63 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 ## Today's Tasks
 
-- [x] Complete Day43 AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4 open) — lesson, API-contract artifact, FastAPI cheat-sheet/interview appends, and status updates.
-- [ ] Prepare for Day44 — Pydantic v2 and Structured AI Input/Output Contracts (Phase 4; see the Day44 Preparation block below).
+- [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 11 passed), FastAPI cheat-sheet/interview appends, and status updates.
+- [ ] Prepare for Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4; see the Day45 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
-(Day29-Day43 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Phase 4 is in progress; Day44 is next.)
+(Day29-Day44 are complete; their work is recorded under the Completed Day** sections and the corresponding
+Preparation history blocks. Phase 4 is in progress; Day45 is next.)
+
+---
+
+## Completed Day44 Tasks
+
+- [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts classroom learning.
+- [x] Generate the Day44 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day43->Day44 mental-model evolution).
+- [x] Establish the boundary ladder (JSON-valid -> Pydantic-valid -> authenticated -> authorized -> app invariants -> PG constraint+tx -> committed truth).
+- [x] Design request models with tenant_id as trusted context and extra="forbid" rejecting undeclared input.
+- [x] Explain why Pydantic cannot detect cross-tenant upload ownership; keep the PG unique constraint as authority.
+- [x] Separate persistence/internal/public representations; design a minimal allowlisted JobStatusResponse.
+- [x] Design the stable public error envelope (code/message/field_errors?/request_id?).
+- [x] Treat Provider output as untrusted; validate StructuredAIResult; shape != grounding.
+- [x] Choose deliberate field-specific strict types (MaxTokens/Confidence); reject global strictness.
+- [x] Encode cross-field/variant rules with a discriminated union and response states with a status union.
+- [x] Distinguish model_validate/model_validate_json/model_dump/model_construct; never construct untrusted input.
+- [x] Write the negative test asserting both a ValidationError and no completion side effect.
+- [x] Contain/roll back/classify/repair/verify the 37-Job model_construct incident (code rollback != DB rollback).
+- [x] Build and RUN the runnable artifact + tests (Pydantic 2.5.0, pytest -> 11 passed); record honest evidence.
+- [x] Preserve the real student answers (typos included), the three English stages, and the final Chinese synthesis.
+
+---
+
+## Completed Day44 Repository Tasks
+
+- [x] Add `docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md`.
+- [x] Add `projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md` + runnable `day44_pydantic_contracts.py` + `test_day44_pydantic_contracts.py` (reuses the existing project; no new project directory).
+- [x] Run `py_compile` and `pytest` on the Day44 code and record exact results (11 passed) as repository evidence.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day44 increment (artifact/code/test links, honest RUN vs NOT-RUN matrix).
+- [x] Append the Day44 section to `cheat_sheets/fastapi.md`.
+- [x] Append Day44 questions to `interview/fastapi.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day44 is the latest FastAPI lesson).
+- [x] Update the Day43 lesson Next Lesson link to the released Day44 lesson.
+- [x] Update `CURRICULUM.md` (Day44 Completed; Phase 4 In Progress; Day45-Day100 remain Planned) and `ROADMAP.md` (Day44 Completed).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `README.md`, `AGENTS.md`, and `CHANGELOG.md`.
+
+---
+
+## Completed Day44 Interview Tasks
+
+- [x] Add the Beginner (Pydantic purpose), Intermediate (JSON/Pydantic/authorized/committed), and Senior (model_construct incident) questions with the student's verbatim answers.
+- [x] Add the cross-tenant-ownership, model_validate-vs-construct, and negative-test questions.
+- [x] Preserve the final Chinese mental model; add strong model answers.
+
+---
+
+## Completed Day44 Homework
+
+- [x] Complete the field-classification, cross-tenant-ownership, response/error, and Provider-output exercises.
+- [x] Complete the strict-types, output_schema-rule, response-state, and validation-entry-point exercises.
+- [x] Complete the negative-test and 37-Job-incident exercises; run the tests.
 
 ---
 
@@ -725,13 +776,23 @@ Preparation history blocks. Phase 4 is in progress; Day44 is next.)
 
 ---
 
-### Day44 Preparation — Pydantic v2 and Structured AI Input/Output Contracts
+### Day45 Preparation — Dependency Injection, Lifespan, Configuration and AI Provider Adapters
 
-- [ ] Read the Day44 input when provided.
-- [ ] Review the Day43 request/response/error decisions and the `api/day43-ai-job-api-contract.md` artifact that Day44 will formalize as typed models.
-- [ ] Preview Pydantic v2 validation, typed request/response models, structured AI output contracts, and error shapes.
-- [ ] Preview allowlisted response representation (no lease/fencing/Provider-metadata/Object-Storage-key/Outbox/Attempt internals).
-- [ ] Keep DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), and Celery (Day55) out of scope.
+- [ ] Read the Day45 input when provided.
+- [ ] Review the Day44 Pydantic models and the `api/day44-pydantic-contracts-design.md` artifact that Day45 will wire through DI.
+- [ ] Preview FastAPI dependency injection, application lifespan, and the settings/secrets/configuration boundary.
+- [ ] Preview a Provider-adapter seam that keeps the real Provider SDK (Day53) behind an interface.
+- [ ] Keep SQLAlchemy/Alembic (Day46-48), async sessions/transactions (Day47), and real Provider integration (Day53) out of scope.
+
+---
+
+### Day44 Preparation — Pydantic v2 and Structured AI Input/Output Contracts (completed)
+
+- [x] Read the Day44 input.
+- [x] Reviewed the Day43 request/response/error decisions and the `api/day43-ai-job-api-contract.md` artifact and formalized them as typed models.
+- [x] Built Pydantic v2 validation, typed request/response models, structured AI output contracts, and error shapes; ran the tests (11 passed).
+- [x] Used allowlisted response representation (no lease/fencing/Provider-metadata/Object-Storage-key/Outbox/Attempt internals).
+- [x] Kept DI/lifespan/provider adapters (Day45), SQLAlchemy/Alembic (Day46-48), durable cancellation (Day54), and Celery (Day55) out of scope.
 
 ---
 

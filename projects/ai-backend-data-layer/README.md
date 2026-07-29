@@ -4,14 +4,23 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day43 — the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
+Current increment: **Day44 — the Pydantic v2 API and AI output contracts** that turn the Day43 static HTTP
+contract into **executable, typed** validation/serialization boundaries: the boundary ladder (JSON-valid ->
+Pydantic-valid -> authenticated -> authorized -> app invariants -> PostgreSQL constraint + tx -> committed
+truth), the request discriminated union (summarize/extract_structured), strict `MaxTokens`/`Confidence`, the
+untrusted-Provider `StructuredAIResult`, status-discriminated public responses, the public error envelope, the
+validate-before-side-effects gate, and the 37-Job `model_construct()` incident. **REAL Pydantic v2 tests were
+executed** (Pydantic 2.5.0, pytest -> 11 passed; the completion target is an in-memory callback, not
+PostgreSQL); FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. (See the Day43
+note below for the prior increment.)
+
+Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
 boundary, the route/method/error/status matrix, the idempotency decision table (unique constraint + atomic
 create-or-return), tenant isolation at the read boundary (cross-tenant `404`, no existence oracle, allowlisted
 fields), the HTTP-vs-durable lifecycle boundary + the guarded-claim duplicate gate, the cancellation-intent
 boundary, and the integrated failure/rollback exercise — contract and design only, nothing executed; an HTTP
-response is a promise about committed state and PostgreSQL stays the durable authority. (See the Day42 note
-below for the prior increment.)
+response is a promise about committed state and PostgreSQL stays the durable authority.
 
 Prior increment (Day42): **the Backend Data Design Capstone** that closes Phase 3 by integrating the durable
 PostgreSQL truth (Day29-Day37) with the transient Redis coordination (Day38-Day41) and the Object Storage
@@ -56,6 +65,7 @@ Lessons:
 - Day41 (Redis coordination): [`docs/redis/day41-redis-coordination-and-production-safety.md`](../../docs/redis/day41-redis-coordination-and-production-safety.md)
 - Day42 (capstone): [`docs/redis/day42-backend-data-design-capstone.md`](../../docs/redis/day42-backend-data-design-capstone.md)
 - Day43 (API contract): [`docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md`](../../docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md)
+- Day44 (Pydantic contracts): [`docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md`](../../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md)
 
 ---
 
@@ -66,7 +76,10 @@ projects/ai-backend-data-layer/
 ├── README.md
 ├── capstone-backend-data-design.md                    # Day42: Phase 3 capstone design (PostgreSQL + Redis + Object Storage; design + evidence, not executed)
 ├── api/
-│   └── day43-ai-job-api-contract.md                   # Day43: AI Job API contract over the Day42 model (contract + design, not executed)
+│   ├── day43-ai-job-api-contract.md                   # Day43: AI Job API contract over the Day42 model (contract + design, not executed)
+│   ├── day44-pydantic-contracts-design.md             # Day44: Pydantic v2 API + AI output contracts (design)
+│   ├── day44_pydantic_contracts.py                    # Day44: runnable Pydantic v2 models (real; tests pass)
+│   └── test_day44_pydantic_contracts.py               # Day44: pytest cases (executed: 11 passed)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -128,6 +141,54 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day44 increment — Pydantic v2 API and AI output contracts
+
+`api/day44-pydantic-contracts-design.md` (with runnable `day44_pydantic_contracts.py` +
+`test_day44_pydantic_contracts.py`) turns the Day43 static HTTP contract into **executable, typed** validation/
+serialization boundaries. Unlike the earlier design-only artifacts, the Pydantic models and tests are **real,
+executed code**: **Pydantic 2.5.0, `pytest -> 11 passed`.** But structural validation is **not** authorization
+and **not** a durable commit; the completion target in the tests is an **in-memory callback, not PostgreSQL**,
+and FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production are **NOT RUN**.
+
+### What the contract contains
+
+| Section | Contents |
+| --- | --- |
+| Boundary ladder | JSON-valid -> Pydantic-valid structure -> authenticated -> authorized -> app invariants -> PostgreSQL constraint + tx -> committed truth (Pydantic proves one rung) |
+| Request models | `tenant_id` is trusted auth context (not a body field); `extra="forbid"`; discriminated union on `task_type` (summarize forbids / extract_structured requires `output_schema`) |
+| Strict aliases | `MaxTokens`/`Confidence` strict + bounded (no `"2000"`/`"very sure"` coercion); no global strictness; conversions in a tested adapter |
+| Provider output | fully untrusted `StructuredAIResult` (no Provider-owned `job_status`); shape validation != grounding |
+| Public responses | allowlisted, status-discriminated (queued/running vs succeeded[result] vs failed[failure]); a failed Job is HTTP 200 |
+| Public error envelope | `error.code`/`message`/`field_errors?`/`request_id?`; HTTP status is the class; never leak internals |
+| Validation entry points | `model_validate`/`model_validate_json` for untrusted; `model_dump` to serialize; **never** `model_construct` on untrusted |
+| Validate-before-side-effects | `validate_provider_output_before_completion` raises before the callback; the negative test asserts a `ValidationError` **and** no completion call |
+| Incident runbook | the 37-Job `model_construct()` incident: contain / preserve evidence / roll back code / classify / audited repair; code rollback != DB rollback |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py
+python3 -m pytest -q test_day44_pydantic_contracts.py
+```
+
+> **What this increment deliberately does not do:** the completion target is an in-memory list, not a guarded
+> PostgreSQL completion; it starts no FastAPI app/routing/serialization/exception handlers, runs no
+> authentication/authorization, PostgreSQL uniqueness/transaction/commit/rollback/repair, SQLAlchemy/Alembic,
+> real Provider SDK, or Relay/Worker/Redis/Object Storage. No real secrets, connection strings, or client data;
+> identifiers are placeholders. The tested Pydantic version is 2.5.0 (not all Pydantic v2 releases were tested).
+
+### Day44 known gaps (deliberate)
+
+```text
+Day45     DI, lifespan, settings/secrets boundary, and a Provider-adapter seam wire these models
+Day46-48  SQLAlchemy mapping / transactional persistence / Alembic evolution (no ORM/public-model merge)
+Day53     real Provider SDK structured-output parsing and validation
+Day57-58  contract/integration/failure-injection tests + runtime observability
+```
 
 ---
 
@@ -1605,6 +1666,18 @@ not running. Do not present a Docker workflow as verified.
 
 > The Day29 PostgreSQL 14.18 classroom evidence below belongs to `001_create_jobs.sql` only. It is
 > **not** evidence for the Day30 statements.
+
+### Day44 (`api/day44-pydantic-contracts-design.md` + code/tests)
+
+| Level | Day44 status | Evidence |
+|---|---|---|
+| Conceptual classroom validation | **Completed** | the boundary ladder, request/response/error/Provider contracts, strict types, discriminated unions, validation entry points, validate-before-side-effects, and the 37-Job incident reasoned end to end |
+| Static contract review | **Completed** | static review of the model map and the boundary separation (structure vs authorization vs durable commit) |
+| **Pydantic v2 runtime (executed)** | **RUN — 11 passed** | `python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py` passed; `python3 -m pytest -q` -> **11 passed** (Pydantic 2.5.0, pytest 7.4.3; classroom Python 3.11.5, repository re-run Python 3.10.12) |
+| Completion target | **IN-MEMORY ONLY** | the tests use an in-memory list callback, **not** a guarded PostgreSQL completion |
+| FastAPI / auth / integration runtime | **NOT RUN** | no FastAPI app/routing/serialization/exception handlers; no authentication/tenant authorization; no integration |
+| PostgreSQL / SQLAlchemy / Provider runtime | **NOT RUN** | no PostgreSQL uniqueness/transaction/commit/rollback/repair; no SQLAlchemy/Alembic; no real Provider SDK; no Relay/Worker/Redis/Object Storage |
+| Production validation | **NOT RUN** | not deployed; no production accessed; the tested Pydantic version is 2.5.0 (not all v2 releases) |
 
 ### Day43 (`api/day43-ai-job-api-contract.md`)
 
