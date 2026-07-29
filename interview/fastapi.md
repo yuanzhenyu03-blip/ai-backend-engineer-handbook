@@ -509,7 +509,9 @@ Model answer:
 `SecretStr` reduces accidental printing/repr/serialization exposure only; it is not memory encryption and does
 not replace permissions, rotation, or secure logging. The key comes from validated `Settings` and is read only
 at the adapter construction boundary; it never appears in Router code, Job payloads, public errors, routine
-logs, or prompt/output traces.
+logs, or prompt/output traces. Safe logging is allowlisted: `safe_log_fields()` emits only non-sensitive labels
+(`provider_name`, model, timeout, `settings_version`) and never the `provider_base_url`, which can carry
+userinfo, an internal host/port, or a private endpoint path.
 
 Student answer (verbatim):
 
@@ -535,6 +537,6 @@ Assessment: the ordering is correct; the one refinement is that the interrupted 
 not necessarily a wrong artifact — hence a guarded, audited recovery rather than a blind requeue.
 
 Validation: REAL local FastAPI composition tests executed with a FAKE no-network Provider (Python 3.10.12,
-fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 12 passed; completion target is an in-memory
+fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 19 passed; completion target is an in-memory
 list, not PostgreSQL). Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
 and production NOT RUN.

@@ -20,7 +20,7 @@ Next Lesson: Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (planned 
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day45 composition design ([`projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md`](../../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md)) with runnable code [`day45_composition.py`](../../projects/ai-backend-data-layer/api/day45_composition.py) and tests [`test_day45_composition.py`](../../projects/ai-backend-data-layer/api/test_day45_composition.py) — validated secret-aware `Settings`, a small `AIProvider` protocol, a production adapter + `FakeAIProvider` seam, `create_app` + a lifespan `Container` that closes resources in reverse order, `get_provider`, a stateless `JobService`, and Day44 Provider-output validation before an illustrative in-memory completion. Real local FastAPI composition tests were executed (12 passed; Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3) with a FAKE no-network Provider; real Provider SDK/network, PostgreSQL, SQLAlchemy, Celery/Redis, and production are NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day45 composition design ([`projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md`](../../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md)) with runnable code [`day45_composition.py`](../../projects/ai-backend-data-layer/api/day45_composition.py) and tests [`test_day45_composition.py`](../../projects/ai-backend-data-layer/api/test_day45_composition.py) — validated secret-aware `Settings`, a small `AIProvider` protocol, a production adapter + `FakeAIProvider` seam, `create_app` + a lifespan `Container` that closes resources in reverse order, `get_provider`, a stateless `JobService`, a worker-style `WorkerJobRunner` harness that runs the Provider call + Day44 validation off the HTTP path (a short `GET /provider/status` route only resolves the Provider via `Depends`), and an `OpenAICompatibleAdapter` that translates vendor timeout/rate-limit/auth/transport faults to stable `Provider*` errors over an injected transport (no real network). Real local FastAPI composition tests were executed (19 passed; Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3) with a FAKE no-network Provider; real Provider SDK/network, PostgreSQL, SQLAlchemy, Celery/Redis, and production are NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -80,7 +80,7 @@ executions**, while already-started Provider calls and committed facts require a
 idempotent, audited recovery.
 
 This lesson has **real local runtime evidence**: a minimal FastAPI composition with a lifespan `Container` and
-a **fake, no-network** Provider was executed — **12 pytest cases passed** on Python 3.10.12 / fastapi 0.110.0 /
+a **fake, no-network** Provider was executed — **19 pytest cases passed** on Python 3.10.12 / fastapi 0.110.0 /
 httpx 0.27.0 / pydantic 2.5.0 / pytest 7.4.3. But the completion target is an **in-memory list, not
 PostgreSQL**, and a **real Provider SDK/network**, PostgreSQL, SQLAlchemy/Alembic, Celery/Redis/Object Storage,
 Secret rotation/drain, and production are all **NOT RUN**. Those are later lessons.
@@ -297,8 +297,10 @@ line — but it is a hygiene tool, not a vault.
 
 ### Production Example
 
-`Settings` exposes `safe_log_fields()` returning `{provider_base_url, provider_model, request_timeout_s,
-provider_api_key: "***REDACTED***"}`; the raw key is only read at adapter construction.
+`Settings` exposes `safe_log_fields()` returning only allowlisted, non-sensitive fields — `{provider_name,
+provider_model, request_timeout_s, settings_version, provider_api_key: "***REDACTED***"}`. It never emits
+`provider_base_url`, which can embed userinfo, an internal host, a port, or a private endpoint path; the raw key
+is only read at adapter construction.
 
 ### Framework Connection
 
@@ -371,7 +373,8 @@ The allowlist instinct is right, with one correction: do **not** routine-log the
 body either — classify and mask it. Log an **allowlisted, redacted event**: `event=config_validation_failed`,
 `field=provider_api_key`, a stable `code`, the component, and the settings/deployment version. Never log the API
 key, Authorization headers, complete prompts, tenant-sensitive data, raw Provider output, or raw vendor error
-bodies, and never dump whole `Settings` or a raw `model_dump()`. "用其他的错误类型展示代替详细信息" is exactly the
+bodies, and never dump whole `Settings`, a raw `model_dump()`, or the `provider_base_url` (which can carry
+userinfo, an internal host/port, or a private endpoint path — log a coarse `provider_name` instead). "用其他的错误类型展示代替详细信息" is exactly the
 safe pattern: a stable error class plus correlation metadata, not the sensitive detail.
 
 ### Engineering Thinking
@@ -501,8 +504,12 @@ protocol/interface**, not a concrete vendor SDK — which is exactly what makes 
 `OpenAICompatibleAdapter` hides SDK initialization, request construction, vendor response extraction, the HTTP
 client ownership boundary, and vendor-specific exceptions, and it **translates vendor exceptions into stable
 application errors** (`ProviderTimeout`, `ProviderRateLimited`, `ProviderAuthentication`,
-`ProviderTransport`). The `FakeAIProvider` returns deterministic valid/invalid JSON or raises a deterministic
-classified error, giving **no-network/no-cost** tests. Keep the interface **small** — do not leak the vendor
+`ProviderTransport`). In Day45 that translation is **real and tested** over an **injected transport** callable
+(a builtin/asyncio timeout -> `ProviderTimeout`, an HTTP-429-style error -> `ProviderRateLimited`, a 401/403 ->
+`ProviderAuthentication`, a connection/other fault -> `ProviderTransport`); with **no** transport injected the
+adapter honestly raises `NotImplementedError`, because Day45 wires **no real network** — the real
+OpenAI-compatible SDK call and response parsing are **Day53**. The `FakeAIProvider` returns deterministic
+valid/invalid JSON or raises a deterministic classified error, giving **no-network/no-cost** tests. Keep the interface **small** — do not leak the vendor
 SDK's types/parameters into services. And "Worker Service 的'完成 Job 前'边界" is exactly right: the Worker
 Service validates raw Provider JSON through Day44's `StructuredAIResult.model_validate_json(...)` **before any
 future guarded completion**. The Router validates client HTTP input; it is **not** the boundary for a Worker
@@ -516,9 +523,10 @@ depends on OpenAI." Vendor drift and test doubles both stop at that one small su
 
 ### Production Example
 
-`OpenAICompatibleAdapter` maps a vendor 429 to `ProviderRateLimited`; a test injects
-`FakeAIProvider(raw_json=...)` and never touches the network. Day53 implements the real SDK behind the same
-`AIProvider`.
+`OpenAICompatibleAdapter` maps an injected transport raising an HTTP-429-style error to `ProviderRateLimited`
+(and a timeout to `ProviderTimeout`, a 401/403 to `ProviderAuthentication`, a connection fault to
+`ProviderTransport`) with no real network; a Job test injects a `FakeAIProvider`. Day53 implements the real SDK
+transport behind the same `AIProvider`.
 
 ### Framework Connection
 
@@ -556,9 +564,11 @@ request). One caution: an **override alone does not prevent a lifespan from crea
 also compose with `create_app(test_settings, fake_adapter_factory)` so startup never builds a real client. Here
 is the "不知道" first-test design: use **fake Settings / a fake Secret value**, a **tracking HTTP client** that
 records whether it was closed, a **fake Adapter/Provider factory**; **enter** the `TestClient`/lifespan, make a
-**deterministic** request, then **exit**; and assert **no network**, the **Fake Provider was used**, the
-**resource is open inside** the context, the **resource is closed after** exit, and **no Secret** appears in
-result/log assertions. Clear overrides after tests. And reuse Day44's principle — **test the effect, not only
+**deterministic** short request (`GET /provider/status`, which only **resolves** the Provider via `Depends` and
+does **not** run a generation — a Job's Provider call belongs to a Worker), then **exit**; and assert **no
+network**, the **resource is open inside** the context, the **resource is closed after** exit, and **no Secret**
+appears in result/log assertions. The Provider execution itself is exercised separately through a **worker-style
+harness** (`WorkerJobRunner`), so the (possibly long) Provider call never happens inside an HTTP request. Clear overrides after tests. And reuse Day44's principle — **test the effect, not only
 the exception**.
 
 ### Engineering Thinking
@@ -568,9 +578,10 @@ The composition seam exists so tests can substitute infrastructure deterministic
 
 ### Production Example
 
-`test_fake_provider_injected_no_network_and_client_lifecycle` enters the `TestClient`, asserts the tracking
-client is open and the Container published, posts a job, then after exit asserts the client is closed, no
-network occurred, and the fake was used exactly once.
+`test_short_http_route_resolves_provider_without_running_it` enters the `TestClient`, asserts the tracking
+client is open and the Container published, calls the short `GET /provider/status` route, then after exit
+asserts the client is closed, no network occurred, and the Provider generation was **never** invoked from HTTP
+(`provider.calls == 0`); `test_worker_harness_valid_output_completes_once` exercises the actual Provider call.
 
 ### Framework Connection
 
@@ -821,8 +832,10 @@ generation call to "test" the key.
 # Hands-on Exercises
 
 These map to the runnable artifact and its tests, which **were executed** (Python 3.10.12, fastapi 0.110.0,
-httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 → **12 passed**; install via `requirements-day45.txt`) with a
-**fake, no-network** Provider. The completion target is an **in-memory list, not PostgreSQL**; a real Provider
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 → **19 passed**; install via `requirements-day45.txt`) with a
+**fake, no-network** Provider. HTTP acceptance stays short (the route only resolves the Provider via `Depends`);
+the Provider call runs in a worker-style harness whose completion target is an **in-memory list, not
+PostgreSQL**; a real Provider
 SDK/network, PostgreSQL, SQLAlchemy, Celery/Redis, Secret rotation/drain, and production are **NOT RUN**.
 
 Run the tests:
@@ -861,9 +874,11 @@ Follow-up: why must a Job handler not close the shared client?
 Question: write the validated `Settings` fields and say what `safe_log_fields()` returns.
 
 Expected Output: `provider_api_key: SecretStr` (non-empty), `provider_base_url: AnyHttpUrl`, `provider_model`
-(non-empty), `request_timeout_s` (0 < t ≤ 120); `safe_log_fields()` redacts the key.
+(non-empty), `request_timeout_s` (0 < t ≤ 120), plus allowlisted labels `provider_name`/`settings_version`;
+`safe_log_fields()` emits only `provider_name`, `provider_model`, `request_timeout_s`, `settings_version`, and a
+redacted key — never the `provider_base_url` (it can carry userinfo/internal host/port/private path).
 
-Follow-up: why must the key never appear in a Job payload?
+Follow-up: why must the key never appear in a Job payload, and why is the `provider_base_url` unsafe to log?
 
 ### Exercise 4: Fail-fast policy
 
@@ -907,7 +922,8 @@ Question: define the small `AIProvider` and say what the production adapter hide
 
 Expected Output: `async generate(prompt, max_tokens) -> raw JSON`; the adapter hides SDK/HTTP/response
 extraction and translates vendor errors to `ProviderTimeout`/`ProviderRateLimited`/`ProviderAuthentication`/
-`ProviderTransport`.
+`ProviderTransport`. In Day45 this is tested over an **injected transport** (no real network); the real SDK is
+Day53, and with no transport injected the adapter raises `NotImplementedError`.
 
 Follow-up: where is the raw Provider JSON validated? (Worker Service, before completion, via Day44.)
 
@@ -915,18 +931,20 @@ Follow-up: where is the raw Provider JSON validated? (Worker Service, before com
 
 Question: design the first fake-runtime test.
 
-Expected Output: fake Settings/Secret, tracking client, fake provider factory; enter `TestClient`, deterministic
-call, exit; assert no network, fake used, client open inside then closed after, no Secret leak. Maps to
-`test_fake_provider_injected_no_network_and_client_lifecycle`.
+Expected Output: fake Settings/Secret, tracking client, fake provider factory; enter `TestClient`, call the short
+`GET /provider/status` (DI resolution only, no Provider generation), exit; assert no network, client open inside
+then closed after, the Provider was never run from HTTP (`provider.calls == 0`), and no Secret leak. Maps to
+`test_short_http_route_resolves_provider_without_running_it`; the Provider call itself is exercised by
+`test_worker_harness_valid_output_completes_once`.
 
 Follow-up: why configure overrides before entering `TestClient`?
 
 ### Exercise 10: Validation blocks completion
 
-Question: a fake Provider returns invalid JSON. What must the use-site do?
+Question: a fake Provider returns invalid JSON. What must the worker-style use-site do?
 
-Expected Output: `StructuredAIResult.model_validate_json` raises before completion; the completion list stays
-empty. Maps to `test_invalid_provider_output_blocks_completion`.
+Expected Output: `StructuredAIResult.model_validate_json` raises before completion; the worker harness's
+completion list stays empty. Maps to `test_worker_harness_invalid_output_blocks_completion`.
 
 Follow-up: why assert the empty completion list, not just the exception?
 
@@ -1151,9 +1169,9 @@ trade-off: a lifespan-owned resource + interface seam vs per-request constructio
 connection: Day53 implements a real OpenAI-compatible SDK behind this `AIProvider` seam. Most important
 interview answer: ownership is per-process, the lifespan owns the client, and `Depends` supplies it.
 
-Validation status: a minimal FastAPI composition/lifespan and **12 pytest cases** are **real executed local
+Validation status: a minimal FastAPI composition/lifespan and **19 pytest cases** are **real executed local
 runtime evidence** — executed here on Python 3.10.12 / fastapi 0.110.0 / httpx 0.27.0 / pydantic 2.5.0 / pytest
-7.4.3 (pinned in `requirements-day45.txt`) → **12 passed** — but with a **fake, no-network** Provider and an
+7.4.3 (pinned in `requirements-day45.txt`) → **19 passed** — but with a **fake, no-network** Provider and an
 **in-memory** completion list, **not** PostgreSQL. A real Provider SDK/network/authentication, PostgreSQL/
 SQLAlchemy transactions and durable completion, Celery/Redis Worker behavior, and deployment/Secret rotation/
 drain/production are **NOT RUN**.

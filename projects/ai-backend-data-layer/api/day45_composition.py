@@ -7,14 +7,24 @@ scoped resources (validated Settings, an async HTTP client, and a concrete
 Provider adapter); ``Depends`` supplies already-created interfaces; a stateless
 ``JobService`` is created per request/Job.
 
+HTTP acceptance stays SHORT: the FastAPI route only demonstrates dependency
+resolution and the short request lifecycle. A (possibly long, e.g. eight-minute)
+Provider generation belongs to a WORKER, not an HTTP Router, so the actual
+Provider call + Day44 validation + illustrative completion live in an explicit
+worker-style harness (``WorkerJobRunner``), not in a route handler.
+
 Scope and honesty (see the Day45 lesson and design doc):
     * This example is executed locally with FastAPI's ``TestClient`` and a FAKE,
-      no-network Provider. A real Provider SDK/network call, PostgreSQL,
-      SQLAlchemy/Alembic, Celery/Redis/Object Storage, Secret rotation/drain, and
-      production are NOT implemented and NOT run. Those are later lessons
-      (Day46/47/50/53/54/55/56).
-    * The completion target is an in-memory list on ``app.state``, NOT a
-      PostgreSQL guarded completion.
+      no-network Provider. Real Provider authentication/network/SDK compatibility,
+      PostgreSQL, SQLAlchemy/Alembic, Celery/Redis/Object Storage, Secret
+      rotation/drain, and production are NOT implemented and NOT run. Those are
+      later lessons (Day46/47/50/53/54/55/56).
+    * ``OpenAICompatibleAdapter`` demonstrates ONLY the seam shape and the
+      vendor-error -> stable-error translation boundary, over an INJECTED
+      transport callable and with no real network. The real OpenAI-compatible SDK
+      call and response parsing are Day53.
+    * The completion target is an in-memory list owned by the worker harness, NOT
+      a PostgreSQL guarded completion.
     * ``SecretStr`` reduces accidental printing/repr/serialization exposure; it is
       NOT encryption in process memory and does not replace permissions, rotation,
       or secure logging.
@@ -24,6 +34,7 @@ Scope and honesty (see the Day45 lesson and design doc):
 
 from __future__ import annotations
 
+import asyncio
 import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
@@ -77,6 +88,11 @@ class Settings(BaseModel):
     provider_base_url: AnyHttpUrl
     provider_model: str = Field(min_length=1)
     request_timeout_s: float = Field(gt=0, le=120)
+    # Non-sensitive, allowlisted labels used for safe logging. provider_base_url
+    # may embed userinfo, an internal host, a port, or a private endpoint path,
+    # so it is NEVER logged; provider_name is a coarse, non-sensitive identifier.
+    provider_name: str = Field(default="openai-compatible", min_length=1)
+    settings_version: str = Field(default="unknown", min_length=1)
 
     @field_validator("provider_api_key")
     @classmethod
@@ -97,15 +113,25 @@ class Settings(BaseModel):
             "provider_model": src.get("PROVIDER_MODEL"),
             "request_timeout_s": src.get("PROVIDER_TIMEOUT_S", 30),
         }
+        # Optional allowlisted labels; safe defaults keep fail-fast focused on the
+        # required secret/URL/model/timeout.
+        if src.get("PROVIDER_NAME") is not None:
+            data["provider_name"] = src.get("PROVIDER_NAME")
+        if src.get("SETTINGS_VERSION") is not None:
+            data["settings_version"] = src.get("SETTINGS_VERSION")
         return cls.model_validate(data)
 
     def safe_log_fields(self) -> dict:
-        """Allowlisted, redacted view for logs. NEVER logs the API key, whole
-        Settings, or raw model_dump(). Use allowlisted metadata only."""
+        """Allowlisted, redacted view for logs. Emits ONLY non-sensitive fields:
+        a coarse provider_name, the model, the timeout, and a settings_version.
+        It NEVER emits the API key, the whole Settings, a raw model_dump(), or the
+        provider_base_url (which can carry userinfo/internal host/port/private
+        endpoint path)."""
         return {
-            "provider_base_url": str(self.provider_base_url),
+            "provider_name": self.provider_name,
             "provider_model": self.provider_model,
             "request_timeout_s": self.request_timeout_s,
+            "settings_version": self.settings_version,
             "provider_api_key": "***REDACTED***",
         }
 
@@ -133,25 +159,67 @@ async def _aclose(resource: object) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Production-shaped adapter (illustrative; NOT executed against a real network)
+# Production-shaped adapter (illustrative; NO real network in Day45)
 # ---------------------------------------------------------------------------
+# A transport callable stands in for the real vendor SDK/HTTP call. Injecting it
+# keeps Day45 free of a real network while still demonstrating the actual
+# vendor-error -> stable-error translation. Day53 provides the real transport.
+Transport = Callable[..., Awaitable[str]]
+
+
 class OpenAICompatibleAdapter:
     """Hides SDK/HTTP construction, request shaping, vendor response extraction,
     and vendor-specific exceptions behind the small AIProvider seam. It owns NO
-    Job lifecycle. Day45 does NOT run this against a real Provider (that is
-    Day53); it exists to show the seam and error-translation boundary."""
+    Job lifecycle.
 
-    def __init__(self, settings: Settings, http_client: object) -> None:
+    Day45 demonstrates the seam and the error-translation boundary over an
+    INJECTED ``transport`` callable with no real network; a real OpenAI-compatible
+    call and full response parsing are Day53. If no transport is injected,
+    ``generate`` raises ``NotImplementedError`` (Day45 has no real Provider), and
+    tests use ``FakeAIProvider`` or inject a transport for the translation cases.
+    """
+
+    def __init__(
+        self,
+        settings: Settings,
+        http_client: object,
+        *,
+        transport: Optional[Transport] = None,
+    ) -> None:
         self._settings = settings
         self._http = http_client  # owned by the lifespan, not by the adapter
+        self._transport = transport
 
-    async def generate(self, *, prompt: str, max_tokens: int) -> str:  # pragma: no cover
-        # Illustrative only. A real OpenAI-compatible call + robust vendor-error
-        # translation (timeout/rate-limit/auth/transport) is implemented in Day53.
-        raise NotImplementedError(
-            "OpenAICompatibleAdapter.generate is not wired to a real Provider in "
-            "Day45; inject a FakeAIProvider for deterministic no-network tests."
-        )
+    async def generate(self, *, prompt: str, max_tokens: int) -> str:
+        if self._transport is None:
+            raise NotImplementedError(
+                "OpenAICompatibleAdapter has no real Provider transport wired in "
+                "Day45; inject a transport (tests) or use the Day53 SDK. "
+                "FakeAIProvider is the deterministic no-network test seam."
+            )
+        try:
+            return await self._transport(prompt=prompt, max_tokens=max_tokens)
+        except ProviderError:
+            raise  # already a stable application error
+        except BaseException as exc:  # noqa: BLE001 - deliberately classify all vendor faults
+            raise self._translate(exc) from exc
+
+    @staticmethod
+    def _translate(exc: BaseException) -> ProviderError:
+        """Map an opaque vendor/transport exception to a stable application error.
+        The classification uses portable signals (builtin timeout, an HTTP-style
+        ``status_code`` attribute, a connection error); real vendor SDK exception
+        types are wrapped the same way in Day53."""
+        if isinstance(exc, (asyncio.TimeoutError, TimeoutError)):
+            return ProviderTimeout("provider request timed out")
+        status = getattr(exc, "status_code", None)
+        if status == 429:
+            return ProviderRateLimited("provider rate limited (HTTP 429)")
+        if status in (401, 403):
+            return ProviderAuthentication(f"provider authentication failed (HTTP {status})")
+        if isinstance(exc, ConnectionError):
+            return ProviderTransport("provider transport/connection error")
+        return ProviderTransport(f"provider transport error: {type(exc).__name__}")
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +256,29 @@ class JobService:
 
 
 # ---------------------------------------------------------------------------
+# Worker-style harness (NOT an HTTP route)
+# ---------------------------------------------------------------------------
+@dataclass
+class WorkerJobRunner:
+    """Represents what a WORKER process does with a Job — NOT an HTTP handler.
+    It resolves the app-scoped Provider, runs the (possibly long) Job through a
+    stateless per-Job ``JobService``, validates raw output via Day44, and records
+    an illustrative in-memory completion. A real durable Worker (Celery claim/
+    ACK/drain/recovery) is Day55; this is a test-only demonstration so the
+    Provider call never happens inside a FastAPI request."""
+
+    provider: AIProvider
+    completed: List[StructuredAIResult] = field(default_factory=list)
+
+    async def run(self, *, prompt: str, max_tokens: int) -> StructuredAIResult:
+        service = JobService(provider=self.provider)  # stateless, per Job
+        result = await service.run_job(prompt=prompt, max_tokens=max_tokens)
+        # Illustrative in-memory completion (NOT a guarded PostgreSQL commit).
+        self.completed.append(result)
+        return result
+
+
+# ---------------------------------------------------------------------------
 # The application Container: app/process-scoped resources, published only after
 # COMPLETE initialization succeeds.
 # ---------------------------------------------------------------------------
@@ -216,16 +307,6 @@ def get_provider(request: Request) -> AIProvider:
 def get_job_service(provider: AIProvider = Depends(get_provider)) -> JobService:
     # Stateless, lightweight, per request/Job. Carries no tenant/trace/job state.
     return JobService(provider=provider)
-
-
-# ---------------------------------------------------------------------------
-# Request/response models for the illustrative use-site
-# ---------------------------------------------------------------------------
-class RunJobRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    prompt: str = Field(min_length=1)
-    max_tokens: int = Field(ge=1, le=8_000)
 
 
 # ---------------------------------------------------------------------------
@@ -266,19 +347,18 @@ def create_app(
 
     app = FastAPI(lifespan=lifespan)
     app.state.container = None
-    app.state.completed = []  # illustrative in-memory completion (NOT PostgreSQL)
 
-    @app.post("/jobs/run")
-    async def run_job(
-        body: RunJobRequest,
+    @app.get("/provider/status")
+    async def provider_status(
         request: Request,
-        service: JobService = Depends(get_job_service),
+        provider: AIProvider = Depends(get_provider),
     ):
-        # Validation-before-side-effect: if the raw Provider JSON is invalid,
-        # run_job raises before we append to the completion list.
-        result = await service.run_job(prompt=body.prompt, max_tokens=body.max_tokens)
-        request.app.state.completed.append(result)
-        return {"summary": result.summary, "confidence": result.confidence}
+        # SHORT HTTP boundary: this proves the lifespan-owned Provider is
+        # resolvable via Depends and returns only allowlisted, redacted metadata.
+        # It deliberately does NOT run a (possibly long) Provider generation — a
+        # Job's Provider call belongs to a Worker (see WorkerJobRunner and Day55).
+        container: Container = request.app.state.container
+        return {"provider_ready": provider is not None, **container.settings.safe_log_fields()}
 
     @app.get("/healthz")
     async def healthz(request: Request):

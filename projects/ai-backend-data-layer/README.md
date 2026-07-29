@@ -12,7 +12,7 @@ own infrastructure: per-process resource ownership, a lifespan-owned `Container`
 `FakeAIProvider`, partial-initialization cleanup, Day44 Provider-output validation before an illustrative
 in-memory completion, and the rotation/drain/rollback + invalid-Provider-output incident runbook. **REAL local
 FastAPI composition tests were executed with a FAKE no-network Provider** (Python 3.10.12, fastapi 0.110.0,
-httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 12 passed; deps pinned in `api/requirements-day45.txt`; the
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 19 passed; deps pinned in `api/requirements-day45.txt`; the
 completion target is an in-memory list, not PostgreSQL); real Provider SDK/network, PostgreSQL/SQLAlchemy,
 Celery/Redis, Secret rotation/drain, integration/production NOT RUN. (See the Day44 note below for the prior
 increment.)
@@ -87,7 +87,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements.txt                                # Day44: pinned deps (pydantic==2.5.0, pytest==7.4.3)
 │   ├── day45-di-lifespan-configuration-and-ai-provider-adapters-design.md  # Day45: composition/lifespan design
 │   ├── day45_composition.py                           # Day45: runnable FastAPI composition (real; fake-Provider tests pass)
-│   ├── test_day45_composition.py                      # Day45: pytest cases (executed: 12 passed, fake no-network Provider)
+│   ├── test_day45_composition.py                      # Day45: pytest cases (executed: 19 passed, fake no-network Provider)
 │   └── requirements-day45.txt                          # Day45: pinned deps (pydantic, pytest, fastapi, httpx)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -159,7 +159,7 @@ Column intent:
 + `test_day45_composition.py`) composes the Day44 typed contracts into a runnable FastAPI/Worker where Routers
 and business services never own infrastructure. The composition and tests are **real, executed code** with a
 **fake, no-network Provider**: **Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 ->
-`12 passed`** (deps pinned in `api/requirements-day45.txt`). But the completion target is an **in-memory list,
+`19 passed`** (deps pinned in `api/requirements-day45.txt`). But the completion target is an **in-memory list,
 not PostgreSQL**, and a real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
 and production are **NOT RUN**.
 
@@ -168,12 +168,12 @@ and production are **NOT RUN**.
 | Section | Contents |
 | --- | --- |
 | Ownership | per-process: only processes that call the Provider create a client (8 Workers = 8 clients); a Provider client owns HTTP pools, not DB connections (Day47) |
-| DI + scopes | lifespan owns app-scoped Settings/HTTP-client/ProviderAdapter; `Depends` supplies them (request-local cache, not a singleton); `JobService` is stateless per request/Job |
-| Settings + secrets | validated `Settings` (`extra="forbid"`, `frozen`) with `SecretStr`; key from Settings, never a Router or Job payload; `SecretStr` hides display, is not encryption |
+| DI + scopes | lifespan owns app-scoped Settings/HTTP-client/ProviderAdapter; `Depends` supplies them (request-local cache, not a singleton); the short `GET /provider/status` route only resolves the Provider (a long Provider call belongs to a Worker); `JobService` is stateless per request/Job |
+| Settings + secrets | validated `Settings` (`extra="forbid"`, `frozen`) with `SecretStr`; key from Settings, never a Router or Job payload; `safe_log_fields()` emits only allowlisted labels (`provider_name`/model/timeout/`settings_version`), never the `provider_base_url`; `SecretStr` hides display, is not encryption |
 | Fail-fast startup | invalid local config -> `ValidationError` -> not ready, no claim; local validity != external availability; no paid generation call at startup |
 | Lifespan + partial init | `create_app` + `asynccontextmanager`; publish `Container` only after full init; partial init closes the created client, publishes no readiness, claims no Job (reverse-order close) |
-| Provider seam | small `AIProvider` protocol; production `OpenAICompatibleAdapter` translates vendor errors to stable `Provider*` types; `FakeAIProvider` for no-network/no-cost tests |
-| Validation gate | Worker validates raw Provider JSON via Day44 `StructuredAIResult.model_validate_json` before an in-memory completion; invalid output -> empty completion list |
+| Provider seam | small `AIProvider` protocol; `OpenAICompatibleAdapter` translates timeout/429/401-403/connection faults to stable `Provider*` errors over an injected transport (no real network; raises `NotImplementedError` without one — real SDK is Day53); `FakeAIProvider` for no-network/no-cost tests |
+| Validation gate | a worker-style harness (not the HTTP route) validates raw Provider JSON via Day44 `StructuredAIResult.model_validate_json` before an in-memory completion; invalid output -> empty completion list |
 | Rotation / drain / rollback | verify new Workers ready before draining old; shutdown = stop claims -> drain -> close; no blind requeue; code/config rollback != DB rollback |
 
 ### Run the tests
@@ -185,10 +185,12 @@ python3 -m py_compile day45_composition.py test_day45_composition.py
 python3 -m pytest -q test_day45_composition.py
 ```
 
-> **What this increment deliberately does not do:** the completion target is an in-memory list on `app.state`,
-> not a guarded PostgreSQL completion; it makes no real Provider/network call (a `FakeAIProvider` is injected),
-> and runs no PostgreSQL/SQLAlchemy transactions, Celery/Redis Worker behavior, or deployment/Secret rotation/
-> drain/production. `SecretStr` reduces accidental display but is not encryption. No real secrets, API keys,
+> **What this increment deliberately does not do:** the Provider call runs only in a worker-style harness (the
+> HTTP route just resolves the Provider via `Depends`), and its completion target is an in-memory list, not a
+> guarded PostgreSQL completion; it makes no real Provider/network call (a `FakeAIProvider` is injected, and the
+> adapter's vendor-error translation is exercised over an injected transport — the real SDK is Day53), and runs
+> no PostgreSQL/SQLAlchemy transactions, Celery/Redis Worker behavior, or deployment/Secret rotation/drain/
+> production. `SecretStr` reduces accidental display but is not encryption. No real secrets, API keys,
 > connection strings, or client data; the test key is an obviously-fake `sk-fake-...` placeholder that the
 > tests assert is redacted/absent. Dependencies are pinned in `api/requirements-day45.txt`.
 

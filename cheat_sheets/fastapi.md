@@ -376,9 +376,10 @@ yield dependency fits a REQUEST-scoped resource (Day47 AsyncSession), NOT closin
 
 ```text
 Settings (Pydantic v2, extra="forbid", frozen): provider_api_key: SecretStr (non-empty), provider_base_url: AnyHttpUrl,
-  provider_model: str(min_length=1), request_timeout_s: 0 < t <= 120
+  provider_model: str(min_length=1), request_timeout_s: 0 < t <= 120, + allowlisted labels provider_name / settings_version
 Settings.load(env) -> FAIL FAST: missing/invalid -> ValidationError at startup -> not ready, no claim
-safe_log_fields() -> allowlisted + REDACTED; NEVER log the key, whole Settings, or raw model_dump()
+safe_log_fields() -> emits ONLY provider_name/model/timeout/settings_version + redacted key; NEVER the key, whole Settings,
+  raw model_dump(), or provider_base_url (can carry userinfo/internal host/port/private endpoint path)
 SecretStr reduces accidental display; it is NOT encryption and does NOT stop deliberate get_secret_value() logging
 API key comes from validated Settings; NEVER Router code, NEVER a Job payload (payloads are persisted/replayed/logged)
 local Settings validity != external Provider availability; do NOT send a PAID generation call on startup to test a key
@@ -392,8 +393,9 @@ create_app(settings, *, http_client_factory, provider_factory) -> explicit compo
 lifespan order: Settings(validated) -> HTTP client -> ProviderAdapter -> PUBLISH Container -> yield -> clear -> close (REVERSE)
 partial init (adapter factory raises after client created): CLOSE the client, publish NO Container/readiness, claim NO Job
 AIProvider = small Protocol: async generate(prompt, max_tokens) -> RAW untrusted JSON
-OpenAICompatibleAdapter (production; NOT run in Day45) translates vendor errors -> ProviderTimeout/RateLimited/Authentication/Transport
+OpenAICompatibleAdapter translates faults over an INJECTED transport (no real network) -> ProviderTimeout(timeout)/RateLimited(429)/Authentication(401,403)/Transport(conn); no transport -> NotImplementedError; real SDK = Day53
 FakeAIProvider -> deterministic valid/invalid JSON or classified error (no network, no cost)
+HTTP route stays SHORT (GET /provider/status only RESOLVES the Provider via Depends); the (possibly long) Provider call + Day44 validation + in-memory completion run in a worker-style harness (WorkerJobRunner), NOT a route
 Worker Service validates raw JSON via Day44 StructuredAIResult.model_validate_json BEFORE completion (Router validates client input, not Provider results)
 ```
 
@@ -438,7 +440,7 @@ interfaces, services are stateless, Provider output stays untrusted until Day44 
 ```
 
 Validation: REAL local FastAPI composition tests executed with a FAKE no-network Provider (Python 3.10.12, fastapi 0.110.0,
-httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 12 passed; deps pinned in
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 19 passed; deps pinned in
 `projects/ai-backend-data-layer/api/requirements-day45.txt`; completion target is an in-memory list, not PostgreSQL).
 Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain, and production NOT RUN.
 SQLAlchemy mapping = Day46; async sessions/tx = Day47; real Provider SDK = Day53.

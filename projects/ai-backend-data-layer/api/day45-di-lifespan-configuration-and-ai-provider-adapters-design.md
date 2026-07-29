@@ -53,9 +53,12 @@ Router/handler code must not construct `OpenAICompatibleAdapter` or read API key
 
 ```text
 Settings (Pydantic v2, extra="forbid", frozen): provider_api_key: SecretStr (non-empty),
-  provider_base_url: AnyHttpUrl, provider_model: str(min_length=1), request_timeout_s: float (0 < t <= 120).
+  provider_base_url: AnyHttpUrl, provider_model: str(min_length=1), request_timeout_s: float (0 < t <= 120),
+  + allowlisted non-sensitive labels provider_name / settings_version (defaulted).
 Settings.load(env) -> fail-fast: missing/invalid -> ValidationError at startup -> Worker stays NOT ready, no claim.
-safe_log_fields()  -> allowlisted, REDACTED view. NEVER log the key, whole Settings, or raw model_dump().
+safe_log_fields()  -> emits ONLY allowlisted non-sensitive fields: provider_name, provider_model,
+  request_timeout_s, settings_version, provider_api_key=***REDACTED***. NEVER the key, whole Settings,
+  raw model_dump(), or provider_base_url (which can carry userinfo / internal host / port / private endpoint path).
 ```
 
 - API key comes from validated **Settings**, never Router code and never Job
@@ -94,9 +97,11 @@ pairing. Reverse-order release is expressed with `asynccontextmanager` +
 
 ```text
 AIProvider (Protocol): async generate(prompt, max_tokens) -> RAW untrusted JSON text.
-OpenAICompatibleAdapter: production shape; hides SDK init/request/response extraction + HTTP ownership;
-  translates vendor exceptions -> stable ProviderTimeout / ProviderRateLimited / ProviderAuthentication /
-  ProviderTransport. NOT executed against a real network in Day45 (Day53 owns real SDK parsing).
+OpenAICompatibleAdapter: production shape; hides SDK init/request/response extraction + HTTP ownership.
+  Translates faults over an INJECTED transport callable (no real network) to stable errors:
+  builtin/asyncio timeout -> ProviderTimeout; status 429 -> ProviderRateLimited; 401/403 -> ProviderAuthentication;
+  ConnectionError/other -> ProviderTransport. With NO transport injected it raises NotImplementedError.
+  The real OpenAI-compatible SDK call + response parsing are Day53 (NOT run in Day45).
 FakeAIProvider: deterministic valid/invalid JSON or a deterministic classified error; no network, no cost.
 Worker Service: validates raw JSON via Day44 StructuredAIResult.model_validate_json(...) BEFORE completion.
 ```
@@ -115,28 +120,39 @@ FastAPI dependency_overrides -> use-site substitution of get_provider; configure
   (its context triggers lifespan startup); an override alone does NOT stop a lifespan from creating a real
   resource; clear overrides after tests.
 First safe test  -> fake Settings/Secret, tracking HTTP client (records close), fake adapter/provider factory;
-  enter TestClient, make a deterministic call, exit; assert: no network, fake used, resource OPEN inside the
-  context, CLOSED after exit, and no Secret in result/log assertions.
+  enter TestClient, call the SHORT route (GET /provider/status, resolves the Provider via Depends but does NOT
+  run it), exit; assert: no network, resource OPEN inside the context, CLOSED after exit, provider.calls==0 (the
+  HTTP path never runs the Provider), and no Secret in result/log assertions. The Provider call itself runs in a
+  worker-style harness (WorkerJobRunner), not a route.
 Partial-init test -> tracking client created; provider factory raises; assert startup raises, client closed,
   Container not published, no Worker claim.
+Worker harness -> the (possibly long) Provider call + Day44 validation + completion run in WorkerJobRunner,
+  NOT in an HTTP route; the HTTP route only resolves the Provider via Depends (short boundary).
 Reuse Day44 -> test the EFFECT (empty completion list), not only the exception.
 ```
 
-Executed tests in `test_day45_composition.py` (12 cases):
+Executed tests in `test_day45_composition.py` (19 cases):
 
 ```text
-1  fake Provider injected, no network, client open inside lifespan then closed after shutdown
-2  valid Provider output reaches the completion list exactly once
-3  invalid raw Provider output CANNOT reach completion (500 + empty completion list)
-4  partial adapter init closes the already-created client, publishes no Container/readiness, no claim
+1  short HTTP route resolves the Provider via Depends WITHOUT running it (client open->closed, no network, provider.calls==0)
+2  worker harness: valid Provider output reaches the completion list exactly once
+3  worker harness: invalid raw Provider output CANNOT reach completion (raises + empty completion list)
+4  partial adapter init closes the already-created client, publishes no Container/readiness
 5  get_provider raises ProviderNotReady before the Container is published
 6  Settings fail-fast: missing API key -> ValidationError
 7  Settings reject empty API key
 8  Settings reject non-positive timeout
 9  Secret not rendered in repr/str/safe_log_fields (but get_secret_value still works deliberately)
-10 Secret does not leak into a use-site response body
-11 dependency override configured BEFORE TestClient is honored; clearing restores wiring
-12 JobService is stateless and per-Job (only the injected interface, no cross-Job state)
+10 safe_log_fields excludes sensitive base-URL parts (userinfo/internal host/port/private path); only allowlisted fields
+11 Secret does not leak into the short HTTP route response body
+12 dependency override applied BEFORE TestClient, then cleared -> original lifespan wiring restored in a fresh lifecycle
+13 JobService is stateless and per-Job (only the injected interface, no cross-Job state)
+14 adapter translates a timeout -> ProviderTimeout (injected transport)
+15 adapter translates an HTTP-429-style error -> ProviderRateLimited
+16 adapter translates an HTTP-401/403-style error -> ProviderAuthentication
+17 adapter translates a connection/other fault -> ProviderTransport
+18 adapter without an injected transport raises NotImplementedError (no real SDK in Day45)
+19 adapter passes a successful transport's raw JSON through unchanged (validated downstream by Day44)
 ```
 
 ---
@@ -192,11 +208,11 @@ python3 -m pytest -q test_day45_composition.py
 ## Validation and evidence classification
 
 ```text
-REAL RUNTIME (executed)  : a minimal FastAPI composition/lifespan + 12 pytest cases with a FAKE no-network
+REAL RUNTIME (executed)  : a minimal FastAPI composition/lifespan + 19 pytest cases with a FAKE no-network
                            Provider. Executed here:
                              `python3 -m pip install -r requirements-day45.txt`
                              `python3 -m py_compile day45_composition.py test_day45_composition.py` passed;
-                             `python3 -m pytest -q test_day45_composition.py` -> 12 passed.
+                             `python3 -m pytest -q test_day45_composition.py` -> 19 passed.
                            Environment: Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0,
                            pytest 7.4.3 (pinned in requirements-day45.txt).
 IN-MEMORY ONLY           : the completion target is an in-memory list on app.state, NOT PostgreSQL.
