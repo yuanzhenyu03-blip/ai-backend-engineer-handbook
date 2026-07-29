@@ -201,11 +201,17 @@ class OpenAICompatibleAdapter:
             return await self._transport(prompt=prompt, max_tokens=max_tokens)
         except ProviderError:
             raise  # already a stable application error
-        except BaseException as exc:  # noqa: BLE001 - deliberately classify all vendor faults
+        except asyncio.CancelledError:
+            # Cooperative cancellation (Worker graceful drain/shutdown) is NOT a
+            # vendor fault. Let it propagate unchanged so cancellation semantics
+            # are preserved; translating it would corrupt drain and could trigger
+            # spurious failure handling or retries.
+            raise
+        except Exception as exc:  # classify only genuine vendor/transport faults
             raise self._translate(exc) from exc
 
     @staticmethod
-    def _translate(exc: BaseException) -> ProviderError:
+    def _translate(exc: Exception) -> ProviderError:
         """Map an opaque vendor/transport exception to a stable application error.
         The classification uses portable signals (builtin timeout, an HTTP-style
         ``status_code`` attribute, a connection error); real vendor SDK exception

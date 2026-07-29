@@ -29,7 +29,7 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 ## Today's Tasks
 
 - [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 24 passed), FastAPI cheat-sheet/interview appends, and status updates.
-- [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4) — lesson, composition design + runnable code/tests (executed: 19 passed with a fake no-network Provider), FastAPI cheat-sheet/interview appends, and status updates.
+- [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4) — lesson, composition design + runnable code/tests (executed: 20 passed with a fake no-network Provider), FastAPI cheat-sheet/interview appends, and status updates.
 - [ ] Prepare for Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4; see the Day46 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
@@ -43,7 +43,7 @@ Preparation history blocks. Phase 4 is in progress; Day46 is next.)
 - [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters classroom learning.
 - [x] Generate the Day45 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day44->Day45 mental-model evolution), preserving verbatim student answers including the "不知道" responses.
 - [x] Build the runnable Day45 composition artifact inside the existing project `api/` directory (no parallel project): `day45_composition.py`, `test_day45_composition.py`, `day45-di-lifespan-configuration-and-ai-provider-adapters-design.md`, and scoped `requirements-day45.txt`.
-- [x] Run `py_compile` and `pytest` on the Day45 code and record exact results (19 passed, fake no-network Provider) as repository evidence.
+- [x] Run `py_compile` and `pytest` on the Day45 code and record exact results (20 passed, fake no-network Provider) as repository evidence.
 - [x] Update `projects/ai-backend-data-layer/README.md` with the Day45 increment (artifact/code/test links, honest RUN vs NOT-RUN matrix).
 - [x] Append the Day45 section to `cheat_sheets/fastapi.md`.
 - [x] Append Day45 questions to `interview/fastapi.md` (no duplicate file created).

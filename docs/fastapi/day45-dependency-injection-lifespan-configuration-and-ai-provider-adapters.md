@@ -20,7 +20,7 @@ Next Lesson: Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (planned 
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day45 composition design ([`projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md`](../../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md)) with runnable code [`day45_composition.py`](../../projects/ai-backend-data-layer/api/day45_composition.py) and tests [`test_day45_composition.py`](../../projects/ai-backend-data-layer/api/test_day45_composition.py) — validated secret-aware `Settings`, a small `AIProvider` protocol, a production adapter + `FakeAIProvider` seam, `create_app` + a lifespan `Container` that closes resources in reverse order, `get_provider`, a stateless `JobService`, a worker-style `WorkerJobRunner` harness that runs the Provider call + Day44 validation off the HTTP path (a short `GET /provider/status` route only resolves the Provider via `Depends`), and an `OpenAICompatibleAdapter` that translates vendor timeout/rate-limit/auth/transport faults to stable `Provider*` errors over an injected transport (no real network). Real local FastAPI composition tests were executed (19 passed; Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3) with a FAKE no-network Provider; real Provider SDK/network, PostgreSQL, SQLAlchemy, Celery/Redis, and production are NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day45 composition design ([`projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md`](../../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md)) with runnable code [`day45_composition.py`](../../projects/ai-backend-data-layer/api/day45_composition.py) and tests [`test_day45_composition.py`](../../projects/ai-backend-data-layer/api/test_day45_composition.py) — validated secret-aware `Settings`, a small `AIProvider` protocol, a production adapter + `FakeAIProvider` seam, `create_app` + a lifespan `Container` that closes resources in reverse order, `get_provider`, a stateless `JobService`, a worker-style `WorkerJobRunner` harness that runs the Provider call + Day44 validation off the HTTP path (a short `GET /provider/status` route only resolves the Provider via `Depends`), and an `OpenAICompatibleAdapter` that translates vendor timeout/rate-limit/auth/transport faults to stable `Provider*` errors over an injected transport (no real network). Real local FastAPI composition tests were executed (20 passed; Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3) with a FAKE no-network Provider; real Provider SDK/network, PostgreSQL, SQLAlchemy, Celery/Redis, and production are NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -80,7 +80,7 @@ executions**, while already-started Provider calls and committed facts require a
 idempotent, audited recovery.
 
 This lesson has **real local runtime evidence**: a minimal FastAPI composition with a lifespan `Container` and
-a **fake, no-network** Provider was executed — **19 pytest cases passed** on Python 3.10.12 / fastapi 0.110.0 /
+a **fake, no-network** Provider was executed — **20 pytest cases passed** on Python 3.10.12 / fastapi 0.110.0 /
 httpx 0.27.0 / pydantic 2.5.0 / pytest 7.4.3. But the completion target is an **in-memory list, not
 PostgreSQL**, and a **real Provider SDK/network**, PostgreSQL, SQLAlchemy/Alembic, Celery/Redis/Object Storage,
 Secret rotation/drain, and production are all **NOT RUN**. Those are later lessons.
@@ -506,9 +506,12 @@ client ownership boundary, and vendor-specific exceptions, and it **translates v
 application errors** (`ProviderTimeout`, `ProviderRateLimited`, `ProviderAuthentication`,
 `ProviderTransport`). In Day45 that translation is **real and tested** over an **injected transport** callable
 (a builtin/asyncio timeout -> `ProviderTimeout`, an HTTP-429-style error -> `ProviderRateLimited`, a 401/403 ->
-`ProviderAuthentication`, a connection/other fault -> `ProviderTransport`); with **no** transport injected the
-adapter honestly raises `NotImplementedError`, because Day45 wires **no real network** — the real
-OpenAI-compatible SDK call and response parsing are **Day53**. The `FakeAIProvider` returns deterministic
+`ProviderAuthentication`, a connection/other fault -> `ProviderTransport`). Crucially, `asyncio.CancelledError`
+is **not** a vendor fault: it must **propagate unchanged**, never be classified into a `Provider*` error — so
+the adapter catches cancellation first and re-raises it, preserving cooperative cancellation during a Worker's
+graceful drain/shutdown (translating it would corrupt the drain and could trigger spurious failure handling or
+retries). With **no** transport injected the adapter honestly raises `NotImplementedError`, because Day45 wires
+**no real network** — the real OpenAI-compatible SDK call and response parsing are **Day53**. The `FakeAIProvider` returns deterministic
 valid/invalid JSON or raises a deterministic classified error, giving **no-network/no-cost** tests. Keep the interface **small** — do not leak the vendor
 SDK's types/parameters into services. And "Worker Service 的'完成 Job 前'边界" is exactly right: the Worker
 Service validates raw Provider JSON through Day44's `StructuredAIResult.model_validate_json(...)` **before any
@@ -832,7 +835,7 @@ generation call to "test" the key.
 # Hands-on Exercises
 
 These map to the runnable artifact and its tests, which **were executed** (Python 3.10.12, fastapi 0.110.0,
-httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 → **19 passed**; install via `requirements-day45.txt`) with a
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 → **20 passed**; install via `requirements-day45.txt`) with a
 **fake, no-network** Provider. HTTP acceptance stays short (the route only resolves the Provider via `Depends`);
 the Provider call runs in a worker-style harness whose completion target is an **in-memory list, not
 PostgreSQL**; a real Provider
@@ -923,7 +926,8 @@ Question: define the small `AIProvider` and say what the production adapter hide
 Expected Output: `async generate(prompt, max_tokens) -> raw JSON`; the adapter hides SDK/HTTP/response
 extraction and translates vendor errors to `ProviderTimeout`/`ProviderRateLimited`/`ProviderAuthentication`/
 `ProviderTransport`. In Day45 this is tested over an **injected transport** (no real network); the real SDK is
-Day53, and with no transport injected the adapter raises `NotImplementedError`.
+Day53, and with no transport injected the adapter raises `NotImplementedError`. `asyncio.CancelledError` is
+**not** a vendor fault — it propagates unchanged so Worker drain/shutdown cancellation is preserved.
 
 Follow-up: where is the raw Provider JSON validated? (Worker Service, before completion, via Day44.)
 
@@ -1169,9 +1173,9 @@ trade-off: a lifespan-owned resource + interface seam vs per-request constructio
 connection: Day53 implements a real OpenAI-compatible SDK behind this `AIProvider` seam. Most important
 interview answer: ownership is per-process, the lifespan owns the client, and `Depends` supplies it.
 
-Validation status: a minimal FastAPI composition/lifespan and **19 pytest cases** are **real executed local
+Validation status: a minimal FastAPI composition/lifespan and **20 pytest cases** are **real executed local
 runtime evidence** — executed here on Python 3.10.12 / fastapi 0.110.0 / httpx 0.27.0 / pydantic 2.5.0 / pytest
-7.4.3 (pinned in `requirements-day45.txt`) → **19 passed** — but with a **fake, no-network** Provider and an
+7.4.3 (pinned in `requirements-day45.txt`) → **20 passed** — but with a **fake, no-network** Provider and an
 **in-memory** completion list, **not** PostgreSQL. A real Provider SDK/network/authentication, PostgreSQL/
 SQLAlchemy transactions and durable completion, Celery/Redis Worker behavior, and deployment/Secret rotation/
 drain/production are **NOT RUN**.

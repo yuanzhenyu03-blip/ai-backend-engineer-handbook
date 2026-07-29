@@ -537,6 +537,6 @@ Assessment: the ordering is correct; the one refinement is that the interrupted 
 not necessarily a wrong artifact — hence a guarded, audited recovery rather than a blind requeue.
 
 Validation: REAL local FastAPI composition tests executed with a FAKE no-network Provider (Python 3.10.12,
-fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 19 passed; completion target is an in-memory
+fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 20 passed; completion target is an in-memory
 list, not PostgreSQL). Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
 and production NOT RUN.

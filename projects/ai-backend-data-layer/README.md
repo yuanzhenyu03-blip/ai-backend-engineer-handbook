@@ -12,7 +12,7 @@ own infrastructure: per-process resource ownership, a lifespan-owned `Container`
 `FakeAIProvider`, partial-initialization cleanup, Day44 Provider-output validation before an illustrative
 in-memory completion, and the rotation/drain/rollback + invalid-Provider-output incident runbook. **REAL local
 FastAPI composition tests were executed with a FAKE no-network Provider** (Python 3.10.12, fastapi 0.110.0,
-httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 19 passed; deps pinned in `api/requirements-day45.txt`; the
+httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 20 passed; deps pinned in `api/requirements-day45.txt`; the
 completion target is an in-memory list, not PostgreSQL); real Provider SDK/network, PostgreSQL/SQLAlchemy,
 Celery/Redis, Secret rotation/drain, integration/production NOT RUN. (See the Day44 note below for the prior
 increment.)
@@ -87,7 +87,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements.txt                                # Day44: pinned deps (pydantic==2.5.0, pytest==7.4.3)
 │   ├── day45-di-lifespan-configuration-and-ai-provider-adapters-design.md  # Day45: composition/lifespan design
 │   ├── day45_composition.py                           # Day45: runnable FastAPI composition (real; fake-Provider tests pass)
-│   ├── test_day45_composition.py                      # Day45: pytest cases (executed: 19 passed, fake no-network Provider)
+│   ├── test_day45_composition.py                      # Day45: pytest cases (executed: 20 passed, fake no-network Provider)
 │   └── requirements-day45.txt                          # Day45: pinned deps (pydantic, pytest, fastapi, httpx)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -159,7 +159,7 @@ Column intent:
 + `test_day45_composition.py`) composes the Day44 typed contracts into a runnable FastAPI/Worker where Routers
 and business services never own infrastructure. The composition and tests are **real, executed code** with a
 **fake, no-network Provider**: **Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 ->
-`19 passed`** (deps pinned in `api/requirements-day45.txt`). But the completion target is an **in-memory list,
+`20 passed`** (deps pinned in `api/requirements-day45.txt`). But the completion target is an **in-memory list,
 not PostgreSQL**, and a real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
 and production are **NOT RUN**.
 

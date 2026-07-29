@@ -23,6 +23,7 @@ from day45_composition import (
     FakeAIProvider,
     JobService,
     ProviderAuthentication,
+    ProviderError,
     ProviderNotReady,
     ProviderRateLimited,
     ProviderTimeout,
@@ -330,6 +331,21 @@ def test_adapter_translates_transport():
 
     adapter = _adapter_with_transport(transport)
     with pytest.raises(ProviderTransport):
+        asyncio.run(adapter.generate(prompt="p", max_tokens=10))
+
+
+# 17b. asyncio.CancelledError (Worker graceful drain/shutdown) is NOT a vendor
+#      fault: it must propagate unchanged, never become a ProviderTransport, so
+#      cooperative cancellation semantics are preserved. Because a translated
+#      cancellation would surface as a ProviderError, pytest.raises below proves
+#      BOTH propagation AND that it was not classified into a stable Provider* type.
+def test_adapter_propagates_cancellation_without_translating():
+    async def transport(*, prompt, max_tokens):
+        raise asyncio.CancelledError()
+
+    adapter = _adapter_with_transport(transport)
+    assert not issubclass(asyncio.CancelledError, ProviderError)  # guards the intent
+    with pytest.raises(asyncio.CancelledError):
         asyncio.run(adapter.generate(prompt="p", max_tokens=10))
 
 

@@ -100,7 +100,9 @@ AIProvider (Protocol): async generate(prompt, max_tokens) -> RAW untrusted JSON 
 OpenAICompatibleAdapter: production shape; hides SDK init/request/response extraction + HTTP ownership.
   Translates faults over an INJECTED transport callable (no real network) to stable errors:
   builtin/asyncio timeout -> ProviderTimeout; status 429 -> ProviderRateLimited; 401/403 -> ProviderAuthentication;
-  ConnectionError/other -> ProviderTransport. With NO transport injected it raises NotImplementedError.
+  ConnectionError/other -> ProviderTransport. asyncio.CancelledError is NOT a vendor fault: it PROPAGATES
+  UNCHANGED (never translated), so Worker graceful-drain/shutdown cooperative cancellation is preserved.
+  With NO transport injected it raises NotImplementedError.
   The real OpenAI-compatible SDK call + response parsing are Day53 (NOT run in Day45).
 FakeAIProvider: deterministic valid/invalid JSON or a deterministic classified error; no network, no cost.
 Worker Service: validates raw JSON via Day44 StructuredAIResult.model_validate_json(...) BEFORE completion.
@@ -131,7 +133,7 @@ Worker harness -> the (possibly long) Provider call + Day44 validation + complet
 Reuse Day44 -> test the EFFECT (empty completion list), not only the exception.
 ```
 
-Executed tests in `test_day45_composition.py` (19 cases):
+Executed tests in `test_day45_composition.py` (20 cases):
 
 ```text
 1  short HTTP route resolves the Provider via Depends WITHOUT running it (client open->closed, no network, provider.calls==0)
@@ -151,8 +153,9 @@ Executed tests in `test_day45_composition.py` (19 cases):
 15 adapter translates an HTTP-429-style error -> ProviderRateLimited
 16 adapter translates an HTTP-401/403-style error -> ProviderAuthentication
 17 adapter translates a connection/other fault -> ProviderTransport
-18 adapter without an injected transport raises NotImplementedError (no real SDK in Day45)
-19 adapter passes a successful transport's raw JSON through unchanged (validated downstream by Day44)
+18 adapter propagates asyncio.CancelledError UNCHANGED (cooperative drain/shutdown is NOT a vendor fault, never translated)
+19 adapter without an injected transport raises NotImplementedError (no real SDK in Day45)
+20 adapter passes a successful transport's raw JSON through unchanged (validated downstream by Day44)
 ```
 
 ---
@@ -208,11 +211,11 @@ python3 -m pytest -q test_day45_composition.py
 ## Validation and evidence classification
 
 ```text
-REAL RUNTIME (executed)  : a minimal FastAPI composition/lifespan + 19 pytest cases with a FAKE no-network
+REAL RUNTIME (executed)  : a minimal FastAPI composition/lifespan + 20 pytest cases with a FAKE no-network
                            Provider. Executed here:
                              `python3 -m pip install -r requirements-day45.txt`
                              `python3 -m py_compile day45_composition.py test_day45_composition.py` passed;
-                             `python3 -m pytest -q test_day45_composition.py` -> 19 passed.
+                             `python3 -m pytest -q test_day45_composition.py` -> 20 passed.
                            Environment: Python 3.10.12, fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0,
                            pytest 7.4.3 (pinned in requirements-day45.txt).
 IN-MEMORY ONLY           : the completion target is an in-memory list on app.state, NOT PostgreSQL.
