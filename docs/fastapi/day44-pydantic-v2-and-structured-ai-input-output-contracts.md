@@ -20,7 +20,7 @@ Next Lesson: Day45 — Dependency Injection, Lifespan, Configuration and AI Prov
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day44 Pydantic v2 contracts (`projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md`) with runnable code [`day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) and tests [`test_day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py) — strict `MaxTokens`/`Confidence`, the request discriminated union, `Citation`/`StructuredAIResult`, status-discriminated public responses, the public error envelope, and the `validate_provider_output_before_completion` gate. Real Pydantic v2 tests were executed (18 passed; Pydantic 2.5.0, pytest 7.4.3); FastAPI/PostgreSQL/Provider/integration/production NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day44 Pydantic v2 contracts (`projects/ai-backend-data-layer/api/day44-pydantic-contracts-design.md`) with runnable code [`day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/day44_pydantic_contracts.py) and tests [`test_day44_pydantic_contracts.py`](../../projects/ai-backend-data-layer/api/test_day44_pydantic_contracts.py) — strict `MaxTokens`/`Confidence`, the request discriminated union, `Citation`/`StructuredAIResult`, status-discriminated public responses, the public error envelope, and the `validate_provider_output_before_completion` gate. Real Pydantic v2 tests were executed (24 passed; Pydantic 2.5.0, pytest 7.4.3); FastAPI/PostgreSQL/Provider/integration/production NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -78,10 +78,10 @@ So Day44 draws four boundaries as **types**: client request, public response, pu
 and keeps each honest about what it proves. Pydantic proves declared structure; it does not prove tenant
 authorization or a database commit. That separation is the whole lesson.
 
-Unusually, Day44 has **real runtime evidence**: the Pydantic v2 models and 18 pytest cases were executed
+Unusually, Day44 has **real runtime evidence**: the Pydantic v2 models and 24 pytest cases were executed
 — the repository artifact (tightened per code review: a restricted `output_schema`, UUID `upload_session_id`/
-`job_id`, an `AnyHttpUrl` citation, and a strict required `MaxTokens` bounded `1..8000`) has **18 pytest cases**
-that were executed here on Python 3.10.12 / Pydantic 2.5.0 / pytest 7.4.3 → **18 passed** (the classroom's
+`job_id`, an `AnyHttpUrl` citation, a strict required `MaxTokens` bounded `1..8000`, and a shared summary contract (`min_length=1`, `max_length=10_000`) that the public result reuses) has **24 pytest cases**
+that were executed here on Python 3.10.12 / Pydantic 2.5.0 / pytest 7.4.3 → **24 passed** (the classroom's
 earlier artifact had 11 tests). But the completion target is an **in-memory callback, not
 PostgreSQL** — and FastAPI, authentication/authorization, PostgreSQL, SQLAlchemy/Alembic, a real Provider SDK,
 Relay/Worker/Redis/Object Storage, integration, and production are all **NOT RUN**. Those are later lessons.
@@ -652,7 +652,7 @@ correctness control. Reserve `model_construct()` for trusted, hot, already-valid
 # Hands-on Exercises
 
 These exercises map to the runnable artifact and its tests, which **were executed** (Pydantic 2.5.0, pytest 7.4.3
-→ **18 passed**; install via `requirements.txt`). The completion target is an in-memory callback, **not**
+→ **24 passed**; install via `requirements.txt`). The completion target is an in-memory callback, **not**
 PostgreSQL; FastAPI, authentication/
 authorization, PostgreSQL, SQLAlchemy, a real Provider SDK, and integration are **NOT RUN**.
 
@@ -958,8 +958,8 @@ a false `succeeded`. Most important trade-off: strict/`extra="forbid"` vs forwar
 connection: Day45 wires these models through DI and a Provider-adapter seam. Most important interview answer:
 JSON-valid, Pydantic-valid, authorized, and committed are four separate boundaries.
 
-Validation status: the Pydantic v2 models and **18 pytest cases** are **real executed runtime evidence** —
-executed here on Python 3.10.12 / Pydantic 2.5.0 / pytest 7.4.3 (pinned in `requirements.txt`) → **18 passed**
+Validation status: the Pydantic v2 models and **24 pytest cases** are **real executed runtime evidence** —
+executed here on Python 3.10.12 / Pydantic 2.5.0 / pytest 7.4.3 (pinned in `requirements.txt`) → **24 passed**
 (the classroom's earlier artifact had 11 tests before the review tightening); but the
 completion target is an **in-memory callback, not PostgreSQL**. FastAPI app/routing/serialization/exception
 handlers, authentication/authorization, PostgreSQL uniqueness/transaction/commit/rollback/repair,

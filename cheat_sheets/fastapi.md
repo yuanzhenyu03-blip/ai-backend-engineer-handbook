@@ -343,7 +343,7 @@ Pydantic makes the Day43 contract executable but earns ONE guarantee (structure)
 authenticated/authorized/committed separate, validate Provider output before side effects, never model_construct untrusted.
 ```
 
-Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 18 passed; deps pinned in
+Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 24 passed; deps pinned in
 `projects/ai-backend-data-layer/api/requirements.txt`; completion target is an in-memory callback, not
 PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. DI/lifespan/
 adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.

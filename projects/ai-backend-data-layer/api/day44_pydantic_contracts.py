@@ -44,6 +44,11 @@ from pydantic import (
 MaxTokens = Annotated[StrictInt, Field(ge=1, le=8_000)]
 # Strict float in [0, 1]; a string like "very sure" is rejected.
 Confidence = Annotated[float, Field(strict=True, ge=0.0, le=1.0)]
+# The summary output contract is SHARED by the internal Provider result and the
+# public response (classroom Artifact: min_length=1, max_length=10_000). A single
+# alias is the one source of truth so the public model can never be weaker than
+# the validated Provider result (empty or oversized summary is rejected in both).
+Summary = Annotated[str, Field(min_length=1, max_length=10_000)]
 
 # A deliberately SMALL, closed output-schema contract (Day44 scope): a non-empty
 # mapping of field name -> a supported type name. This is NOT a full JSON Schema
@@ -106,7 +111,7 @@ class Citation(BaseModel):
 class StructuredAIResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    summary: str = Field(min_length=1)
+    summary: Summary
     confidence: Confidence
     citations: list[Citation]
 
@@ -118,12 +123,13 @@ class StructuredAIResult(BaseModel):
 # (lease token, fencing generation, raw Provider metadata, raw Object Storage
 # key, Outbox id, unreviewed Attempt fields) never appear here. job_id is a UUID
 # (Day31 durable model).
-class PublicResult(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    summary: str
-    confidence: Confidence
-    citations: list[Citation]
+class PublicResult(StructuredAIResult):
+    # The public success result is the SAME allowlisted output contract as the
+    # validated Provider result: summary (min_length=1, max_length=10_000),
+    # confidence, citations. Reusing StructuredAIResult keeps a single source of
+    # truth, so an ORM/DB projection or a hand-built public response can never
+    # smuggle an empty or oversized summary past the Day44 output contract.
+    pass
 
 
 class PublicFailure(BaseModel):

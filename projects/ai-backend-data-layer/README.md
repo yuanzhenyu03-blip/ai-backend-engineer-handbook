@@ -10,7 +10,7 @@ Pydantic-valid -> authenticated -> authorized -> app invariants -> PostgreSQL co
 truth), the request discriminated union (summarize/extract_structured), strict `MaxTokens`/`Confidence`, the
 untrusted-Provider `StructuredAIResult`, status-discriminated public responses, the public error envelope, the
 validate-before-side-effects gate, and the 37-Job `model_construct()` incident. **REAL Pydantic v2 tests were
-executed** (Pydantic 2.5.0, pytest 7.4.3 -> 18 passed; deps pinned in `api/requirements.txt`; the completion target is an in-memory callback, not
+executed** (Pydantic 2.5.0, pytest 7.4.3 -> 24 passed; deps pinned in `api/requirements.txt`; the completion target is an in-memory callback, not
 PostgreSQL); FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. (See the Day43
 note below for the prior increment.)
 
@@ -79,7 +79,7 @@ projects/ai-backend-data-layer/
 │   ├── day43-ai-job-api-contract.md                   # Day43: AI Job API contract over the Day42 model (contract + design, not executed)
 │   ├── day44-pydantic-contracts-design.md             # Day44: Pydantic v2 API + AI output contracts (design)
 │   ├── day44_pydantic_contracts.py                    # Day44: runnable Pydantic v2 models (real; tests pass)
-│   ├── test_day44_pydantic_contracts.py               # Day44: pytest cases (executed: 18 passed)
+│   ├── test_day44_pydantic_contracts.py               # Day44: pytest cases (executed: 24 passed)
 │   └── requirements.txt                                # Day44: pinned deps (pydantic==2.5.0, pytest==7.4.3)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -150,7 +150,7 @@ Column intent:
 `api/day44-pydantic-contracts-design.md` (with runnable `day44_pydantic_contracts.py` +
 `test_day44_pydantic_contracts.py`) turns the Day43 static HTTP contract into **executable, typed** validation/
 serialization boundaries. Unlike the earlier design-only artifacts, the Pydantic models and tests are **real,
-executed code**: **Pydantic 2.5.0, pytest 7.4.3 -> `18 passed`** (deps pinned in `api/requirements.txt`). But structural validation is **not** authorization
+executed code**: **Pydantic 2.5.0, pytest 7.4.3 -> `24 passed`** (deps pinned in `api/requirements.txt`). But structural validation is **not** authorization
 and **not** a durable commit; the completion target in the tests is an **in-memory callback, not PostgreSQL**,
 and FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production are **NOT RUN**.
 
@@ -1675,7 +1675,7 @@ not running. Do not present a Docker workflow as verified.
 |---|---|---|
 | Conceptual classroom validation | **Completed** | the boundary ladder, request/response/error/Provider contracts, strict types, discriminated unions, validation entry points, validate-before-side-effects, and the 37-Job incident reasoned end to end |
 | Static contract review | **Completed** | static review of the model map and the boundary separation (structure vs authorization vs durable commit) |
-| **Pydantic v2 runtime (executed)** | **RUN — 18 passed** | after tightening per review (restricted output_schema, UUID upload_session_id/job_id, AnyHttpUrl citation, strict required MaxTokens 1..8000), the suite grew from the classroom's 11 to 18: `pip install -r requirements.txt` then `py_compile` passed and `pytest -q` -> **18 passed** (Python 3.10.12, Pydantic 2.5.0, pytest 7.4.3, pinned in requirements.txt) |
+| **Pydantic v2 runtime (executed)** | **RUN — 24 passed** | after tightening per review (restricted output_schema, UUID upload_session_id/job_id, AnyHttpUrl citation, strict required MaxTokens 1..8000, and a shared summary contract min_length=1/max_length=10_000 reused by the public result), the suite grew from the classroom's 11 to 24: `pip install -r requirements.txt` then `py_compile` passed and `pytest -q` -> **24 passed** (Python 3.10.12, Pydantic 2.5.0, pytest 7.4.3, pinned in requirements.txt) |
 | Completion target | **IN-MEMORY ONLY** | the tests use an in-memory list callback, **not** a guarded PostgreSQL completion |
 | FastAPI / auth / integration runtime | **NOT RUN** | no FastAPI app/routing/serialization/exception handlers; no authentication/tenant authorization; no integration |
 | PostgreSQL / SQLAlchemy / Provider runtime | **NOT RUN** | no PostgreSQL uniqueness/transaction/commit/rollback/repair; no SQLAlchemy/Alembic; no real Provider SDK; no Relay/Worker/Redis/Object Storage |

@@ -85,7 +85,8 @@ tested adapter**, not implicit core-model guessing.
 ## 4. Provider output is untrusted input
 
 ```text
-StructuredAIResult (extra="forbid"): summary:str(min1) + confidence:Confidence + citations:list[Citation]
+StructuredAIResult (extra="forbid"): summary:Summary(min_length=1, max_length=10_000) + confidence:Confidence
+  + citations:list[Citation]
 Citation (extra="forbid"): source_id:str(min1) + url:AnyHttpUrl (scheme + host required, so a bare "https://"
   is rejected). URL SHAPE validation != source authorization != SSRF protection != grounding/source verification.
 ```
@@ -106,8 +107,13 @@ unreviewed Attempt fields) never become public just because an ORM/database obje
 
 JobStatusResponse = discriminated union on job_status:
   QueuedJobResponse    -> queued/running: NO result, NO failure
-  SucceededJobResponse -> succeeded: result REQUIRED, failure absent
+  SucceededJobResponse -> succeeded: result REQUIRED (PublicResult), failure absent
   FailedJobResponse    -> failed: failure REQUIRED, result absent
+
+PublicResult subclasses StructuredAIResult: the public success result reuses the SAME summary contract
+  (min_length=1, max_length=10_000), confidence, and citations. One source of truth -> the public model can
+  NEVER be weaker than the validated Provider result, so an empty or oversized summary is rejected on the way
+  out too. An ORM/DB projection or a hand-built public response cannot bypass the Day44 output contract.
 
 A single response with many nullable fields permits nonsensical states; discriminated state models make the
 illegal combinations unrepresentable.
@@ -217,20 +223,22 @@ python3 -m pytest -q test_day44_pydantic_contracts.py
 The tests cover: a valid summarize request; body-level tenant/job_status/debug/output_schema extras rejected;
 string `max_tokens` rejected; extract requires a non-empty output schema; a succeeded response requires a
 result; a queued response rejects an early result; invalid Provider output raises before the fake completion
-callback; and valid Provider output reaches the callback exactly once.
+callback; an empty/oversized (10_001) summary is rejected on both the Provider result and the public succeeded
+response while a 10_000-char summary passes; and valid Provider output reaches the callback exactly once.
 
 ---
 
 ## Validation and evidence classification
 
 ```text
-REAL RUNTIME (executed)  : Pydantic v2 model validation + the 18 pytest cases. This artifact was tightened per
+REAL RUNTIME (executed)  : Pydantic v2 model validation + the 24 pytest cases. This artifact was tightened per
                            code review (restricted output_schema, UUID upload_session_id/job_id, AnyHttpUrl
-                           citation, strict required MaxTokens 1..8000), which grew the suite from the
-                           classroom's 11 tests to 18. Executed here:
+                           citation, strict required MaxTokens 1..8000, and a shared summary contract
+                           min_length=1/max_length=10_000 reused by the public result), which grew the suite from the
+                           classroom's 11 tests to 24. Executed here:
                              `python3 -m pip install -r requirements.txt`
                              `python3 -m py_compile day44_pydantic_contracts.py test_day44_pydantic_contracts.py` passed;
-                             `python3 -m pytest -q test_day44_pydantic_contracts.py` -> 18 passed.
+                             `python3 -m pytest -q test_day44_pydantic_contracts.py` -> 24 passed.
                            Environment: Python 3.10.12, Pydantic 2.5.0, pytest 7.4.3 (pinned in requirements.txt).
                            The pinned/tested Pydantic version is 2.5.0; do NOT claim all Pydantic v2 releases
                            were tested.

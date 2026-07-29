@@ -59,6 +59,26 @@ def extract_payload(**overrides):
     return payload
 
 
+def result_payload(**overrides):
+    """A fully valid StructuredAIResult/PublicResult body; override one field."""
+    payload = {
+        "summary": "a valid summary",
+        "confidence": 0.9,
+        "citations": [{"source_id": "c1", "url": "https://example.com/a"}],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def succeeded_payload(**result_overrides):
+    """A fully valid SucceededJobResponse; override one nested result field."""
+    return {
+        "job_id": JOB_ID,
+        "job_status": "succeeded",
+        "result": result_payload(**result_overrides),
+    }
+
+
 # 1. Valid summarize request.
 def test_valid_summarize_request():
     req = JobRequestAdapter.validate_python(summarize_payload())
@@ -225,3 +245,53 @@ def test_valid_provider_output_completes_once():
     assert isinstance(result, StructuredAIResult)
     assert len(completion_calls) == 1
     assert completion_calls[0] is result
+
+
+# 19. Provider result summary="" is rejected (min_length=1). Every other field
+#     is valid so the rejection is unambiguously about summary.
+def test_provider_summary_empty_rejected():
+    with pytest.raises(ValidationError):
+        StructuredAIResult.model_validate(result_payload(summary=""))
+
+
+# 20. Provider result summary of length 10_001 is rejected (max_length=10_000).
+def test_provider_summary_too_long_rejected():
+    with pytest.raises(ValidationError):
+        StructuredAIResult.model_validate(result_payload(summary="x" * 10_001))
+
+
+# 21. Public SucceededJobResponse result.summary="" is rejected. The public model
+#     must NOT be weaker than the validated Provider result.
+def test_public_result_summary_empty_rejected():
+    with pytest.raises(ValidationError):
+        SucceededJobResponse.model_validate(succeeded_payload(summary=""))
+
+
+# 22. Public SucceededJobResponse result.summary of length 10_001 is rejected.
+def test_public_result_summary_too_long_rejected():
+    with pytest.raises(ValidationError):
+        SucceededJobResponse.model_validate(succeeded_payload(summary="x" * 10_001))
+
+
+# 23. A summary of exactly length 10_000 is the accepted upper boundary, in both
+#     the Provider result and the public succeeded response.
+def test_summary_at_max_length_accepted():
+    boundary = "x" * 10_000
+    provider = StructuredAIResult.model_validate(result_payload(summary=boundary))
+    assert len(provider.summary) == 10_000
+    public = SucceededJobResponse.model_validate(succeeded_payload(summary=boundary))
+    assert len(public.result.summary) == 10_000
+
+
+# 24. An invalid Provider summary leaves the completion callback uncalled (the
+#     side effect is blocked, not merely wrapped in an exception).
+def test_invalid_provider_summary_blocks_completion():
+    completion_calls: list[StructuredAIResult] = []
+    # Empty summary; confidence and citations are valid so only summary fails.
+    bad = (
+        '{"summary": "", "confidence": 0.8, '
+        '"citations": [{"source_id": "c1", "url": "https://example.com/a"}]}'
+    )
+    with pytest.raises(ValidationError):
+        validate_provider_output_before_completion(bad, completion_calls.append)
+    assert completion_calls == []
