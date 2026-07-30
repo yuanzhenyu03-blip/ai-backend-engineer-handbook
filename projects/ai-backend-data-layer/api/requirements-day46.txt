@@ -1,0 +1,17 @@
+# Day46 SQLAlchemy 2.0 mapping for the Day42 data model — pinned dependencies for
+# the recorded repository STATIC test evidence. These run the metadata-contract
+# tests only; they do NOT connect to PostgreSQL.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day46.txt
+#   python3 -m py_compile day46_orm_mapping.py test_day46_orm_mapping.py
+#   python3 -m pytest -q test_day46_orm_mapping.py
+#
+# Runtime scope: these prove the DECLARED SQLAlchemy mapping STRUCTURE only
+# (static metadata). Real PostgreSQL behavior (applying the independent Day42 raw
+# SQL, then asserting CHECK/UNIQUE/FK rejection) is NOT RUN here — no PostgreSQL
+# server was available. AsyncSession/transactions/repository/UoW (Day47), Alembic
+# migrations (Day48), Celery/Provider/Object-Storage runtime are out of scope.
+sqlalchemy==2.0.29
+pytest==7.4.3

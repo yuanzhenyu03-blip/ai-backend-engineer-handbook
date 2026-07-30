@@ -10,13 +10,13 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day45 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day46 completed)
 
 ---
 
 ## Current Lesson
 
-Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4)
+Day47 — Async Sessions, Transactions, Repository and Unit of Work (Phase 4)
 
 Status:
 Planned / Not started
@@ -30,11 +30,28 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 
 - [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 24 passed), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4) — lesson, composition design + runnable code/tests (executed: 20 passed with a fake no-network Provider), FastAPI cheat-sheet/interview appends, and status updates.
-- [ ] Prepare for Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4; see the Day46 Preparation block below).
+- [x] Complete Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4) — lesson, mapping design + runnable code/static tests (executed: 19 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
+- [ ] Prepare for Day47 — Async Sessions, Transactions, Repository and Unit of Work (Phase 4; see the Day47 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
 (Day29-Day45 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Phase 4 is in progress; Day46 is next.)
+Preparation history blocks. Phase 4 is in progress; Day47 is next.)
+
+---
+
+## Completed Day46 Tasks
+
+- [x] Complete Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model classroom learning.
+- [x] Generate the Day46 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day45->Day46 mental-model evolution), preserving verbatim student answers including the "不知道" responses and the initial new-authority/Attempt-uniqueness/single-FK/global-session/CHECK-test misconceptions.
+- [x] Build the runnable Day46 mapping artifact inside the existing project `api/` directory (no parallel project): `day46_orm_mapping.py`, `test_day46_orm_mapping.py`, `day46-sqlalchemy-mapping-for-the-day42-data-model-design.md`, and scoped `requirements-day46.txt`; map only Day46 scope + a minimal Tenant stub; keep Document/job_documents as a stated limitation.
+- [x] Run `py_compile` and `pytest` on the Day46 code and record exact results (19 static metadata tests passed); label PostgreSQL runtime NOT RUN; do not use `create_all()` as compatibility evidence.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day46 increment (artifact/code/test links, honest static-vs-NOT-RUN matrix).
+- [x] Append the Day46 section to `cheat_sheets/fastapi.md`.
+- [x] Append Day46 questions to `interview/fastapi.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day46 is the latest FastAPI lesson).
+- [x] Update the Day45 lesson Next Lesson link to the released Day46 lesson.
+- [x] Update `CURRICULUM.md` (Day46 Completed; Phase 4 In Progress; Day47-Day100 remain Planned) and `ROADMAP.md` (Day46 Completed).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, and `CHANGELOG.md`.
 
 ---
 
@@ -793,12 +810,21 @@ Preparation history blocks. Phase 4 is in progress; Day46 is next.)
 
 ---
 
-### Day46 Preparation — SQLAlchemy 2.0 Mapping for the Day42 Data Model
+### Day47 Preparation — Async Sessions, Transactions, Repository and Unit of Work
 
-- [ ] Read the Day46 input when provided.
-- [ ] Review the Day42 durable Job/Attempt/Event/Outbox/Upload-Session/Artifact model and the Day45 dependency boundary that Day46 will persist behind.
-- [ ] Preview SQLAlchemy 2.0 mapping WITHOUT merging ORM models with the public Pydantic models (keep persistence/internal/public separate).
-- [ ] Keep async sessions/transactions/unit-of-work (Day47), Outbox acceptance (Day50), and real Provider integration (Day53) out of scope.
+- [ ] Read the Day47 input when provided.
+- [ ] Review the Day46 SQLAlchemy mapping and the Day45 process-vs-request scope boundary that Day47 drives.
+- [ ] Preview an app/process-scoped AsyncEngine and a request/Job-scoped AsyncSession, transaction boundaries, a repository, and a unit of work over the Day33 guarantees.
+- [ ] Keep Alembic migrations (Day48), Outbox acceptance (Day50), and real Provider integration (Day53) out of scope.
+
+---
+
+### Day46 Preparation — SQLAlchemy 2.0 Mapping for the Day42 Data Model (completed)
+
+- [x] Read the Day46 input when provided.
+- [x] Review the Day42 durable Job/Attempt/Event/Outbox/Upload-Session/Artifact model and the Day45 dependency boundary that Day46 will persist behind.
+- [x] Preview SQLAlchemy 2.0 mapping WITHOUT merging ORM models with the public Pydantic models (keep persistence/internal/public separate).
+- [x] Keep async sessions/transactions/unit-of-work (Day47), Outbox acceptance (Day50), and real Provider integration (Day53) out of scope.
 
 ---
 

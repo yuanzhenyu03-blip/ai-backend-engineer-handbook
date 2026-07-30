@@ -446,3 +446,86 @@ Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/
 SQLAlchemy mapping = Day46; async sessions/tx = Day47; real Provider SDK = Day53.
 
 Related: [Day45 lesson](../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md) · [Day45 composition design](../projects/ai-backend-data-layer/api/day45-di-lifespan-configuration-and-ai-provider-adapters-design.md) · [code](../projects/ai-backend-data-layer/api/day45_composition.py) · [tests](../projects/ai-backend-data-layer/api/test_day45_composition.py)
+
+---
+
+## Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model
+
+Central rule:
+
+```text
+ORM mapping REPRESENTS the database contract; it does NOT silently REPLACE it.
+Day46 MAPS it -> Day47 DRIVES it (sessions/tx/repo/UoW) -> Day48 EVOLVES it (Alembic).
+```
+
+### Typed declarative mapping
+
+```text
+class Base(DeclarativeBase): metadata = MetaData(schema="app")   # exact existing app-schema identity
+Mapped[T] = mapped_column(...)   # Mapped[T] = ORM-managed typed attr; mapped_column = column metadata (plain annotation != mapping)
+types match Day42 exactly: UUID(as_uuid=True), Text, Integer, BigInteger, Boolean, TIMESTAMP(timezone=True), JSONB
+server-GENERATED values are SERVER defaults: server_default=text("gen_random_uuid()"/"now()"/"'queued'"/"0"/"false"/"'{}'::jsonb")
+"metadata" column is reserved by Declarative -> map as event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, ...)
+```
+
+### Constraints / integrity (names preserved)
+
+```text
+Job: jobs_tenant_idempotency_unique UNIQUE(tenant_id, idempotency_key)  | jobs_tenant_id_unique UNIQUE(tenant_id, job_id)
+     jobs_status_allowed CHECK (TEXT+CHECK, NOT native enum -> enum is Day48) | jobs_attempt_count_non_negative CHECK
+     jobs_succeeded_has_finished_at CHECK(status<>'succeeded' OR finished_at IS NOT NULL)
+     jobs_tenant_fk FK -> tenants ON DELETE RESTRICT
+Mapped[datetime | None] + nullable=True ALLOW null; they do NOT enforce the CHECK (the CHECK does)
+JobAttempt: UNIQUE(job_id, attempt_number) = retry ordinal JOB-scoped (NOT tenant, NOT global; Job B may reuse 1)
+            UNIQUE(job_id, attempt_id) = candidate key for provenance
+JobEvent: FK (job_id, attempt_id) -> job_attempts(job_id, attempt_id) = same-Job provenance; NULL attempt_id = Job-level event
+ON DELETE RESTRICT everywhere; NO cascade/delete-orphan; relationship() = NAVIGATION only, NOT integrity
+```
+
+### Boundaries / scope / evidence
+
+```text
+Pydantic public models != ORM persistence models (never merged/inherited; no tenant/audit/persistence leak)
+neither Pydantic nor ORM classes PROVE PostgreSQL constraint behavior (that is PostgreSQL's job)
+Outbox: PostgreSQL-owned dispatch INTENT; published_at NULL = checkpoint not recorded, NOT "never sent" (at-least-once)
+ResultArtifact stores attempt_id ONLY (job ownership DERIVED via Attempt; no denormalized job_id without constraint)
+UploadSession/ResultArtifact store Object Storage REFERENCES/metadata, never large bytes/signed URLs/credentials
+Tenant = minimal support stub (preserve FKs/candidate keys); tenant_id stays an explicit mapped column/FK (NOT derived away)
+Document + job_documents = stated unimplemented limitation (NOT a half-built relationship)
+NO Engine/AsyncSession/transaction/UoW in Day46 (Day47: one Engine/process, one session/request-Job)
+static metadata tests prove DECLARED structure; create_all() success != schema compatibility; real PostgreSQL runtime = separate
+negative constraint test expects a REJECTED write (CHECK violation / IntegrityError), NOT an empty query result
+```
+
+### Weak vs strong (Day46)
+
+```text
+Weak:   "Defining ORM models makes the ORM the schema authority."
+Strong: "In an existing system the ORM faithfully maps the contract; PostgreSQL stays authority; change is Day48 migration."
+
+Weak:   "Mapped[datetime | None] enforces 'succeeded implies finished_at'."
+Strong: "Nullability only allows NULL; the jobs_succeeded_has_finished_at CHECK enforces it, and a negative test expects a rejected write."
+
+Weak:   "UNIQUE(tenant_id, attempt_id) scopes the Attempt."
+Strong: "Retry ordinal is Job-scoped: UNIQUE(job_id, attempt_number); Job B may reuse Attempt 1."
+
+Weak:   "cascade='all, delete-orphan' keeps children tidy."
+Strong: "Day42 requires ON DELETE RESTRICT; audit/recovery evidence must not be erased; relationship() is navigation only."
+
+Weak:   "create_all() succeeded, so the mapping matches the schema."
+Strong: "Creation success isn't compatibility; static tests prove structure and a runtime test applies the Day42 SQL to prove behavior."
+```
+
+### One-line mental model
+
+```text
+Day46 maps the Day42 durable PostgreSQL contract into faithful SQLAlchemy 2.0 models (app schema, server defaults, named
+UNIQUE/CHECK/FK, RESTRICT, TEXT+CHECK, composite provenance) without changing authority; Day47 drives it, Day48 evolves it.
+```
+
+Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 19 passed;
+deps pinned in `projects/ai-backend-data-layer/api/requirements-day46.txt`; declared STRUCTURE only). PostgreSQL runtime
+NOT RUN (no server; create_all() not used and not compatibility evidence). Sessions/transactions = Day47; Alembic = Day48;
+Celery/Provider/Object-Storage runtime, integration, production NOT RUN.
+
+Related: [Day46 lesson](../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md) · [Day46 mapping design](../projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md) · [code](../projects/ai-backend-data-layer/api/day46_orm_mapping.py) · [tests](../projects/ai-backend-data-layer/api/test_day46_orm_mapping.py)

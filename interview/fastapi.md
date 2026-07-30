@@ -540,3 +540,113 @@ Validation: REAL local FastAPI composition tests executed with a FAKE no-network
 fastapi 0.110.0, httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 20 passed; completion target is an in-memory
 list, not PostgreSQL). Real Provider SDK/network, PostgreSQL/SQLAlchemy, Celery/Redis, Secret rotation/drain,
 and production NOT RUN.
+
+---
+
+## Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4)
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day46), the
+[Day46 lesson](../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md), the
+[Day46 mapping design](../projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md), and the
+runnable [code](../projects/ai-backend-data-layer/api/day46_orm_mapping.py) /
+[static tests](../projects/ai-backend-data-layer/api/test_day46_orm_mapping.py).
+
+### Q1 (Beginner) — What does it mean to map an existing schema with an ORM, and is the ORM the schema authority?
+
+Model answer:
+
+Mapping means writing ORM models that faithfully represent an existing schema — its tables, columns, types,
+defaults, and constraints — so code can use typed objects. In a system that already has a schema, the database
+remains the authority; the ORM is a representation, not a redefinition, and deliberate changes go through a
+migration tool (Alembic), not by editing the models.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer covers faithful representation, the database staying
+authoritative, and migrations for change.
+
+### Q2 (Intermediate) — Why keep `TEXT + CHECK` for status instead of a native enum, and why doesn't a nullable column enforce a conditional rule?
+
+Model answer:
+
+`TEXT + CHECK` is the existing database fact; a native enum changes the on-disk representation and is a migration
+(Day48), not a mapping. A nullable column only allows NULL; it does not enforce "succeeded implies a finish
+time." That rule is a CHECK enforced by PostgreSQL on every write path, and a negative test for it expects a
+rejected write (CHECK violation / `IntegrityError`), not an empty result.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer separates mapping from migration and nullability from the CHECK.
+
+### Q3 (Senior) — A release omitted the `app` schema and wrote accepted Jobs to `public.jobs`. How do you recover, and what evidence matters most?
+
+Model answer:
+
+Roll back the bad mapping/release to protect future writes, remembering that a code rollback does not undo the
+committed rows. Preserve and classify correlation evidence — release version, job/tenant/request/trace IDs — and
+the single most important signal is whether the client was already responded to, because it constrains what a
+safe reconciliation may do. Then reconcile the mis-placed rows into the durable `app`-schema truth through an
+idempotent, audited process — never blindly ignoring, copying, or deleting them.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer is the full contain → preserve/classify → reconcile arc with the
+client-response signal and the code-vs-data rollback boundary.
+
+### Q4 (Intermediate) — What makes a JobAttempt unique, and may Job B reuse `attempt_number = 1`?
+
+Model answer:
+
+`attempt_id` is globally primary-key unique, but the business uniqueness is `UNIQUE(job_id, attempt_number)` —
+the retry ordinal is unique within one Job, not tenant-scoped and not global. So Job B may have its own Attempt
+1. A second candidate key, `UNIQUE(job_id, attempt_id)`, exists so JobEvent can prove same-Job provenance.
+
+Student answer (verbatim):
+
+> (initial, incorrect) "uniquee(tenant_id,attemp_id)"; (corrected) "应该运行，因为属于不同job"
+
+Assessment: the scope was first put on the tenant; corrected to Job-scoped, and the different-Job retry
+reasoning is right.
+
+### Q5 (Intermediate) — How do you guarantee a non-NULL Attempt belongs to the same Job, and what does a NULL `attempt_id` mean?
+
+Model answer:
+
+A composite foreign key `(job_id, attempt_id) -> job_attempts(job_id, attempt_id)` proves same-Job provenance; a
+single Attempt FK would permit a valid Job plus an unrelated valid Attempt. With MATCH SIMPLE, a NULL
+`attempt_id` leaves the composite reference unenforced — the intended Job-level Event. The composite FK does not
+limit an Attempt to one Event.
+
+Student answer (verbatim):
+
+> (initial) "因为只依靠单列只能出现attempt_id一次"; (correct) "job_id 是job A，attempt_id是null，这代表Job-level event"
+
+Assessment: the mechanism was first explained by single-column reasoning; corrected to the composite FK, with a
+correct Job-level-event description.
+
+### Q6 (Intermediate) — Does `create_all()` success prove the mapping matches the existing schema?
+
+Model answer:
+
+No. `create_all()` can build a fresh schema that differs from the live one, so success is not compatibility
+evidence. Static metadata tests prove the declared mapping structure; real behavior requires an isolated
+PostgreSQL runtime test that first applies the independent Day42 raw SQL, then asserts actual rejections (a
+duplicate `(tenant_id, idempotency_key)`, a succeeded Job without `finished_at`) — a rejected write, not an
+empty result. Neither is Day47 integration evidence.
+
+Student answer (verbatim):
+
+> "不能，还需要进行验证" — and: "属于静态验证，能证明ORM classes的语法没有错误，不能证明实际orm映射的PostgreSQL事实"
+
+Assessment: correct — creation success is not compatibility; static structure vs real database behavior are
+distinct evidence levels.
+
+Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 19
+passed; declared structure only). PostgreSQL runtime NOT RUN (no server; `create_all()` not used and not
+compatibility evidence). Sessions/transactions = Day47; Alembic = Day48; integration/production NOT RUN.

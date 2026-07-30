@@ -4,17 +4,17 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day45 — dependency injection, lifespan, configuration and AI provider adapters** that
-compose the Day44 typed contracts into a runnable FastAPI/Worker WITHOUT letting Routers or business services
-own infrastructure: per-process resource ownership, a lifespan-owned `Container` (validated secret-aware
-`Settings` + async HTTP client + concrete `ProviderAdapter`) that closes in reverse order, `Depends`-supplied
-`get_provider`, a stateless per-request `JobService`, a small `AIProvider` seam with a production adapter and a
-`FakeAIProvider`, partial-initialization cleanup, Day44 Provider-output validation before an illustrative
-in-memory completion, and the rotation/drain/rollback + invalid-Provider-output incident runbook. **REAL local
-FastAPI composition tests were executed with a FAKE no-network Provider** (Python 3.10.12, fastapi 0.110.0,
-httpx 0.27.0, pydantic 2.5.0, pytest 7.4.3 -> 20 passed; deps pinned in `api/requirements-day45.txt`; the
-completion target is an in-memory list, not PostgreSQL); real Provider SDK/network, PostgreSQL/SQLAlchemy,
-Celery/Redis, Secret rotation/drain, integration/production NOT RUN. (See the Day44 note below for the prior
+Current increment: **Day46 — SQLAlchemy 2.0 mapping for the Day42 data model** that faithfully represents the
+existing PostgreSQL durable contract as typed declarative models WITHOUT changing ownership, integrity,
+retention, public boundaries, or schema authority: the `app`-schema table identity, `Mapped[T] =
+mapped_column(...)` typed columns, server-side defaults, named UNIQUE/CHECK/FK constraints, `ON DELETE RESTRICT`,
+`TEXT + CHECK` status (not a native enum), Job-scoped attempt uniqueness, and the same-Job composite provenance
+FK — mapping Job/JobAttempt/JobEvent/OutboxEvent/UploadSession/ResultArtifact (+ a minimal Tenant stub), with
+`relationship()` as navigation only and Pydantic public models kept separate. **REAL static metadata-contract
+tests were executed** (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 19 passed; deps pinned in
+`api/requirements-day46.txt`; declared STRUCTURE only). PostgreSQL runtime is **NOT RUN** (no server; `create_all()`
+was not used and would not be compatibility evidence); AsyncSession/transactions (Day47), Alembic (Day48),
+Celery/Provider/Object-Storage runtime, integration/production NOT RUN. (See the Day45 note below for the prior
 increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -70,6 +70,7 @@ Lessons:
 - Day43 (API contract): [`docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md`](../../docs/fastapi/day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md)
 - Day44 (Pydantic contracts): [`docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md`](../../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md)
 - Day45 (DI/lifespan/config/adapters): [`docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md`](../../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md)
+- Day46 (SQLAlchemy mapping): [`docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md`](../../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md)
 
 ---
 
@@ -88,7 +89,11 @@ projects/ai-backend-data-layer/
 │   ├── day45-di-lifespan-configuration-and-ai-provider-adapters-design.md  # Day45: composition/lifespan design
 │   ├── day45_composition.py                           # Day45: runnable FastAPI composition (real; fake-Provider tests pass)
 │   ├── test_day45_composition.py                      # Day45: pytest cases (executed: 20 passed, fake no-network Provider)
-│   └── requirements-day45.txt                          # Day45: pinned deps (pydantic, pytest, fastapi, httpx)
+│   ├── requirements-day45.txt                          # Day45: pinned deps (pydantic, pytest, fastapi, httpx)
+│   ├── day46-sqlalchemy-mapping-for-the-day42-data-model-design.md  # Day46: SQLAlchemy 2.0 mapping design
+│   ├── day46_orm_mapping.py                            # Day46: faithful SQLAlchemy 2.0 mapping of the Day42 app schema
+│   ├── test_day46_orm_mapping.py                       # Day46: static metadata-contract tests (executed: 19 passed)
+│   └── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -150,6 +155,58 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day46 increment — SQLAlchemy 2.0 mapping for the Day42 data model
+
+`api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md` (with runnable `day46_orm_mapping.py` +
+`test_day46_orm_mapping.py`) faithfully maps the existing Day42 PostgreSQL durable contract into SQLAlchemy 2.0
+typed declarative models. The mapping and its **static** tests are **real, executed code**: **Python 3.10.12,
+SQLAlchemy 2.0.29, pytest 7.4.3 -> `19 passed`** (deps pinned in `api/requirements-day46.txt`). But these assert
+the **declared mapping structure only**; the ORM is a representation of the contract, **not** a new schema
+authority, and **PostgreSQL runtime behavior is NOT RUN**.
+
+### What the mapping contains
+
+| Section | Contents |
+| --- | --- |
+| Authority | ORM MAPS the existing contract (it does not replace it); PostgreSQL stays durable authority. Day46 maps -> Day47 drives -> Day48 evolves |
+| Typed mapping | `DeclarativeBase` + `MetaData(schema="app")`; `Mapped[T] = mapped_column(...)`; PostgreSQL `UUID`/`JSONB`, `TIMESTAMP(timezone=True)`, `Text`; server-side defaults (`gen_random_uuid()`/`now()`/…) |
+| Constraints | named `UNIQUE`/`CHECK`/`FK` preserved exactly (`jobs_tenant_idempotency_unique`, `jobs_succeeded_has_finished_at`, `job_attempts_job_number_unique`, `job_events_attempt_same_job_fk`, …); `TEXT + CHECK` status, not a native enum (that is Day48) |
+| Attempt/Event | Job-scoped retry uniqueness `UNIQUE(job_id, attempt_number)`; composite same-Job provenance FK `(job_id, attempt_id)`; NULL attempt_id = Job-level event |
+| Retention | `ON DELETE RESTRICT` everywhere; **no** cascade/delete-orphan; `relationship()` is navigation only |
+| Boundaries | Pydantic public models kept separate from ORM models; Outbox `published_at` NULL = checkpoint not recorded (not "never sent"); ResultArtifact owns via `attempt_id` (no denormalized `job_id`); UploadSession stores references, not bytes |
+| Scope | minimal Tenant support stub (tenant_id stays explicit); Document/`job_documents` = stated unimplemented limitation; **no** Engine/AsyncSession/transaction/UoW (Day47) |
+| Evidence | 19 **static metadata** tests (declared structure); `create_all()` success is **not** compatibility; PostgreSQL runtime **NOT RUN** |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day46.txt   # sqlalchemy==2.0.29, pytest==7.4.3
+python3 -m py_compile day46_orm_mapping.py test_day46_orm_mapping.py
+python3 -m pytest -q test_day46_orm_mapping.py
+```
+
+> **What this increment deliberately does not do:** it creates **no** Engine, AsyncSession, transaction,
+> repository, or unit of work (Day47), runs **no** Alembic/migration (Day48), and does **not** connect to a
+> database — the tests introspect `Base.metadata` only and **never call `create_all()`** (whose success would
+> not prove schema compatibility). Real PostgreSQL runtime behavior (apply the independent Day42 raw SQL, then
+> assert a CHECK/UNIQUE/FK **rejection**) is **NOT RUN** (no server was available). No native-enum change, no
+> Celery/Provider/Object-Storage runtime, no public API endpoint. Pydantic and ORM models stay separate; no fake
+> secrets, credentialed URLs, or large bytes.
+
+### Day46 known gaps (deliberate)
+
+```text
+Day47      AsyncEngine/AsyncSession lifecycle, transactions, repository, unit of work (drives these mappings)
+Day48      Alembic safe schema evolution (Expand -> Backfill -> Validate -> Switch -> Contract); native-enum change if chosen
+Day50      idempotent Job + Outbox acceptance over the mapped durable boundary
+Day55      Celery Worker/broker delivery chain without changing the Outbox's PostgreSQL authority
+runtime    isolated PostgreSQL test (apply Day42 SQL, assert rejected writes) — NOT RUN here
+limitation app.documents + app.job_documents are NOT mapped (real Day42 schema, future scope)
+```
 
 ---
 

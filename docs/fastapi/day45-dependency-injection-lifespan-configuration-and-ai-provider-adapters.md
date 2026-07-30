@@ -16,7 +16,7 @@ Prerequisite: Day44 — Pydantic v2 and Structured AI Input/Output Contracts
 
 Previous Lesson: [Day44 — Pydantic v2 and Structured AI Input/Output Contracts](day44-pydantic-v2-and-structured-ai-input-output-contracts.md)
 
-Next Lesson: Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model (planned — Phase 4; see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day46 lesson file does not exist yet)
+Next Lesson: [Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model](day46-sqlalchemy-mapping-for-the-day42-data-model.md)
 
 Phase: Phase 4 — Production AI API Engineering
 
