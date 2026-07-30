@@ -20,7 +20,7 @@ Next Lesson: Day47 — Async Sessions, Transactions, Repository and Unit of Work
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day46 SQLAlchemy mapping design ([`projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md`](../../projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md)) with runnable code [`day46_orm_mapping.py`](../../projects/ai-backend-data-layer/api/day46_orm_mapping.py) and static metadata tests [`test_day46_orm_mapping.py`](../../projects/ai-backend-data-layer/api/test_day46_orm_mapping.py) — a faithful SQLAlchemy 2.0 typed declarative mapping of the Day42 `app`-schema durable contract (Job/JobAttempt/JobEvent/OutboxEvent/UploadSession/ResultArtifact + a minimal Tenant stub), preserving server defaults, named UNIQUE/CHECK/FK constraints, ON DELETE RESTRICT, TEXT+CHECK status, and the same-Job composite provenance FK. Static metadata contract tests were executed (19 passed; Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3); PostgreSQL runtime, sessions/transactions, migrations, and integration are NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day46 SQLAlchemy mapping design ([`projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md`](../../projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md)) with runnable code [`day46_orm_mapping.py`](../../projects/ai-backend-data-layer/api/day46_orm_mapping.py) and static metadata tests [`test_day46_orm_mapping.py`](../../projects/ai-backend-data-layer/api/test_day46_orm_mapping.py) — a faithful SQLAlchemy 2.0 typed declarative mapping of the Day42 `app`-schema durable contract (Job/JobAttempt/JobEvent/OutboxEvent/UploadSession/ResultArtifact + a minimal Tenant stub), preserving server defaults, named UNIQUE/CHECK/FK constraints, ON DELETE RESTRICT, TEXT+CHECK status, and the same-Job composite provenance FK. Static metadata contract tests were executed (20 passed; Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3); PostgreSQL runtime, sessions/transactions, migrations, and integration are NOT RUN — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -78,7 +78,7 @@ evidence is never erased by object-graph cleanup. And the lesson's incident is e
 mapping is unfaithful: a release that **omitted the `app` schema** wrote three accepted Jobs to `public.jobs`,
 and the recovery is audited reconciliation — because code rollback is not durable-data rollback.
 
-This lesson has **real static evidence**: **19 metadata-contract tests passed** (Python 3.10.12, SQLAlchemy
+This lesson has **real static evidence**: **20 metadata-contract tests passed** (Python 3.10.12, SQLAlchemy
 2.0.29, pytest 7.4.3) asserting the declared mapping structure against the Day42 facts. But **no PostgreSQL
 runtime** was executed — static metadata proves the mapping's declared shape, not that it behaves correctly
 against the real database. Sessions/transactions (Day47), Alembic (Day48), and integration/production are all
@@ -483,6 +483,15 @@ rows, and Artifact references carry **audit/recovery value** (Provider request I
 dispatch intent). `cascade="all, delete-orphan"` would let an object-graph cleanup **silently erase** that
 evidence, so the mapping must **not** introduce it. `relationship()` here is **navigation only** — it is not
 durable integrity enforcement, and it must not carry a destructive cascade. RESTRICT stays the deletion policy.
+There is one further subtlety about how the ORM behaves at parent-delete time. By default SQLAlchemy, seeing a
+loaded child collection, tries to be "helpful" and emits a pre-delete `UPDATE` that sets each child's foreign
+key to `NULL` before deleting the parent — but these child FKs are `NOT NULL`, so that UPDATE would itself fail,
+and worse, it moves the decision out of the database. Setting **`passive_deletes="all"`** on the parent-side
+relationships (`Job.attempts`/`events`/`outbox_events`, `JobAttempt.result_artifacts`) tells the ORM to emit
+**no** pre-delete UPDATE/DELETE on the children at all, so **PostgreSQL's `ON DELETE RESTRICT` makes the final
+decision** and rejects the parent delete. Importantly, `passive_deletes="all"` is **not** a cascade — it adds no
+`delete`/`delete-orphan` (the cascade stays `save-update, merge`) and it does not change the raw SQL; it simply
+lets the database's RESTRICT be the authority instead of the ORM's default NULL-ing behavior.
 
 ### Engineering Thinking
 
@@ -496,8 +505,9 @@ rather than vanishing with an object-graph cascade.
 
 ### Framework Connection
 
-Plain `relationship(back_populates=...)` with **no** `cascade="all, delete-orphan"`; FKs mapped with
-`ondelete="RESTRICT"`.
+`relationship(back_populates=..., passive_deletes="all")` with **no** `cascade="all, delete-orphan"`; FKs
+mapped with `ondelete="RESTRICT"`. `passive_deletes="all"` keeps PostgreSQL's `ON DELETE RESTRICT` as the final
+delete authority (no ORM pre-delete NULL-ing of a `NOT NULL` child FK).
 
 ## Concept 10: Pydantic API models and ORM persistence models stay separate
 
@@ -620,7 +630,7 @@ a green `create_all()` masquerade as compatibility.
 
 ### Production Example
 
-In this repository the 19 tests assert declared structure only; a real CHECK/UNIQUE rejection test against
+In this repository the 20 tests assert declared structure only; a real CHECK/UNIQUE rejection test against
 PostgreSQL is **NOT RUN** (no server was available) and is labeled as such.
 
 ### Framework Connection
@@ -811,7 +821,7 @@ aggregate.
 # Hands-on Exercises
 
 These map to the runnable artifact and its **static** tests, which **were executed** (Python 3.10.12, SQLAlchemy
-2.0.29, pytest 7.4.3 → **19 passed**; install via `requirements-day46.txt`). They assert the **declared mapping
+2.0.29, pytest 7.4.3 → **20 passed**; install via `requirements-day46.txt`). They assert the **declared mapping
 structure** only; a real PostgreSQL runtime test (apply the Day42 SQL, assert CHECK/UNIQUE/FK rejection) is
 **NOT RUN**, and `create_all()` success would not be compatibility evidence.
 
@@ -888,8 +898,9 @@ Follow-up: does the composite FK limit an Attempt to one Event? (No.)
 
 Question: should relationships use `cascade="all, delete-orphan"`?
 
-Expected Output: no — keep ON DELETE RESTRICT; relationships are navigation only; audit/recovery evidence must
-survive.
+Expected Output: no — keep ON DELETE RESTRICT; relationships are navigation only (add `passive_deletes="all"`,
+not a delete cascade, so the ORM does not pre-NULL a `NOT NULL` child FK and PostgreSQL RESTRICT decides);
+audit/recovery evidence must survive.
 
 Follow-up: what evidence would a cascade erase?
 
@@ -929,7 +940,9 @@ Follow-up: why is "whether the client was responded to" the key signal?
 The lesson's core: `DeclarativeBase` with `MetaData(schema="app")`, `Mapped[T] = mapped_column(...)`, the
 PostgreSQL dialect `UUID`/`JSONB`, `server_default=text(...)`, and named `UniqueConstraint`/`CheckConstraint`/
 `ForeignKeyConstraint` (including the composite provenance FK with `ondelete="RESTRICT"`). `relationship()` is
-navigation only — no `cascade="all, delete-orphan"`. No Engine/Session is created (Day47).
+navigation only — no `cascade="all, delete-orphan"`, and the parent-side relationships set
+`passive_deletes="all"` so PostgreSQL's `ON DELETE RESTRICT` (not an ORM pre-delete NULL-ing of a `NOT NULL`
+child FK) makes the final parent-delete decision. No Engine/Session is created (Day47).
 
 ## PostgreSQL
 
@@ -1070,7 +1083,7 @@ separate from the ORM. Day47 owns the Engine and per-request sessions."
 8.  Status stays TEXT + named CHECK (jobs_status_allowed); a native enum is Day48 schema evolution.
 9.  Attempt retry ordinal is JOB-scoped: UNIQUE(job_id, attempt_number); also UNIQUE(job_id, attempt_id) for provenance.
 10. JobEvent same-Job provenance = composite FK (job_id, attempt_id) -> job_attempts; NULL attempt_id = Job-level event.
-11. ON DELETE RESTRICT everywhere; NO cascade/delete-orphan; relationship() is NAVIGATION, not integrity.
+11. ON DELETE RESTRICT everywhere; NO cascade/delete-orphan; relationship() is NAVIGATION, not integrity; parent-side relationships set passive_deletes="all" so PostgreSQL RESTRICT (not an ORM NULL-ing of a NOT NULL child FK) is the final delete authority.
 12. Pydantic public models != ORM persistence models (never merged); neither proves PostgreSQL constraint behavior.
 13. Outbox is PostgreSQL-owned dispatch intent; published_at NULL = checkpoint not recorded, not "never sent" (at-least-once).
 14. ResultArtifact stores attempt_id ONLY (job ownership derived); UploadSession stores references/metadata, not bytes.
@@ -1111,9 +1124,9 @@ vs "improving" the schema in place. Most important connection: Day47 drives thes
 Engine/AsyncSession and transactions. Most important interview answer: `create_all()` success is not
 compatibility, and code rollback is not durable-data rollback.
 
-Validation status: **19 static metadata-contract tests** are **real executed evidence** of the declared mapping
+Validation status: **20 static metadata-contract tests** are **real executed evidence** of the declared mapping
 structure — executed here on Python 3.10.12 / SQLAlchemy 2.0.29 / pytest 7.4.3 (pinned in
-`requirements-day46.txt`) → **19 passed** — asserting app-schema identity, typed columns, server defaults, named
+`requirements-day46.txt`) → **20 passed** — asserting app-schema identity, typed columns, server defaults, named
 constraints, ON DELETE RESTRICT, the composite provenance FK, TEXT+CHECK (not enum), no cascade delete,
 ORM/Pydantic separation, and the documents/job_documents limitation. But **PostgreSQL runtime is NOT RUN** (no
 server was available; `create_all()` was not used and would not be compatibility evidence). AsyncSession/
@@ -1134,7 +1147,7 @@ integration/production are all **NOT RUN**.
 - [ ] Can I keep Pydantic public models separate from ORM models and say why neither proves DB constraints?
 - [ ] Can I classify Outbox authority, ResultArtifact ownership-via-Attempt, and the UploadSession storage boundary?
 - [ ] Can I distinguish static metadata evidence from real PostgreSQL runtime evidence, and why `create_all()` proves neither compatibility?
-- [ ] Can I run the static tests (`pytest -q test_day46_orm_mapping.py`) and read the 19-passed evidence honestly?
+- [ ] Can I run the static tests (`pytest -q test_day46_orm_mapping.py`) and read the 20-passed evidence honestly?
 - [ ] Can I diagnose the wrong-schema incident and recover without treating code rollback as durable-data rollback?
 ```
 

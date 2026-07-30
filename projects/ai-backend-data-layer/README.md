@@ -11,7 +11,7 @@ mapped_column(...)` typed columns, server-side defaults, named UNIQUE/CHECK/FK c
 `TEXT + CHECK` status (not a native enum), Job-scoped attempt uniqueness, and the same-Job composite provenance
 FK — mapping Job/JobAttempt/JobEvent/OutboxEvent/UploadSession/ResultArtifact (+ a minimal Tenant stub), with
 `relationship()` as navigation only and Pydantic public models kept separate. **REAL static metadata-contract
-tests were executed** (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 19 passed; deps pinned in
+tests were executed** (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20 passed; deps pinned in
 `api/requirements-day46.txt`; declared STRUCTURE only). PostgreSQL runtime is **NOT RUN** (no server; `create_all()`
 was not used and would not be compatibility evidence); AsyncSession/transactions (Day47), Alembic (Day48),
 Celery/Provider/Object-Storage runtime, integration/production NOT RUN. (See the Day45 note below for the prior
@@ -92,7 +92,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day45.txt                          # Day45: pinned deps (pydantic, pytest, fastapi, httpx)
 │   ├── day46-sqlalchemy-mapping-for-the-day42-data-model-design.md  # Day46: SQLAlchemy 2.0 mapping design
 │   ├── day46_orm_mapping.py                            # Day46: faithful SQLAlchemy 2.0 mapping of the Day42 app schema
-│   ├── test_day46_orm_mapping.py                       # Day46: static metadata-contract tests (executed: 19 passed)
+│   ├── test_day46_orm_mapping.py                       # Day46: static metadata-contract tests (executed: 20 passed)
 │   └── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -163,7 +163,7 @@ Column intent:
 `api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md` (with runnable `day46_orm_mapping.py` +
 `test_day46_orm_mapping.py`) faithfully maps the existing Day42 PostgreSQL durable contract into SQLAlchemy 2.0
 typed declarative models. The mapping and its **static** tests are **real, executed code**: **Python 3.10.12,
-SQLAlchemy 2.0.29, pytest 7.4.3 -> `19 passed`** (deps pinned in `api/requirements-day46.txt`). But these assert
+SQLAlchemy 2.0.29, pytest 7.4.3 -> `20 passed`** (deps pinned in `api/requirements-day46.txt`). But these assert
 the **declared mapping structure only**; the ORM is a representation of the contract, **not** a new schema
 authority, and **PostgreSQL runtime behavior is NOT RUN**.
 
@@ -175,7 +175,7 @@ authority, and **PostgreSQL runtime behavior is NOT RUN**.
 | Typed mapping | `DeclarativeBase` + `MetaData(schema="app")`; `Mapped[T] = mapped_column(...)`; PostgreSQL `UUID`/`JSONB`, `TIMESTAMP(timezone=True)`, `Text`; server-side defaults (`gen_random_uuid()`/`now()`/…) |
 | Constraints | named `UNIQUE`/`CHECK`/`FK` preserved exactly (`jobs_tenant_idempotency_unique`, `jobs_succeeded_has_finished_at`, `job_attempts_job_number_unique`, `job_events_attempt_same_job_fk`, …); `TEXT + CHECK` status, not a native enum (that is Day48) |
 | Attempt/Event | Job-scoped retry uniqueness `UNIQUE(job_id, attempt_number)`; composite same-Job provenance FK `(job_id, attempt_id)`; NULL attempt_id = Job-level event |
-| Retention | `ON DELETE RESTRICT` everywhere; **no** cascade/delete-orphan; `relationship()` is navigation only |
+| Retention | `ON DELETE RESTRICT` everywhere; **no** cascade/delete-orphan; `relationship()` is navigation only, with `passive_deletes="all"` on the parent-side relationships so the ORM never pre-NULLs a `NOT NULL` child FK and PostgreSQL RESTRICT makes the final delete decision |
 | Boundaries | Pydantic public models kept separate from ORM models; Outbox `published_at` NULL = checkpoint not recorded (not "never sent"); ResultArtifact owns via `attempt_id` (no denormalized `job_id`); UploadSession stores references, not bytes |
 | Scope | minimal Tenant support stub (tenant_id stays explicit); Document/`job_documents` = stated unimplemented limitation; **no** Engine/AsyncSession/transaction/UoW (Day47) |
 | Evidence | 19 **static metadata** tests (declared structure); `create_all()` success is **not** compatibility; PostgreSQL runtime **NOT RUN** |

@@ -480,6 +480,7 @@ JobAttempt: UNIQUE(job_id, attempt_number) = retry ordinal JOB-scoped (NOT tenan
             UNIQUE(job_id, attempt_id) = candidate key for provenance
 JobEvent: FK (job_id, attempt_id) -> job_attempts(job_id, attempt_id) = same-Job provenance; NULL attempt_id = Job-level event
 ON DELETE RESTRICT everywhere; NO cascade/delete-orphan; relationship() = NAVIGATION only, NOT integrity
+parent->child relationships set passive_deletes="all" -> ORM emits NO pre-delete UPDATE/DELETE (never NULLs a NOT NULL child FK); PostgreSQL ON DELETE RESTRICT is the FINAL delete decision (not a cascade; cascade stays save-update/merge)
 ```
 
 ### Boundaries / scope / evidence
@@ -523,7 +524,7 @@ Day46 maps the Day42 durable PostgreSQL contract into faithful SQLAlchemy 2.0 mo
 UNIQUE/CHECK/FK, RESTRICT, TEXT+CHECK, composite provenance) without changing authority; Day47 drives it, Day48 evolves it.
 ```
 
-Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 19 passed;
+Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20 passed;
 deps pinned in `projects/ai-backend-data-layer/api/requirements-day46.txt`; declared STRUCTURE only). PostgreSQL runtime
 NOT RUN (no server; create_all() not used and not compatibility evidence). Sessions/transactions = Day47; Alembic = Day48;
 Celery/Provider/Object-Storage runtime, integration, production NOT RUN.

@@ -102,6 +102,11 @@ upload_sessions: Object Storage reference + lifecycle metadata only (never large
 ```text
 ON DELETE RESTRICT everywhere (Attempts/Events/Outbox/Artifacts carry audit/recovery value): NO cascade,
   NO delete-orphan on any relationship(); relationship() is navigation, not durable integrity enforcement.
+Parent -> child navigation relationships set passive_deletes="all" (Job.attempts/events/outbox_events,
+  JobAttempt.result_artifacts): on a future ORM parent delete the ORM emits NO pre-delete UPDATE/DELETE on
+  loaded children, so it never tries to NULL a child's NOT NULL FK first -- PostgreSQL ON DELETE RESTRICT makes
+  the FINAL delete decision and rejects the parent delete. This does NOT add a delete cascade (cascade stays
+  save-update/merge only) and does NOT change the raw SQL.
 Pydantic public models != ORM persistence models: never merged/inherited (no tenant/audit/persistence leak).
 Tenant: MINIMAL support stub (identity + slug + created_at) ONLY to preserve the tenant FKs/candidate keys —
   tenant_id is an actual mapped column/FK, not a "derived" field; no full Tenant aggregate/relationship.
@@ -140,12 +145,13 @@ python3 -m pytest -q test_day46_orm_mapping.py
 
 ```text
 CONCEPTUAL              : the mapping mirrors the Day42 ownership/integrity/retention/provenance decisions.
-STATIC METADATA (RUN)   : 19 pytest cases assert the DECLARED mapping structure against Base.metadata — app-schema
+STATIC METADATA (RUN)   : 20 pytest cases assert the DECLARED mapping structure against Base.metadata — app-schema
                           identity, typed columns, server defaults, named UNIQUE/CHECK/FK constraints, ON DELETE
-                          RESTRICT on every FK, the job_events composite provenance FK, TEXT+CHECK (not enum),
+                          RESTRICT on every FK, passive_deletes="all" on the parent->child relationships (no
+                          delete cascade), the job_events composite provenance FK, TEXT+CHECK (not enum),
                           no cascade delete, ORM/Pydantic separation, the Tenant stub, and the documents/
                           job_documents limitation. Executed: Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3
-                          -> 19 passed. NO database connection and NO create_all() were used.
+                          -> 20 passed. NO database connection and NO create_all() were used.
 POSTGRESQL RUNTIME      : NOT RUN. No PostgreSQL server was available in this environment. A real runtime test
                           would first apply the independent Day42 raw SQL (001 + 003) to a fresh database, then
                           assert actual behavior (e.g. a succeeded Job without finished_at is rejected with a

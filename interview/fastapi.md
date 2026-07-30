@@ -647,6 +647,6 @@ Student answer (verbatim):
 Assessment: correct — creation success is not compatibility; static structure vs real database behavior are
 distinct evidence levels.
 
-Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 19
+Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20
 passed; declared structure only). PostgreSQL runtime NOT RUN (no server; `create_all()` not used and not
 compatibility evidence). Sessions/transactions = Day47; Alembic = Day48; integration/production NOT RUN.

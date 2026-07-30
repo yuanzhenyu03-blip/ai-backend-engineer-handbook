@@ -180,10 +180,19 @@ class Job(Base):
 
     # Navigation only (NOT integrity enforcement, NOT cascade delete). Day42's
     # ON DELETE RESTRICT stays the deletion policy; these relationships never use
-    # cascade="all, delete-orphan".
-    attempts: Mapped[list["JobAttempt"]] = relationship(back_populates="job")
-    events: Mapped[list["JobEvent"]] = relationship(back_populates="job")
-    outbox_events: Mapped[list["OutboxEvent"]] = relationship(back_populates="job")
+    # cascade="all, delete-orphan". passive_deletes="all" tells the ORM to emit NO
+    # pre-delete UPDATE/DELETE on the children when a parent is deleted -- so it
+    # never tries to NULL a child's NOT NULL foreign key first; PostgreSQL's
+    # ON DELETE RESTRICT makes the final decision and rejects the parent delete.
+    attempts: Mapped[list["JobAttempt"]] = relationship(
+        back_populates="job", passive_deletes="all"
+    )
+    events: Mapped[list["JobEvent"]] = relationship(
+        back_populates="job", passive_deletes="all"
+    )
+    outbox_events: Mapped[list["OutboxEvent"]] = relationship(
+        back_populates="job", passive_deletes="all"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -225,8 +234,10 @@ class JobAttempt(Base):
     )
 
     job: Mapped["Job"] = relationship(back_populates="attempts")
+    # passive_deletes="all": no pre-delete NULLing of ResultArtifact.attempt_id;
+    # PostgreSQL ON DELETE RESTRICT decides and rejects the Attempt delete.
     result_artifacts: Mapped[list["ResultArtifact"]] = relationship(
-        back_populates="attempt"
+        back_populates="attempt", passive_deletes="all"
     )
 
 

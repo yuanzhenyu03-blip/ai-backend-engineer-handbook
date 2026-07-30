@@ -231,6 +231,32 @@ def test_relationships_have_no_destructive_cascade():
             assert not casc.delete, f"{cls.__name__}.{rel.key} has delete cascade"
 
 
+# 16b. Parent -> child navigation relationships set passive_deletes="all", so on
+#      a future ORM parent delete SQLAlchemy emits NO pre-delete UPDATE/DELETE on
+#      loaded children (it never tries to NULL a NOT NULL child FK); PostgreSQL's
+#      ON DELETE RESTRICT stays the final delete decision. No delete cascade is
+#      introduced (cascade stays save-update/merge only).
+def test_parent_child_relationships_use_passive_deletes_all():
+    parent_child = {
+        (Job, "attempts"),
+        (Job, "events"),
+        (Job, "outbox_events"),
+        (JobAttempt, "result_artifacts"),
+    }
+    for cls, key in parent_child:
+        rel = inspect(cls).relationships[key]
+        assert rel.uselist is True, f"{cls.__name__}.{key} should be a collection side"
+        assert rel.passive_deletes == "all", (
+            f"{cls.__name__}.{key} passive_deletes={rel.passive_deletes!r}, expected 'all'"
+        )
+        # Still navigation only: no destructive cascade was added.
+        assert not rel.cascade.delete, f"{cls.__name__}.{key} gained a delete cascade"
+        assert not rel.cascade.delete_orphan, f"{cls.__name__}.{key} gained delete-orphan"
+        assert set(rel.cascade) == {"save-update", "merge"}, (
+            f"{cls.__name__}.{key} cascade={set(rel.cascade)}, expected save-update+merge only"
+        )
+
+
 # 17. Typed declarative mapping: columns are ORM-managed Mapped attributes
 #     (Mapped[...] = mapped_column(...)), not plain annotations.
 def test_typed_declarative_mapping():
