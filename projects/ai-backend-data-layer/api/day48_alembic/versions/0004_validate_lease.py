@@ -1,7 +1,7 @@
 """Validate: VALIDATE CONSTRAINT (separately gated, after Backfill/reconciliation).
 
 Revision ID: 0004_validate_lease
-Revises: 0003_add_lease_constraints
+Revises: 0003b_add_reconciliation_polling
 Create Date: 2026-07-31
 
 VALIDATE phase. Run ONLY after the operational Backfill/reconciliation has truly
@@ -9,7 +9,7 @@ resolved every legacy violation (an exception queue is NOT resolution). VALIDATE
 proves the historical rows also satisfy BOTH already-enforced future rules —
 jobs_lease_triple_coherent AND the Day36 core jobs_running_requires_lease — with a
 lighter lock than a fresh validating CHECK. It FAILS while any running-without-Lease
-row remains (reconcile-marked rows included).
+row remains (queue-routed rows included).
 
 This is deliberately a SEPARATE revision from Expand: the phases are gated by
 deployment, data, Writer-protocol, and observation evidence — not merely to avoid
@@ -18,7 +18,7 @@ one long transaction. No Backfill loop lives here.
 from alembic import op
 
 revision = "0004_validate_lease"
-down_revision = "0003_add_lease_constraints"
+down_revision = "0003b_add_reconciliation_polling"
 branch_labels = None
 depends_on = None
 

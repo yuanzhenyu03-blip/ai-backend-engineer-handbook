@@ -49,6 +49,7 @@ VERSIONS_DIR = os.path.join(ALEMBIC_DIR, "versions")
 EXPECTED_CHAIN = [
     "0005_contract_legacy",
     "0004_validate_lease",
+    "0003b_add_reconciliation_polling",
     "0003_add_lease_constraints",
     "0002_expand_lease",
     "0001_baseline",
@@ -99,6 +100,12 @@ def test_expand_is_columns_only_no_constraints():
     # rejected by 0003's jobs_running_requires_lease). Expand creates that table.
     assert "lease_backfill_state" not in src  # the app.jobs marker column is gone
     assert "CREATE TABLE app.job_lease_reconciliation" in src
+    # Revision IMMUTABILITY: the reconciliation POLLING/BACKOFF columns are NOT part
+    # of this published revision (a DB that already ran 0002 would not get them by an
+    # edit here); they are added forward by 0003b_add_reconciliation_polling.
+    assert "next_attempt_at" not in src
+    assert "last_checked_at" not in src
+    assert "check_attempts" not in src
     # FK to the parent Job with Day42's ON DELETE RESTRICT. The DDL is built from
     # adjacent Python string literals, so drop quotes + collapse whitespace first.
     import re
@@ -136,9 +143,9 @@ def test_validate_is_separate_and_validates():
     src = _revision_source("0004_validate_lease.py")
     assert "VALIDATE CONSTRAINT jobs_lease_triple_coherent" in src
     # The Day36 core invariant is proven over history too — VALIDATE fails while any
-    # running-without-Lease row remains (reconcile-marked rows included).
+    # running-without-Lease row remains (queue-routed rows included).
     assert "VALIDATE CONSTRAINT jobs_running_requires_lease" in src
-    assert 'down_revision = "0003_add_lease_constraints"' in src
+    assert 'down_revision = "0003b_add_reconciliation_polling"' in src
     assert not _function_body_has_loop(src, "upgrade")
 
 
@@ -816,3 +823,64 @@ def test_termination_rests_on_due_filter_plus_forward_backoff():
     # This is reconciliation POLLING, explicitly NOT Job retry or Provider retry.
     assert "POLLING" in src and "NOT Job retry" in src
     assert ".generate(" not in src  # never a Provider retry
+
+
+# --- R7: reconciliation polling columns live in a SEPARATE additive revision ------
+# (revision immutability: 0002 may already be applied, so the columns are added
+#  forward). Still FAKE-SESSION / static evidence, NOT PostgreSQL runtime proof.
+
+# 32. The additive polling revision is ADD COLUMN only (never CREATE TABLE / never a
+#     table rewrite of app.jobs), sits AFTER 0003 and BEFORE 0004, and carries all
+#     three required columns + the nonneg CHECK + the partial due-index.
+def test_reconciliation_polling_is_a_separate_additive_revision():
+    src = _revision_source("0003b_add_reconciliation_polling.py")
+    assert 'revision = "0003b_add_reconciliation_polling"' in src
+    assert 'down_revision = "0003_add_lease_constraints"' in src  # after strict constraints
+    # Additive columns on the INDEPENDENT queue table (not app.jobs, not a rewrite).
+    assert "ALTER TABLE app.job_lease_reconciliation" in src
+    assert "ADD COLUMN next_attempt_at timestamptz NOT NULL DEFAULT now()" in src
+    assert "ADD COLUMN last_checked_at timestamptz" in src
+    assert "ADD COLUMN check_attempts  integer NOT NULL DEFAULT 0" in src
+    assert "CHECK (check_attempts >= 0)" in src
+    # A partial index matching the resolver's due-scan.
+    assert "CREATE INDEX" in src and "ix_job_lease_reconciliation_due" in src
+    assert "WHERE resolution_status = 'open'" in src
+    # It must NOT create the table (that is 0002's job) and must NOT ALTER app.jobs.
+    assert "CREATE TABLE" not in src
+    assert "ALTER TABLE app.jobs" not in src
+    # No long data-backfill loop lives in the migration upgrade().
+    assert not _function_body_has_loop(src, "upgrade")
+
+
+# 33. Validate is rewired onto the new revision (unapplied later revisions may safely
+#     change down_revision); the chain stays single-head + linear (asserted broadly
+#     by test_revision_graph_is_single_head_and_linear via EXPECTED_CHAIN).
+def test_validate_revision_follows_the_polling_revision():
+    src = _revision_source("0004_validate_lease.py")
+    assert 'down_revision = "0003b_add_reconciliation_polling"' in src
+
+
+# 34. The resolver's SQL fields MATCH the migration DDL: every reconciliation column
+#     the runtime reads/writes (next_attempt_at, last_checked_at, check_attempts) is
+#     actually created by 0003b — so the resolver cannot reference a missing column.
+def test_resolver_fields_match_migration_ddl():
+    import day48_lease_backfill as m
+    code = open(m.__file__).read()
+    ddl = _revision_source("0003b_add_reconciliation_polling.py")
+    for col in ("next_attempt_at", "last_checked_at", "check_attempts"):
+        assert col in code, f"resolver never uses {col}"
+        assert col in ddl, f"migration never creates {col}"
+    # The columns are NOT (re)defined by the historical CREATE TABLE in 0002.
+    expand = _revision_source("0002_expand_lease.py")
+    for col in ("next_attempt_at", "last_checked_at", "check_attempts"):
+        assert col not in expand
+
+
+# 35. HONESTY: every check above is static source / fake-session control flow. It
+#     proves the revision GRAPH and DDL/resolver column agreement, NOT that
+#     PostgreSQL applied 0003b, evaluated now()/make_interval, or that the partial
+#     index is used — that requires a real PostgreSQL run (see the runbook).
+def test_polling_revision_evidence_is_static_not_postgres_runtime():
+    import day48_lease_backfill as m
+    src = open(m.__file__).read()
+    assert "NOT PostgreSQL proof" in src  # the module states its evidence boundary

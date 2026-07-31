@@ -343,7 +343,7 @@ Pydantic makes the Day43 contract executable but earns ONE guarantee (structure)
 authenticated/authorized/committed separate, validate Provider output before side effects, never model_construct untrusted.
 ```
 
-Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 33 passed; deps pinned in
+Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 37 passed; deps pinned in
 `projects/ai-backend-data-layer/api/requirements.txt`; completion target is an in-memory callback, not
 PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. DI/lifespan/
 adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.
@@ -691,7 +691,7 @@ evidence; the Day47 UoW is one short business tx while Alembic is deploy-time sc
 ```
 
 Validation: REAL static/offline evidence executed — Alembic revision-graph + migration-source inspection (ScriptDirectory) and
-FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 33 passed), plus an offline
+FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 37 passed), plus an offline
 `alembic upgrade --sql` DDL render (no DB connection). **PostgreSQL runtime NOT RUN** (SQLite/fake/`upgrade`-success are not PostgreSQL
 proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
 

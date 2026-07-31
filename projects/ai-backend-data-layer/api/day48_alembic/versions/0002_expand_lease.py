@@ -51,12 +51,11 @@ def upgrade() -> None:
     # Independent reconciliation queue (Day42 conventions: app schema, uuid PK, FK
     # ON DELETE RESTRICT, named constraints). Triage lives HERE, never on app.jobs.
     # UNIQUE(job_id) makes routing idempotent (INSERT ... ON CONFLICT DO NOTHING).
-    # next_attempt_at / last_checked_at / check_attempts drive RECONCILIATION
-    # POLLING with backoff (NOT Job retry, NOT Provider retry): a resolver that finds
-    # no trusted evidence pushes next_attempt_at into the future so the SAME open
-    # record is not re-selected in the current loop, which is what makes
-    # run_reconciliation_resolution TERMINATE in real PostgreSQL. next_attempt_at
-    # defaults to now() so a freshly routed record is immediately due once.
+    # IMMUTABILITY NOTE: this revision defines the queue table WITHOUT the
+    # reconciliation polling/backoff columns. Those columns are added by the SEPARATE
+    # additive revision 0003b_add_reconciliation_polling, so a database that already
+    # applied 0002 (or 0003) is upgraded FORWARD rather than by editing this published
+    # revision (an applied revision is immutable).
     op.execute(
         "CREATE TABLE app.job_lease_reconciliation ("
         "  reconciliation_id uuid        PRIMARY KEY DEFAULT gen_random_uuid(), "
@@ -66,16 +65,11 @@ def upgrade() -> None:
         "  routed_at         timestamptz NOT NULL DEFAULT now(), "
         "  resolution_status text        NOT NULL DEFAULT 'open', "
         "  resolved_at       timestamptz, "
-        "  next_attempt_at   timestamptz NOT NULL DEFAULT now(), "
-        "  last_checked_at   timestamptz, "
-        "  check_attempts    integer     NOT NULL DEFAULT 0, "
         "  CONSTRAINT job_lease_reconciliation_job_unique UNIQUE (job_id), "
         "  CONSTRAINT job_lease_reconciliation_reason_allowed "
         "    CHECK (reason IN ('unknown_ownership')), "
         "  CONSTRAINT job_lease_reconciliation_status_allowed "
-        "    CHECK (resolution_status IN ('open', 'resolved')), "
-        "  CONSTRAINT job_lease_reconciliation_check_attempts_nonneg "
-        "    CHECK (check_attempts >= 0)"
+        "    CHECK (resolution_status IN ('open', 'resolved'))"
         ")"
     )
 
