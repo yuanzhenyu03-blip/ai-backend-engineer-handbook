@@ -12,19 +12,22 @@ loops must never live in a migration transaction). It:
       recovery checkpoint;
     * TERMINATES the AUTOMATIC loop: every selected Job leaves the AUTOMATIC
       candidate set within the batch — a proved Job gets its Lease (``lease_owner``
-      becomes NON-NULL and the marker is cleared) and an unknown-ownership Job is
-      routed to a PERSISTENT reconciliation marker (``lease_backfill_state =
-      'reconcile'``), so neither is re-selected by the automatic loop in this run or
-      after a restart. Routing NEVER fabricates a Lease owner/token/expiry;
+      becomes NON-NULL) and an unknown-ownership Job is routed into the INDEPENDENT
+      reconciliation queue table ``app.job_lease_reconciliation`` (NOT a column on
+      app.jobs), so neither is re-selected by the automatic loop in this run or after
+      a restart. Routing writes ONLY the queue, NEVER app.jobs, so it can run AFTER
+      the strict jobs_running_requires_lease constraint is live (a marker UPDATE that
+      left the row running with a NULL Lease would be REJECTED). Routing fabricates
+      NO Lease owner/token/expiry;
     * DOES NOT make an unknown Job compliant. Reconciliation is TRIAGE, not
-      RESOLUTION: a reconcile-marked running Job with a NULL Lease STILL violates
-      the Day36 ``jobs_running_requires_lease`` invariant and STILL counts as an
-      UNRESOLVED running-without-Lease target. The migration stays INCOMPLETE (do
-      NOT run VALIDATE / Switch / Contract) until every such row is truthfully
-      resolved by (a) a trusted Lease backfill or (b) an audited real recovery routed
-      to a full boundary (Day47 completion UoW for a verified success; guarded
-      terminal-recovery for a verified failure/cancellation) — NEVER by the marker
-      alone, NEVER by a requeue, and NEVER by a bare status flip;
+      RESOLUTION: a routed running Job with a NULL Lease STILL violates the Day36
+      ``jobs_running_requires_lease`` invariant and STILL counts as an UNRESOLVED
+      running-without-Lease target (routing did not change app.jobs). The migration
+      stays INCOMPLETE (do NOT run VALIDATE / Switch / Contract) until every such row
+      is truthfully resolved by (a) a trusted Lease backfill or (b) an audited real
+      recovery routed to a full boundary (Day47 completion UoW for a verified
+      success; guarded terminal-recovery for a verified failure/cancellation) —
+      NEVER by queuing alone, NEVER by a requeue, and NEVER by a bare status flip;
     * calls NO Provider and holds NO long transaction;
     * is NOT the Day47 Lease runtime protocol and NOT the migration-batch claim of
       a Lease expiry — it is a one-time operational backfill.
@@ -70,17 +73,20 @@ async def select_backfill_batch(
     session: AsyncSession, *, batch_size: int
 ) -> List[uuid.UUID]:
     """One SHORT selection of a concurrent-safe batch of AUTOMATIC backfill
-    candidates: running Jobs with Lease still NULL AND not yet routed to
-    reconciliation (``lease_backfill_state IS NULL``), locked with FOR UPDATE SKIP
-    LOCKED so parallel workers never contend. Excluding reconciliation-routed rows
-    is what makes the AUTOMATIC loop TERMINATE and be restart-safe — it does NOT
-    mean those rows are resolved (see ``count_unresolved_running_without_lease``)."""
+    candidates: running Jobs with Lease still NULL AND not already routed in the
+    INDEPENDENT reconciliation queue, locked with FOR UPDATE SKIP LOCKED so parallel
+    workers never contend. The routed set lives in ``app.job_lease_reconciliation``
+    (NOT on app.jobs), so excluding it here makes the AUTOMATIC loop TERMINATE and
+    be restart-safe WITHOUT touching the business row — it does NOT mean those rows
+    are resolved (see ``count_unresolved_running_without_lease``)."""
     result = await session.execute(
         text(
-            "SELECT job_id FROM app.jobs "
-            "WHERE job_status = 'running' AND lease_owner IS NULL "
-            "AND lease_backfill_state IS NULL "  # exclude Jobs already routed to reconciliation
-            "ORDER BY created_at "
+            "SELECT j.job_id FROM app.jobs j "
+            "WHERE j.job_status = 'running' AND j.lease_owner IS NULL "
+            "AND NOT EXISTS ("
+            "  SELECT 1 FROM app.job_lease_reconciliation r WHERE r.job_id = j.job_id"
+            ") "
+            "ORDER BY j.created_at "
             "FOR UPDATE SKIP LOCKED "
             "LIMIT :batch_size"
         ),
@@ -91,17 +97,18 @@ async def select_backfill_batch(
 
 async def apply_lease_evidence(session: AsyncSession, evidence: LeaseEvidence) -> int:
     """RESOLUTION path (a): a TRUSTED, audited Lease backfill. Idempotent, guarded
-    write that sets the Lease triple (and clears any reconcile marker) ONLY while
-    the Job is still running AND still unowned — so it resolves a reconcile-parked
-    row too, after which the row satisfies jobs_running_requires_lease and is no
-    longer an unresolved target. Re-running is a no-op (0 rows) once filled."""
+    write that sets the Lease triple ONLY while the Job is still running AND still
+    unowned — so it resolves a reconcile-routed row too, after which the row
+    satisfies jobs_running_requires_lease and is no longer an unresolved target.
+    Re-running is a no-op (0 rows) once filled. It writes ONLY app.jobs; closing any
+    reconciliation-queue record is a separate audited step
+    (``close_reconciliation_record``)."""
     result = await session.execute(
         text(
             "UPDATE app.jobs "
             "SET lease_owner = :lease_owner, "
             "    lease_token = :lease_token, "
-            "    lease_expires_at = :lease_expires_at, "
-            "    lease_backfill_state = NULL "  # resolution clears any triage marker
+            "    lease_expires_at = :lease_expires_at "
             "WHERE job_id = :job_id "
             "AND job_status = 'running' AND lease_owner IS NULL "
             "RETURNING job_id"
@@ -116,20 +123,43 @@ async def apply_lease_evidence(session: AsyncSession, evidence: LeaseEvidence) -
     return len(result.fetchall())
 
 
-async def route_to_reconciliation(session: AsyncSession, job_id: uuid.UUID) -> int:
-    """Persist an unknown-ownership running Job into the reconciliation state so it
-    leaves the candidate set. Idempotent + guarded (running, still unowned, not yet
-    routed) and RESTART-safe: re-running is a no-op (0 rows) once routed. This does
-    NOT fabricate any Lease field — lease_owner/token/expiry stay NULL; it only
-    records 'ownership could not be proved -> reconcile'."""
+async def route_to_reconciliation(
+    session: AsyncSession, job_id: uuid.UUID, *, reason: str = "unknown_ownership"
+) -> int:
+    """Persist an unknown-ownership running Job into the INDEPENDENT reconciliation
+    queue (``app.job_lease_reconciliation``) so the automatic loop stops re-selecting
+    it. This does NOT touch app.jobs — the business row stays ``running`` with a NULL
+    Lease, which is CRITICAL: after 0003, any UPDATE that left the row running with a
+    NULL Lease would be REJECTED by jobs_running_requires_lease, so triage MUST live
+    outside the row. Idempotent + RESTART-safe via UNIQUE(job_id) + ON CONFLICT DO
+    NOTHING (re-routing returns 0 rows). Fabricates NO Lease owner/token/expiry and
+    NO terminal status. The Job STILL counts as unresolved (see
+    ``count_unresolved_running_without_lease``)."""
     result = await session.execute(
         text(
-            "UPDATE app.jobs "
-            "SET lease_backfill_state = 'reconcile' "
-            "WHERE job_id = :job_id "
-            "AND job_status = 'running' AND lease_owner IS NULL "
-            "AND lease_backfill_state IS NULL "
-            "RETURNING job_id"
+            "INSERT INTO app.job_lease_reconciliation (job_id, reason) "
+            "VALUES (:job_id, :reason) "
+            "ON CONFLICT (job_id) DO NOTHING "
+            "RETURNING reconciliation_id"
+        ),
+        {"job_id": job_id, "reason": reason},
+    )
+    return len(result.fetchall())
+
+
+async def close_reconciliation_record(
+    session: AsyncSession, job_id: uuid.UUID
+) -> int:
+    """AUDIT step: mark an open reconciliation record 'resolved' once the Job has
+    been truthfully resolved elsewhere (a trusted Lease backfill or a full audited
+    Recovery UoW). Idempotent (an already-resolved / absent record -> 0 rows). This
+    does NOT itself resolve the Job — it only closes the triage trail."""
+    result = await session.execute(
+        text(
+            "UPDATE app.job_lease_reconciliation "
+            "SET resolution_status = 'resolved', resolved_at = now() "
+            "WHERE job_id = :job_id AND resolution_status = 'open' "
+            "RETURNING reconciliation_id"
         ),
         {"job_id": job_id},
     )
@@ -137,11 +167,12 @@ async def route_to_reconciliation(session: AsyncSession, job_id: uuid.UUID) -> i
 
 
 async def count_unresolved_running_without_lease(session: AsyncSession) -> int:
-    """Count EVERY still-violating running-without-Lease row — INCLUDING
-    reconcile-marked ones. This is the Day36 ``remaining_targets``: it is the hard
-    VALIDATE / Switch / Contract precondition (must be 0), and being queued for
-    reconciliation does NOT reduce it. lease_owner IS NULL is equivalent to a NULL
-    Lease under the triple-coherence constraint."""
+    """Count EVERY still-violating running-without-Lease row on app.jobs — INCLUDING
+    Jobs routed into the reconciliation queue (routing does NOT change app.jobs).
+    This is the Day36 ``remaining_targets``: the hard VALIDATE / Switch / Contract
+    precondition (must be 0), and being queued for reconciliation does NOT reduce it.
+    lease_owner IS NULL is equivalent to a NULL Lease under the triple-coherence
+    constraint."""
     result = await session.execute(
         text(
             "SELECT count(*) FROM app.jobs "

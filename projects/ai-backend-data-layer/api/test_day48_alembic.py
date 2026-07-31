@@ -31,6 +31,7 @@ from day48_lease_backfill import (
     UnsafeRecoveryError,
     apply_lease_evidence,
     classify_unknown_running_recovery,
+    close_reconciliation_record,
     count_unresolved_running_without_lease,
     route_to_reconciliation,
     run_backfill,
@@ -89,11 +90,20 @@ def test_expand_is_columns_only_no_constraints():
     assert "ADD COLUMN lease_owner text" in src
     assert "ADD COLUMN lease_token uuid" in src
     assert "ADD COLUMN lease_expires_at timestamptz" in src
-    assert "ADD COLUMN lease_backfill_state text" in src  # persistent reconciliation marker (nullable)
-    assert "DEFAULT" not in src  # no fabricated server default on the new nullable columns
-    # The strict Lease constraints must NOT be added in the pure Expand — they
-    # belong to the separate constraint revision so old Writers can coexist during
-    # Expand. (Assert on the DDL: no ADD CONSTRAINT statement is emitted here.)
+    # Reconciliation triage is a SEPARATE, independent table — NOT a marker column
+    # on app.jobs (a marker UPDATE that left the row running+NULL-Lease would be
+    # rejected by 0003's jobs_running_requires_lease). Expand creates that table.
+    assert "lease_backfill_state" not in src  # the app.jobs marker column is gone
+    assert "CREATE TABLE app.job_lease_reconciliation" in src
+    # FK to the parent Job with Day42's ON DELETE RESTRICT. The DDL is built from
+    # adjacent Python string literals, so drop quotes + collapse whitespace first.
+    import re
+    flat = re.sub(r"\s+", " ", src.replace('"', " "))
+    assert "job_id uuid NOT NULL REFERENCES app.jobs(job_id) ON DELETE RESTRICT" in flat
+    assert "UNIQUE (job_id)" in flat  # one triage row per Job -> idempotent routing
+    # The strict Lease constraints on app.jobs must NOT be added in the pure Expand —
+    # they belong to the separate constraint revision so old Writers can coexist
+    # during Expand. (No ALTER TABLE app.jobs ... ADD CONSTRAINT is emitted here.)
     assert "ADD CONSTRAINT" not in src
     assert "VALIDATE CONSTRAINT" not in src
     assert not _function_body_has_loop(src, "upgrade")
@@ -213,7 +223,11 @@ def test_backfill_batch_uses_skip_locked_and_running_unowned():
     sql, params = sess.executed[0]
     assert "FOR UPDATE SKIP LOCKED" in sql
     assert "job_status = 'running'" in sql and "lease_owner IS NULL" in sql
-    assert "lease_backfill_state IS NULL" in sql  # excludes reconciliation-routed Jobs -> terminates
+    # Routed Jobs are excluded via the INDEPENDENT queue table (NOT a marker column),
+    # which is what makes the automatic loop terminate + be restart-safe.
+    assert "NOT EXISTS" in sql
+    assert "app.job_lease_reconciliation" in sql
+    assert "lease_backfill_state" not in sql
     assert params["batch_size"] == 100
 
 
@@ -242,20 +256,29 @@ def test_backfill_fills_known_and_routes_unknown_for_reconciliation():
     # Reconcile is TRIAGE, not RESOLUTION: JOB_B STILL counts as unresolved.
     assert report.unresolved_running_without_lease == 1
     assert sess.calls.count("commit") == 1        # one batch committed
-    # The apply used a guarded, idempotent UPDATE and cleared the reconcile marker.
+    # The apply used a guarded, idempotent UPDATE on app.jobs and set ONLY the Lease
+    # triple (single responsibility — it does NOT touch the reconciliation queue).
     apply_sql = sess.executed[1][0]
+    assert "UPDATE app.jobs" in apply_sql
     assert "job_status = 'running' AND lease_owner IS NULL" in apply_sql
-    assert "lease_backfill_state = NULL" in apply_sql  # resolution clears any triage marker
+    assert "lease_backfill_state" not in apply_sql
+    assert "job_lease_reconciliation" not in apply_sql
     assert "RETURNING job_id" in apply_sql
-    # The route persisted lease_backfill_state='reconcile' WITHOUT any lease field.
+    # The route INSERTed into the INDEPENDENT queue table WITHOUT touching app.jobs
+    # and WITHOUT fabricating any Lease field — CRITICAL so it is legal after the
+    # strict jobs_running_requires_lease constraint (no violating app.jobs UPDATE).
     route_sql = sess.executed[2][0]
-    assert "SET lease_backfill_state = 'reconcile'" in route_sql
-    assert "lease_owner" not in route_sql.split("WHERE")[0]  # no lease_owner in SET
-    assert "lease_token" not in route_sql and "lease_expires_at" not in route_sql
-    # The final count query includes reconcile-marked rows (no state filter).
+    assert "INSERT INTO app.job_lease_reconciliation" in route_sql
+    assert "ON CONFLICT (job_id) DO NOTHING" in route_sql
+    assert "UPDATE app.jobs" not in route_sql
+    assert "app.jobs" not in route_sql  # routing performs NO write against the business row
+    for leaked in ("lease_owner", "lease_token", "lease_expires_at"):
+        assert leaked not in route_sql  # no Lease owner/token/expiry fabricated
+    # The final count query targets app.jobs and includes routed rows (no queue join).
     count_sql = sess.executed[4][0]
     assert "job_status = 'running' AND lease_owner IS NULL" in count_sql
     assert "lease_backfill_state" not in count_sql
+    assert "job_lease_reconciliation" not in count_sql
 
 
 # 9. apply_lease_evidence is idempotent/restartable: an already-owned row -> 0 rows.
@@ -304,12 +327,13 @@ def test_backfill_terminates_when_all_candidates_unknown():
     assert sess.calls.count("execute") == 5  # 2 selects + 2 routes + 1 final count
 
 
-# 12. Finding 1 — RESTART SAFETY: a Job already routed to reconciliation is no
-#     longer a candidate (the query excludes lease_backfill_state IS NOT NULL), so
-#     a re-run does not re-select it and cannot loop forever.
+# 12. Finding 1 — RESTART SAFETY: a Job already routed to the reconciliation queue
+#     is no longer a candidate (the NOT EXISTS join against
+#     app.job_lease_reconciliation excludes it), so a re-run does not re-select it
+#     and cannot loop forever.
 def test_backfill_does_not_reselect_reconciled_job_on_restart():
     # Simulate a restart where the previously-routed JOB_B is no longer returned by
-    # the candidate query (its lease_backfill_state is now 'reconcile').
+    # the candidate query (a row for it already exists in the reconciliation queue).
     sess = FakeAsyncSession(execute_rows=[[], [(1,)]])  # no auto candidates; 1 still unresolved
 
     class NoEvidence:
@@ -319,25 +343,33 @@ def test_backfill_does_not_reselect_reconciled_job_on_restart():
     report = asyncio.run(run_backfill(lambda: sess, NoEvidence(), batch_size=100))
     assert report.routed_to_reconciliation == 0
     assert report.backfilled == 0
-    # The automatic candidate query excludes reconciliation-routed rows (no re-select)...
+    # The automatic candidate query excludes queued Jobs via NOT EXISTS (no re-select)...
     select_sql = sess.executed[0][0]
-    assert "lease_backfill_state IS NULL" in select_sql
+    assert "NOT EXISTS" in select_sql and "app.job_lease_reconciliation" in select_sql
     # ...but the previously-routed Job is STILL an unresolved running-without-Lease
-    # target -> reconcile is triage, NOT resolution; VALIDATE precondition unmet.
+    # target -> queuing is triage, NOT resolution; VALIDATE precondition unmet.
     assert report.unresolved_running_without_lease == 1
 
 
-# 13. Finding 1 — route_to_reconciliation is idempotent/guarded and NEVER fabricates
-#     a Lease field; an already-routed row -> 0 rows.
-def test_route_to_reconciliation_is_idempotent_and_no_fabrication():
-    first = FakeAsyncSession(execute_rows=[[(JOB_A,)]])   # newly routed -> 1 row
+# 13. Finding 1 (round 4) — route_to_reconciliation writes ONLY the independent
+#     queue table (NEVER app.jobs, so it is legal after the strict constraint), is
+#     idempotent via ON CONFLICT DO NOTHING, and fabricates NO Lease field.
+def test_route_to_reconciliation_writes_queue_only_and_no_fabrication():
+    first = FakeAsyncSession(execute_rows=[[(uuid.uuid4(),)]])   # newly routed -> 1 row
     assert asyncio.run(route_to_reconciliation(first, JOB_A)) == 1
-    sql = first.executed[0][0]
-    assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
-    assert "lease_backfill_state IS NULL" in sql                     # not-yet-routed guard
-    assert "RETURNING job_id" in sql
-    for leaked in ("lease_owner =", "lease_token =", "lease_expires_at ="):
+    sql, params = first.executed[0]
+    # It writes the queue, not the business row — the key round-4 safety property.
+    assert "INSERT INTO app.job_lease_reconciliation" in sql
+    assert "UPDATE app.jobs" not in sql
+    assert "app.jobs" not in sql  # no write against the running+NULL-Lease row
+    assert "ON CONFLICT (job_id) DO NOTHING" in sql  # idempotent / restart-safe
+    assert "RETURNING reconciliation_id" in sql
+    assert params["job_id"] == JOB_A
+    for leaked in ("lease_owner", "lease_token", "lease_expires_at"):
         assert leaked not in sql  # no Lease owner/token/expiry fabricated
+    # Re-routing the same Job is a no-op (0 rows) -> restart-safe.
+    again = FakeAsyncSession(execute_rows=[[]])
+    assert asyncio.run(route_to_reconciliation(again, JOB_A)) == 0
     again = FakeAsyncSession(execute_rows=[[]])            # already routed -> 0 rows
     assert asyncio.run(route_to_reconciliation(again, JOB_A)) == 0
 
@@ -403,28 +435,36 @@ def test_url_config_docs_are_consistent():
     assert "never an online connection fallback" in env_src.lower() or "fails fast" in env_src.lower()
 
 
-# 17. R2 Finding 1 — count_unresolved_running_without_lease INCLUDES reconcile-marked
-#     rows (no lease_backfill_state filter): being queued is not being resolved.
-def test_unresolved_count_includes_reconcile_marked_rows():
+# 17. R2 Finding 1 — count_unresolved_running_without_lease counts EVERY running
+#     app.jobs row with a NULL Lease, INCLUDING Jobs routed to the reconciliation
+#     queue (routing does not change app.jobs, so being queued is not being resolved).
+def test_unresolved_count_includes_reconciliation_routed_rows():
     sess = FakeAsyncSession(execute_rows=[[(3,)]])
     n = asyncio.run(count_unresolved_running_without_lease(sess))
     assert n == 3
     sql = sess.executed[0][0]
     assert "count(*)" in sql
+    assert "FROM app.jobs" in sql
     assert "job_status = 'running' AND lease_owner IS NULL" in sql
-    assert "lease_backfill_state" not in sql  # reconcile-marked rows are counted too
+    # It does NOT subtract queued Jobs — no join/anti-join against the queue table.
+    assert "job_lease_reconciliation" not in sql
+    assert "lease_backfill_state" not in sql
 
 
 # 18. R2 Finding 1 — a TRUSTED Lease backfill (resolution a) resolves even a
-#     reconcile-parked row: it sets the Lease AND clears the marker, so the row is
-#     no longer a running-without-Lease target.
-def test_trusted_backfill_resolves_and_clears_marker():
+#     reconciliation-routed row: it sets the Lease triple on app.jobs, so the row
+#     satisfies jobs_running_requires_lease and is no longer an unresolved target.
+#     Closing the queue record is a SEPARATE audited step (single responsibility).
+def test_trusted_backfill_resolves_running_without_lease():
     sess = FakeAsyncSession(execute_rows=[[(JOB_A,)]])  # 1 row updated
     assert asyncio.run(apply_lease_evidence(sess, _evidence(JOB_A))) == 1
     sql = sess.executed[0][0]
+    assert "UPDATE app.jobs" in sql
     assert "SET lease_owner = :lease_owner" in sql
-    assert "lease_backfill_state = NULL" in sql  # marker cleared on resolution
     assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
+    # It writes ONLY app.jobs: no marker column, no queue write in the same statement.
+    assert "lease_backfill_state" not in sql
+    assert "job_lease_reconciliation" not in sql
 
 
 # 19. R3 Finding 2 — recovery ROUTING (no DB mutation). An unknown outcome stays
@@ -487,3 +527,39 @@ def test_validate_precondition_reached_only_after_real_resolution():
     r2 = asyncio.run(run_backfill(lambda: resolved, KnownNow(), batch_size=100))
     assert r2.backfilled == 1
     assert r2.unresolved_running_without_lease == 0  # NOW the VALIDATE precondition holds
+
+
+# 21. Finding 1 (round 4) — close_reconciliation_record is the SEPARATE audit step
+#     that marks a queue row 'resolved' AFTER the Job is truthfully resolved. It
+#     touches ONLY the queue table (never app.jobs) and is idempotent.
+def test_close_reconciliation_record_is_audit_only_and_idempotent():
+    sess = FakeAsyncSession(execute_rows=[[(uuid.uuid4(),)]])  # 1 open record closed
+    assert asyncio.run(close_reconciliation_record(sess, JOB_A)) == 1
+    sql, params = sess.executed[0]
+    assert "UPDATE app.job_lease_reconciliation" in sql
+    assert "resolution_status = 'resolved'" in sql
+    assert "resolution_status = 'open'" in sql  # guarded: only closes an OPEN record
+    assert "app.jobs" not in sql                # NEVER mutates the business row
+    assert params["job_id"] == JOB_A
+    # Already-closed / absent record -> 0 rows (idempotent).
+    again = FakeAsyncSession(execute_rows=[[]])
+    assert asyncio.run(close_reconciliation_record(again, JOB_A)) == 0
+
+
+# 22. Finding 1 (round 4) — the ordering invariant this fix depends on: routing runs
+#     AFTER the strict 0003 constraint, and it is legal ONLY because NO backfill
+#     statement issues a violating UPDATE on app.jobs (which would set/keep the row
+#     running with a NULL Lease and be rejected). Assert it structurally across the
+#     whole backfill module: no UPDATE app.jobs anywhere sets a reconcile marker.
+def test_no_backfill_statement_issues_a_violating_app_jobs_update():
+    import day48_lease_backfill as m
+    src = open(m.__file__).read()
+    # The only UPDATE app.jobs is apply_lease_evidence, which SETS the Lease triple
+    # (making the row compliant) — never a marker that leaves it running+NULL-Lease.
+    assert "lease_backfill_state" not in src
+    assert "SET lease_backfill_state" not in src
+    # Routing and closing target the independent queue table, not app.jobs.
+    assert "INSERT INTO app.job_lease_reconciliation" in src
+    assert "UPDATE app.job_lease_reconciliation" in src
+    # Fake-session control-flow tests above are NOT PostgreSQL proof that the
+    # strict constraint would accept these statements — see the module docstring.

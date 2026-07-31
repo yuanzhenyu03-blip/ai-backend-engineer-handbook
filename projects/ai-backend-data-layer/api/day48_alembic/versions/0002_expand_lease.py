@@ -1,4 +1,5 @@
-"""Expand: add nullable Lease compatibility columns ONLY (no constraints).
+"""Expand: additive-only — nullable Lease columns + an INDEPENDENT reconciliation
+queue table (no constraints on app.jobs).
 
 Revision ID: 0002_expand_lease
 Revises: 0001_baseline
@@ -6,12 +7,12 @@ Create Date: 2026-07-31
 
 EXPAND phase of Day36's Expand -> Backfill -> Validate -> Switch -> Contract.
 
-This revision is a PURE Expand: it ADDs nullable columns with NO fabricated
-default and adds NO constraint that would require a running Job to already carry
-a Lease. That deliberate separation is what makes this a real OLD/NEW code
-COMPATIBILITY WINDOW: while only this revision is applied, an OLD Writer can keep
-updating a legacy ``running`` Job that has a NULL Lease, because no constraint yet
-rejects such a write.
+This revision is PURELY ADDITIVE: it ADDs nullable Lease columns to app.jobs with
+NO fabricated default and NO constraint, and CREATEs a NEW, independent
+reconciliation queue table. Both are compatibility-safe, so this is the OLD/NEW
+code COMPATIBILITY WINDOW — while only this revision is applied an OLD Writer can
+keep updating a legacy ``running`` Job that has a NULL Lease (no constraint yet
+rejects such a write), and it simply ignores the new table.
 
 The strict Lease constraints (triple coherence + jobs_running_requires_lease) are
 a SEPARATE later revision (0003_add_lease_constraints), applied ONLY AFTER the new
@@ -19,15 +20,15 @@ code is deployed and tolerates NULL Lease and the OLD Writers are drained/isolat
 — because ``CHECK ... NOT VALID`` protects EVERY future write regardless of the
 Writer's binary version (see 0003).
 
-A NULL honestly means "no PROVED Lease ownership". Do NOT generate tokens for
-queued, terminal, or unprovable running Jobs — fabrication is forbidden; the
-operational Backfill (a SEPARATE step, NOT this upgrade) fills only running Jobs
-with trusted ownership evidence and routes unknown ones to reconciliation.
-
-``lease_backfill_state`` (NULLABLE, no default) is the PERSISTENT reconciliation
-marker the operational Backfill uses to route an unknown-ownership running Job OUT
-of the automatic candidate set (state = 'reconcile'). It fabricates NO Lease field
-and does NOT make the Job compliant.
+WHY A SEPARATE RECONCILIATION TABLE (not a column on app.jobs):
+    An unknown-ownership running Job cannot be "marked" on app.jobs, because after
+    0003 the row is still ``running`` with a NULL Lease and any UPDATE to it is
+    REJECTED by jobs_running_requires_lease (NOT VALID checks EVERY future write).
+    Reconciliation TRIAGE must therefore live OUTSIDE the business row. This table
+    records that a Job was routed for reconciliation WITHOUT changing app.jobs, so
+    the Job remains a running-without-Lease row that STILL counts as unresolved and
+    STILL blocks VALIDATE/Switch/Contract until it is truthfully resolved.
+    Fabricating a Lease owner/token/expiry or a terminal status is forbidden.
 """
 from alembic import op
 
@@ -45,18 +46,36 @@ def upgrade() -> None:
         "ALTER TABLE app.jobs "
         "ADD COLUMN lease_owner text, "
         "ADD COLUMN lease_token uuid, "
-        "ADD COLUMN lease_expires_at timestamptz, "
-        "ADD COLUMN lease_backfill_state text"
+        "ADD COLUMN lease_expires_at timestamptz"
+    )
+    # Independent reconciliation queue (Day42 conventions: app schema, uuid PK, FK
+    # ON DELETE RESTRICT, named constraints). Triage lives HERE, never on app.jobs.
+    # UNIQUE(job_id) makes routing idempotent (INSERT ... ON CONFLICT DO NOTHING).
+    op.execute(
+        "CREATE TABLE app.job_lease_reconciliation ("
+        "  reconciliation_id uuid        PRIMARY KEY DEFAULT gen_random_uuid(), "
+        "  job_id            uuid        NOT NULL "
+        "                                REFERENCES app.jobs(job_id) ON DELETE RESTRICT, "
+        "  reason            text        NOT NULL, "
+        "  routed_at         timestamptz NOT NULL DEFAULT now(), "
+        "  resolution_status text        NOT NULL DEFAULT 'open', "
+        "  resolved_at       timestamptz, "
+        "  CONSTRAINT job_lease_reconciliation_job_unique UNIQUE (job_id), "
+        "  CONSTRAINT job_lease_reconciliation_reason_allowed "
+        "    CHECK (reason IN ('unknown_ownership')), "
+        "  CONSTRAINT job_lease_reconciliation_status_allowed "
+        "    CHECK (resolution_status IN ('open', 'resolved'))"
+        ")"
     )
 
 
 def downgrade() -> None:
-    # Safe ONLY before any real Lease data or Provider side effects exist. Once
-    # real Lease tokens/Provider effects exist, DO NOT downgrade destructively —
-    # preserve durable evidence and forward-fix + reconcile instead.
+    # Safe ONLY before any real Lease data or reconciliation triage exists. Once
+    # real Lease/triage rows exist, DO NOT downgrade destructively — preserve
+    # durable evidence and forward-fix + reconcile instead.
+    op.execute("DROP TABLE IF EXISTS app.job_lease_reconciliation")
     op.execute(
         "ALTER TABLE app.jobs "
-        "DROP COLUMN IF EXISTS lease_backfill_state, "
         "DROP COLUMN IF EXISTS lease_expires_at, "
         "DROP COLUMN IF EXISTS lease_token, "
         "DROP COLUMN IF EXISTS lease_owner"

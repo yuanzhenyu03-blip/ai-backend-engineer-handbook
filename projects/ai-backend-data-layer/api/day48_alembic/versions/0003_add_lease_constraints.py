@@ -35,12 +35,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Restrict the reconciliation marker's values on FUTURE writes.
-    op.execute(
-        "ALTER TABLE app.jobs "
-        "ADD CONSTRAINT jobs_lease_backfill_state_allowed "
-        "CHECK (lease_backfill_state IS NULL OR lease_backfill_state = 'reconcile') NOT VALID"
-    )
     # An all-or-nothing Lease triple.
     op.execute(
         "ALTER TABLE app.jobs "
@@ -69,4 +63,3 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_running_requires_lease")
     op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_lease_triple_coherent")
-    op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_lease_backfill_state_allowed")

@@ -638,12 +638,13 @@ CONSTRAINTS (0003, SEPARATE): add CHECK ... NOT VALID (triple coherence + Day36 
   + ADD CONSTRAINT ... CHECK (...) NOT VALID  -> protects EVERY future INSERT/UPDATE now, tolerates legacy rows.
   Deploy Expand FIRST and alone (old Workers coexist because they ignore nullable cols). No Backfill loop / no Provider in upgrade().
 BACKFILL (operational, NOT in upgrade()): short tx + FOR UPDATE SKIP LOCKED batches, idempotent, restartable (DB state=checkpoint).
-  candidate = running AND lease_owner IS NULL AND lease_backfill_state IS NULL. Fill ONLY running Jobs with trusted evidence; No Provider.
-  unknown-running -> ROUTE to a PERSISTENT marker lease_backfill_state='reconcile' (guarded/idempotent, NO fabricated lease) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it.
-  BUT reconcile = TRIAGE, not RESOLUTION: Day36 core CHECK jobs_running_requires_lease (job_status<>'running' OR lease triple NOT NULL) NOT VALID in Expand, VALIDATEd in 0003. A reconcile-marked running Job with NULL Lease STILL violates it.
-  automatic_backfill_candidates (running + lease_owner NULL + lease_backfill_state NULL) != unresolved_running_without_lease (ALL running + lease_owner NULL, INCLUDING reconcile-marked = Day36 remaining_targets). VALIDATE/Switch/Contract require unresolved==0.
-  RESOLUTION only via (a) trusted Lease backfill (apply_lease_evidence, also clears the marker) or (b) audited real recovery ROUTED by classify_unknown_running_recovery (NON-mutating): verified 'succeeded' -> Day47 guarded completion UoW (finished_at+Artifact+Event), 'failed'/'cancelled' -> guarded terminal-recovery, unverified -> KEEP_UNKNOWN, 'queued'/'running'/bad status -> UnsafeRecoveryError. NEVER a requeue, NEVER a bare status flip. run_backfill reports unresolved so "loop stopped" != "history compliant".
-  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconcile (triage). lease_backfill_state is a nullable Expand column (no fabricated default).
+  candidate = running AND lease_owner IS NULL AND NOT EXISTS(row in app.job_lease_reconciliation). Fill ONLY running Jobs with trusted evidence; No Provider.
+  unknown-running -> ROUTE via INSERT INTO app.job_lease_reconciliation (job_id, reason) ... ON CONFLICT (job_id) DO NOTHING (an INDEPENDENT queue table, NO app.jobs write, NO fabricated lease) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it.
+  WHY a queue table not a marker column: after 0003 jobs_running_requires_lease REJECTS any UPDATE that leaves a row running+NULL-Lease (23514); a SET lease_backfill_state='reconcile' UPDATE is exactly that. Routing writes only the queue, so it is LEGAL after the strict constraint. (fake-session tests can't see the CHECK -> the real-PG bug hid behind them.)
+  BUT queuing = TRIAGE, not RESOLUTION: Day36 core CHECK jobs_running_requires_lease (job_status<>'running' OR lease triple NOT NULL) NOT VALID in 0003, VALIDATEd in 0004. A queue-routed running Job with NULL Lease STILL violates it.
+  automatic_backfill_candidates (running + lease_owner NULL + not in queue) != unresolved_running_without_lease (ALL running app.jobs + lease_owner NULL, INCLUDING queue-routed = Day36 remaining_targets; count joins no queue). VALIDATE/Switch/Contract require unresolved==0.
+  RESOLUTION only via (a) trusted Lease backfill (apply_lease_evidence sets the Lease triple on app.jobs; close_reconciliation_record audits the queue separately) or (b) audited real recovery ROUTED by classify_unknown_running_recovery (NON-mutating): verified 'succeeded' -> Day47 guarded completion UoW (finished_at+Artifact+Event), 'failed'/'cancelled' -> guarded terminal-recovery, unverified -> KEEP_UNKNOWN, 'queued'/'running'/bad status -> UnsafeRecoveryError. NEVER a requeue, NEVER a bare status flip. run_backfill reports unresolved so "loop stopped" != "history compliant".
+  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = route to reconciliation queue (triage). app.job_lease_reconciliation is an independent Expand table (job_id FK, reason, routed_at, resolution_status, UNIQUE(job_id)).
 VALIDATE (SEPARATE revision): ALTER TABLE ... VALIDATE CONSTRAINT -> proves HISTORY; FAILS until legacy truly resolved (exception queue != resolution).
 NOT VALID = protect the FUTURE now; VALIDATE = prove the PAST later. UPDATE...RETURNING is the Day47 runtime guard, NOT the migration mechanism.
 ```
@@ -688,7 +689,7 @@ evidence; the Day47 UoW is one short business tx while Alembic is deploy-time sc
 ```
 
 Validation: REAL static/offline evidence executed — Alembic revision-graph + migration-source inspection (ScriptDirectory) and
-FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 22 passed), plus an offline
+FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 24 passed), plus an offline
 `alembic upgrade --sql` DDL render (no DB connection). **PostgreSQL runtime NOT RUN** (SQLite/fake/`upgrade`-success are not PostgreSQL
 proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
 

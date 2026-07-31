@@ -20,7 +20,7 @@ Next Lesson: Day49 — Upload Sessions, Object Storage and Artifact Verification
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + a linear 5-revision chain — pure Expand columns, a SEPARATE constraint revision, Validate, Contract — for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (22 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + a linear 5-revision chain — pure Expand columns, a SEPARATE constraint revision, Validate, Contract — for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (24 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -76,7 +76,7 @@ history with `VALIDATE CONSTRAINT` after `NOT VALID` has already protected new w
 onto the token protocol so the old path can no longer write, and only then — after evidence and an observation
 period — **Contract** destructively.
 
-This lesson has **real static/offline evidence**: **22 tests passed** (Alembic revision-graph + migration-source
+This lesson has **real static/offline evidence**: **24 tests passed** (Alembic revision-graph + migration-source
 inspection via `ScriptDirectory`, plus fake-session backfill control flow), and the offline `alembic upgrade
 --sql` **rendered** the Expand/Validate/Contract DDL — all with **no database connection**. But that is **not**
 PostgreSQL proof: **PostgreSQL runtime is NOT RUN** (no server), and `alembic upgrade` success alone does not
@@ -236,10 +236,12 @@ nullable and the truth ("we don't know yet") must be representable.
 
 ### Production Example
 
-`ALTER TABLE app.jobs ADD COLUMN lease_owner text, lease_token uuid, lease_expires_at timestamptz,
-lease_backfill_state text` — all nullable, **no constraint** (the compatibility window). The three-column
-`jobs_lease_triple_coherent` and `jobs_running_requires_lease` CHECKs are added `NOT VALID` in the **separate**
-`0003_add_lease_constraints` revision, after old Writers are drained/isolated.
+`ALTER TABLE app.jobs ADD COLUMN lease_owner text, lease_token uuid, lease_expires_at timestamptz` — all nullable,
+**no constraint** (the compatibility window) — and, additively in the same Expand, `CREATE TABLE
+app.job_lease_reconciliation` (an **independent** triage queue: `job_id` FK, `reason`, `routed_at`,
+`resolution_status`, `UNIQUE(job_id)`). Triage lives in that table, **not** in a marker column on `app.jobs`. The
+three-column `jobs_lease_triple_coherent` and `jobs_running_requires_lease` CHECKs are added `NOT VALID` in the
+**separate** `0003_add_lease_constraints` revision, after old Writers are drained/isolated.
 
 ### Framework Connection
 
@@ -353,26 +355,34 @@ operational data-migration step**, not an ordinary business operation and not an
 
 There is one termination subtlety the artifact makes explicit. An unknown-ownership running Job stays
 `lease_owner IS NULL`, so if you only *count* it and move on, it re-matches the candidate query forever — an
-**infinite loop**. The fix is a **persistent reconciliation marker**: a nullable `lease_backfill_state` column
-(added in Expand, no fabricated default) that the backfill sets to `'reconcile'` for an unprovable Job via a
-guarded, idempotent `UPDATE ... SET lease_backfill_state='reconcile' WHERE running AND lease_owner IS NULL AND
-lease_backfill_state IS NULL RETURNING` — which fabricates **no** Lease owner/token/expiry. The **automatic** candidate query
-then excludes routed rows (`AND lease_backfill_state IS NULL`), so **every** selected Job leaves the **automatic**
-candidate set within its batch (proved -> `lease_owner` set + marker cleared; unknown -> marker set), the loop
-**terminates**, and a **restart** never re-selects the same unknown Job (the database state is the durable
-checkpoint).
+**infinite loop**. The **third** review corrected *where* the "we couldn't prove ownership" state may live. A
+marker column on `app.jobs` (an earlier design) cannot work once the strict constraints land: after
+`0003_add_lease_constraints`, `jobs_running_requires_lease` **rejects any UPDATE that leaves a row `running` with a
+NULL Lease** (PostgreSQL error 23514). A `SET lease_backfill_state='reconcile'` UPDATE does exactly that, so real
+PostgreSQL would reject it — and a fake-session test, which never enforces the CHECK, could not reveal the bug.
+Triage therefore MUST live **off** the business row. Expand additively creates an **independent** queue table
+`app.job_lease_reconciliation` (`job_id` FK, `reason`, `routed_at`, `resolution_status`, `UNIQUE(job_id)`), and the
+backfill routes an unprovable Job with `INSERT INTO app.job_lease_reconciliation (job_id, reason) VALUES
+(:job_id,'unknown_ownership') ON CONFLICT (job_id) DO NOTHING RETURNING reconciliation_id` — which touches
+**`app.jobs` not at all** and fabricates **no** Lease owner/token/expiry. The **automatic** candidate query excludes
+routed rows via `NOT EXISTS (SELECT 1 FROM app.job_lease_reconciliation r WHERE r.job_id=j.job_id)`, so **every**
+selected Job leaves the **automatic** candidate set within its batch (proved -> `lease_owner` set on `app.jobs`;
+unknown -> a row in the queue), the loop **terminates**, and a **restart** never re-selects the same unknown Job
+(the queue is the durable checkpoint). Because routing writes only the independent table, it is **legal after the
+strict constraint** — the exact property the marker column lacked.
 
-But — and this is the second review's core correction — **the reconcile marker is triage, not resolution.** A
+But — and this remains the second review's core correction — **queuing is triage, not resolution.** A
 running Job with a NULL Lease still violates the **Day36 core invariant** `jobs_running_requires_lease`
-(`job_status <> 'running' OR (lease_owner/lease_token/lease_expires_at all NOT NULL)`), which Expand adds
-`NOT VALID` and Validate `VALIDATE`s. Marking it `'reconcile'` does **not** make it compliant and does **not**
-remove it from the **unresolved** set. So the backfill separates two counts: **automatic candidates** (running +
-`lease_owner IS NULL` + `lease_backfill_state IS NULL`, what the loop may fill) from
-**`unresolved_running_without_lease`** (ALL running rows with a NULL Lease, **including** reconcile-marked ones —
-the Day36 `remaining_targets`). `run_backfill()` reports the unresolved count so "the loop stopped" is never
-mistaken for "the history is compliant." That count reaches **0 — the hard `VALIDATE`/Switch/Contract
-precondition — only** when each parked row is truthfully resolved by **(a)** a trusted Lease backfill
-(`apply_lease_evidence`, which also clears the marker) or **(b)** an audited real recovery **routed** (not mutated) by
+(`job_status <> 'running' OR (lease_owner/lease_token/lease_expires_at all NOT NULL)`), which `0003` adds
+`NOT VALID` and Validate `VALIDATE`s. Routing it into the queue does **not** change `app.jobs`, does **not** make it
+compliant, and does **not** remove it from the **unresolved** set. So the backfill separates two counts: **automatic
+candidates** (running + `lease_owner IS NULL` + not already in the queue, what the loop may fill) from
+**`unresolved_running_without_lease`** (ALL running `app.jobs` rows with a NULL Lease, **including** queue-routed ones —
+the Day36 `remaining_targets`; the count query joins **no** queue table). `run_backfill()` reports the unresolved
+count so "the loop stopped" is never mistaken for "the history is compliant." That count reaches **0 — the hard
+`VALIDATE`/Switch/Contract precondition — only** when each routed row is truthfully resolved by **(a)** a trusted
+Lease backfill (`apply_lease_evidence`, which sets the Lease triple on `app.jobs`; closing the queue record is a
+separate audited `close_reconciliation_record` step) or **(b)** an audited real recovery **routed** (not mutated) by
 `classify_unknown_running_recovery`: a verified `'succeeded'` to the **Day47 guarded completion UoW** (which
 commits `finished_at` + the ResultArtifact reference + the `job_succeeded` Event together — a bare
 `UPDATE job_status='succeeded'` would violate `jobs_succeeded_has_finished_at` and leave partial state), and a
@@ -389,9 +399,10 @@ must be a **persisted** state, not an in-memory count, or the work never ends.
 
 ### Production Example
 
-`day48_lease_backfill.py` selects a `FOR UPDATE SKIP LOCKED` batch (excluding reconciliation-routed rows),
-applies trusted evidence with a guarded `UPDATE ... WHERE running AND lease_owner IS NULL RETURNING` and routes
-unknowns to `lease_backfill_state='reconcile'`, commits per batch, terminates, and resumes after a crash.
+`day48_lease_backfill.py` selects a `FOR UPDATE SKIP LOCKED` batch (excluding queue-routed rows via `NOT EXISTS`
+against `app.job_lease_reconciliation`), applies trusted evidence with a guarded `UPDATE app.jobs ... WHERE running
+AND lease_owner IS NULL RETURNING`, and routes unknowns with `INSERT INTO app.job_lease_reconciliation ... ON
+CONFLICT (job_id) DO NOTHING` (no `app.jobs` write), commits per batch, terminates, and resumes after a crash.
 
 ### Framework Connection
 
@@ -863,7 +874,7 @@ control plane separate.
 # Hands-on Exercises
 
 These map to the runnable artifact and its tests, which **were executed** (Python 3.10.12, Alembic 1.13.1,
-SQLAlchemy 2.0.29, pytest 7.4.3 → **22 passed**; install via `requirements-day48.txt`), plus an offline `alembic
+SQLAlchemy 2.0.29, pytest 7.4.3 → **24 passed**; install via `requirements-day48.txt`), plus an offline `alembic
 upgrade --sql` render. All of this is **static/offline evidence** with **no database connection**; a real
 **PostgreSQL runtime** `NOT VALID`/`VALIDATE`/backfill test is **NOT RUN**, and SQLite/fake sessions are not
 PostgreSQL proof.
@@ -919,14 +930,15 @@ Follow-up: what is the dividing line? (Provable ownership.)
 
 Question: design the backfill selection and batching.
 
-Expected Output: automatic candidates = `running AND lease_owner IS NULL AND lease_backfill_state IS NULL`
-(+ trusted evidence), short tx, `FOR UPDATE SKIP LOCKED` batches, idempotent, DB state = checkpoint, no Provider,
-not in `upgrade()`; unknown ownership is routed to a persistent `'reconcile'` marker (no fabrication) so the
+Expected Output: automatic candidates = `running AND lease_owner IS NULL AND NOT EXISTS (row in
+app.job_lease_reconciliation)` (+ trusted evidence), short tx, `FOR UPDATE SKIP LOCKED` batches, idempotent, DB
+state = checkpoint, no Provider, not in `upgrade()`; unknown ownership is routed by an `INSERT ... ON CONFLICT DO
+NOTHING` into the **independent** `app.job_lease_reconciliation` queue (no `app.jobs` write, no fabrication) so the
 **automatic loop** terminates — but the row STILL counts in `unresolved_running_without_lease` (running + NULL
-Lease, including reconcile-marked) and STILL violates `jobs_running_requires_lease`, so it is NOT resolved.
+Lease, including queue-routed) and STILL violates `jobs_running_requires_lease`, so it is NOT resolved.
 
-Follow-up: why is a reconcile-marked Job still an unresolved target, and why is `unresolved==0` — not "the loop
-stopped" — the `VALIDATE` precondition?
+Follow-up: why is a queue-routed Job still an unresolved target, why must routing avoid touching `app.jobs` after
+the strict constraint, and why is `unresolved==0` — not "the loop stopped" — the `VALIDATE` precondition?
 
 ### Exercise 6: The Switch gate
 
@@ -1112,7 +1124,7 @@ Provider side effects exist I forward-fix rather than downgrade."
 4.  Coherence rule via CHECK ... NOT VALID protects EVERY future write NOW while tolerating legacy rows.
 5.  VALIDATE CONSTRAINT (a SEPARATE revision) proves HISTORY; it FAILS until Backfill/reconciliation truly resolves violations (an exception queue != resolution).
 6.  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconciliation (never invented).
-7.  BACKFILL is operational + restartable (short tx, FOR UPDATE SKIP LOCKED, idempotent, DB state = checkpoint); NO Provider, NO long loop in upgrade(). Unknown ownership is PERSISTED as lease_backfill_state='reconcile' (no fabrication) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it. But reconcile is TRIAGE, not RESOLUTION: a running Job with NULL Lease STILL violates jobs_running_requires_lease (Day36 core) and STILL counts in unresolved_running_without_lease (Day36 remaining_targets). VALIDATE/Switch/Contract require unresolved==0, reached ONLY by (a) a trusted Lease backfill (clears the marker) or (b) an audited real recovery ROUTED to a full boundary (Day47 completion UoW for verified 'succeeded'; guarded terminal-recovery for 'failed'/'cancelled'); an unknown outcome stays reconciliation and a 'queued' requeue / bare status flip is REFUSED.
+7.  BACKFILL is operational + restartable (short tx, FOR UPDATE SKIP LOCKED, idempotent, DB state = checkpoint); NO Provider, NO long loop in upgrade(). Unknown ownership is PERSISTED in an INDEPENDENT queue table app.job_lease_reconciliation via INSERT ... ON CONFLICT DO NOTHING (no app.jobs write, no fabrication) so it leaves the AUTOMATIC candidate set (excluded by NOT EXISTS) -> the auto-loop TERMINATES and a restart never re-selects it. Triage MUST live off app.jobs: after 0003 the strict jobs_running_requires_lease CHECK rejects any UPDATE that leaves a row running with a NULL Lease, so a marker column would be rejected (23514) — the queue table is the fix, and routing is legal after the strict constraint. But queuing is TRIAGE, not RESOLUTION: a running Job with NULL Lease STILL violates jobs_running_requires_lease (Day36 core) and STILL counts in unresolved_running_without_lease (Day36 remaining_targets; the count joins no queue table). VALIDATE/Switch/Contract require unresolved==0, reached ONLY by (a) a trusted Lease backfill (sets the Lease triple on app.jobs; close_reconciliation_record audits the queue separately) or (b) an audited real recovery ROUTED to a full boundary (Day47 completion UoW for verified 'succeeded'; guarded terminal-recovery for 'failed'/'cancelled'); an unknown outcome stays reconciliation and a 'queued' requeue / bare status flip is REFUSED.
 8.  Lease EXPIRY is a runtime protocol, not a migration-batch claim; UPDATE ... RETURNING is the Day47 guard, not the compatibility mechanism.
 9.  SWITCH = every Writer (Workers/recovery/admin/completion-failure) on the token protocol; the OLD path cannot write. Not merely a new binary.
 10. CONTRACT is destructive + LAST (after Validate + Switch + evidence + observation). Once real data/side effects exist -> FORWARD-FIX, not a destructive downgrade.
@@ -1159,10 +1171,10 @@ destructive downgrade) corrupting history or double-executing paid Provider call
 Upload/Artifact references on the safely evolved schema. Most important interview answer: `NOT VALID` protects
 the future, `VALIDATE` proves the past, and `upgrade` success is only DDL evidence.
 
-Validation status: **22 static/offline tests** are **real executed evidence** — the Alembic revision graph +
+Validation status: **24 static/offline tests** are **real executed evidence** — the Alembic revision graph +
 migration source were inspected via `ScriptDirectory`, the fake-session backfill control flow was exercised, and
 the offline `alembic upgrade --sql` **rendered** the Expand/Validate/Contract DDL, all on Python 3.10.12 / Alembic
-1.13.1 / SQLAlchemy 2.0.29 / pytest 7.4.3 → **22 passed** with **no database connection**. But offline render and
+1.13.1 / SQLAlchemy 2.0.29 / pytest 7.4.3 → **24 passed** with **no database connection**. But offline render and
 static checks are **not** PostgreSQL proof: **PostgreSQL runtime is NOT RUN** (no server; a real `NOT VALID`/
 `VALIDATE`/backfill test would apply the Day42 raw SQL and prove behavior), **SQLite/fake sessions are not
 PostgreSQL evidence**, and `alembic upgrade` success alone does not prove Backfill/Switch/Contract or production

@@ -820,10 +820,15 @@ Student note: on the drill the student said "不知道" (direct teaching given);
 
 Model answer:
 
-Only running Jobs with trusted, provable ownership evidence are backfilled; queued and terminal Jobs get none,
-and unknown-running Jobs go to reconciliation (never fabricated). Backfill runs as a restartable operator script
-— short transactions, `FOR UPDATE SKIP LOCKED` batches, idempotent predicates, the database state as checkpoint —
-not as a long loop in an Alembic `upgrade()`, and it calls no Provider.
+Only running Jobs with trusted, provable ownership evidence are backfilled (their Lease triple is set on
+`app.jobs`); queued and terminal Jobs get none, and unknown-running Jobs are routed into an **independent**
+reconciliation queue table `app.job_lease_reconciliation` (`INSERT ... ON CONFLICT (job_id) DO NOTHING`, never
+fabricated). Routing must NOT be a marker column on `app.jobs`: after the strict `jobs_running_requires_lease`
+constraint, any UPDATE that left the row running with a NULL Lease would be rejected — so triage lives off the
+business row and stays legal. The routed Job still counts as unresolved (routing didn't change `app.jobs`). Backfill
+runs as a restartable operator script — short transactions, `FOR UPDATE SKIP LOCKED` batches (excluding queued Jobs
+via `NOT EXISTS`), idempotent predicates, the database state as checkpoint — not as a long loop in an Alembic
+`upgrade()`, and it calls no Provider.
 
 Student note: classified "C backfill D reconciliation"; restart predicate "依赖仍是 running 且 Lease 字段仍为空、且
 可信来源仍存在的行".
@@ -853,6 +858,6 @@ survives, prove a new illegal write is rejected, and prove `VALIDATE` fails unti
 Student note: "不能，因为还需要看实际运行"; on `stamp`/new-vs-existing DBs the student said "不知道".
 
 Validation: REAL static/offline evidence executed (Alembic revision-graph + migration-source inspection and
-fake-session backfill control flow -> 22 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3)
+fake-session backfill control flow -> 24 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3)
 plus an offline `alembic upgrade --sql` DDL render. PostgreSQL runtime NOT RUN (SQLite/fake/`upgrade`-success are
 not PostgreSQL proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN.
