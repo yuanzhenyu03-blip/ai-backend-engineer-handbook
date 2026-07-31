@@ -11,7 +11,7 @@ request/Job-scoped `AsyncSession`, repositories that never commit, a `UnitOfWork
 commit/rollback/close, the guarded `UPDATE ... WHERE job_status='queued' RETURNING` claim (zero rows = a normal
 stale/no-op), flush-before-dependent-write, a second guarded completion UoW, and a fake Provider seam with
 correlation-key-before-the-call recovery. **REAL fake-session control-flow tests were executed** (Python
-3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 17 passed; deps pinned in
+3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 23 passed; deps pinned in
 `api/requirements-day47.txt`). A mock is **not** database proof: **PostgreSQL runtime is NOT RUN** (no
 server/driver; SQLite is not PostgreSQL evidence); FastAPI/Worker integration, real Provider, Object Storage, and
 production NOT RUN. (See the Day46 note below for the prior increment.)
@@ -96,7 +96,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
 │   ├── day47-async-persistence-boundary-design.md      # Day47: async session/UoW design
 │   ├── day47_async_uow.py                              # Day47: async Engine/session-factory + repos + UnitOfWork
-│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 17 passed)
+│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 23 passed)
 │   └── requirements-day47.txt                          # Day47: pinned deps (sqlalchemy[asyncio]==2.0.29, pytest==7.4.3)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -166,7 +166,7 @@ Column intent:
 
 `api/day47-async-persistence-boundary-design.md` (with runnable `day47_async_uow.py` + `test_day47_async_uow.py`)
 drives the faithful Day46 mapping through short, isolated async units of work. The code and its **fake-session**
-tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `17 passed`**
+tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `23 passed`**
 (deps pinned in `api/requirements-day47.txt`). These prove UoW/repository **control flow** only; a **mock is not
 database proof**, so **PostgreSQL runtime is NOT RUN**.
 
@@ -176,9 +176,9 @@ database proof**, so **PostgreSQL runtime is NOT RUN**.
 | --- | --- |
 | Scope/ownership | process-scoped `AsyncEngine` + `async_sessionmaker` (one per process, not per deployment); a fresh request/Job-scoped `AsyncSession`; **no** global Session |
 | Repository/UoW | repositories receive the UoW-injected Session and never commit/close; the `UnitOfWork` owns one Session, exposes repos, does **explicit** `await commit()`, rolls back on exception/uncommitted exit, and always closes |
-| Guarded claim | single `UPDATE ... WHERE job_status='queued' RETURNING` (not SELECT-then-UPDATE); 1 row = claimed, 0 rows = normal stale/no-op |
+| Guarded claim | single `UPDATE ... WHERE job_id AND tenant_id AND job_status='queued' RETURNING` (not SELECT-then-UPDATE); every guarded `app.jobs` mutation binds `tenant_id` as a durable ownership predicate (trusted context, not derived from job_id); 1 row = claimed, 0 rows (incl. wrong tenant) = normal stale/no-op |
 | Flush vs commit | `flush` executes SQL in the current tx (server ids usable) but is not durable/cross-session visible; `IntegrityError` aborts the tx (integrity protected) and needs rollback; a commit exception is an unknown outcome |
-| Short tx vs Provider | the long/paid Provider call runs **outside** any DB transaction; commit an app-generated correlation/idempotency key **before** it; completion is a **second** short guarded UoW |
+| Short tx vs Provider | the long/paid Provider call runs **outside** any DB transaction; commit an app-generated correlation/idempotency key **before** it (in the `job_started` Event metadata); completion is a **second** short guarded UoW that records the available Provider evidence (`provider_request_id`, `cost_micros`, may be None) in the guarded Attempt finish |
 | Failure vs unknown | definitive failure -> `failed`; timeout/unknown remote outcome -> a first-class recovery state, never blindly requeued |
 | Reads | build an allowlisted Day44 Pydantic DTO **inside** the UoW; never return a detached ORM object for lazy serialization |
 | Evidence | 13 **fake-session** control-flow tests (code-path intent); **PostgreSQL runtime NOT RUN**; SQLite is not PostgreSQL evidence |

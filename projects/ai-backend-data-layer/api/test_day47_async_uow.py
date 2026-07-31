@@ -31,6 +31,8 @@ from day47_async_uow import (
 from day46_orm_mapping import JobAttempt, JobEvent, ResultArtifact
 
 JOB_ID = uuid.UUID("3b2f1c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d")
+TENANT_ID = uuid.UUID("0f9b0e3a-6a1e-4c2b-9c1f-2b7a4d5e6f70")
+WRONG_TENANT_ID = uuid.UUID("11111111-2222-4333-8444-555555555555")
 ATTEMPT_ID = uuid.UUID("7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d")
 OBJECT_KEY = "obj://tenant/job/result.json"
 CORR = "corr-0f9b0e3a-app-generated"
@@ -56,9 +58,11 @@ class FakeAsyncSession:
         self._raise_on_add_type = raise_on_add_type
         self.added = []
         self.calls = []  # ordered log of ("add"/"flush"/"commit"/"rollback"/"close"/"execute")
+        self.executed = []  # list of (sql_text, params) for each execute() call
 
     async def execute(self, stmt, params=None):
         self.calls.append("execute")
+        self.executed.append((str(stmt), dict(params or {})))
         if self._execute_rows is not None:
             rows = self._execute_rows.pop(0)
         else:
@@ -108,7 +112,7 @@ def factory_of(*sessions):
 # 1. Claimed start flow: guarded claim (1 row) -> Attempt (flush) -> Event -> commit.
 def test_start_job_claimed_commits_once_with_attempt_and_event():
     sess = FakeAsyncSession(execute_rows=[[(JOB_ID,)]])  # 1 claimed row
-    outcome = asyncio.run(start_job(factory_of(sess), JOB_ID, correlation_key=CORR))
+    outcome = asyncio.run(start_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, correlation_key=CORR))
     assert outcome is ClaimOutcome.CLAIMED
     assert sess.calls.count("commit") == 1
     assert "rollback" not in sess.calls
@@ -120,7 +124,7 @@ def test_start_job_claimed_commits_once_with_attempt_and_event():
 # 2. Zero-row guarded claim = NORMAL stale/no-op: no Attempt/Event, no commit.
 def test_start_job_zero_row_claim_is_stale_noop_no_writes():
     sess = FakeAsyncSession(execute_rows=[[]])  # 0 claimed rows
-    outcome = asyncio.run(start_job(factory_of(sess), JOB_ID, correlation_key=CORR))
+    outcome = asyncio.run(start_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, correlation_key=CORR))
     assert outcome is ClaimOutcome.STALE_NOOP
     assert not sess.added  # no Attempt/Event created
     assert "commit" not in sess.calls
@@ -132,7 +136,7 @@ def test_start_job_zero_row_claim_is_stale_noop_no_writes():
 #    flush-assigned attempt_id (no commit needed for the dependent write).
 def test_flush_before_dependent_event_write():
     sess = FakeAsyncSession(execute_rows=[[(JOB_ID,)]])
-    asyncio.run(start_job(factory_of(sess), JOB_ID, correlation_key=CORR))
+    asyncio.run(start_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, correlation_key=CORR))
     assert "flush" in sess.calls
     first_add = sess.calls.index("add")
     flush_idx = sess.calls.index("flush")
@@ -152,7 +156,7 @@ def test_correlation_key_lives_in_job_started_event_metadata():
     assert "correlation_key" not in params
 
     sess = FakeAsyncSession(execute_rows=[[(JOB_ID,)]])
-    asyncio.run(start_job(factory_of(sess), JOB_ID, correlation_key=CORR))
+    asyncio.run(start_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, correlation_key=CORR))
     started = [
         o for o in sess.added
         if isinstance(o, JobEvent) and o.event_type == "job_started"
@@ -258,7 +262,7 @@ def test_complete_job_persists_full_atomic_pack_in_one_commit():
     # execute #1 = Attempt finish (1 row); execute #2 = Job transition (1 row).
     sess = FakeAsyncSession(execute_rows=[[(ATTEMPT_ID,)], [(JOB_ID,)]])
     outcome = asyncio.run(
-        complete_job(factory_of(sess), JOB_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
+        complete_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
     )
     assert outcome is CompletionOutcome.COMPLETED
     assert sess.calls.count("execute") == 2  # Attempt finish + Job transition guards
@@ -278,7 +282,7 @@ def test_complete_job_persists_full_atomic_pack_in_one_commit():
 def test_complete_job_stale_attempt_writes_nothing():
     sess = FakeAsyncSession(execute_rows=[[]])  # Attempt finish returns 0 rows
     outcome = asyncio.run(
-        complete_job(factory_of(sess), JOB_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
+        complete_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
     )
     assert outcome is CompletionOutcome.STALE_NOOP
     assert sess.calls.count("execute") == 1  # stopped after the Attempt guard
@@ -294,7 +298,7 @@ def test_complete_job_stale_job_writes_no_artifact_or_event():
     # Attempt finish 1 row, then Job transition 0 rows.
     sess = FakeAsyncSession(execute_rows=[[(ATTEMPT_ID,)], []])
     outcome = asyncio.run(
-        complete_job(factory_of(sess), JOB_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
+        complete_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
     )
     assert outcome is CompletionOutcome.STALE_NOOP
     assert sess.calls.count("execute") == 2  # both guards ran; Job guard returned 0
@@ -315,7 +319,7 @@ def test_complete_job_artifact_failure_rolls_back():
     async def scenario():
         with pytest.raises(RuntimeError):
             await complete_job(
-                factory_of(sess), JOB_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY
+                factory_of(sess), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY
             )
 
     asyncio.run(scenario())
@@ -334,7 +338,7 @@ def test_complete_job_event_failure_rolls_back():
     async def scenario():
         with pytest.raises(RuntimeError):
             await complete_job(
-                factory_of(sess), JOB_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY
+                factory_of(sess), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY
             )
 
     asyncio.run(scenario())
@@ -364,8 +368,128 @@ def test_provider_unknown_outcome_propagates_and_is_not_fabricated():
 def test_guarded_mark_failed_paths():
     async def scenario():
         one = FakeAsyncSession(execute_rows=[[(JOB_ID,)]])
-        assert await JobRepository(one).mark_failed(JOB_ID) == 1
+        assert await JobRepository(one).mark_failed(JOB_ID, TENANT_ID) == 1
         zero = FakeAsyncSession(execute_rows=[[]])
-        assert await JobRepository(zero).mark_failed(JOB_ID) == 0
+        assert await JobRepository(zero).mark_failed(JOB_ID, TENANT_ID) == 0
 
     asyncio.run(scenario())
+
+
+# 18. Every guarded app.jobs mutation carries tenant_id as an explicit bind, and
+#     the tenant_id is NOT the job_id (it is a separate durable ownership predicate
+#     passed from the orchestration, not derived from the job identity).
+def test_all_job_mutations_carry_tenant_predicate():
+    # start_job -> guarded_claim
+    s1 = FakeAsyncSession(execute_rows=[[(JOB_ID,)]])
+    asyncio.run(start_job(factory_of(s1), JOB_ID, tenant_id=TENANT_ID, correlation_key=CORR))
+    claim_sql, claim_params = s1.executed[0]
+    assert "tenant_id = :tenant_id" in claim_sql
+    assert claim_params["tenant_id"] == TENANT_ID
+    assert claim_params["tenant_id"] != claim_params["job_id"]  # not derived from job_id
+
+    # complete_job -> guarded_complete (second execute is the Job transition)
+    s2 = FakeAsyncSession(execute_rows=[[(ATTEMPT_ID,)], [(JOB_ID,)]])
+    asyncio.run(
+        complete_job(factory_of(s2), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
+    )
+    job_sql, job_params = s2.executed[1]
+    assert "tenant_id = :tenant_id" in job_sql
+    assert job_params["tenant_id"] == TENANT_ID
+
+    # mark_failed
+    s3 = FakeAsyncSession(execute_rows=[[(JOB_ID,)]])
+
+    async def _mf():
+        return await JobRepository(s3).mark_failed(JOB_ID, TENANT_ID)
+
+    asyncio.run(_mf())
+    fail_sql, fail_params = s3.executed[0]
+    assert "tenant_id = :tenant_id" in fail_sql
+    assert fail_params["tenant_id"] == TENANT_ID
+
+
+# 19. A WRONG tenant makes the guarded Job transition match 0 rows: rollback, and
+#     NO Artifact / NO Event are committed (tenant is an ownership boundary, and a
+#     job_id alone does not authorize completion).
+def test_wrong_tenant_completion_writes_nothing():
+    # Attempt finish 1 row; Job transition 0 rows (wrong tenant).
+    sess = FakeAsyncSession(execute_rows=[[(ATTEMPT_ID,)], []])
+    outcome = asyncio.run(
+        complete_job(
+            factory_of(sess), JOB_ID, tenant_id=WRONG_TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY
+        )
+    )
+    assert outcome is CompletionOutcome.STALE_NOOP
+    assert sess.executed[1][1]["tenant_id"] == WRONG_TENANT_ID  # wrong tenant bound
+    assert not any(isinstance(o, ResultArtifact) for o in sess.added)
+    assert not any(isinstance(o, JobEvent) for o in sess.added)
+    assert "commit" not in sess.calls
+    assert "rollback" in sess.calls
+    assert sess.calls[-1] == "close"
+
+
+# 20. A WRONG tenant makes the guarded CLAIM match 0 rows: stale/no-op, no
+#     Attempt/Event, no commit.
+def test_wrong_tenant_claim_is_stale_noop():
+    sess = FakeAsyncSession(execute_rows=[[]])  # claim returns 0 rows (wrong tenant)
+    outcome = asyncio.run(
+        start_job(factory_of(sess), JOB_ID, tenant_id=WRONG_TENANT_ID, correlation_key=CORR)
+    )
+    assert outcome is ClaimOutcome.STALE_NOOP
+    assert sess.executed[0][1]["tenant_id"] == WRONG_TENANT_ID
+    assert not sess.added
+    assert "commit" not in sess.calls
+    assert "rollback" in sess.calls
+    assert sess.calls[-1] == "close"
+
+
+# 21. The completion pack records the available Provider evidence
+#     (provider_request_id + cost_micros) in the SAME guarded Attempt-finish
+#     statement (finished_at IS NULL guard preserved).
+def test_completion_records_provider_evidence_in_attempt_finish():
+    sess = FakeAsyncSession(execute_rows=[[(ATTEMPT_ID,)], [(JOB_ID,)]])
+    outcome = asyncio.run(
+        complete_job(
+            factory_of(sess),
+            JOB_ID,
+            tenant_id=TENANT_ID,
+            attempt_id=ATTEMPT_ID,
+            object_key=OBJECT_KEY,
+            provider_request_id="prov-req-abc123",
+            cost_micros=4200,
+        )
+    )
+    assert outcome is CompletionOutcome.COMPLETED
+    finish_sql, finish_params = sess.executed[0]  # first execute = guarded Attempt finish
+    assert "finished_at = now()" in finish_sql
+    assert "provider_request_id = :provider_request_id" in finish_sql
+    assert "cost_micros = :cost_micros" in finish_sql
+    assert "finished_at IS NULL" in finish_sql  # guard preserved
+    assert finish_params["provider_request_id"] == "prov-req-abc123"
+    assert finish_params["cost_micros"] == 4200
+    assert finish_params["attempt_id"] == ATTEMPT_ID and finish_params["job_id"] == JOB_ID
+
+
+# 22. Provider evidence may be None when not yet known (written as NULL); passing
+#     None does NOT assert a verified value — the binds are literally None.
+def test_completion_provider_evidence_may_be_none():
+    sess = FakeAsyncSession(execute_rows=[[(ATTEMPT_ID,)], [(JOB_ID,)]])
+    asyncio.run(
+        complete_job(factory_of(sess), JOB_ID, tenant_id=TENANT_ID, attempt_id=ATTEMPT_ID, object_key=OBJECT_KEY)
+    )
+    _, finish_params = sess.executed[0]
+    assert finish_params["provider_request_id"] is None
+    assert finish_params["cost_micros"] is None
+
+
+# 23. The FakeProvider seam models Provider evidence (request id + cost) without
+#     any network I/O — a control-flow double, NOT a real Provider SDK.
+def test_fake_provider_models_evidence_without_network():
+    provider = FakeProvider(
+        artifact_ref=OBJECT_KEY, provider_request_id="prov-req-abc123", cost_micros=4200
+    )
+    ref = asyncio.run(provider.run(correlation_key=CORR))
+    assert ref == OBJECT_KEY
+    assert provider.provider_request_id == "prov-req-abc123"
+    assert provider.cost_micros == 4200
+    assert provider.calls == 1

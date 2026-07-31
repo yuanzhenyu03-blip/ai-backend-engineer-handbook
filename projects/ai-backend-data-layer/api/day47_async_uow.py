@@ -12,18 +12,28 @@ Scope and honesty:
       they NEVER create Engines/Sessions and NEVER commit or close.
     * The UoW owns one Session, exposes repositories, controls EXPLICIT commit,
       rolls back on exception / uncommitted exit, and ALWAYS closes the Session.
-    * Guarded claim = one ``UPDATE ... WHERE job_status='queued' RETURNING ...``
-      (not SELECT-then-UPDATE). One row = claimed; zero rows = a NORMAL stale/
-      no-op miss (no Attempt/Event, not a retryable DB error).
+    * Guarded claim = one ``UPDATE ... WHERE job_id=... AND tenant_id=... AND
+      job_status='queued' RETURNING ...`` (not SELECT-then-UPDATE). One row =
+      claimed; zero rows (including a wrong tenant) = a NORMAL stale/no-op miss
+      (no Attempt/Event, not a retryable DB error). Every guarded ``app.jobs``
+      mutation (claim/complete/fail) carries ``tenant_id`` as a REQUIRED durable
+      ownership predicate (Day42/Day46) — trusted context passed from the
+      orchestration, NEVER derived from the job_id (a job_id is not an
+      authorization boundary). This is the existing durable tenant predicate, not
+      Day52 authentication/authorization.
     * A long/paid Provider call happens OUTSIDE any open DB transaction. Before it,
       the start UoW commits a durable Attempt plus an application-generated
       correlation/idempotency key written into the ``job_started`` Event metadata
       (Day46 defines no correlation column on JobAttempt, and Day47 invents none).
     * Completion is a SECOND short guarded UoW that persists the Day33 atomic
-      completion pack in ONE commit: guarded finish Attempt (finished_at IS NULL)
-      -> guarded running -> succeeded Job -> ResultArtifact reference (Object
-      Storage key, never bytes) -> job_succeeded Event. Any zero-row guard or any
-      failed step rolls the WHOLE UoW back (no partial durable state).
+      completion pack in ONE commit: guarded finish Attempt (recording the
+      available Provider evidence finished_at + provider_request_id + cost_micros
+      in the same ``finished_at IS NULL`` guarded statement) -> guarded
+      tenant-scoped running -> succeeded Job -> ResultArtifact reference (Object
+      Storage key, never bytes) -> job_succeeded Event. provider_request_id /
+      cost_micros may be None when unknown (written as NULL; a None does NOT
+      assert a verified value). Any zero-row guard or any failed step rolls the
+      WHOLE UoW back (no partial durable state).
     * This module is imported without opening any connection. NO global
       AsyncSession. NO repository-owned commit. It reuses the Day46 ORM models
       (``day46_orm_mapping``); it does NOT redefine Day42 schema authority, use
@@ -99,49 +109,59 @@ class JobRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def guarded_claim(self, job_id: uuid.UUID) -> int:
-        """Single guarded transition: UPDATE ... WHERE job_status='queued'
-        RETURNING job_id. Returns the number of rows claimed (1 = this Worker
-        won; 0 = stale/no-op). This is NOT SELECT-then-UPDATE, so two Workers
-        cannot both claim the same queued Job."""
+    async def guarded_claim(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> int:
+        """Single guarded transition: UPDATE ... WHERE job_status='queued' AND
+        tenant_id=... RETURNING job_id. Returns the number of rows claimed (1 =
+        this Worker won; 0 = stale/no-op). NOT SELECT-then-UPDATE, so two Workers
+        cannot both claim the same queued Job. tenant_id is a REQUIRED durable
+        ownership predicate (Day42/Day46): it is trusted context passed in from
+        the orchestration, NOT derived from the job_id — a job_id alone is not an
+        authorization boundary. A wrong tenant matches 0 rows and claims nothing."""
         result = await self._session.execute(
             text(
                 "UPDATE app.jobs SET job_status = 'running', started_at = now() "
-                "WHERE job_id = :job_id AND job_status = 'queued' "
+                "WHERE job_id = :job_id AND tenant_id = :tenant_id "
+                "AND job_status = 'queued' "
                 "RETURNING job_id"
             ),
-            {"job_id": job_id},
+            {"job_id": job_id, "tenant_id": tenant_id},
         )
         return len(result.fetchall())
 
     async def guarded_complete(
-        self, job_id: uuid.UUID, *, finished_at: Optional[datetime] = None
+        self, job_id: uuid.UUID, tenant_id: uuid.UUID, *, finished_at: Optional[datetime] = None
     ) -> int:
-        """Guarded terminal transition: only a still-'running' Job records success.
-        Returns rows affected (1 = completed; 0 = stale/no-op — do NOT overwrite
-        or duplicate terminal facts). The Day46 jobs_succeeded_has_finished_at
-        CHECK is a STATE invariant; this row guard is CONCURRENCY control."""
+        """Guarded terminal transition: only a still-'running' Job OWNED BY THIS
+        tenant records success. Returns rows affected (1 = completed; 0 = stale/
+        no-op — do NOT overwrite or duplicate terminal facts). The Day46
+        jobs_succeeded_has_finished_at CHECK is a STATE invariant; this row guard
+        is CONCURRENCY + OWNERSHIP control. tenant_id is a REQUIRED durable
+        ownership predicate (trusted context, not derived from job_id); a wrong
+        tenant matches 0 rows so NO Artifact/Event is written."""
         result = await self._session.execute(
             text(
                 "UPDATE app.jobs SET job_status = 'succeeded', finished_at = :fa "
-                "WHERE job_id = :job_id AND job_status = 'running' "
+                "WHERE job_id = :job_id AND tenant_id = :tenant_id "
+                "AND job_status = 'running' "
                 "RETURNING job_id"
             ),
-            {"job_id": job_id, "fa": finished_at or datetime.now(timezone.utc)},
+            {"job_id": job_id, "tenant_id": tenant_id, "fa": finished_at or datetime.now(timezone.utc)},
         )
         return len(result.fetchall())
 
-    async def mark_failed(self, job_id: uuid.UUID) -> int:
+    async def mark_failed(self, job_id: uuid.UUID, tenant_id: uuid.UUID) -> int:
         """Definitive, non-retryable Provider failure -> failed (guarded on
-        'running'). A timeout with UNKNOWN remote outcome must NOT use this; it
-        stays unknown/recoverable."""
+        'running' AND tenant_id). A timeout with UNKNOWN remote outcome must NOT
+        use this; it stays unknown/recoverable. tenant_id is a REQUIRED durable
+        ownership predicate (trusted context, not derived from job_id)."""
         result = await self._session.execute(
             text(
                 "UPDATE app.jobs SET job_status = 'failed', finished_at = now() "
-                "WHERE job_id = :job_id AND job_status = 'running' "
+                "WHERE job_id = :job_id AND tenant_id = :tenant_id "
+                "AND job_status = 'running' "
                 "RETURNING job_id"
             ),
-            {"job_id": job_id},
+            {"job_id": job_id, "tenant_id": tenant_id},
         )
         return len(result.fetchall())
 
@@ -169,21 +189,40 @@ class AttemptRepository:
         await self._session.flush()
         return attempt
 
-    async def finish(self, job_id: uuid.UUID, attempt_id: uuid.UUID) -> int:
-        """Guarded Attempt completion (Day33 completion pack, step 1). Guards on
-        job_id, attempt_id AND finished_at IS NULL, so an ALREADY-finished Attempt
-        is never overwritten. Returns rows affected: 1 = finished now; 0 = the
-        Attempt does not exist, does not belong to this Job, or is already
-        finished -> the caller must ROLL BACK and STOP (stale/no-op), never
-        overwriting a finished Attempt's outcome evidence."""
+    async def finish(
+        self,
+        job_id: uuid.UUID,
+        attempt_id: uuid.UUID,
+        *,
+        provider_request_id: Optional[str] = None,
+        cost_micros: Optional[int] = None,
+    ) -> int:
+        """Guarded Attempt completion (Day33 completion pack, step 1). In ONE
+        guarded statement it records the available Provider evidence —
+        ``finished_at``, ``provider_request_id`` and ``cost_micros`` — while
+        guarding on job_id, attempt_id AND ``finished_at IS NULL``, so an
+        ALREADY-finished Attempt's recorded outcome is never overwritten. Returns
+        rows affected: 1 = finished now; 0 = the Attempt does not exist, does not
+        belong to this Job, or is already finished -> the caller must ROLL BACK and
+        STOP (stale/no-op). ``provider_request_id`` / ``cost_micros`` may be None
+        when not yet known (they are written as NULL); a None does NOT assert a
+        verified value."""
         result = await self._session.execute(
             text(
-                "UPDATE app.job_attempts SET finished_at = now() "
+                "UPDATE app.job_attempts "
+                "SET finished_at = now(), "
+                "    provider_request_id = :provider_request_id, "
+                "    cost_micros = :cost_micros "
                 "WHERE attempt_id = :attempt_id AND job_id = :job_id "
                 "AND finished_at IS NULL "
                 "RETURNING attempt_id"
             ),
-            {"attempt_id": attempt_id, "job_id": job_id},
+            {
+                "attempt_id": attempt_id,
+                "job_id": job_id,
+                "provider_request_id": provider_request_id,
+                "cost_micros": cost_micros,
+            },
         )
         return len(result.fetchall())
 
@@ -309,9 +348,14 @@ class AIProviderSeam(Protocol):
 
 @dataclass
 class FakeProvider:
-    """Deterministic no-network seam for tests."""
+    """Deterministic no-network seam for tests. On success it models the evidence a
+    real Provider response would carry (an artifact reference, and optionally a
+    provider_request_id and cost_micros) so a test can pass them into the guarded
+    completion pack. It performs NO network I/O and is NOT a real Provider SDK."""
 
     artifact_ref: Optional[str] = None
+    provider_request_id: Optional[str] = None
+    cost_micros: Optional[int] = None
     raises: Optional[BaseException] = None
     calls: int = 0
 
@@ -330,14 +374,16 @@ async def start_job(
     session_factory: async_sessionmaker[AsyncSession],
     job_id: uuid.UUID,
     *,
+    tenant_id: uuid.UUID,
     correlation_key: str,
 ) -> ClaimOutcome:
-    """UoW 1: guarded claim -> Attempt (flush) -> job_started Event -> commit,
-    committing only if ALL succeed. A zero-row claim is a normal stale/no-op:
-    create NO Attempt/Event and do not commit."""
+    """UoW 1: guarded claim (tenant-scoped) -> Attempt (flush) -> job_started Event
+    -> commit, committing only if ALL succeed. A zero-row claim (including a wrong
+    tenant) is a normal stale/no-op: create NO Attempt/Event and do not commit.
+    tenant_id is trusted durable-ownership context, NOT derived from job_id."""
     async with UnitOfWork(session_factory) as uow:
         assert uow.jobs and uow.attempts and uow.events
-        claimed = await uow.jobs.guarded_claim(job_id)
+        claimed = await uow.jobs.guarded_claim(job_id, tenant_id)
         if claimed == 0:
             return ClaimOutcome.STALE_NOOP  # __aexit__ rolls back the empty UoW
         attempt = await uow.attempts.create(job_id, 1)
@@ -355,9 +401,12 @@ async def complete_job(
     session_factory: async_sessionmaker[AsyncSession],
     job_id: uuid.UUID,
     *,
+    tenant_id: uuid.UUID,
     attempt_id: uuid.UUID,
     object_key: str,
     artifact_type: str = "result",
+    provider_request_id: Optional[str] = None,
+    cost_micros: Optional[int] = None,
 ) -> CompletionOutcome:
     """UoW 2 (a SECOND short guarded UoW, AFTER the Provider call returned): the
     Day33 atomic completion pack in ONE transaction/commit —
@@ -368,10 +417,16 @@ async def complete_job(
           -> append job_succeeded Event
           -> commit
 
+    tenant_id is a REQUIRED durable-ownership predicate on the Job transition
+    (trusted context, NOT derived from job_id). provider_request_id / cost_micros
+    are the available Provider evidence recorded on the finished Attempt in the
+    same statement; either may be None when not yet known (written as NULL — a
+    None does NOT assert a verified value).
+
     Guard order and rollback semantics:
       * Attempt finish returning 0 rows (missing / wrong Job / ALREADY finished)
         -> ROLL BACK and return stale/no-op; never overwrite a finished Attempt.
-      * Job transition returning 0 rows (not currently running) -> ROLL BACK;
+      * Job transition returning 0 rows (not running OR wrong tenant) -> ROLL BACK;
         write NO ResultArtifact and NO success Event.
       * If the Artifact insert or the Event append fails, the whole UoW rolls back
         (no partial PostgreSQL durable state). The external Artifact bytes are NOT
@@ -380,13 +435,20 @@ async def complete_job(
     UoW); the bytes stay in Object Storage."""
     async with UnitOfWork(session_factory) as uow:
         assert uow.attempts and uow.jobs and uow.artifacts and uow.events
-        # 1. Guarded finish of THIS Attempt (job_id + attempt_id + finished_at IS NULL).
-        finished = await uow.attempts.finish(job_id, attempt_id)
+        # 1. Guarded finish of THIS Attempt (job_id + attempt_id + finished_at IS
+        #    NULL), recording the available Provider evidence in the same statement.
+        finished = await uow.attempts.finish(
+            job_id,
+            attempt_id,
+            provider_request_id=provider_request_id,
+            cost_micros=cost_micros,
+        )
         if finished == 0:
             # stale/already-finished Attempt -> __aexit__ rolls back the empty UoW.
             return CompletionOutcome.STALE_NOOP
-        # 2. Guarded terminal Job transition (only a still-running Job).
-        completed = await uow.jobs.guarded_complete(job_id)
+        # 2. Guarded terminal Job transition (only a still-running Job OWNED BY
+        #    THIS tenant). A wrong tenant -> 0 rows -> rollback, no Artifact/Event.
+        completed = await uow.jobs.guarded_complete(job_id, tenant_id)
         if completed == 0:
             # transition_not_applied -> rollback; no Artifact / no success Event.
             return CompletionOutcome.STALE_NOOP

@@ -565,12 +565,13 @@ commit exception = UNKNOWN outcome (DB may have committed before the response wa
 ### Guarded claim / completion / Provider boundary
 
 ```text
-guarded claim = single UPDATE app.jobs SET job_status='running' WHERE job_id=:id AND job_status='queued' RETURNING job_id (NOT SELECT-then-UPDATE)
+guarded claim = single UPDATE app.jobs SET job_status='running' WHERE job_id=:id AND tenant_id=:tenant_id AND job_status='queued' RETURNING job_id (NOT SELECT-then-UPDATE)
+EVERY guarded app.jobs mutation (claim/complete/fail) binds tenant_id as a REQUIRED durable ownership predicate (Day42/Day46; trusted context, NOT derived from job_id; a job_id alone is not authz). Wrong tenant -> 0 rows. NOT Day52 auth.
   1 row = claimed | 0 rows = NORMAL stale/no-op (no Attempt/Event, not a retryable DB error)
 UoW 1 (short): guarded claim -> Attempt 1 (flush) -> job_started Event (carries the APP-generated correlation/idempotency key in its metadata) -> COMMIT (only if all succeed)
 long/paid Provider call = OUTSIDE any DB transaction (DB can't roll back its execution/charges/side effects; holding a tx exhausts the pool)
 commit the correlation key BEFORE the call, in the job_started Event metadata (Day46 has NO correlation column on JobAttempt; AttemptRepository.create() does NOT take it); persist the Provider request ID LATER (it can't be the only recovery identity)
-UoW 2 (short) = Day33 atomic completion pack, ONE commit: guarded finish Attempt (WHERE finished_at IS NULL RETURNING; 0 rows=stale/no-op, never overwrite a finished Attempt) -> guarded Job running->succeeded (WHERE job_status='running' RETURNING; 0 rows=stale/no-op, no Artifact/Event) -> ResultArtifact reference (Object Storage key, NOT bytes) -> job_succeeded Event -> COMMIT; any step fails -> rollback WHOLE UoW (no partial durable state; DB rollback does NOT delete external bytes)
+UoW 2 (short) = Day33 atomic completion pack, ONE commit: guarded finish Attempt (SET finished_at, provider_request_id, cost_micros WHERE finished_at IS NULL RETURNING; provider evidence in the SAME statement, may be None->NULL and None does NOT assert a verified value; 0 rows=stale/no-op, never overwrite a finished Attempt) -> guarded Job running->succeeded (WHERE job_id AND tenant_id AND job_status='running' RETURNING; 0 rows=stale/no-op incl. WRONG TENANT, no Artifact/Event) -> ResultArtifact reference (Object Storage key, NOT bytes) -> job_succeeded Event -> COMMIT; any step fails -> rollback WHOLE UoW (no partial durable state; DB rollback does NOT delete external bytes)
 guarded completion (concurrency: one still-valid running writer) != jobs_succeeded_has_finished_at CHECK (state invariant)
 definitive failure (401/rejected) -> failed; timeout/UNKNOWN remote outcome -> first-class recovery state; NEVER blindly requeue/re-call (cost + duplicate effects)
 ```
@@ -610,7 +611,7 @@ Day47 drives the Day46 mapping through two short guarded UoWs (explicit commit; 
 OUTSIDE the transaction; correlation evidence is committed first, and unknown outcomes are recovered via a new guarded UoW, never blindly replayed.
 ```
 
-Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 17 passed;
+Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 23 passed;
 deps pinned in `projects/ai-backend-data-layer/api/requirements-day47.txt`). A mock is NOT database proof: PostgreSQL runtime NOT RUN
 (no server/driver; SQLite is not PostgreSQL evidence). FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN.
 Alembic = Day48; upload workflow = Day49; idempotent acceptance/Outbox = Day50.

@@ -51,7 +51,7 @@ transaction + explicit commit, not from repositories committing independently.
 
 ```text
 UoW 1 (short): guarded claim -> Attempt 1 (flush) -> job_started Event -> commit ONLY if all three succeed.
-Guarded claim = a SINGLE `UPDATE app.jobs SET job_status='running' WHERE job_id=:id AND job_status='queued' RETURNING job_id`
+Guarded claim = a SINGLE `UPDATE app.jobs SET job_status='running' WHERE job_id=:id AND tenant_id=:tenant_id AND job_status='queued' RETURNING job_id`
   (NOT SELECT-then-UPDATE, which races). One returned row = this Worker claimed the Job; ZERO rows = a NORMAL stale/no-op
   miss -> create NO Attempt/Event, do NOT treat it as a retryable database failure (ending/rolling back an empty UoW is
   harmless). A Repository must NOT commit after one substep: if Attempt succeeds but Event fails, the UoW rolls back ALL
@@ -82,14 +82,17 @@ commit exception       -> an UNKNOWN commit outcome (the DB may have committed b
 ```text
 A Provider call that may take minutes stays OUTSIDE any open DB transaction (holding one exhausts the pool and cannot make
   Provider execution/charges/results roll back with PostgreSQL).
+Every guarded app.jobs mutation (claim/complete/fail) carries tenant_id as a REQUIRED durable ownership predicate
+  (Day42/Day46): trusted context passed from the orchestration, NOT derived from job_id; a wrong tenant matches 0 rows.
 BEFORE an irreversible Provider call: commit a durable Attempt + an APPLICATION-generated correlation/idempotency key
   written into the job_started Event metadata (Day46 defines NO correlation column on JobAttempt; Day47 invents none,
   and AttemptRepository.create() does NOT accept a correlation_key).
   A Provider-returned request ID is persisted LATER when available — too late to be the only recovery identity.
 Completion = a SECOND short guarded UoW persisting the Day33 atomic completion pack in ONE commit:
-  1) guarded finish Attempt: UPDATE app.job_attempts SET finished_at=now() WHERE attempt_id AND job_id AND finished_at IS NULL
+  1) guarded finish Attempt: UPDATE app.job_attempts SET finished_at=now(), provider_request_id=:prid, cost_micros=:cost WHERE attempt_id AND job_id AND finished_at IS NULL
+     (records the available Provider evidence in the SAME guarded statement; prid/cost may be None -> NULL, which does NOT assert a verified value)
      RETURNING attempt_id -> 0 rows (missing / wrong Job / ALREADY finished) = ROLLBACK + stale/no-op (never overwrite a finished Attempt);
-  2) guarded terminal Job: UPDATE ... WHERE job_status='running' RETURNING -> 0 rows = ROLLBACK, write NO Artifact and NO success Event;
+  2) guarded terminal Job: UPDATE ... WHERE job_id AND tenant_id AND job_status='running' RETURNING -> 0 rows (not running OR wrong tenant) = ROLLBACK, write NO Artifact and NO success Event;
   3) create ResultArtifact durable reference (Day46 mapping; Object Storage object_key + metadata, NEVER bytes);
   4) append the job_succeeded Event; 5) COMMIT.
   If the Artifact insert or the Event append fails, the WHOLE UoW rolls back -> no partial PostgreSQL durable state. The external
@@ -114,7 +117,7 @@ SQLite is NOT PostgreSQL runtime evidence for this system (app schema, PostgreSQ
   transaction/concurrency behavior).
 ```
 
-Executed fake-session tests in `test_day47_async_uow.py` (17 cases):
+Executed fake-session tests in `test_day47_async_uow.py` (23 cases):
 
 ```text
 1  claimed start flow: guarded claim (1 row) -> Attempt (flush) -> Event -> commit exactly once; always closes
@@ -134,6 +137,12 @@ Executed fake-session tests in `test_day47_async_uow.py` (17 cases):
 15 the correlation/idempotency key lives in the job_started Event metadata; AttemptRepository.create() no longer accepts it
 16 Provider seam is outside the DB tx; an unknown outcome propagates and is not fabricated / not blindly re-called
 17 guarded mark_failed records 'failed' on a still-running Job (1 row); a zero-row guard is stale/no-op
+18 every guarded app.jobs mutation (claim/complete/fail) binds tenant_id (distinct from job_id), not derived from job identity
+19 a WRONG tenant makes the guarded Job transition 0 rows: rollback, no Artifact, no Event
+20 a WRONG tenant makes the guarded CLAIM 0 rows: stale/no-op, no Attempt/Event
+21 completion records Provider evidence (provider_request_id + cost_micros) in the SAME guarded Attempt-finish (finished_at IS NULL preserved)
+22 Provider evidence may be None when unknown (written as NULL; None does not assert a verified value)
+23 FakeProvider models Provider evidence (request id + cost) without network I/O (not a real SDK)
 ```
 
 ---
@@ -170,8 +179,8 @@ python3 -m pytest -q test_day47_async_uow.py
 CONCEPTUAL              : the design mirrors the Day47 classroom process (scope/ownership, UoW/repo, guarded claim/
                           completion, short-tx vs external side effects, unknown-outcome recovery).
 SYNTAX / STATIC (RUN)   : python3 -m py_compile of day47_async_uow.py + test_day47_async_uow.py passed.
-FAKE-SESSION UNIT (RUN) : 17 pytest cases verify UoW/repository CONTROL FLOW with a FAKE AsyncSession (no DB). Executed:
-                          Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 17 passed. These prove code-path
+FAKE-SESSION UNIT (RUN) : 23 pytest cases verify UoW/repository CONTROL FLOW with a FAKE AsyncSession (no DB). Executed:
+                          Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 23 passed. These prove code-path
                           intent (explicit commit, rollback+close, stale/no-op, flush-before-write, repos never commit,
                           one shared Session per UoW, a fresh Session per UoW), NOT database behavior.
 POSTGRESQL RUNTIME      : NOT RUN. No PostgreSQL server / async driver was available. A real test would apply the independent
