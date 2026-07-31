@@ -6,7 +6,7 @@ Create Date: 2026-07-31
 
 CONTRACT is destructive and is the LAST phase. Preconditions that MUST hold before
 applying this revision (Alembic cannot check them — an operator must):
-  * Validate (0003) succeeded and historical rows are proven compliant.
+  * Validate (0004) succeeded and historical rows are proven compliant.
   * Switch is complete: EVERY Writer (Workers, recovery, admin/scripts,
     completion/failure paths) uses the Lease-token protocol and the old path can
     no longer write.

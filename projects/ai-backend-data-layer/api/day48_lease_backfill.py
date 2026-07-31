@@ -183,6 +183,33 @@ async def count_unresolved_running_without_lease(session: AsyncSession) -> int:
     return int(rows[0][0]) if rows else 0
 
 
+async def select_open_reconciliation_batch(
+    session: AsyncSession, *, batch_size: int
+) -> List[uuid.UUID]:
+    """One SHORT, concurrent-safe selection of OPEN reconciliation records whose Job
+    is STILL running AND still unowned (so a resolution is still needed and still
+    legal). We lock the reconciliation rows with ``FOR UPDATE OF r SKIP LOCKED`` so
+    parallel resolvers never contend and a crash mid-batch leaves the record OPEN for
+    a restart to retry. This is the ONLY selector that revisits a routed Job — the
+    AUTOMATIC candidate query (``select_backfill_batch``) permanently excludes queued
+    Jobs, matching real SQL: once a Job has a queue row it is not an automatic
+    candidate again; its resolution flows through THIS path instead."""
+    result = await session.execute(
+        text(
+            "SELECT r.job_id "
+            "FROM app.job_lease_reconciliation r "
+            "JOIN app.jobs j ON j.job_id = r.job_id "
+            "WHERE r.resolution_status = 'open' "
+            "AND j.job_status = 'running' AND j.lease_owner IS NULL "
+            "ORDER BY r.routed_at "
+            "FOR UPDATE OF r SKIP LOCKED "
+            "LIMIT :batch_size"
+        ),
+        {"batch_size": batch_size},
+    )
+    return [row[0] for row in result.fetchall()]
+
+
 class UnsafeRecoveryError(ValueError):
     """Raised when a caller asks Day48 to "resolve" an unknown running Job in a way
     that would be unsafe: a requeue (``queued``), a non-terminal state, or a bare
@@ -243,9 +270,9 @@ def classify_unknown_running_recovery(verified_outcome: Optional[str]) -> Recove
 @dataclass
 class BackfillReport:
     backfilled: int = 0
-    routed_to_reconciliation: int = 0  # running + unowned + NO trusted evidence -> persisted 'reconcile'
+    routed_to_reconciliation: int = 0  # running + unowned + NO trusted evidence -> INSERTed into the queue
     # remaining_targets (Day36): ALL still-running rows with a NULL Lease, INCLUDING
-    # reconcile-marked ones. VALIDATE/Switch/Contract require this to be 0. A nonzero
+    # queue-routed ones. VALIDATE/Switch/Contract require this to be 0. A nonzero
     # value means the migration is INCOMPLETE even when the automatic loop has stopped.
     unresolved_running_without_lease: int = 0
 
@@ -259,14 +286,19 @@ async def run_backfill(
 ) -> BackfillReport:
     """Drive the AUTOMATIC backfill in SHORT, restartable batches. Each batch is its
     own short transaction (select-lock -> apply evidence OR route unknowns ->
-    commit). A Job with no trusted evidence is ROUTED to a persistent reconciliation
-    marker (never fabricated), so it leaves the AUTOMATIC candidate set and the loop
-    TERMINATES even with ``max_batches=None``; stops when a batch is empty
-    (checkpoint = the database state, so a restart resumes cleanly).
+    commit). A Job with no trusted evidence is ROUTED into the INDEPENDENT
+    reconciliation queue (never fabricated), so it leaves the AUTOMATIC candidate set
+    and the loop TERMINATES even with ``max_batches=None``; stops when a batch is
+    empty (checkpoint = the database state, so a restart resumes cleanly).
+
+    This handles AUTOMATIC candidates ONLY. A Job already in the queue is NOT
+    re-selected here (``select_backfill_batch`` excludes it, exactly as real SQL
+    requires); when trusted evidence appears later it is resolved by the separate
+    ``run_reconciliation_resolution`` path.
 
     IMPORTANT: the automatic loop stopping does NOT mean the history is compliant.
     The report exposes ``unresolved_running_without_lease`` (Day36 remaining_targets,
-    INCLUDING reconcile-marked rows). VALIDATE / Switch / Contract require that count
+    INCLUDING queue-routed rows). VALIDATE / Switch / Contract require that count
     to be 0, reached ONLY by a trusted Lease backfill or an audited real recovery."""
     report = BackfillReport()
     batches = 0
@@ -280,10 +312,11 @@ async def run_backfill(
             for job_id in job_ids:
                 evidence = await evidence_source.prove(job_id)
                 if evidence is None:
-                    # Unknown ownership -> PERSIST a reconciliation marker so this
+                    # Unknown ownership -> INSERT a reconciliation-queue record so this
                     # Job is not re-selected by the automatic loop. This is TRIAGE,
                     # NOT resolution: the row STILL violates jobs_running_requires_lease
-                    # and STILL counts below. No Lease is fabricated.
+                    # and STILL counts below. No Lease is fabricated. Later resolution
+                    # flows through run_reconciliation_resolution.
                     report.routed_to_reconciliation += await route_to_reconciliation(
                         session, job_id
                     )
@@ -291,7 +324,80 @@ async def run_backfill(
                 report.backfilled += await apply_lease_evidence(session, evidence)
             await session.commit()
     # Final DB-backed truth: how many running-without-Lease rows REMAIN (including
-    # reconcile-marked ones). This — not "the loop stopped" — is the VALIDATE gate.
+    # queue-routed ones). This — not "the loop stopped" — is the VALIDATE gate.
+    async with session_factory() as session:
+        report.unresolved_running_without_lease = (
+            await count_unresolved_running_without_lease(session)
+        )
+        await session.rollback()
+    return report
+
+
+@dataclass
+class ReconciliationResolutionReport:
+    # An OPEN record whose Job later gained trusted evidence: the Lease triple was
+    # written to app.jobs AND the queue record was closed in the SAME short tx.
+    resolved: int = 0
+    # An OPEN record whose Job still has NO trusted evidence -> LEFT open (no
+    # fabrication, no requeue, no bare status flip, no Provider call).
+    still_open: int = 0
+    # Day36 remaining_targets after this pass (ALL running app.jobs with a NULL
+    # Lease, INCLUDING still-open records). VALIDATE/Switch/Contract require 0.
+    unresolved_running_without_lease: int = 0
+
+
+async def run_reconciliation_resolution(
+    session_factory: async_sessionmaker[AsyncSession],
+    evidence_source: EvidenceSource,
+    *,
+    batch_size: int = 100,
+    max_batches: Optional[int] = None,
+) -> ReconciliationResolutionReport:
+    """RESOLUTION path for records already in the reconciliation queue — the piece
+    the AUTOMATIC loop cannot do (``select_backfill_batch`` permanently excludes
+    queued Jobs, exactly as real SQL requires). It drives SHORT, restartable batches
+    over ``resolution_status='open'`` records whose Job is still running + unowned:
+
+      1. guarded ``UPDATE app.jobs`` writes the FULL Lease triple (apply_lease_evidence);
+      2. ONLY if that UPDATE actually affected the row (returned 1) is the queue
+         record marked ``resolved`` with ``resolved_at`` — in the SAME short tx.
+
+    If no trusted evidence exists yet, the record is LEFT open (never a fabricated
+    Lease, never a requeue, never a bare status flip, never a Provider call). If the
+    guarded UPDATE affects 0 rows (e.g. the Job was concurrently resolved so it no
+    longer matches running + unowned), the record is NOT closed by this attempt —
+    closing is gated on THIS UoW's own successful write, keeping the pass idempotent
+    and restart-safe (the checkpoint is the durable DB state). This does NOT reduce
+    ``unresolved_running_without_lease`` except by a REAL Lease write; only then may
+    VALIDATE/Switch/Contract proceed. Calls NO Provider and holds NO long tx."""
+    report = ReconciliationResolutionReport()
+    batches = 0
+    while max_batches is None or batches < max_batches:
+        batches += 1
+        async with session_factory() as session:
+            job_ids = await select_open_reconciliation_batch(
+                session, batch_size=batch_size
+            )
+            if not job_ids:
+                await session.rollback()
+                break
+            for job_id in job_ids:
+                evidence = await evidence_source.prove(job_id)
+                if evidence is None:
+                    # Still unprovable -> leave the record OPEN. No fabrication.
+                    report.still_open += 1
+                    continue
+                applied = await apply_lease_evidence(session, evidence)
+                if applied:
+                    # Close the queue record ONLY after the guarded UPDATE succeeded.
+                    report.resolved += await close_reconciliation_record(
+                        session, job_id
+                    )
+                else:
+                    # The Job no longer matched running + unowned (e.g. resolved
+                    # concurrently); do NOT close on this attempt's behalf.
+                    report.still_open += 1
+            await session.commit()
     async with session_factory() as session:
         report.unresolved_running_without_lease = (
             await count_unresolved_running_without_lease(session)

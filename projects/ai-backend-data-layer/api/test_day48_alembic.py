@@ -27,6 +27,7 @@ from alembic.script import ScriptDirectory
 from day48_lease_backfill import (
     BackfillReport,
     LeaseEvidence,
+    ReconciliationResolutionReport,
     RecoveryBoundary,
     UnsafeRecoveryError,
     apply_lease_evidence,
@@ -35,7 +36,9 @@ from day48_lease_backfill import (
     count_unresolved_running_without_lease,
     route_to_reconciliation,
     run_backfill,
+    run_reconciliation_resolution,
     select_backfill_batch,
+    select_open_reconciliation_batch,
 )
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -502,12 +505,14 @@ def test_recovery_routing_issues_no_sql():
     assert not hasattr(m, "resolve_by_verified_terminal_state")
 
 
-# 20. R2 Finding 1 — VALIDATE precondition is unresolved==0: after a trusted backfill
-#     resolves the last parked row, the unresolved count reaches 0 (only THEN may the
-#     migration VALIDATE/Switch/Contract). Reaching 0 by routing alone is impossible.
+# 20. R2 Finding 1 / R5 Finding 1 — VALIDATE precondition is unresolved==0. A routed
+#     Job is NOT re-selected by the AUTOMATIC loop (matching real SQL); it is resolved
+#     later by the DEDICATED reconciliation-resolution path, and ONLY a real Lease
+#     write drives unresolved -> 0 (only THEN may the migration VALIDATE/Switch/Contract).
 def test_validate_precondition_reached_only_after_real_resolution():
-    # Round 1: one unknown Job is routed; unresolved stays 1 (not compliant).
-    routed = FakeAsyncSession(execute_rows=[[(JOB_A,)], [(JOB_A,)], [], [(1,)]])
+    # Round 1: one unknown Job is routed by the AUTOMATIC loop; unresolved stays 1.
+    #   selects [(JOB_A)], route -> [(rec_id)], select [] (stop), final count -> [(1)].
+    routed = FakeAsyncSession(execute_rows=[[(JOB_A,)], [(uuid.uuid4(),)], [], [(1,)]])
 
     class NoEvidence:
         async def prove(self, job_id):
@@ -517,16 +522,38 @@ def test_validate_precondition_reached_only_after_real_resolution():
     assert r1.routed_to_reconciliation == 1
     assert r1.unresolved_running_without_lease == 1  # queued != resolved
 
-    # Round 2: a trusted source now proves JOB_A; it is backfilled and unresolved -> 0.
-    resolved = FakeAsyncSession(execute_rows=[[(JOB_A,)], [(JOB_A,)], [], [(0,)]])
+    # Round 2 (WRONG path): the AUTOMATIC loop can NEVER resolve a queued Job — its
+    # candidate query excludes queued Jobs, so a re-run selects nothing and does
+    # nothing, exactly as real SQL behaves. This is why a dedicated path is required.
+    auto_again = FakeAsyncSession(execute_rows=[[], [(1,)]])  # empty select; still 1 unresolved
 
     class KnownNow:
         async def prove(self, job_id):
             return _evidence(job_id)
 
-    r2 = asyncio.run(run_backfill(lambda: resolved, KnownNow(), batch_size=100))
-    assert r2.backfilled == 1
+    r_auto = asyncio.run(run_backfill(lambda: auto_again, KnownNow(), batch_size=100))
+    assert r_auto.backfilled == 0
+    assert r_auto.unresolved_running_without_lease == 1  # automatic loop cannot touch a routed Job
+
+    # Round 2 (RIGHT path): the dedicated resolution path selects the OPEN record,
+    #   writes the Lease (apply -> [(JOB_A)]), closes the record (close -> [(rec_id)]),
+    #   next select [] (stop), final count -> [(0)].
+    resolve = FakeAsyncSession(
+        execute_rows=[[(JOB_A,)], [(JOB_A,)], [(uuid.uuid4(),)], [], [(0,)]]
+    )
+    r2 = asyncio.run(
+        run_reconciliation_resolution(lambda: resolve, KnownNow(), batch_size=100)
+    )
+    assert isinstance(r2, ReconciliationResolutionReport)
+    assert r2.resolved == 1
+    assert r2.still_open == 0
     assert r2.unresolved_running_without_lease == 0  # NOW the VALIDATE precondition holds
+    # The Lease UPDATE ran on app.jobs; the record close ran on the queue, same tx.
+    apply_sql = resolve.executed[1][0]
+    close_sql = resolve.executed[2][0]
+    assert "UPDATE app.jobs" in apply_sql and "SET lease_owner" in apply_sql
+    assert "UPDATE app.job_lease_reconciliation" in close_sql
+    assert resolve.calls.count("commit") == 1  # one batch committed
 
 
 # 21. Finding 1 (round 4) — close_reconciliation_record is the SEPARATE audit step
@@ -563,3 +590,123 @@ def test_no_backfill_statement_issues_a_violating_app_jobs_update():
     assert "UPDATE app.job_lease_reconciliation" in src
     # Fake-session control-flow tests above are NOT PostgreSQL proof that the
     # strict constraint would accept these statements — see the module docstring.
+
+
+# --- R5 Finding 1: the DEDICATED reconciliation-resolution path -----------------
+# These remain FAKE-SESSION control-flow tests: they assert the SQL shape and the
+# ordering (Lease write must precede the record close), NOT that PostgreSQL would run
+# them. A real run needs PostgreSQL + the 0002/0003 revisions applied.
+
+# 23. The AUTOMATIC candidate query never re-selects a queued Job (matching real SQL:
+#     once a queue row exists the Job is excluded), and the DEDICATED resolution
+#     selector is the ONLY one that revisits an OPEN record — locking with
+#     FOR UPDATE ... SKIP LOCKED and requiring the Job still running + unowned.
+def test_open_reconciliation_record_selected_only_by_resolution_path():
+    # Automatic selector: excludes queued Jobs via NOT EXISTS against the queue.
+    auto = FakeAsyncSession(execute_rows=[[]])
+    asyncio.run(select_backfill_batch(auto, batch_size=50))
+    auto_sql = auto.executed[0][0]
+    assert "NOT EXISTS" in auto_sql and "app.job_lease_reconciliation" in auto_sql
+    # Resolution selector: OPEN records whose Job is still running + unowned, locked.
+    res = FakeAsyncSession(execute_rows=[[(JOB_A,)]])
+    ids = asyncio.run(select_open_reconciliation_batch(res, batch_size=50))
+    assert ids == [JOB_A]
+    res_sql, params = res.executed[0]
+    assert "FROM app.job_lease_reconciliation r" in res_sql
+    assert "JOIN app.jobs j ON j.job_id = r.job_id" in res_sql
+    assert "r.resolution_status = 'open'" in res_sql
+    assert "j.job_status = 'running' AND j.lease_owner IS NULL" in res_sql
+    assert "FOR UPDATE OF r SKIP LOCKED" in res_sql
+    assert params["batch_size"] == 50
+
+
+# 24. When trusted evidence appears LATER, the dedicated path writes the Lease AND
+#     closes the record — in that order, in one short tx (one commit per batch).
+def test_reconciliation_resolution_writes_lease_then_closes_record():
+    # select [(JOB_A)] -> apply [(JOB_A)] -> close [(rec_id)] -> select [] -> count [(0)].
+    sess = FakeAsyncSession(
+        execute_rows=[[(JOB_A,)], [(JOB_A,)], [(uuid.uuid4(),)], [], [(0,)]]
+    )
+
+    class KnownNow:
+        async def prove(self, job_id):
+            return _evidence(job_id)
+
+    report = asyncio.run(
+        run_reconciliation_resolution(lambda: sess, KnownNow(), batch_size=100)
+    )
+    assert report.resolved == 1 and report.still_open == 0
+    assert report.unresolved_running_without_lease == 0
+    # Order: the guarded app.jobs UPDATE comes BEFORE the queue-record close.
+    assert "UPDATE app.jobs" in sess.executed[1][0]
+    assert "UPDATE app.job_lease_reconciliation" in sess.executed[2][0]
+    assert sess.calls.index("commit") > sess.calls.index("execute")
+
+
+# 25. With NO trusted evidence, an OPEN record stays OPEN: no Lease is fabricated, no
+#     requeue, no bare status flip, no Provider — and the record is NOT closed.
+def test_reconciliation_resolution_leaves_record_open_without_evidence():
+    # select [(JOB_A)] -> (no apply/close) -> select [] -> count [(1)].
+    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)], [], [(1,)]])
+
+    class NoEvidence:
+        async def prove(self, job_id):
+            return None
+
+    report = asyncio.run(
+        run_reconciliation_resolution(lambda: sess, NoEvidence(), batch_size=100)
+    )
+    assert report.resolved == 0 and report.still_open == 1
+    assert report.unresolved_running_without_lease == 1  # still a remaining_target
+    # Only the two SELECTs ran — NO UPDATE of app.jobs, NO close of the queue record.
+    for sql, _ in sess.executed:
+        assert "UPDATE app.jobs" not in sql
+        assert "UPDATE app.job_lease_reconciliation" not in sql
+
+
+# 26. Idempotent / restartable: an ALREADY-resolved record (or an already-owned Job)
+#     is not re-selected (the selector filters resolved records + owned Jobs), so a
+#     re-run is a clean no-op that resolves nothing and stays at unresolved == 0.
+def test_reconciliation_resolution_rerun_is_noop():
+    sess = FakeAsyncSession(execute_rows=[[], [(0,)]])  # nothing open+running+unowned
+
+    class KnownNow:
+        async def prove(self, job_id):
+            return _evidence(job_id)
+
+    report = asyncio.run(
+        run_reconciliation_resolution(lambda: sess, KnownNow(), batch_size=100)
+    )
+    assert report.resolved == 0 and report.still_open == 0
+    assert report.unresolved_running_without_lease == 0
+
+
+# 27. If the guarded app.jobs UPDATE affects 0 rows (the Job no longer matches
+#     running + unowned — e.g. concurrently resolved), THIS pass must NOT close the
+#     record on its own behalf: closing is gated on this UoW's own successful write.
+def test_reconciliation_resolution_does_not_close_when_update_affects_zero_rows():
+    # select [(JOB_A)] -> apply [] (0 rows) -> (NO close) -> select [] -> count [(1)].
+    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)], [], [], [(1,)]])
+
+    class KnownNow:
+        async def prove(self, job_id):
+            return _evidence(job_id)
+
+    report = asyncio.run(
+        run_reconciliation_resolution(lambda: sess, KnownNow(), batch_size=100)
+    )
+    assert report.resolved == 0 and report.still_open == 1
+    # The apply UPDATE ran but affected 0 rows; NO close statement was issued.
+    assert "UPDATE app.jobs" in sess.executed[1][0]
+    assert all("UPDATE app.job_lease_reconciliation" not in sql for sql, _ in sess.executed)
+    assert report.unresolved_running_without_lease == 1
+
+
+# 28. The resolution path calls NO Provider and never fabricates/ requeues/ bare-flips.
+def test_reconciliation_resolution_no_provider_no_fabrication():
+    import day48_lease_backfill as m
+    src = open(m.__file__).read()
+    assert ".generate(" not in src and "AIProvider" not in src
+    # close only ever moves 'open' -> 'resolved'; never sets a Lease or a Job status.
+    assert "resolution_status = 'resolved'" in src
+    assert "SET job_status" not in src  # no bare status flip anywhere in the module

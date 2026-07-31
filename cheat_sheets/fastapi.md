@@ -343,7 +343,7 @@ Pydantic makes the Day43 contract executable but earns ONE guarantee (structure)
 authenticated/authorized/committed separate, validate Provider output before side effects, never model_construct untrusted.
 ```
 
-Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 24 passed; deps pinned in
+Validation: REAL Pydantic v2 tests executed (Pydantic 2.5.0, pytest 7.4.3 -> 30 passed; deps pinned in
 `projects/ai-backend-data-layer/api/requirements.txt`; completion target is an in-memory callback, not
 PostgreSQL). FastAPI/auth/PostgreSQL/SQLAlchemy/real-Provider/integration/production NOT RUN. DI/lifespan/
 adapters = Day45; SQLAlchemy = Day46; real Provider SDK = Day53.
@@ -643,6 +643,7 @@ BACKFILL (operational, NOT in upgrade()): short tx + FOR UPDATE SKIP LOCKED batc
   WHY a queue table not a marker column: after 0003 jobs_running_requires_lease REJECTS any UPDATE that leaves a row running+NULL-Lease (23514); a SET lease_backfill_state='reconcile' UPDATE is exactly that. Routing writes only the queue, so it is LEGAL after the strict constraint. (fake-session tests can't see the CHECK -> the real-PG bug hid behind them.)
   BUT queuing = TRIAGE, not RESOLUTION: Day36 core CHECK jobs_running_requires_lease (job_status<>'running' OR lease triple NOT NULL) NOT VALID in 0003, VALIDATEd in 0004. A queue-routed running Job with NULL Lease STILL violates it.
   automatic_backfill_candidates (running + lease_owner NULL + not in queue) != unresolved_running_without_lease (ALL running app.jobs + lease_owner NULL, INCLUDING queue-routed = Day36 remaining_targets; count joins no queue). VALIDATE/Switch/Contract require unresolved==0.
+  RESOLVING A QUEUED ROW = a SEPARATE path (the automatic loop never re-selects a queued Job, matching real SQL): run_reconciliation_resolution selects resolution_status='open' records (JOIN app.jobs, still running+unowned, FOR UPDATE OF r SKIP LOCKED) and, when trusted evidence appears LATER, in ONE short tx: guarded UPDATE app.jobs writes the Lease triple THEN — only if that UPDATE affected the row — close_reconciliation_record marks it resolved. No evidence -> stays open; a 0-row UPDATE does not close it (idempotent/restartable). Only a real Lease write drives unresolved -> 0.
   RESOLUTION only via (a) trusted Lease backfill (apply_lease_evidence sets the Lease triple on app.jobs; close_reconciliation_record audits the queue separately) or (b) audited real recovery ROUTED by classify_unknown_running_recovery (NON-mutating): verified 'succeeded' -> Day47 guarded completion UoW (finished_at+Artifact+Event), 'failed'/'cancelled' -> guarded terminal-recovery, unverified -> KEEP_UNKNOWN, 'queued'/'running'/bad status -> UnsafeRecoveryError. NEVER a requeue, NEVER a bare status flip. run_backfill reports unresolved so "loop stopped" != "history compliant".
   Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = route to reconciliation queue (triage). app.job_lease_reconciliation is an independent Expand table (job_id FK, reason, routed_at, resolution_status, UNIQUE(job_id)).
 VALIDATE (SEPARATE revision): ALTER TABLE ... VALIDATE CONSTRAINT -> proves HISTORY; FAILS until legacy truly resolved (exception queue != resolution).
@@ -689,7 +690,7 @@ evidence; the Day47 UoW is one short business tx while Alembic is deploy-time sc
 ```
 
 Validation: REAL static/offline evidence executed — Alembic revision-graph + migration-source inspection (ScriptDirectory) and
-FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 24 passed), plus an offline
+FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 30 passed), plus an offline
 `alembic upgrade --sql` DDL render (no DB connection). **PostgreSQL runtime NOT RUN** (SQLite/fake/`upgrade`-success are not PostgreSQL
 proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
 

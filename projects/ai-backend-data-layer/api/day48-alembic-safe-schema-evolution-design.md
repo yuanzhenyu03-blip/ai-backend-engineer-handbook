@@ -111,7 +111,18 @@ day48_lease_backfill.py (operator-run, restartable): SHORT tx + FOR UPDATE SKIP 
        no join/anti-join against the queue — routing did not change app.jobs).
       This is the Day36 remaining_targets and the HARD VALIDATE/Switch/Contract precondition (must be 0). The
       automatic loop stopping does NOT reduce it and does NOT mean the history is compliant.
-  A routed row is resolved ONLY by (a) a TRUSTED Lease backfill (apply_lease_evidence sets the Lease triple on app.jobs)
+  RESOLVING A QUEUED ROW IS A SEPARATE PATH — the AUTOMATIC loop never re-selects it (select_backfill_batch excludes
+    queued Jobs via NOT EXISTS, exactly as real SQL requires; a re-run selects nothing). When trusted evidence appears
+    LATER, run_reconciliation_resolution drives SHORT restartable batches over resolution_status='open' records whose
+    Job is still running+unowned (select_open_reconciliation_batch: JOIN app.jobs, WHERE r.resolution_status='open' AND
+    j.job_status='running' AND j.lease_owner IS NULL, ORDER BY r.routed_at, FOR UPDATE OF r SKIP LOCKED). For each, in ONE
+    short tx: (1) guarded UPDATE app.jobs writes the full Lease triple (apply_lease_evidence); (2) ONLY if that UPDATE
+    actually affected the row is the queue record marked resolved+resolved_at (close_reconciliation_record). No evidence ->
+    the record stays OPEN (no fabricated Lease, no requeue, no bare status flip, no Provider). If the guarded UPDATE hits 0
+    rows (the Job no longer matches running+unowned), the record is NOT closed by that attempt — closing is gated on this
+    UoW's own successful write, keeping the pass idempotent + restartable.
+  A routed row is resolved ONLY by (a) a TRUSTED Lease backfill via run_reconciliation_resolution (apply_lease_evidence
+    sets the Lease triple on app.jobs, then close_reconciliation_record closes the record)
     or (b) an AUDITED real recovery ROUTED by classify_unknown_running_recovery (a NON-mutating classifier) to a FULL
     boundary: verified 'succeeded' -> the Day47 GUARDED COMPLETION UoW (finished_at + ResultArtifact + job_succeeded
     Event together); verified 'failed'/'cancelled' -> the guarded terminal-recovery path (state machine + Event + audit);
@@ -217,7 +228,7 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 
 ```text
 CONCEPTUAL / STATIC REVIEW : the runbook mirrors Day36's phases and the classroom trajectory.
-STATIC ALEMBIC (RUN)       : 24 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
+STATIC ALEMBIC (RUN)       : 30 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
                              (single head 0005; linear 0005->0004->0003->0002->0001->None; PURE Expand (Lease columns +
                              the INDEPENDENT app.job_lease_reconciliation queue table, NO constraint on app.jobs = the
                              compatibility window); a SEPARATE constraint revision adds the triple + Day36
@@ -228,14 +239,18 @@ STATIC ALEMBIC (RUN)       : 24 pytest cases inspect the revision graph + migrat
                              only; ROUTES unknown by INSERT into the queue (ON CONFLICT DO NOTHING) with NO app.jobs write
                              and no fabrication; close_reconciliation_record audits the queue only; TERMINATES when all
                              candidates are unknown; restart does not re-select a routed Job BUT it STILL counts in
-                             unresolved_running_without_lease (triage != resolution); recovery ROUTING (non-mutating): unknown -> KEEP_UNKNOWN, verified
+                             unresolved_running_without_lease (triage != resolution); the DEDICATED
+                             run_reconciliation_resolution path selects OPEN records (FOR UPDATE OF r SKIP LOCKED) and, when
+                             trusted evidence appears LATER, writes the Lease triple on app.jobs THEN closes the record in one
+                             tx — only a real Lease write drives unresolved -> 0; no evidence -> record stays OPEN, a 0-row
+                             UPDATE does not close it; recovery ROUTING (non-mutating): unknown -> KEEP_UNKNOWN, verified
                              succeeded -> Day47 completion UoW, failed/cancelled -> guarded terminal-recovery, a 'queued'
                              requeue / 'running' / bad status -> UnsafeRecoveryError; the VALIDATE precondition
                              unresolved==0 is reached only after real resolution; idempotent guarded writes; no Provider) and the database-URL resolution (`-x db_url` > env DAY48_ALEMBIC_DATABASE_URL; ini
                              placeholder is OFFLINE-only and online FAILS FAST without an external URL). No database connection.
 OFFLINE ALEMBIC SQL (RUN)  : `alembic upgrade 0001_baseline:head --sql` RENDERS the Expand/Validate/Contract DDL text using
                              the PostgreSQL dialect and NEVER connects -> static/offline evidence, NOT PostgreSQL proof.
-                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 24 passed.
+                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 30 passed.
 POSTGRESQL RUNTIME         : NOT RUN. No PostgreSQL server was available. A real test would apply the Day42 raw SQL, create
                              a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a
                              NEW illegal write is rejected, and prove VALIDATE FAILS until the legacy violation is repaired/
