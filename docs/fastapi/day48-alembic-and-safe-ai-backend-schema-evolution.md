@@ -20,7 +20,7 @@ Next Lesson: Day49 — Upload Sessions, Object Storage and Artifact Verification
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + a linear 6-revision chain — pure Expand columns, a SEPARATE constraint revision, a SEPARATE additive reconciliation-polling revision, Validate, Contract — for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (37 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + a revision graph with a single head via an intentional branch + merge — pure Expand columns, a SEPARATE constraint revision, Validate, Contract, plus a FORWARD additive reconciliation-polling branch off the constraint revision merged back to one head — for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (40 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -408,11 +408,17 @@ real PostgreSQL (a fake session returning an empty next batch would mask this). 
 with backoff**, persisted on the queue row: `next_attempt_at`, `last_checked_at`, `check_attempts`. Because an applied
 Alembic revision is **immutable**, these columns are **not** edited into `0002` (where the queue table is created) —
 that would leave any database that already ran `0002`/`0003` without them and the resolver would fail at runtime on a
-missing column. They are added **forward** by a separate **additive** revision, `0003b_add_reconciliation_polling`
-(`ALTER TABLE app.job_lease_reconciliation ADD COLUMN ...`, placed after `0003` and before `0004`, plus a partial
-`WHERE resolution_status='open'` index for the due-scan). The `NOT NULL DEFAULT now()` DDL default gives every
-**existing** open row an immediately-due `next_attempt_at` — a real initial value from the `ADD COLUMN`, not a
-fabricated Lease and not a separate data-backfill loop. The selector
+missing column. They are added **forward** by a separate **additive** revision, `0006_add_reconciliation_polling`
+(`ALTER TABLE app.job_lease_reconciliation ADD COLUMN ...` + a partial `WHERE resolution_status='open'` due-index). We
+also must not simply append it after the Contract head, and we must not rewrite `0004`/`0005`'s parent: we cannot prove
+those were never applied, and forcing a database still at `0003` to run Validate/Contract before it can get the polling
+columns is the exact ordering bug to avoid (the resolver runs during Backfill, *before* Validate). So `0006` is an
+**intentional branch** off `0003` — a `0003`-stage database reaches the polling schema without Validate/Contract — and
+a no-DDL **merge** revision `0007_merge_reconciliation_polling` (parents `0005` and `0006`) restores a single head. Every
+published revision keeps its original parentage; the upgrade **matrix** in the runbook spells out the order for a new DB
+and for databases already at `0003`, `0004`, or `0005` (and warns against a blind `upgrade head` on a `0003` DB). The
+`NOT NULL DEFAULT now()` DDL default gives every **existing** open row an immediately-due `next_attempt_at` — a real
+initial value from the `ADD COLUMN`, not a fabricated Lease and not a separate data-backfill loop. The selector
 only returns **due** records (`next_attempt_at <= now()`), and when a check finds no evidence the resolver issues a
 **queue-only**, short, audited `UPDATE` (`defer_reconciliation_record`) that bumps `check_attempts` +
 `last_checked_at` and pushes `next_attempt_at` into the future by an exponential, capped backoff (60s, doubling, cap

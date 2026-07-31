@@ -53,9 +53,10 @@ def upgrade() -> None:
     # UNIQUE(job_id) makes routing idempotent (INSERT ... ON CONFLICT DO NOTHING).
     # IMMUTABILITY NOTE: this revision defines the queue table WITHOUT the
     # reconciliation polling/backoff columns. Those columns are added by the SEPARATE
-    # additive revision 0003b_add_reconciliation_polling, so a database that already
-    # applied 0002 (or 0003) is upgraded FORWARD rather than by editing this published
-    # revision (an applied revision is immutable).
+    # additive branch revision 0006_add_reconciliation_polling (merged back via
+    # 0007_merge_reconciliation_polling), so a database at ANY already-applied stage
+    # (0003 / 0004 / 0005) is upgraded FORWARD rather than by editing this or any
+    # other published revision (an applied revision is immutable).
     op.execute(
         "CREATE TABLE app.job_lease_reconciliation ("
         "  reconciliation_id uuid        PRIMARY KEY DEFAULT gen_random_uuid(), "

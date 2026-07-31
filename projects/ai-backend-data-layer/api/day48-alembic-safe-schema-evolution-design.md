@@ -57,7 +57,7 @@ CREATE TABLE app.job_lease_reconciliation (        -- INDEPENDENT triage queue (
   CONSTRAINT job_lease_reconciliation_job_unique UNIQUE (job_id)  -- one triage row per Job -> idempotent routing
 );
   -- NOTE: the reconciliation POLLING/BACKOFF columns (next_attempt_at / last_checked_at / check_attempts) are added by
-  --       the SEPARATE additive revision 0003b (section 2c). This published revision stays IMMUTABLE.
+  --       the SEPARATE additive BRANCH revision 0006 (section 2c), merged back via 0007. This revision stays IMMUTABLE.
   -> WHY a separate table and NOT a marker column on app.jobs: after 0003 the strict jobs_running_requires_lease CHECK
      rejects ANY UPDATE that leaves a row running with a NULL Lease. A "reconcile" marker column would require exactly
      such an UPDATE, so real PostgreSQL would REJECT it (23514) — fake-session tests could not see that. Triage MUST live
@@ -88,7 +88,7 @@ ALTER TABLE app.jobs ADD CONSTRAINT jobs_running_requires_lease CHECK (job_statu
 
 ---
 
-## 2c. Reconciliation polling columns (revision `0003b_add_reconciliation_polling`) — ADDITIVE, immutability-safe
+## 2c. Reconciliation polling columns (revision `0006_add_reconciliation_polling`, merged by `0007`) — ADDITIVE BRANCH
 
 ```text
 ALTER TABLE app.job_lease_reconciliation
@@ -99,13 +99,18 @@ ALTER TABLE app.job_lease_reconciliation
   ADD CONSTRAINT job_lease_reconciliation_check_attempts_nonneg CHECK (check_attempts >= 0);
 CREATE INDEX IF NOT EXISTS ix_job_lease_reconciliation_due
   ON app.job_lease_reconciliation (next_attempt_at) WHERE resolution_status = 'open';  -- partial index for the due-scan
-  -> WHY A SEPARATE REVISION (not an edit of 0002): an applied Alembic revision is IMMUTABLE. Editing 0002 would NOT add
-     these columns to a database that already ran 0002/0003 — the table would still lack them and the resolver would fail
-     at runtime with an undefined column. So the columns are added FORWARD, additively.
-  -> PLACEMENT: down_revision = 0003_add_lease_constraints (the last revision a real DB may already have applied), BEFORE
-     0004_validate_lease. The reconciliation resolver runs in the Backfill phase (after 0003, before 0004), so the columns
-     must exist by then and must NOT depend on VALIDATE. This revision only touches the INDEPENDENT queue table, never
-     app.jobs, so it neither depends on nor affects the strict jobs_running_requires_lease CHECK.
+  -> WHY A SEPARATE, FORWARD BRANCH (not an edit of any published revision, and not a linear append after 0005): an
+     applied Alembic revision is IMMUTABLE, and we have NO verifiable evidence that 0004/0005 were never applied. Editing
+     0002/0003 or rewriting 0004/0005.down_revision would leave an already-applied database inconsistent (it would never
+     auto-run the new revision) and the resolver would fail on undefined columns. A pure LINEAR append after 0005 would
+     also be wrong: a database still at 0003 would then have to run Validate (0004) + Contract (0005) BEFORE reaching the
+     polling columns — but the resolver runs in the Backfill phase, BEFORE Validate. Forcing Validate first is the exact
+     ordering bug to avoid.
+  -> PLACEMENT: down_revision = 0003_add_lease_constraints — an INTENTIONAL BRANCH off 0003 so a 0003-stage database can
+     reach the polling schema WITHOUT Validate/Contract, while 0004/0005 databases can also apply it (their applied set
+     already contains 0003). This creates a second head (0005 vs 0006); the merge revision 0007_merge_reconciliation_polling
+     (down_revision = (0005, 0006), NO DDL) re-unifies to a SINGLE head. This revision only touches the INDEPENDENT queue
+     table, never app.jobs, so it neither depends on nor affects the strict jobs_running_requires_lease CHECK.
   -> EXISTING ROWS: the DDL DEFAULT now() gives every historical OPEN record next_attempt_at = migration time, so it is
      immediately DUE for the next reconciliation scan. This is a DDL default applied by ADD COLUMN — NOT a fabricated
      Lease/owner/token/terminal/Provider outcome, and NOT a separate data-backfill loop (none is needed; now() IS the
@@ -251,44 +256,67 @@ Never: fabricate Lease ownership, call the Provider in Backfill, blindly repeat 
 
 ---
 
-## Deployment assumption, revision immutability, and rollout paths
+## Deployment assumption, revision immutability, and rollout matrix
 
 ```text
-DEPLOYMENT ASSUMPTION (explicit): an applied Alembic revision is IMMUTABLE. We do NOT assume 0002 was never applied.
-  We DESIGN for "0002 (and possibly 0003) may already be applied on some databases" and add the reconciliation polling
-  columns FORWARD in a new additive revision 0003b instead of editing 0002. (Evidence boundary: within THIS repository no
-  PostgreSQL server was ever available, so nothing here was applied to a real DB — but the repo is a TEACHING artifact
-  modelling correct production practice, and the immutability rule is exactly the Day48 lesson, so we take the safe path
-  regardless. The offline `--sql` render never connects and is not an application.)
+DEPLOYMENT ASSUMPTION (explicit, and NOT written as fact): an applied Alembic revision is IMMUTABLE, and we have NO
+  verifiable evidence about how far any real database was migrated. We therefore do NOT assume "the last applied revision
+  can only be 0003". We design so that a database recorded at ANY of 0003 / 0004 / 0005 is upgraded correctly. (Evidence
+  boundary: within THIS repository no PostgreSQL server was ever available and the offline `--sql` render never connects,
+  so nothing here was applied to a real DB — but the repo models correct production practice, so we take the safe path.)
 
-WHY WE CANNOT JUST EDIT 0002:
-  If 0002 already ran on a database, editing its CREATE TABLE does NOT alter that database — Alembic only replays
-  revisions it has not yet applied. The table would still lack next_attempt_at/last_checked_at/check_attempts and
-  run_reconciliation_resolution() would fail at runtime with an undefined column. Forward-only additive migration is the
-  only correct fix.
+WHY WE NO LONGER REWRITE HISTORY:
+  A previous attempt rewrote 0004_validate_lease.down_revision to point at the new polling revision. That is only correct
+  if 0004/0005 were never applied — which we cannot prove. If a database is already recorded at 0004 or 0005, changing a
+  historical down_revision does NOT make Alembic go back and run the inserted revision; the polling columns would never be
+  added and run_reconciliation_resolution() would fail on undefined columns. So we keep EVERY published revision's
+  parentage intact and add the columns via a FORWARD, additive BRANCH + MERGE.
 
-REVISION GRAPH (single head): 0001_baseline -> 0002_expand_lease -> 0003_add_lease_constraints
-  -> 0003b_add_reconciliation_polling -> 0004_validate_lease -> 0005_contract_legacy.
-  0002 and 0003 are treated as POSSIBLY-APPLIED and therefore immutable; 0004 and 0005 are NOT applied on any real DB
-  (you cannot VALIDATE before Backfill, and Backfill needs 0003b's columns), so rewiring 0004.down_revision from
-  0003_add_lease_constraints to 0003b_add_reconciliation_polling is safe and introduces NO second head (no merge needed).
+REVISION GRAPH (single head via intentional branch + merge):
 
-UPGRADE PATHS:
-  (1) NEW / empty database: apply the Day42 baseline, `alembic stamp 0001_baseline`, then `alembic upgrade head`
-      -> runs 0002, 0003, 0003b, 0004, 0005 in order. The queue table is created (0002) then gains the polling
-         columns + due-index (0003b).
-  (2) Database already at EXPAND (0002 applied) or STRICT-CONSTRAINT (0003 applied): just `alembic upgrade head`.
-      Alembic applies only the not-yet-applied tail (0003b onward). 0003b ADD COLUMN ... DEFAULT now()/0 fills existing
-      OPEN rows with correct initial values (immediately due, 0 attempts) — no data-backfill loop, no fabricated Lease.
-  (3) The operational resolver (run_reconciliation_resolution) must run ONLY after 0003b is applied. Deploy 0003b, verify
-      the columns exist, THEN start the resolver. It runs in the Backfill phase (after 0003, before 0004).
+    0001 -> 0002 -> 0003 --> 0004 -> 0005 ----\
+                        \                        >--> 0007_merge_reconciliation_polling  (single head)
+                         --> 0006_add_reconciliation_polling ---------/
+
+  * 0006_add_reconciliation_polling: down_revision = 0003 (BRANCH). Additive ADD COLUMN + partial index only.
+  * 0007_merge_reconciliation_polling: down_revision = (0005_contract_legacy, 0006_add_reconciliation_polling). NO DDL.
+  Published parentage of 0002/0003/0004/0005 is UNCHANGED. The branch off 0003 lets a 0003-stage DB obtain polling
+  columns WITHOUT running Validate/Contract; the merge restores a single head.
+
+UPGRADE MATRIX (operator order matters — see the WARNING):
+
+  | Current alembic_version        | Steps                                                                            |
+  |--------------------------------|----------------------------------------------------------------------------------|
+  | NEW / empty DB                 | apply Day42 baseline SQL; `alembic stamp 0001_baseline`; `alembic upgrade head`.  |
+  |                                | (No legacy running-without-Lease rows exist, so there is nothing to reconcile —   |
+  |                                |  running Validate/Contract as part of `upgrade head` is safe.)                    |
+  | 0003_add_lease_constraints     | 1) `alembic upgrade 0006_add_reconciliation_polling`  (gets polling schema, does  |
+  | (strict-constraint stage)      |    NOT run Validate/Contract). 2) deploy the resolver. 3) run reconciliation until |
+  |                                |    count_unresolved_running_without_lease() == 0. 4) THEN `alembic upgrade head`  |
+  |                                |    (runs 0004 Validate, 0005 Contract, 0007 merge).                               |
+  | 0004_validate_lease            | `alembic upgrade head` (applies 0006 then 0007). Validate already passed, so      |
+  | (already validated)            | unresolved == 0 and there is NO legacy reconciliation to do; the columns are added |
+  |                                | for SCHEMA COMPATIBILITY with the resolver code / any future routed records.       |
+  | 0005_contract_legacy           | `alembic upgrade head` (applies 0006 then 0007). Same as 0004: schema-compat only; |
+  | (already contracted)           | no legacy reconciliation. Do NOT try to add columns by editing a historical revision. |
+
+  WARNING — DO NOT blindly `alembic upgrade head` on a 0003-stage DB: that would run 0004 (Validate) and 0005 (Contract)
+  BEFORE reconciliation, and Validate would (correctly) FAIL while running-without-Lease rows remain. Upgrade to 0006
+  first, reconcile to unresolved == 0, THEN `upgrade head`.
+
+RUNTIME DEPLOYMENT ORDER: the resolver (run_reconciliation_resolution) references the polling columns, so it must be
+  deployed/started ONLY AFTER 0006 is applied on its target database (verify the columns exist first). Never deploy the
+  polling runtime against a database that has not yet applied 0006.
 
 VERIFY IN REAL POSTGRESQL (NOT RUN here — no server):
-  * current revision:      `alembic -c day48_alembic/alembic.ini current`  (and `SELECT version_num FROM alembic_version;`)
-  * schema columns exist:  `\d+ app.job_lease_reconciliation`  (expect next_attempt_at NOT NULL DEFAULT now(),
+  * current revision:      `alembic -c day48_alembic/alembic.ini current`  and  `SELECT version_num FROM alembic_version;`
+  * polling columns exist:  `\d+ app.job_lease_reconciliation`  (expect next_attempt_at NOT NULL DEFAULT now(),
                             last_checked_at, check_attempts NOT NULL DEFAULT 0, and index ix_job_lease_reconciliation_due)
-  * revision graph:        `alembic -c day48_alembic/alembic.ini heads`   (expect single head 0005_contract_legacy)
-                           `alembic -c day48_alembic/alembic.ini history` (expect the linear chain incl. 0003b)
+                            or:  SELECT column_name FROM information_schema.columns
+                                 WHERE table_schema='app' AND table_name='job_lease_reconciliation'
+                                   AND column_name IN ('next_attempt_at','last_checked_at','check_attempts');
+  * revision graph:        `alembic -c day48_alembic/alembic.ini heads`    (expect single head 0007_merge_reconciliation_polling)
+                           `alembic -c day48_alembic/alembic.ini history`  (expect the 0003->0006 branch + the 0007 merge)
 ```
 
 ---
@@ -310,8 +338,8 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 
 ```text
 CONCEPTUAL / STATIC REVIEW : the runbook mirrors Day36's phases and the classroom trajectory.
-STATIC ALEMBIC (RUN)       : 37 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
-                             (single head 0005; linear 0005->0004->0003b->0003->0002->0001->None; the reconciliation POLLING columns are a SEPARATE ADDITIVE revision 0003b (revision immutability: 0002 may already be applied), placed after 0003 and before 0004; PURE Expand (Lease columns +
+STATIC ALEMBIC (RUN)       : 40 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
+                             (single head 0007_merge_reconciliation_polling via an intentional BRANCH + MERGE: 0006_add_reconciliation_polling branches off 0003 and is merged with the 0005 Contract head by 0007 — every PUBLISHED revision (0002/0003/0004/0005) keeps its ORIGINAL parentage (no history rewrite), the polling columns are added FORWARD/additively, and a 0003-stage DB can reach polling BEFORE Validate; PURE Expand (Lease columns +
                              the INDEPENDENT app.job_lease_reconciliation queue table, NO constraint on app.jobs = the
                              compatibility window); a SEPARATE constraint revision adds the triple + Day36
                              jobs_running_requires_lease NOT VALID with a drain/isolate precondition; Validate validates
@@ -335,7 +363,7 @@ STATIC ALEMBIC (RUN)       : 37 pytest cases inspect the revision graph + migrat
                              placeholder is OFFLINE-only and online FAILS FAST without an external URL). No database connection.
 OFFLINE ALEMBIC SQL (RUN)  : `alembic upgrade 0001_baseline:head --sql` RENDERS the Expand/Validate/Contract DDL text using
                              the PostgreSQL dialect and NEVER connects -> static/offline evidence, NOT PostgreSQL proof.
-                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 37 passed.
+                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 40 passed.
 POSTGRESQL RUNTIME         : NOT RUN. No PostgreSQL server was available. A real test would apply the Day42 raw SQL, create
                              a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a
                              NEW illegal write is rejected, and prove VALIDATE FAILS until the legacy violation is repaired/

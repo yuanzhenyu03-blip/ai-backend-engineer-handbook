@@ -46,14 +46,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ALEMBIC_DIR = os.path.join(HERE, "day48_alembic")
 VERSIONS_DIR = os.path.join(ALEMBIC_DIR, "versions")
 
-EXPECTED_CHAIN = [
-    "0005_contract_legacy",
-    "0004_validate_lease",
-    "0003b_add_reconciliation_polling",
-    "0003_add_lease_constraints",
-    "0002_expand_lease",
-    "0001_baseline",
-]
+# The ORIGINAL published linear spine (must stay immutable): each maps to its parent.
+PUBLISHED_PARENTS = {
+    "0001_baseline": None,
+    "0002_expand_lease": "0001_baseline",
+    "0003_add_lease_constraints": "0002_expand_lease",
+    "0004_validate_lease": "0003_add_lease_constraints",
+    "0005_contract_legacy": "0004_validate_lease",
+}
+# The forward, additive reconciliation-polling BRANCH off 0003, merged back at 0007.
+POLLING_BRANCH_REV = "0006_add_reconciliation_polling"
+POLLING_MERGE_REV = "0007_merge_reconciliation_polling"
 
 
 def _script() -> ScriptDirectory:
@@ -77,13 +80,27 @@ def _function_body_has_loop(source: str, func_name: str) -> bool:
     return False
 
 
-# 1. The revision graph is a SINGLE head and a linear chain 0004->...->0001->None.
-def test_revision_graph_is_single_head_and_linear():
+# 1. SINGLE head via an intentional BRANCH (0006 off 0003) + MERGE (0007), WITHOUT
+#    rewriting any published revision's parentage. The polling branch is reachable
+#    from 0003 (so a 0003-stage DB gets polling BEFORE Validate), and the merge
+#    re-unifies it with the Contract head 0005.
+def test_revision_graph_single_head_branch_merge():
     script = _script()
     heads = script.get_heads()
-    assert heads == ["0005_contract_legacy"], f"expected one head, got {heads}"
-    walked = [rev.revision for rev in script.walk_revisions()]
-    assert walked == EXPECTED_CHAIN
+    assert heads == [POLLING_MERGE_REV], f"expected one head, got {heads}"
+    # (a) every ORIGINAL published revision keeps its ORIGINAL parent (immutability).
+    for rev, parent in PUBLISHED_PARENTS.items():
+        assert script.get_revision(rev).down_revision == parent, f"{rev} parentage changed"
+    # (b) the polling revision BRANCHES off 0003 (NOT appended after 0005), so a
+    #     database still at 0003 can reach it without running Validate/Contract.
+    assert script.get_revision(POLLING_BRANCH_REV).down_revision == "0003_add_lease_constraints"
+    # (c) the merge has BOTH branch tips as parents and performs no DDL.
+    merge_parents = set(script.get_revision(POLLING_MERGE_REV).down_revision)
+    assert merge_parents == {"0005_contract_legacy", POLLING_BRANCH_REV}
+    # (d) both the branch and the merge are reachable from the single head.
+    reachable = {rev.revision for rev in script.walk_revisions()}
+    assert POLLING_BRANCH_REV in reachable and POLLING_MERGE_REV in reachable
+    assert reachable.issuperset(set(PUBLISHED_PARENTS))
     assert script.get_revision("0001_baseline").down_revision is None
 
 
@@ -102,7 +119,7 @@ def test_expand_is_columns_only_no_constraints():
     assert "CREATE TABLE app.job_lease_reconciliation" in src
     # Revision IMMUTABILITY: the reconciliation POLLING/BACKOFF columns are NOT part
     # of this published revision (a DB that already ran 0002 would not get them by an
-    # edit here); they are added forward by 0003b_add_reconciliation_polling.
+    # edit here); they are added forward by 0006_add_reconciliation_polling.
     assert "next_attempt_at" not in src
     assert "last_checked_at" not in src
     assert "check_attempts" not in src
@@ -145,7 +162,9 @@ def test_validate_is_separate_and_validates():
     # The Day36 core invariant is proven over history too — VALIDATE fails while any
     # running-without-Lease row remains (queue-routed rows included).
     assert "VALIDATE CONSTRAINT jobs_running_requires_lease" in src
-    assert 'down_revision = "0003b_add_reconciliation_polling"' in src
+    # Published parentage is UNCHANGED (0004 stays a child of 0003 — we do NOT rewrite
+    # history; the polling schema arrives via the 0006 branch + 0007 merge instead).
+    assert 'down_revision = "0003_add_lease_constraints"' in src
     assert not _function_body_has_loop(src, "upgrade")
 
 
@@ -830,12 +849,12 @@ def test_termination_rests_on_due_filter_plus_forward_backoff():
 #  forward). Still FAKE-SESSION / static evidence, NOT PostgreSQL runtime proof.
 
 # 32. The additive polling revision is ADD COLUMN only (never CREATE TABLE / never a
-#     table rewrite of app.jobs), sits AFTER 0003 and BEFORE 0004, and carries all
-#     three required columns + the nonneg CHECK + the partial due-index.
+#     table rewrite of app.jobs), BRANCHES off 0003 (so a 0003-stage DB reaches it
+#     before Validate), and carries all three required columns + CHECK + due-index.
 def test_reconciliation_polling_is_a_separate_additive_revision():
-    src = _revision_source("0003b_add_reconciliation_polling.py")
-    assert 'revision = "0003b_add_reconciliation_polling"' in src
-    assert 'down_revision = "0003_add_lease_constraints"' in src  # after strict constraints
+    src = _revision_source("0006_add_reconciliation_polling.py")
+    assert 'revision = "0006_add_reconciliation_polling"' in src
+    assert 'down_revision = "0003_add_lease_constraints"' in src  # BRANCH off 0003, not after 0005
     # Additive columns on the INDEPENDENT queue table (not app.jobs, not a rewrite).
     assert "ALTER TABLE app.job_lease_reconciliation" in src
     assert "ADD COLUMN next_attempt_at timestamptz NOT NULL DEFAULT now()" in src
@@ -852,21 +871,29 @@ def test_reconciliation_polling_is_a_separate_additive_revision():
     assert not _function_body_has_loop(src, "upgrade")
 
 
-# 33. Validate is rewired onto the new revision (unapplied later revisions may safely
-#     change down_revision); the chain stays single-head + linear (asserted broadly
-#     by test_revision_graph_is_single_head_and_linear via EXPECTED_CHAIN).
-def test_validate_revision_follows_the_polling_revision():
-    src = _revision_source("0004_validate_lease.py")
-    assert 'down_revision = "0003b_add_reconciliation_polling"' in src
+# 33. The merge revision re-unifies the branch WITHOUT rewriting any published
+#     revision: its parents are the previously-published head 0005 and the branch
+#     tip 0006, and it performs NO DDL (empty upgrade/downgrade bodies).
+def test_merge_revision_reunifies_branch_without_rewriting_history():
+    src = _revision_source("0007_merge_reconciliation_polling.py")
+    assert 'revision = "0007_merge_reconciliation_polling"' in src
+    assert '"0005_contract_legacy"' in src and '"0006_add_reconciliation_polling"' in src
+    # No DDL in a merge: no ALTER/CREATE/DROP in either body.
+    for kw in ("ALTER TABLE", "CREATE TABLE", "CREATE INDEX", "DROP "):
+        assert kw not in src
+    assert not _function_body_has_loop(src, "upgrade")
+    # Published parentage of 0004 and 0005 is UNCHANGED (no history rewrite).
+    assert 'down_revision = "0003_add_lease_constraints"' in _revision_source("0004_validate_lease.py")
+    assert 'down_revision = "0004_validate_lease"' in _revision_source("0005_contract_legacy.py")
 
 
 # 34. The resolver's SQL fields MATCH the migration DDL: every reconciliation column
 #     the runtime reads/writes (next_attempt_at, last_checked_at, check_attempts) is
-#     actually created by 0003b — so the resolver cannot reference a missing column.
+#     actually created by 0006 — so the resolver cannot reference a missing column.
 def test_resolver_fields_match_migration_ddl():
     import day48_lease_backfill as m
     code = open(m.__file__).read()
-    ddl = _revision_source("0003b_add_reconciliation_polling.py")
+    ddl = _revision_source("0006_add_reconciliation_polling.py")
     for col in ("next_attempt_at", "last_checked_at", "check_attempts"):
         assert col in code, f"resolver never uses {col}"
         assert col in ddl, f"migration never creates {col}"
@@ -878,9 +905,50 @@ def test_resolver_fields_match_migration_ddl():
 
 # 35. HONESTY: every check above is static source / fake-session control flow. It
 #     proves the revision GRAPH and DDL/resolver column agreement, NOT that
-#     PostgreSQL applied 0003b, evaluated now()/make_interval, or that the partial
+#     PostgreSQL applied 0006, evaluated now()/make_interval, or that the partial
 #     index is used — that requires a real PostgreSQL run (see the runbook).
 def test_polling_revision_evidence_is_static_not_postgres_runtime():
     import day48_lease_backfill as m
     src = open(m.__file__).read()
     assert "NOT PostgreSQL proof" in src  # the module states its evidence boundary
+
+
+# --- R8: rollout safety — branch off 0003 + merge, no history rewrite ------------
+# Still static/fake-session evidence, NOT PostgreSQL runtime proof.
+
+# 36. The four published revisions keep their ORIGINAL parent/child relationships —
+#     we do NOT rewrite 0002/0003/0004/0005 down_revision (a DB already recorded at
+#     0004 or 0005 must not be stranded without the forward polling revision).
+def test_published_revisions_are_not_rewritten():
+    script = _script()
+    for rev, parent in PUBLISHED_PARENTS.items():
+        assert script.get_revision(rev).down_revision == parent
+
+
+# 37. The polling schema is reachable from the 0003 stage WITHOUT passing through
+#     Validate (0004) or Contract (0005): none of 0006's ancestors is 0004/0005. This
+#     is what lets a 0003-stage DB obtain polling columns, run reconciliation, and
+#     only THEN Validate — not the other way around.
+def test_polling_branch_reachable_from_0003_without_validate_or_contract():
+    script = _script()
+    ancestors = set()
+    node = script.get_revision(POLLING_BRANCH_REV)
+    # Walk down from 0006 to base collecting ancestors (single-parent spine here).
+    cur = node.down_revision
+    while cur:
+        ancestors.add(cur)
+        cur = script.get_revision(cur).down_revision
+    assert "0003_add_lease_constraints" in ancestors
+    assert "0004_validate_lease" not in ancestors
+    assert "0005_contract_legacy" not in ancestors
+
+
+# 38. The forward polling revision + merge are reachable from the CURRENT published
+#     head 0005 (the merge names 0005 as a parent), so `alembic upgrade head` from a
+#     0004/0005 DB applies 0006 then 0007 — no history rewrite needed.
+def test_forward_revision_reachable_from_published_head():
+    merge_src = _revision_source("0007_merge_reconciliation_polling.py")
+    assert '"0005_contract_legacy"' in merge_src  # previously-published head is a merge parent
+    assert '"0006_add_reconciliation_polling"' in merge_src
+    script = _script()
+    assert script.get_heads() == [POLLING_MERGE_REV]  # single head after the merge
