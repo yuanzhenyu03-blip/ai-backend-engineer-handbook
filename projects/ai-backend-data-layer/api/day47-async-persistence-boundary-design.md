@@ -82,10 +82,18 @@ commit exception       -> an UNKNOWN commit outcome (the DB may have committed b
 ```text
 A Provider call that may take minutes stays OUTSIDE any open DB transaction (holding one exhausts the pool and cannot make
   Provider execution/charges/results roll back with PostgreSQL).
-BEFORE an irreversible Provider call: commit a durable Attempt + an APPLICATION-generated correlation/idempotency key.
+BEFORE an irreversible Provider call: commit a durable Attempt + an APPLICATION-generated correlation/idempotency key
+  written into the job_started Event metadata (Day46 defines NO correlation column on JobAttempt; Day47 invents none,
+  and AttemptRepository.create() does NOT accept a correlation_key).
   A Provider-returned request ID is persisted LATER when available — too late to be the only recovery identity.
-Completion = a SECOND short guarded UoW: verified Artifact reference + terminal Job state + completion Event together.
-  A zero-row guarded completion is a NORMAL stale/no-op: do NOT overwrite or duplicate Event/Artifact facts.
+Completion = a SECOND short guarded UoW persisting the Day33 atomic completion pack in ONE commit:
+  1) guarded finish Attempt: UPDATE app.job_attempts SET finished_at=now() WHERE attempt_id AND job_id AND finished_at IS NULL
+     RETURNING attempt_id -> 0 rows (missing / wrong Job / ALREADY finished) = ROLLBACK + stale/no-op (never overwrite a finished Attempt);
+  2) guarded terminal Job: UPDATE ... WHERE job_status='running' RETURNING -> 0 rows = ROLLBACK, write NO Artifact and NO success Event;
+  3) create ResultArtifact durable reference (Day46 mapping; Object Storage object_key + metadata, NEVER bytes);
+  4) append the job_succeeded Event; 5) COMMIT.
+  If the Artifact insert or the Event append fails, the WHOLE UoW rolls back -> no partial PostgreSQL durable state. The external
+  Artifact bytes are NOT part of the transaction; a DB rollback does NOT delete the external object.")
 Definitive non-retryable failure (e.g. 401 / rejected request) -> `failed`. A timeout with UNKNOWN remote execution stays
   unknown/recoverable: never blindly requeue or re-call the Provider.
 Note: the Day46 jobs_succeeded_has_finished_at CHECK is a STATE invariant; guarded completion is CONCURRENCY control
@@ -106,7 +114,7 @@ SQLite is NOT PostgreSQL runtime evidence for this system (app schema, PostgreSQ
   transaction/concurrency behavior).
 ```
 
-Executed fake-session tests in `test_day47_async_uow.py` (13 cases):
+Executed fake-session tests in `test_day47_async_uow.py` (17 cases):
 
 ```text
 1  claimed start flow: guarded claim (1 row) -> Attempt (flush) -> Event -> commit exactly once; always closes
@@ -118,10 +126,14 @@ Executed fake-session tests in `test_day47_async_uow.py` (13 cases):
 7  commit exception -> rollback + close, then propagate (unknown outcome -> caller reloads durable truth)
 8  one UoW shares ONE Session across all repositories
 9  no global Session: each UoW gets a FRESH Session from the factory
-10 completion is a SECOND short guarded UoW: 1 row -> commit + job_succeeded Event
-11 zero-row guarded completion = stale/no-op: no Event, no commit, rollback + close
-12 Provider seam is outside the DB tx; an unknown outcome propagates and is not fabricated / not blindly re-called
-13 guarded mark_failed records 'failed' on a still-running Job (1 row); a zero-row guard is stale/no-op
+10 completion persists the Day33 atomic pack in ONE commit: guarded Attempt finish + guarded Job transition + ResultArtifact + job_succeeded Event
+11 stale/already-finished Attempt (finish guard 0 rows): no Job success, no Artifact, no Event; rollback + close
+12 stale Job (Attempt finished, Job transition 0 rows): no Artifact, no Event; rollback + close
+13 Artifact insert failure inside the pack: rollback + close, no commit (fake-session control flow only)
+14 success Event append failure inside the pack: rollback + close, no commit
+15 the correlation/idempotency key lives in the job_started Event metadata; AttemptRepository.create() no longer accepts it
+16 Provider seam is outside the DB tx; an unknown outcome propagates and is not fabricated / not blindly re-called
+17 guarded mark_failed records 'failed' on a still-running Job (1 row); a zero-row guard is stale/no-op
 ```
 
 ---
@@ -158,8 +170,8 @@ python3 -m pytest -q test_day47_async_uow.py
 CONCEPTUAL              : the design mirrors the Day47 classroom process (scope/ownership, UoW/repo, guarded claim/
                           completion, short-tx vs external side effects, unknown-outcome recovery).
 SYNTAX / STATIC (RUN)   : python3 -m py_compile of day47_async_uow.py + test_day47_async_uow.py passed.
-FAKE-SESSION UNIT (RUN) : 13 pytest cases verify UoW/repository CONTROL FLOW with a FAKE AsyncSession (no DB). Executed:
-                          Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 13 passed. These prove code-path
+FAKE-SESSION UNIT (RUN) : 17 pytest cases verify UoW/repository CONTROL FLOW with a FAKE AsyncSession (no DB). Executed:
+                          Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 17 passed. These prove code-path
                           intent (explicit commit, rollback+close, stale/no-op, flush-before-write, repos never commit,
                           one shared Session per UoW, a fresh Session per UoW), NOT database behavior.
 POSTGRESQL RUNTIME      : NOT RUN. No PostgreSQL server / async driver was available. A real test would apply the independent

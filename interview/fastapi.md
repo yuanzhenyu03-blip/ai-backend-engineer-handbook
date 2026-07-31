@@ -760,6 +760,6 @@ Student answer (verbatim):
 Assessment: correct — evidence must match the claim; only a fresh PostgreSQL Session read proves the rollback.
 
 Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4,
-pytest 7.4.3 -> 13 passed). PostgreSQL runtime NOT RUN (no server/driver; SQLite is not PostgreSQL evidence).
+pytest 7.4.3 -> 17 passed). PostgreSQL runtime NOT RUN (no server/driver; SQLite is not PostgreSQL evidence).
 FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN. Alembic = Day48; upload = Day49;
 acceptance/Outbox = Day50.

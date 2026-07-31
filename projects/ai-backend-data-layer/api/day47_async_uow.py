@@ -16,8 +16,14 @@ Scope and honesty:
       (not SELECT-then-UPDATE). One row = claimed; zero rows = a NORMAL stale/
       no-op miss (no Attempt/Event, not a retryable DB error).
     * A long/paid Provider call happens OUTSIDE any open DB transaction. Before it,
-      commit a durable Attempt + an application-generated correlation/idempotency
-      key. Completion is a SECOND short guarded UoW.
+      the start UoW commits a durable Attempt plus an application-generated
+      correlation/idempotency key written into the ``job_started`` Event metadata
+      (Day46 defines no correlation column on JobAttempt, and Day47 invents none).
+    * Completion is a SECOND short guarded UoW that persists the Day33 atomic
+      completion pack in ONE commit: guarded finish Attempt (finished_at IS NULL)
+      -> guarded running -> succeeded Job -> ResultArtifact reference (Object
+      Storage key, never bytes) -> job_succeeded Event. Any zero-row guard or any
+      failed step rolls the WHOLE UoW back (no partial durable state).
     * This module is imported without opening any connection. NO global
       AsyncSession. NO repository-owned commit. It reuses the Day46 ORM models
       (``day46_orm_mapping``); it does NOT redefine Day42 schema authority, use
@@ -49,7 +55,7 @@ from sqlalchemy.ext.asyncio import (
 )
 
 # Reuse the Day46 mapping as the persistence model (no schema redefinition).
-from day46_orm_mapping import Job, JobAttempt, JobEvent
+from day46_orm_mapping import Job, JobAttempt, JobEvent, ResultArtifact
 
 
 # ---------------------------------------------------------------------------
@@ -144,26 +150,42 @@ class AttemptRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def create(
-        self, job_id: uuid.UUID, attempt_number: int, correlation_key: str
-    ) -> JobAttempt:
-        """Create an Attempt carrying an APPLICATION-generated correlation/
-        idempotency key (committed BEFORE any external call). The Provider's own
-        request ID is persisted later, when available."""
+    async def create(self, job_id: uuid.UUID, attempt_number: int) -> JobAttempt:
+        """Create an Attempt. Day46 defines NO correlation-key column on
+        JobAttempt, so this repository does NOT accept or persist one — the
+        application-generated correlation/idempotency key is written by the
+        higher-level start flow into the ``job_started`` Event metadata, in the
+        same UoW (see ``start_job``). The Provider's own request ID is persisted
+        later, when available."""
         attempt = JobAttempt(
             job_id=job_id,
             attempt_number=attempt_number,
             provider_request_id=None,
             error_code=None,
         )
-        # A frequently-queried correlation key would be a typed column in the
-        # real schema; kept out of Day46 scope here, so it is illustrated via the
-        # Event metadata rather than invented as a new column.
         self._session.add(attempt)
         # flush so the server-generated attempt_id is available for a dependent
         # Event write WITHOUT committing the transaction.
         await self._session.flush()
         return attempt
+
+    async def finish(self, job_id: uuid.UUID, attempt_id: uuid.UUID) -> int:
+        """Guarded Attempt completion (Day33 completion pack, step 1). Guards on
+        job_id, attempt_id AND finished_at IS NULL, so an ALREADY-finished Attempt
+        is never overwritten. Returns rows affected: 1 = finished now; 0 = the
+        Attempt does not exist, does not belong to this Job, or is already
+        finished -> the caller must ROLL BACK and STOP (stale/no-op), never
+        overwriting a finished Attempt's outcome evidence."""
+        result = await self._session.execute(
+            text(
+                "UPDATE app.job_attempts SET finished_at = now() "
+                "WHERE attempt_id = :attempt_id AND job_id = :job_id "
+                "AND finished_at IS NULL "
+                "RETURNING attempt_id"
+            ),
+            {"attempt_id": attempt_id, "job_id": job_id},
+        )
+        return len(result.fetchall())
 
 
 class EventRepository:
@@ -188,6 +210,39 @@ class EventRepository:
         return event
 
 
+class ArtifactRepository:
+    def __init__(self, session: AsyncSession) -> None:
+        self._session = session
+
+    async def create(
+        self,
+        attempt_id: uuid.UUID,
+        *,
+        object_key: str,
+        artifact_type: str = "result",
+        content_type: Optional[str] = None,
+        size_bytes: Optional[int] = None,
+        checksum: Optional[str] = None,
+    ) -> ResultArtifact:
+        """Persist a Day46 ResultArtifact durable REFERENCE (Object Storage
+        object_key + metadata) — NEVER the artifact bytes. Ownership is derived
+        through the Attempt (Day46: ResultArtifact stores attempt_id only). A
+        duplicate (attempt_id, object_key) would raise IntegrityError at flush/
+        commit and roll the WHOLE completion UoW back. The external Object Storage
+        bytes are NOT part of the DB transaction: a DB rollback does NOT delete
+        the external object."""
+        artifact = ResultArtifact(
+            attempt_id=attempt_id,
+            artifact_type=artifact_type,
+            object_key=object_key,
+            content_type=content_type,
+            size_bytes=size_bytes,
+            checksum=checksum,
+        )
+        self._session.add(artifact)
+        return artifact
+
+
 # ---------------------------------------------------------------------------
 # Unit of Work — owns ONE Session, exposes repositories, EXPLICIT commit, rolls
 # back on exception / uncommitted exit, ALWAYS closes. No auto-commit.
@@ -200,12 +255,14 @@ class UnitOfWork:
         self.jobs: Optional[JobRepository] = None
         self.attempts: Optional[AttemptRepository] = None
         self.events: Optional[EventRepository] = None
+        self.artifacts: Optional[ArtifactRepository] = None
 
     async def __aenter__(self) -> "UnitOfWork":
         self.session = self._session_factory()
         self.jobs = JobRepository(self.session)
         self.attempts = AttemptRepository(self.session)
         self.events = EventRepository(self.session)
+        self.artifacts = ArtifactRepository(self.session)
         self._committed = False
         return self
 
@@ -283,7 +340,7 @@ async def start_job(
         claimed = await uow.jobs.guarded_claim(job_id)
         if claimed == 0:
             return ClaimOutcome.STALE_NOOP  # __aexit__ rolls back the empty UoW
-        attempt = await uow.attempts.create(job_id, 1, correlation_key)
+        attempt = await uow.attempts.create(job_id, 1)
         await uow.events.append(
             job_id,
             "job_started",
@@ -299,21 +356,51 @@ async def complete_job(
     job_id: uuid.UUID,
     *,
     attempt_id: uuid.UUID,
-    artifact_ref: str,
+    object_key: str,
+    artifact_type: str = "result",
 ) -> CompletionOutcome:
-    """UoW 2 (a SECOND short guarded UoW, AFTER the Provider call returned):
-    guarded terminal transition + completion Event together. A zero-row guarded
-    completion is a normal stale/no-op: do not overwrite/duplicate facts."""
+    """UoW 2 (a SECOND short guarded UoW, AFTER the Provider call returned): the
+    Day33 atomic completion pack in ONE transaction/commit —
+
+        guarded finish Attempt (finished_at IS NULL)
+          -> guarded running -> succeeded Job transition
+          -> create ResultArtifact durable reference (Object Storage key, not bytes)
+          -> append job_succeeded Event
+          -> commit
+
+    Guard order and rollback semantics:
+      * Attempt finish returning 0 rows (missing / wrong Job / ALREADY finished)
+        -> ROLL BACK and return stale/no-op; never overwrite a finished Attempt.
+      * Job transition returning 0 rows (not currently running) -> ROLL BACK;
+        write NO ResultArtifact and NO success Event.
+      * If the Artifact insert or the Event append fails, the whole UoW rolls back
+        (no partial PostgreSQL durable state). The external Artifact bytes are NOT
+        part of this transaction; a DB rollback does not delete the external object.
+    ``object_key`` is the committed Object Storage reference (verified before this
+    UoW); the bytes stay in Object Storage."""
     async with UnitOfWork(session_factory) as uow:
-        assert uow.jobs and uow.events
+        assert uow.attempts and uow.jobs and uow.artifacts and uow.events
+        # 1. Guarded finish of THIS Attempt (job_id + attempt_id + finished_at IS NULL).
+        finished = await uow.attempts.finish(job_id, attempt_id)
+        if finished == 0:
+            # stale/already-finished Attempt -> __aexit__ rolls back the empty UoW.
+            return CompletionOutcome.STALE_NOOP
+        # 2. Guarded terminal Job transition (only a still-running Job).
         completed = await uow.jobs.guarded_complete(job_id)
         if completed == 0:
+            # transition_not_applied -> rollback; no Artifact / no success Event.
             return CompletionOutcome.STALE_NOOP
+        # 3. Durable ResultArtifact reference (Object Storage key, never bytes).
+        await uow.artifacts.create(
+            attempt_id=attempt_id, object_key=object_key, artifact_type=artifact_type
+        )
+        # 4. Append the success Event (internal business history).
         await uow.events.append(
             job_id,
             "job_succeeded",
             attempt_id=attempt_id,
-            metadata={"artifact_ref": artifact_ref},
+            metadata={"object_key": object_key},
         )
+        # 5. One commit for the whole atomic pack (or the UoW rolls it all back).
         await uow.commit()
         return CompletionOutcome.COMPLETED

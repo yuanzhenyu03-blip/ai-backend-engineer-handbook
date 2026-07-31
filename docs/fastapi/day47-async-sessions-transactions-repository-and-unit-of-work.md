@@ -20,7 +20,7 @@ Next Lesson: Day48 — Alembic and Safe AI Backend Schema Evolution (planned —
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day47 async persistence boundary ([`projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md`](../../projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md)) with runnable code [`day47_async_uow.py`](../../projects/ai-backend-data-layer/api/day47_async_uow.py) and fake-session tests [`test_day47_async_uow.py`](../../projects/ai-backend-data-layer/api/test_day47_async_uow.py) — process-scoped `AsyncEngine`/`async_sessionmaker` helpers, a request/Job-scoped `AsyncSession`, repositories, a `UnitOfWork` with explicit commit/rollback/close, the guarded `UPDATE ... WHERE job_status='queued' RETURNING` claim, flush-before-dependent-write, a second guarded completion UoW, and a fake Provider seam. Fake-session control-flow tests were executed (13 passed; Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3); **PostgreSQL runtime is NOT RUN** (no server/driver) — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day47 async persistence boundary ([`projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md`](../../projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md)) with runnable code [`day47_async_uow.py`](../../projects/ai-backend-data-layer/api/day47_async_uow.py) and fake-session tests [`test_day47_async_uow.py`](../../projects/ai-backend-data-layer/api/test_day47_async_uow.py) — process-scoped `AsyncEngine`/`async_sessionmaker` helpers, a request/Job-scoped `AsyncSession`, repositories, a `UnitOfWork` with explicit commit/rollback/close, the guarded `UPDATE ... WHERE job_status='queued' RETURNING` claim, flush-before-dependent-write, a second guarded completion UoW, and a fake Provider seam. Fake-session control-flow tests were executed (17 passed; Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3); **PostgreSQL runtime is NOT RUN** (no server/driver) — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -75,7 +75,7 @@ call: a guarded **start** UoW (claim → Attempt → `job_started`) that commits
 **after** it — with a zero-row guard treated as a normal stale/no-op, and an unknown outcome treated as a
 first-class recovery state.
 
-This lesson has **real fake-session evidence**: **13 control-flow tests passed** (Python 3.10.12, SQLAlchemy
+This lesson has **real fake-session evidence**: **17 control-flow tests passed** (Python 3.10.12, SQLAlchemy
 2.0.29, greenlet 3.5.4, pytest 7.4.3) proving the UoW/repository code paths — explicit commit, rollback+close on
 failure, stale/no-op handling, flush-before-write, repos never commit. But a **mock is not database proof**:
 **PostgreSQL runtime is NOT RUN** (no server/driver available), and SQLite would not be valid evidence for this
@@ -158,8 +158,11 @@ short UoWs, never inside one.
               Provider call OUTSIDE any DB transaction  (success / definitive failure / UNKNOWN)
                                               |
                                               v
-  UoW 2 (short, guarded):  UPDATE ... WHERE job_status='running' RETURNING  (1 row / 0 rows=stale-noop)
-                           -> ResultArtifact ref + job_succeeded Event  -> COMMIT
+  UoW 2 (short, guarded, Day33 atomic completion pack, ONE commit):
+      finish Attempt (WHERE finished_at IS NULL RETURNING; 0 rows=stale-noop, never overwrite a finished Attempt)
+      -> guarded Job running->succeeded (WHERE job_status='running' RETURNING; 0 rows=stale-noop, no Artifact/Event)
+      -> ResultArtifact reference (Object Storage key, NOT bytes) -> job_succeeded Event -> COMMIT
+      (any step fails -> rollback the WHOLE UoW; no partial durable state)
 
   flush != commit (no cross-session visibility). IntegrityError aborts the tx -> rollback. commit exception =
   UNKNOWN outcome -> roll back/close, reload by id. Repos never commit. Build a Day44 DTO INSIDE the UoW.
@@ -499,8 +502,10 @@ application-generated key beforehand.
 This is the correction. Persisting **only** the Provider-returned request ID is **too late for recovery**: a
 crash can occur **after** the remote call begins but **before** the response (and its request ID) is persisted.
 So **before** the irreversible Provider call, commit a durable **Attempt** plus an **application-generated
-correlation/idempotency key**. The Provider's own request ID is persisted **later**, when available, as
-**additional** evidence — but it cannot be the **only** recovery identity.
+correlation/idempotency key**. Because Day46 defines **no** correlation column on `JobAttempt` (and Day47 invents
+none), that key is written into the **`job_started` Event metadata** by the higher-level start flow in the same
+UoW — `AttemptRepository.create()` does **not** accept or persist it. The Provider's own request ID is persisted
+**later**, when available, as **additional** evidence — but it cannot be the **only** recovery identity.
 
 ### Engineering Thinking
 
@@ -531,9 +536,16 @@ Why is completion "guarded"? Isn't the Day46 rule just "succeeded means `finishe
 That Day46 CHECK (`jobs_succeeded_has_finished_at`) is a **state invariant** — it protects a single row's legal
 shape. **Guarded completion is different**: it protects **ownership/concurrency**, allowing **exactly one
 still-valid running Attempt/Job** to record terminal facts and treating **later writers as stale/no-op**.
-Completion is a **second short guarded UoW** that writes the verified Artifact reference, the terminal Job state,
-and the completion Event **together**; a **zero-row** guarded completion is a **normal stale/no-op** — do
-**not** overwrite or duplicate Event/Artifact facts. The CHECK says "this row is shaped legally"; the guard says
+Completion is a **second short guarded UoW** that persists the **Day33 atomic completion pack** in **one
+commit**: (1) a **guarded finish of the Attempt** — `UPDATE app.job_attempts SET finished_at=now() WHERE
+attempt_id AND job_id AND finished_at IS NULL RETURNING` — where **zero rows** (missing / wrong Job / **already
+finished**) means **roll back and stop**, never overwriting a finished Attempt's outcome; (2) the **guarded
+running -> succeeded Job transition** (zero rows -> roll back, write **no** Artifact and **no** success Event);
+(3) the **ResultArtifact** durable reference (Day46 mapping — an Object Storage key, **never** bytes); and (4)
+the **job_succeeded Event**. If the Artifact insert or the Event append fails, the **whole UoW rolls back** —
+no partial PostgreSQL durable state — and the external Artifact bytes are **not** part of the transaction (a DB
+rollback does not delete the external object). A **zero-row** guard at either step is a **normal stale/no-op** —
+do **not** overwrite or duplicate Event/Artifact facts. The CHECK says "this row is shaped legally"; the guard says
 "only the rightful, still-running writer may finish this Job."
 
 ### Engineering Thinking
@@ -824,7 +836,7 @@ proven (NOT RUN here).
 # Hands-on Exercises
 
 These map to the runnable artifact and its **fake-session** tests, which **were executed** (Python 3.10.12,
-SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 → **13 passed**; install via `requirements-day47.txt`). They
+SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 → **17 passed**; install via `requirements-day47.txt`). They
 prove UoW/repository **control flow** only; a real **PostgreSQL runtime** rollback test is **NOT RUN** (no
 server/driver), and SQLite is not valid evidence for this `app`-schema/PostgreSQL-typed contract.
 
@@ -1126,9 +1138,9 @@ state pollution and pool exhaustion, with no external rollback. Most important t
 on top of these boundaries. Most important interview answer: the Engine is process-scoped, the Session is per
 unit of work, and a commit exception is an unknown outcome.
 
-Validation status: **13 fake-session control-flow tests** are **real executed evidence** of the UoW/repository
+Validation status: **17 fake-session control-flow tests** are **real executed evidence** of the UoW/repository
 code paths — executed here on Python 3.10.12 / SQLAlchemy 2.0.29 / greenlet 3.5.4 / pytest 7.4.3 (pinned in
-`requirements-day47.txt`) → **13 passed**. But a **mock is not database proof**: **PostgreSQL runtime is NOT
+`requirements-day47.txt`) → **17 passed**. But a **mock is not database proof**: **PostgreSQL runtime is NOT
 RUN** (no server/driver; a real test would apply the Day42 raw SQL, force a failure, and prove via a new Session
 that the Job stays queued with no Attempt/Event), and **SQLite is not PostgreSQL evidence** for this
 `app`-schema/PostgreSQL-typed contract. FastAPI/Worker integration, concurrent Workers, real Provider, Object

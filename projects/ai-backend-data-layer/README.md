@@ -11,7 +11,7 @@ request/Job-scoped `AsyncSession`, repositories that never commit, a `UnitOfWork
 commit/rollback/close, the guarded `UPDATE ... WHERE job_status='queued' RETURNING` claim (zero rows = a normal
 stale/no-op), flush-before-dependent-write, a second guarded completion UoW, and a fake Provider seam with
 correlation-key-before-the-call recovery. **REAL fake-session control-flow tests were executed** (Python
-3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 13 passed; deps pinned in
+3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 17 passed; deps pinned in
 `api/requirements-day47.txt`). A mock is **not** database proof: **PostgreSQL runtime is NOT RUN** (no
 server/driver; SQLite is not PostgreSQL evidence); FastAPI/Worker integration, real Provider, Object Storage, and
 production NOT RUN. (See the Day46 note below for the prior increment.)
@@ -96,7 +96,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
 │   ├── day47-async-persistence-boundary-design.md      # Day47: async session/UoW design
 │   ├── day47_async_uow.py                              # Day47: async Engine/session-factory + repos + UnitOfWork
-│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 13 passed)
+│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 17 passed)
 │   └── requirements-day47.txt                          # Day47: pinned deps (sqlalchemy[asyncio]==2.0.29, pytest==7.4.3)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -166,7 +166,7 @@ Column intent:
 
 `api/day47-async-persistence-boundary-design.md` (with runnable `day47_async_uow.py` + `test_day47_async_uow.py`)
 drives the faithful Day46 mapping through short, isolated async units of work. The code and its **fake-session**
-tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `13 passed`**
+tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `17 passed`**
 (deps pinned in `api/requirements-day47.txt`). These prove UoW/repository **control flow** only; a **mock is not
 database proof**, so **PostgreSQL runtime is NOT RUN**.
 

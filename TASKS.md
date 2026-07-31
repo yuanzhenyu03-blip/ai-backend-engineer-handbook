@@ -31,7 +31,7 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 - [x] Complete Day44 Pydantic v2 and Structured AI Input/Output Contracts (Phase 4) — lesson, contracts design + runnable code/tests (executed: 24 passed), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4) — lesson, composition design + runnable code/tests (executed: 20 passed with a fake no-network Provider), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4) — lesson, mapping design + runnable code/static tests (executed: 20 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
-- [x] Complete Day47 Async Sessions, Transactions, Repository and Unit of Work (Phase 4) — lesson, async persistence-boundary design + runnable code/fake-session tests (executed: 13 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
+- [x] Complete Day47 Async Sessions, Transactions, Repository and Unit of Work (Phase 4) — lesson, async persistence-boundary design + runnable code/fake-session tests (executed: 17 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
 - [ ] Prepare for Day48 — Alembic and Safe AI Backend Schema Evolution (Phase 4; see the Day48 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
@@ -45,7 +45,7 @@ Preparation history blocks. Phase 4 is in progress; Day48 is next.)
 - [x] Complete Day47 Async Sessions, Transactions, Repository and Unit of Work classroom learning.
 - [x] Generate the Day47 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day46->Day47 mental-model evolution), preserving verbatim student answers including the three English "不知道" answers and the classroom corrections.
 - [x] Build the runnable Day47 artifact inside the existing project `api/` directory (no parallel project): `day47_async_uow.py`, `test_day47_async_uow.py`, `day47-async-persistence-boundary-design.md`, and scoped `requirements-day47.txt`; reuse the Day46 mapping; no global Session, no repo-owned commit, no Provider call inside a DB transaction.
-- [x] Run `py_compile` and `pytest` on the Day47 code and record exact results (13 fake-session control-flow tests passed); label PostgreSQL runtime NOT RUN; do not use a mock or SQLite as PostgreSQL evidence.
+- [x] Run `py_compile` and `pytest` on the Day47 code and record exact results (17 fake-session control-flow tests passed); label PostgreSQL runtime NOT RUN; do not use a mock or SQLite as PostgreSQL evidence.
 - [x] Update `projects/ai-backend-data-layer/README.md` with the Day47 increment (artifact/code/test links, honest fake-session-vs-NOT-RUN matrix).
 - [x] Append the Day47 section to `cheat_sheets/fastapi.md`.
 - [x] Append Day47 questions to `interview/fastapi.md` (no duplicate file created).
