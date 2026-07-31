@@ -1,0 +1,18 @@
+# Day47 Async Sessions, Transactions, Repository and Unit of Work — pinned
+# dependencies for the recorded repository FAKE-SESSION test evidence.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day47.txt
+#   python3 -m py_compile day47_async_uow.py test_day47_async_uow.py
+#   python3 -m pytest -q test_day47_async_uow.py
+#
+# Runtime scope: these verify the Unit-of-Work / repository CONTROL FLOW with a
+# FAKE AsyncSession (no database connection). SQLAlchemy async requires greenlet,
+# which is pulled in by sqlalchemy[asyncio]. A REAL PostgreSQL rollback/transaction
+# runtime test is NOT part of these deps and was NOT RUN (no server/driver; a real
+# run also needs an async driver such as asyncpg and a disposable PostgreSQL with
+# the independent Day42 raw SQL applied). SQLite is NOT PostgreSQL evidence for this
+# app-schema/PostgreSQL-typed contract.
+sqlalchemy[asyncio]==2.0.29
+pytest==7.4.3

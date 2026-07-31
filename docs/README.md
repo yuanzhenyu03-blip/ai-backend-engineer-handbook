@@ -31,7 +31,8 @@ docs/
 │   ├── day43-ai-backend-product-contract-and-fastapi-request-lifecycle.md
 │   ├── day44-pydantic-v2-and-structured-ai-input-output-contracts.md
 │   ├── day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md
-│   └── day46-sqlalchemy-mapping-for-the-day42-data-model.md  # latest
+│   ├── day46-sqlalchemy-mapping-for-the-day42-data-model.md
+│   └── day47-async-sessions-transactions-repository-and-unit-of-work.md  # latest
 ├── playwright/
 └── n8n/
 ```

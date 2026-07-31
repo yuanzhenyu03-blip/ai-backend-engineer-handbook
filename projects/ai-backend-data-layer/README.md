@@ -4,18 +4,17 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day46 — SQLAlchemy 2.0 mapping for the Day42 data model** that faithfully represents the
-existing PostgreSQL durable contract as typed declarative models WITHOUT changing ownership, integrity,
-retention, public boundaries, or schema authority: the `app`-schema table identity, `Mapped[T] =
-mapped_column(...)` typed columns, server-side defaults, named UNIQUE/CHECK/FK constraints, `ON DELETE RESTRICT`,
-`TEXT + CHECK` status (not a native enum), Job-scoped attempt uniqueness, and the same-Job composite provenance
-FK — mapping Job/JobAttempt/JobEvent/OutboxEvent/UploadSession/ResultArtifact (+ a minimal Tenant stub), with
-`relationship()` as navigation only and Pydantic public models kept separate. **REAL static metadata-contract
-tests were executed** (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20 passed; deps pinned in
-`api/requirements-day46.txt`; declared STRUCTURE only). PostgreSQL runtime is **NOT RUN** (no server; `create_all()`
-was not used and would not be compatibility evidence); AsyncSession/transactions (Day47), Alembic (Day48),
-Celery/Provider/Object-Storage runtime, integration/production NOT RUN. (See the Day45 note below for the prior
-increment.)
+Current increment: **Day47 — async sessions, transactions, repository and unit of work** that drives the
+faithful Day46 mapping through SHORT, isolated async database units of work — without treating a long external
+AI-Provider call as transactional database work: a process-scoped `AsyncEngine` + `async_sessionmaker`, a
+request/Job-scoped `AsyncSession`, repositories that never commit, a `UnitOfWork` with explicit
+commit/rollback/close, the guarded `UPDATE ... WHERE job_status='queued' RETURNING` claim (zero rows = a normal
+stale/no-op), flush-before-dependent-write, a second guarded completion UoW, and a fake Provider seam with
+correlation-key-before-the-call recovery. **REAL fake-session control-flow tests were executed** (Python
+3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 13 passed; deps pinned in
+`api/requirements-day47.txt`). A mock is **not** database proof: **PostgreSQL runtime is NOT RUN** (no
+server/driver; SQLite is not PostgreSQL evidence); FastAPI/Worker integration, real Provider, Object Storage, and
+production NOT RUN. (See the Day46 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
@@ -71,6 +70,7 @@ Lessons:
 - Day44 (Pydantic contracts): [`docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md`](../../docs/fastapi/day44-pydantic-v2-and-structured-ai-input-output-contracts.md)
 - Day45 (DI/lifespan/config/adapters): [`docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md`](../../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md)
 - Day46 (SQLAlchemy mapping): [`docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md`](../../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md)
+- Day47 (async sessions/tx/UoW): [`docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md`](../../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md)
 
 ---
 
@@ -93,7 +93,11 @@ projects/ai-backend-data-layer/
 │   ├── day46-sqlalchemy-mapping-for-the-day42-data-model-design.md  # Day46: SQLAlchemy 2.0 mapping design
 │   ├── day46_orm_mapping.py                            # Day46: faithful SQLAlchemy 2.0 mapping of the Day42 app schema
 │   ├── test_day46_orm_mapping.py                       # Day46: static metadata-contract tests (executed: 20 passed)
-│   └── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
+│   ├── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
+│   ├── day47-async-persistence-boundary-design.md      # Day47: async session/UoW design
+│   ├── day47_async_uow.py                              # Day47: async Engine/session-factory + repos + UnitOfWork
+│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 13 passed)
+│   └── requirements-day47.txt                          # Day47: pinned deps (sqlalchemy[asyncio]==2.0.29, pytest==7.4.3)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -155,6 +159,57 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day47 increment — async sessions, transactions, repository and unit of work
+
+`api/day47-async-persistence-boundary-design.md` (with runnable `day47_async_uow.py` + `test_day47_async_uow.py`)
+drives the faithful Day46 mapping through short, isolated async units of work. The code and its **fake-session**
+tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `13 passed`**
+(deps pinned in `api/requirements-day47.txt`). These prove UoW/repository **control flow** only; a **mock is not
+database proof**, so **PostgreSQL runtime is NOT RUN**.
+
+### What the boundary contains
+
+| Section | Contents |
+| --- | --- |
+| Scope/ownership | process-scoped `AsyncEngine` + `async_sessionmaker` (one per process, not per deployment); a fresh request/Job-scoped `AsyncSession`; **no** global Session |
+| Repository/UoW | repositories receive the UoW-injected Session and never commit/close; the `UnitOfWork` owns one Session, exposes repos, does **explicit** `await commit()`, rolls back on exception/uncommitted exit, and always closes |
+| Guarded claim | single `UPDATE ... WHERE job_status='queued' RETURNING` (not SELECT-then-UPDATE); 1 row = claimed, 0 rows = normal stale/no-op |
+| Flush vs commit | `flush` executes SQL in the current tx (server ids usable) but is not durable/cross-session visible; `IntegrityError` aborts the tx (integrity protected) and needs rollback; a commit exception is an unknown outcome |
+| Short tx vs Provider | the long/paid Provider call runs **outside** any DB transaction; commit an app-generated correlation/idempotency key **before** it; completion is a **second** short guarded UoW |
+| Failure vs unknown | definitive failure -> `failed`; timeout/unknown remote outcome -> a first-class recovery state, never blindly requeued |
+| Reads | build an allowlisted Day44 Pydantic DTO **inside** the UoW; never return a detached ORM object for lazy serialization |
+| Evidence | 13 **fake-session** control-flow tests (code-path intent); **PostgreSQL runtime NOT RUN**; SQLite is not PostgreSQL evidence |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day47.txt   # sqlalchemy[asyncio]==2.0.29, pytest==7.4.3
+python3 -m py_compile day47_async_uow.py test_day47_async_uow.py
+python3 -m pytest -q test_day47_async_uow.py
+```
+
+> **What this increment deliberately does not do:** it reuses the Day46 mapping and does **not** redefine Day42
+> schema authority, use `create_all()` as compatibility proof, change TEXT+CHECK to enum, or add a destructive
+> cascade. It creates **no** global AsyncSession and no repository-owned commit, and it runs **no** long Provider
+> call inside a DB transaction (the Provider is a fake seam). It does **not** implement the Day49 upload workflow
+> or the Day50 idempotent acceptance/Outbox API. The tests use a **fake AsyncSession** (control flow only);
+> **PostgreSQL runtime is NOT RUN** (no server/driver — a real test applies the Day42 raw SQL, forces a failure,
+> and proves via a **new** Session that the Job stays queued with no Attempt/Event), and **SQLite is not
+> PostgreSQL evidence**. No secrets, real database URLs, provider keys, or signed URLs.
+
+### Day47 known gaps (deliberate)
+
+```text
+runtime    isolated PostgreSQL rollback/transaction test (apply Day42 SQL, verify via a fresh Session) — NOT RUN here
+Day48      Alembic safe schema evolution on top of these Engine/session/repository boundaries
+Day49      UploadSession/Artifact persistence with Object Storage I/O OUTSIDE the transaction
+Day50      idempotent Job acceptance + Outbox over this same transactional boundary
+scope      real Provider SDK/network (Day53), FastAPI/Worker concurrent integration, and production remain future
+```
 
 ---
 

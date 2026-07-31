@@ -530,3 +530,89 @@ NOT RUN (no server; create_all() not used and not compatibility evidence). Sessi
 Celery/Provider/Object-Storage runtime, integration, production NOT RUN.
 
 Related: [Day46 lesson](../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md) · [Day46 mapping design](../projects/ai-backend-data-layer/api/day46-sqlalchemy-mapping-for-the-day42-data-model-design.md) · [code](../projects/ai-backend-data-layer/api/day46_orm_mapping.py) · [tests](../projects/ai-backend-data-layer/api/test_day46_orm_mapping.py)
+
+---
+
+## Day47 Async Sessions, Transactions, Repository and Unit of Work
+
+Central rule:
+
+```text
+One process owns ONE Engine + a session factory. Each request/Job = a FRESH UoW (one isolated AsyncSession + repos).
+The UoW runs ONE short EXPLICIT-commit transaction; the long/paid Provider call happens BETWEEN two short UoWs, never inside one.
+```
+
+### Scope / ownership
+
+```text
+AsyncEngine = PROCESS-scoped (one per process via lifespan/Worker startup; NOT one per deployment)
+async_sessionmaker = PROCESS-scoped factory; creates a NEW AsyncSession on demand (NOT a shared batch of live Sessions)
+AsyncSession = request/Job-scoped; identity-map + pending + tx state; NEVER global/shared (concurrent Jobs pollute each other)
+one UoW = one Session + repositories; the FACTORY is shared, not the Session
+```
+
+### Repository / UoW / lifecycle
+
+```text
+Repository -> receives the UoW-injected Session; expresses DB ops; NEVER creates Engine/Session, NEVER commit/close
+UnitOfWork -> owns ONE Session, exposes repos, EXPLICIT await uow.commit() (no auto-commit), rollback on exception/uncommitted exit, ALWAYS close
+close() ends the Session + returns the connection to the pool; it is NOT a rollback and does NOT dispose the Engine
+flush != commit: flush executes SQL in the CURRENT tx (server ids usable for a dependent write) but is NOT durable/cross-session visible
+IntegrityError = PostgreSQL rejected an illegal write and ABORTED the tx (integrity protected, not broken) -> must rollback before reuse
+commit exception = UNKNOWN outcome (DB may have committed before the response was lost) -> rollback/close, reload by stable id via a NEW Session, do NOT replay
+```
+
+### Guarded claim / completion / Provider boundary
+
+```text
+guarded claim = single UPDATE app.jobs SET job_status='running' WHERE job_id=:id AND job_status='queued' RETURNING job_id (NOT SELECT-then-UPDATE)
+  1 row = claimed | 0 rows = NORMAL stale/no-op (no Attempt/Event, not a retryable DB error)
+UoW 1 (short): guarded claim -> Attempt 1 (+ APP-generated correlation/idempotency key) -> flush -> job_started Event -> COMMIT (only if all succeed)
+long/paid Provider call = OUTSIDE any DB transaction (DB can't roll back its execution/charges/side effects; holding a tx exhausts the pool)
+commit the correlation key BEFORE the call; persist the Provider request ID LATER (it can't be the only recovery identity)
+UoW 2 (short): guarded complete (WHERE job_status='running' RETURNING) -> ResultArtifact ref + job_succeeded Event -> COMMIT; 0 rows = stale/no-op
+guarded completion (concurrency: one still-valid running writer) != jobs_succeeded_has_finished_at CHECK (state invariant)
+definitive failure (401/rejected) -> failed; timeout/UNKNOWN remote outcome -> first-class recovery state; NEVER blindly requeue/re-call (cost + duplicate effects)
+```
+
+### Reads / evidence
+
+```text
+do NOT return a detached ORM object for lazy serialization after UoW close (DetachedInstanceError / MissingGreenlet); build an allowlisted Day44 Pydantic DTO INSIDE the UoW
+a mock asserting rollback() proves code-path INTENT only; PostgreSQL runtime proof = a NEW Session after failure shows Job still queued, no Attempt/Event
+SQLite is NOT PostgreSQL evidence (app schema, PostgreSQL types/defaults/constraints, PostgreSQL tx/concurrency)
+code rollback != durable-data rollback != external-side-effect rollback
+```
+
+### Weak vs strong (Day47)
+
+```text
+Weak:   "Share one AsyncSession and wrap the Provider call in the transaction."
+Strong: "Engine/factory are process-scoped; each Job gets a fresh UoW/Session; the paid Provider call runs OUTSIDE the transaction."
+
+Weak:   "A guarded UPDATE returning zero rows is a failure to retry."
+Strong: "Zero rows is a normal stale/no-op; another Worker claimed it — create no Attempt/Event, don't retry."
+
+Weak:   "Persist the Provider request ID after the response."
+Strong: "Commit an app-generated correlation key BEFORE the call; the Provider ID comes later and can't be the only recovery identity."
+
+Weak:   "If commit() raised, the write didn't happen."
+Strong: "A commit exception is an unknown outcome; roll back/close and reload durable truth by id via a new Session."
+
+Weak:   "A mocked rollback (or SQLite) proves the database rolls back."
+Strong: "A mock proves code intent; real proof re-reads committed truth via a new PostgreSQL Session; SQLite isn't this contract."
+```
+
+### One-line mental model
+
+```text
+Day47 drives the Day46 mapping through two short guarded UoWs (explicit commit; repos never commit) around a Provider call that lives
+OUTSIDE the transaction; correlation evidence is committed first, and unknown outcomes are recovered via a new guarded UoW, never blindly replayed.
+```
+
+Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 13 passed;
+deps pinned in `projects/ai-backend-data-layer/api/requirements-day47.txt`). A mock is NOT database proof: PostgreSQL runtime NOT RUN
+(no server/driver; SQLite is not PostgreSQL evidence). FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN.
+Alembic = Day48; upload workflow = Day49; idempotent acceptance/Outbox = Day50.
+
+Related: [Day47 lesson](../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md) · [Day47 design](../projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md) · [code](../projects/ai-backend-data-layer/api/day47_async_uow.py) · [tests](../projects/ai-backend-data-layer/api/test_day47_async_uow.py)

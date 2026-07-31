@@ -37,22 +37,22 @@ When generating code:
 
 Current Phase:
 
-Phase 4 — Production AI API Engineering (In Progress; Day46 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day47 completed)
 
 Last Completed Lesson:
 
-Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model
+Day47 — Async Sessions, Transactions, Repository and Unit of Work
 
 Next Lesson:
 
-Day47 — Async Sessions, Transactions, Repository and Unit of Work (Phase 4; Planned / Not started; see ROADMAP.md)
+Day48 — Alembic and Safe AI Backend Schema Evolution (Phase 4; Planned / Not started; see ROADMAP.md)
 
 Future direction (Day43–Day100, planned only; see ROADMAP.md, CURRICULUM.md, and Decision 006 in
 DECISIONS.md): Phase 4 Production AI API Engineering (FastAPI) -> Phase 5 Playwright Browser Automation and
 Agent Tools -> Phase 6 n8n Workflow Orchestration -> Phase 7 AI Agent/RAG/MCP/Evaluation -> Phase 8 Final
 Capstone, Portfolio and Overseas Interview. FastAPI and Playwright are core; n8n is the integration layer;
 AI is in scope from Phase 4. The goal is overseas AI Backend Engineer employment readiness, not a guaranteed
-offer. Day42 closed Phase 3; Day43 opened Phase 4; Day46 is complete; Day47 is next (Planned / Not started).
+offer. Day42 closed Phase 3; Day43 opened Phase 4; Day47 is complete; Day48 is next (Planned / Not started).
 
 Do not skip ahead unless explicitly instructed.
 

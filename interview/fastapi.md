@@ -650,3 +650,116 @@ distinct evidence levels.
 Validation: REAL static metadata-contract tests executed (Python 3.10.12, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20
 passed; declared structure only). PostgreSQL runtime NOT RUN (no server; `create_all()` not used and not
 compatibility evidence). Sessions/transactions = Day47; Alembic = Day48; integration/production NOT RUN.
+
+---
+
+## Day47 Async Sessions, Transactions, Repository and Unit of Work (Phase 4)
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day47), the
+[Day47 lesson](../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md), the
+[Day47 design](../projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md), and the
+runnable [code](../projects/ai-backend-data-layer/api/day47_async_uow.py) /
+[fake-session tests](../projects/ai-backend-data-layer/api/test_day47_async_uow.py).
+
+### Q1 (Beginner) — What is a Unit of Work, and why not share one AsyncSession across concurrent Jobs?
+
+Model answer:
+
+A Unit of Work groups database operations into one transaction with a single commit or rollback and owns exactly
+one Session for its lifetime. You cannot share an AsyncSession across concurrent Jobs because it holds an
+identity map, pending changes, and transaction state, so Jobs would pollute each other. The Engine and session
+factory are process-scoped and shared; each request or Job gets a fresh UoW with its own Session.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer covers the UoW's single-transaction ownership and per-unit-of-work
+Session vs process-scoped Engine/factory.
+
+### Q2 (Intermediate) — Explain flush vs commit, and why a guarded UPDATE ... RETURNING avoids the SELECT-then-UPDATE race.
+
+Model answer:
+
+Flush sends pending SQL to the database inside the current transaction (so a server-generated id is available for
+a dependent write) but it is not durable and other Sessions cannot see it; commit makes the work durable and
+visible. A guarded claim is a single `UPDATE ... WHERE job_status='queued' RETURNING`, so exactly one Worker's
+statement changes the row and gets a row back; SELECT-then-UPDATE reads then writes, letting two Workers both
+read 'queued' and proceed. Zero rows returned is a normal stale/no-op, not an error.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer separates flush from commit and explains the atomic single-winner
+claim.
+
+### Q3 (Senior) — UoW 1 committed start facts, the Provider produced an Artifact, but UoW 2 crashed before commit. Recover, and say what evidence matters.
+
+Model answer:
+
+PostgreSQL retains only UoW 1's committed facts — running, Attempt 1 with its correlation/idempotency key, and the
+job_started Event. The external Artifact may exist, but its DB reference, the succeeded state, and the completion
+Event do not, because code rollback is not durable-data or external-side-effect rollback. On restart I open a new
+UoW, inspect the durable Job/Attempt/Event truth, and verify the Provider/Artifact by correlation key. If
+confirmed, I run a new guarded completion transaction; if it cannot be verified, I preserve an unknown/recovery
+state rather than fabricating success or blindly re-calling the Provider.
+
+Student answer (verbatim):
+
+> "不知道"
+
+Assessment: an honest "不知道"; the taught answer is the full evidence-based recovery arc with the code-vs-data
+rollback boundary and the unknown-outcome state.
+
+### Q4 (Intermediate) — Who owns commit for Job -> Attempt -> Event, and what happens if the third insert fails?
+
+Model answer:
+
+The Unit of Work owns commit/rollback/close; repositories only express operations on the UoW-injected Session and
+never commit. The three writes are one atomic transaction, so if the Event insert fails the UoW rolls back all
+uncommitted work — a repository committing after a substep would persist a partial fact set.
+
+Student answer (verbatim):
+
+> "这是一个原子事务，既然第三个失败了应该是回滚整个事务，我觉得应该是Unit of Work外层统一决定" — and: "由 Unit of Work 把同一个 Session 注入给它"
+
+Assessment: correct — atomicity is the UoW's one transaction; repositories share the injected Session but do not
+decide commit.
+
+### Q5 (Intermediate) — Why must a long Provider call stay outside the DB transaction, and when do you persist recovery identity?
+
+Model answer:
+
+A minutes-long, paid Provider call held inside a transaction exhausts the connection pool and still cannot be
+rolled back by PostgreSQL — the database cannot undo external execution, charges, or side effects. So it runs
+outside any transaction, between two short guarded UoWs. Before the call, commit an application-generated
+correlation/idempotency key with the Attempt; the Provider's own request ID is persisted later and cannot be the
+only recovery identity, because a crash can happen after the call begins but before the response is stored.
+
+Student answer (verbatim):
+
+> "不能，因为数据库事务无法控制外部调用" — and (recovery id, corrected): "获得 Provider 响应后" -> commit an app key BEFORE the call
+
+Assessment: correct on the boundary; the correction is to commit the app-generated correlation key before the
+call rather than relying only on the Provider-returned id.
+
+### Q6 (Intermediate) — Does a mocked rollback() (or a SQLite run) prove PostgreSQL rollback behavior?
+
+Model answer:
+
+No. A mock asserting rollback() proves only code-path intent. A PostgreSQL runtime test must use a new Session
+after the failure and prove committed truth — the Job remains queued and no Attempt/Event remains. SQLite is not
+valid evidence for this system because the contract uses the app schema, PostgreSQL types/defaults/constraints,
+and PostgreSQL transaction/concurrency behavior.
+
+Student answer (verbatim):
+
+> "不能" (for both SQLite and mock rollback as DB proof)
+
+Assessment: correct — evidence must match the claim; only a fresh PostgreSQL Session read proves the rollback.
+
+Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4,
+pytest 7.4.3 -> 13 passed). PostgreSQL runtime NOT RUN (no server/driver; SQLite is not PostgreSQL evidence).
+FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN. Alembic = Day48; upload = Day49;
+acceptance/Outbox = Day50.

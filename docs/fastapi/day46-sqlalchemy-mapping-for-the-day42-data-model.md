@@ -16,7 +16,7 @@ Prerequisite: Day45 — Dependency Injection, Lifespan, Configuration and AI Pro
 
 Previous Lesson: [Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters](day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md)
 
-Next Lesson: Day47 — Async Sessions, Transactions, Repository and Unit of Work (planned — Phase 4; see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day47 lesson file does not exist yet)
+Next Lesson: [Day47 — Async Sessions, Transactions, Repository and Unit of Work](day47-async-sessions-transactions-repository-and-unit-of-work.md)
 
 Phase: Phase 4 — Production AI API Engineering
 
