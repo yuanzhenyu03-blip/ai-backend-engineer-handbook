@@ -28,6 +28,7 @@ from day48_lease_backfill import (
     BackfillReport,
     LeaseEvidence,
     apply_lease_evidence,
+    route_to_reconciliation,
     run_backfill,
     select_backfill_batch,
 )
@@ -82,6 +83,8 @@ def test_expand_is_nullable_no_default_and_not_valid():
     assert "ADD COLUMN lease_owner text" in src
     assert "ADD COLUMN lease_token uuid" in src
     assert "ADD COLUMN lease_expires_at timestamptz" in src
+    assert "ADD COLUMN lease_backfill_state text" in src  # persistent reconciliation marker (nullable)
+    assert "jobs_lease_backfill_state_allowed" in src      # value guard for the marker
     assert "DEFAULT" not in src  # no fabricated server default on the new nullable columns
     assert "NOT VALID" in src
     assert "VALIDATE CONSTRAINT jobs_lease_triple_coherent" not in src  # the VALIDATE op lives only in 0003
@@ -182,17 +185,20 @@ def test_backfill_batch_uses_skip_locked_and_running_unowned():
     sql, params = sess.executed[0]
     assert "FOR UPDATE SKIP LOCKED" in sql
     assert "job_status = 'running'" in sql and "lease_owner IS NULL" in sql
+    assert "lease_backfill_state IS NULL" in sql  # excludes reconciliation-routed Jobs -> terminates
     assert params["batch_size"] == 100
 
 
-# 8. run_backfill fills known-ownership Jobs and SKIPS unknown ones (no fabrication).
-def test_backfill_fills_known_and_skips_unknown_for_reconciliation():
-    # batch 1 returns two jobs; batch 2 is empty (checkpoint reached).
+# 8. run_backfill fills known-ownership Jobs and ROUTES unknown ones to a
+#    PERSISTENT reconciliation marker (no fabrication).
+def test_backfill_fills_known_and_routes_unknown_for_reconciliation():
+    # batch 1: [JOB_A known, JOB_B unknown] -> apply JOB_A, route JOB_B; batch 2 empty.
     sess = FakeAsyncSession(
         execute_rows=[
-            [(JOB_A,), (JOB_B,)],  # select batch
+            [(JOB_A,), (JOB_B,)],  # select batch 1
             [(JOB_A,)],            # apply evidence for JOB_A -> 1 row
-            [],                    # select batch 2 -> empty
+            [(JOB_B,)],            # route JOB_B to reconciliation -> 1 row
+            [],                    # select batch 2 -> empty (terminates)
         ]
     )
 
@@ -202,13 +208,18 @@ def test_backfill_fills_known_and_skips_unknown_for_reconciliation():
 
     report = asyncio.run(run_backfill(lambda: sess, Source(), batch_size=100))
     assert isinstance(report, BackfillReport)
-    assert report.backfilled == 1          # only JOB_A had trusted evidence
-    assert report.skipped_unknown == 1     # JOB_B -> reconciliation, not fabricated
-    assert sess.calls.count("commit") == 1  # one batch committed
+    assert report.backfilled == 1                 # only JOB_A had trusted evidence
+    assert report.routed_to_reconciliation == 1   # JOB_B persistently routed, not fabricated
+    assert sess.calls.count("commit") == 1        # one batch committed
     # The apply used a guarded, idempotent UPDATE (running + unowned + RETURNING).
     apply_sql = sess.executed[1][0]
     assert "job_status = 'running' AND lease_owner IS NULL" in apply_sql
     assert "RETURNING job_id" in apply_sql
+    # The route persisted lease_backfill_state='reconcile' WITHOUT any lease field.
+    route_sql = sess.executed[2][0]
+    assert "SET lease_backfill_state = 'reconcile'" in route_sql
+    assert "lease_owner" not in route_sql.split("WHERE")[0]  # no lease_owner in SET
+    assert "lease_token" not in route_sql and "lease_expires_at" not in route_sql
 
 
 # 9. apply_lease_evidence is idempotent/restartable: an already-owned row -> 0 rows.
@@ -224,3 +235,111 @@ def test_backfill_module_calls_no_provider():
     import day48_lease_backfill as m
     src = open(m.__file__).read()
     assert "provider" not in src.lower().replace("no provider", "").replace("calls no provider", "")
+
+
+# 11. Finding 1 — TERMINATION: when EVERY candidate lacks trusted evidence, the
+#     backfill routes them all to reconciliation and STOPS (no infinite loop),
+#     even with the default max_batches=None.
+def test_backfill_terminates_when_all_candidates_unknown():
+    # batch 1: two unknown jobs -> both routed; batch 2 empty -> stop.
+    sess = FakeAsyncSession(
+        execute_rows=[
+            [(JOB_A,), (JOB_B,)],  # select batch 1
+            [(JOB_A,)],            # route JOB_A -> 1 row
+            [(JOB_B,)],            # route JOB_B -> 1 row
+            [],                    # select batch 2 -> empty (terminates)
+        ]
+    )
+
+    class NoEvidence:
+        async def prove(self, job_id):
+            return None  # nothing is provable
+
+    report = asyncio.run(run_backfill(lambda: sess, NoEvidence(), batch_size=100))  # max_batches=None
+    assert report.backfilled == 0
+    assert report.routed_to_reconciliation == 2
+    assert sess.calls.count("execute") == 4  # 2 selects + 2 routes, then it stopped
+
+
+# 12. Finding 1 — RESTART SAFETY: a Job already routed to reconciliation is no
+#     longer a candidate (the query excludes lease_backfill_state IS NOT NULL), so
+#     a re-run does not re-select it and cannot loop forever.
+def test_backfill_does_not_reselect_reconciled_job_on_restart():
+    # Simulate a restart where the previously-routed JOB_B is no longer returned by
+    # the candidate query (its lease_backfill_state is now 'reconcile').
+    sess = FakeAsyncSession(execute_rows=[[]])  # candidate query returns nothing
+
+    class NoEvidence:
+        async def prove(self, job_id):
+            return None
+
+    report = asyncio.run(run_backfill(lambda: sess, NoEvidence(), batch_size=100))
+    assert report.routed_to_reconciliation == 0
+    assert report.backfilled == 0
+    # And the candidate SQL structurally excludes reconciliation-routed rows.
+    select_sql = sess.executed[0][0]
+    assert "lease_backfill_state IS NULL" in select_sql
+
+
+# 13. Finding 1 — route_to_reconciliation is idempotent/guarded and NEVER fabricates
+#     a Lease field; an already-routed row -> 0 rows.
+def test_route_to_reconciliation_is_idempotent_and_no_fabrication():
+    first = FakeAsyncSession(execute_rows=[[(JOB_A,)]])   # newly routed -> 1 row
+    assert asyncio.run(route_to_reconciliation(first, JOB_A)) == 1
+    sql = first.executed[0][0]
+    assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
+    assert "lease_backfill_state IS NULL" in sql                     # not-yet-routed guard
+    assert "RETURNING job_id" in sql
+    for leaked in ("lease_owner =", "lease_token =", "lease_expires_at ="):
+        assert leaked not in sql  # no Lease owner/token/expiry fabricated
+    again = FakeAsyncSession(execute_rows=[[]])            # already routed -> 0 rows
+    assert asyncio.run(route_to_reconciliation(again, JOB_A)) == 0
+
+
+# --- Finding 2: database URL override resolution (static, no DB) ---------------
+
+def _load_env_module():
+    """Import env.py by file path. It is import-safe (its migration block is
+    skipped outside an Alembic run), so `resolve_database_url` is unit-testable."""
+    import importlib.util
+
+    path = os.path.join(ALEMBIC_DIR, "env.py")
+    spec = importlib.util.spec_from_file_location("day48_env_undertest", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# 14. Finding 2 — the override priority is -x db_url > env var > ini placeholder.
+def test_database_url_override_priority():
+    env = _load_env_module()
+    resolve = env.resolve_database_url
+    x = {"db_url": "postgresql://h/from_xarg"}
+    e = {"DAY48_ALEMBIC_DATABASE_URL": "postgresql://h/from_env"}
+    ini = "postgresql://localhost/appdb_placeholder"
+    assert resolve(x, e, ini) == "postgresql://h/from_xarg"   # -x wins
+    assert resolve({}, e, ini) == "postgresql://h/from_env"   # env var fallback
+    assert resolve({}, {}, ini) == ini                        # ini placeholder last
+
+
+# 15. Finding 2 — with no source at all, resolution fails loudly (no silent bad URL).
+def test_database_url_resolution_requires_a_source():
+    env = _load_env_module()
+    with pytest.raises(RuntimeError):
+        env.resolve_database_url({}, {}, None)
+
+
+# 16. Finding 2 — env.py and alembic.ini document the placeholder as OFFLINE-only
+#     (not a production connection) and name the env-var override.
+def test_url_config_docs_are_consistent():
+    with open(os.path.join(ALEMBIC_DIR, "env.py")) as fh:
+        env_src = fh.read()
+    with open(os.path.join(ALEMBIC_DIR, "alembic.ini")) as fh:
+        ini_src = fh.read()
+    # env.py actually reads the -x argument and the env var.
+    assert "get_x_argument" in env_src and "db_url" in env_src
+    assert "DAY48_ALEMBIC_DATABASE_URL" in env_src
+    # Both files name the env var and describe the ini URL as an offline placeholder.
+    assert "DAY48_ALEMBIC_DATABASE_URL" in ini_src
+    assert "placeholder" in ini_src.lower() and "offline" in ini_src.lower()
+    assert "NOT a production" in ini_src or "not a production" in ini_src.lower()

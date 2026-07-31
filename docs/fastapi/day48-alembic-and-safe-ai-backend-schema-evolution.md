@@ -20,7 +20,7 @@ Next Lesson: Day49 — Upload Sessions, Object Storage and Artifact Verification
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + gated Expand/Validate/Contract revisions for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (10 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + gated Expand/Validate/Contract revisions for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (16 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -76,7 +76,7 @@ history with `VALIDATE CONSTRAINT` after `NOT VALID` has already protected new w
 onto the token protocol so the old path can no longer write, and only then — after evidence and an observation
 period — **Contract** destructively.
 
-This lesson has **real static/offline evidence**: **10 tests passed** (Alembic revision-graph + migration-source
+This lesson has **real static/offline evidence**: **16 tests passed** (Alembic revision-graph + migration-source
 inspection via `ScriptDirectory`, plus fake-session backfill control flow), and the offline `alembic upgrade
 --sql` **rendered** the Expand/Validate/Contract DDL — all with **no database connection**. But that is **not**
 PostgreSQL proof: **PostgreSQL runtime is NOT RUN** (no server), and `alembic upgrade` success alone does not
@@ -343,15 +343,27 @@ with durable correlation evidence, **never blindly repeated**. Two mechanism cor
 runtime ownership protocol, **not** a migration-batch claiming mechanism; and Backfill is a **controlled
 operational data-migration step**, not an ordinary business operation and not an Alembic `upgrade()` loop.
 
+There is one termination subtlety the artifact makes explicit. An unknown-ownership running Job stays
+`lease_owner IS NULL`, so if you only *count* it and move on, it re-matches the candidate query forever — an
+**infinite loop**. The fix is a **persistent reconciliation marker**: a nullable `lease_backfill_state` column
+(added in Expand, no fabricated default) that the backfill sets to `'reconcile'` for an unprovable Job via a
+guarded, idempotent `UPDATE ... SET lease_backfill_state='reconcile' WHERE running AND lease_owner IS NULL AND
+lease_backfill_state IS NULL RETURNING` — which fabricates **no** Lease owner/token/expiry. The candidate query
+then excludes routed rows (`AND lease_backfill_state IS NULL`), so **every** selected Job leaves the candidate
+set within its batch (proved -> `lease_owner` set; unknown -> marker set), the loop **terminates**, and a
+**restart** never re-selects the same unknown Job (the database state is the durable checkpoint).
+
 ### Engineering Thinking
 
 Long data motion belongs in a restartable operator script whose progress is durable in the database — not in a
-migration transaction that must succeed atomically or roll back the world.
+migration transaction that must succeed atomically or roll back the world. And "we couldn't prove ownership"
+must be a **persisted** state, not an in-memory count, or the work never ends.
 
 ### Production Example
 
-`day48_lease_backfill.py` selects a `FOR UPDATE SKIP LOCKED` batch, applies trusted evidence with a guarded
-`UPDATE ... WHERE running AND lease_owner IS NULL RETURNING`, commits per batch, and resumes after a crash.
+`day48_lease_backfill.py` selects a `FOR UPDATE SKIP LOCKED` batch (excluding reconciliation-routed rows),
+applies trusted evidence with a guarded `UPDATE ... WHERE running AND lease_owner IS NULL RETURNING` and routes
+unknowns to `lease_backfill_state='reconcile'`, commits per batch, terminates, and resumes after a crash.
 
 ### Framework Connection
 
@@ -518,10 +530,14 @@ Should `env.py` build the FastAPI app or share a Session? Should the app run mig
 Correct requirements. Alembic is a **deployment control plane**, **not** FastAPI startup and **not** a Day47
 request/Job UoW. `env.py` stays **minimal**: migration DB configuration, the target `Base.metadata`, and Alembic
 execution — it must **not** create the whole FastAPI app or share a business Session, and the app must **never**
-self-run migrations on startup. Two operational specifics: **`CREATE INDEX CONCURRENTLY` is non-transactional**,
-so it must **not** sit inside a normal migration transaction — a failed concurrent build can leave an
-**invalid/unusable index** that must be inspected and repaired/removed before retry; and Expand, Validate, and
-Contract stay **separately gated** revisions with **no long Backfill/reconciliation loop in `upgrade()`**.
+self-run migrations on startup. The `env.py` resolves the migration database URL by an explicit priority —
+**`alembic -x db_url=<url>` > env `DAY48_ALEMBIC_DATABASE_URL` > the `alembic.ini` `sqlalchemy.url`** — where the
+ini value is a **non-credential placeholder** used **only** for offline `--sql` rendering (it selects the dialect
+and never connects; it is **not** a production connection), and no real connection string is ever committed. Two
+operational specifics: **`CREATE INDEX CONCURRENTLY` is non-transactional**, so it must **not** sit inside a
+normal migration transaction — a failed concurrent build can leave an **invalid/unusable index** that must be
+inspected and repaired/removed before retry; and Expand, Validate, and Contract stay **separately gated**
+revisions with **no long Backfill/reconciliation loop in `upgrade()`**.
 
 ### Engineering Thinking
 
@@ -794,7 +810,7 @@ control plane separate.
 # Hands-on Exercises
 
 These map to the runnable artifact and its tests, which **were executed** (Python 3.10.12, Alembic 1.13.1,
-SQLAlchemy 2.0.29, pytest 7.4.3 → **10 passed**; install via `requirements-day48.txt`), plus an offline `alembic
+SQLAlchemy 2.0.29, pytest 7.4.3 → **16 passed**; install via `requirements-day48.txt`), plus an offline `alembic
 upgrade --sql` render. All of this is **static/offline evidence** with **no database connection**; a real
 **PostgreSQL runtime** `NOT VALID`/`VALIDATE`/backfill test is **NOT RUN**, and SQLite/fake sessions are not
 PostgreSQL proof.
@@ -850,10 +866,13 @@ Follow-up: what is the dividing line? (Provable ownership.)
 
 Question: design the backfill selection and batching.
 
-Expected Output: `running AND lease_owner IS NULL` (+ trusted evidence), short tx, `FOR UPDATE SKIP LOCKED`
-batches, idempotent, DB state = checkpoint, no Provider, not in `upgrade()`.
+Expected Output: `running AND lease_owner IS NULL AND lease_backfill_state IS NULL` (+ trusted evidence), short
+tx, `FOR UPDATE SKIP LOCKED` batches, idempotent, DB state = checkpoint, no Provider, not in `upgrade()`; unknown
+ownership is routed to a persistent `lease_backfill_state='reconcile'` marker (no fabrication) so the loop
+terminates and a restart never re-selects it.
 
-Follow-up: why is Lease expiry the wrong batching mechanism?
+Follow-up: why is Lease expiry the wrong batching mechanism, and why must the reconciliation state be persisted
+rather than counted in memory?
 
 ### Exercise 6: The Switch gate
 
@@ -1039,14 +1058,14 @@ Provider side effects exist I forward-fix rather than downgrade."
 4.  Coherence rule via CHECK ... NOT VALID protects EVERY future write NOW while tolerating legacy rows.
 5.  VALIDATE CONSTRAINT (a SEPARATE revision) proves HISTORY; it FAILS until Backfill/reconciliation truly resolves violations (an exception queue != resolution).
 6.  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconciliation (never invented).
-7.  BACKFILL is operational + restartable (short tx, FOR UPDATE SKIP LOCKED, idempotent, DB state = checkpoint); NO Provider, NO long loop in upgrade().
+7.  BACKFILL is operational + restartable (short tx, FOR UPDATE SKIP LOCKED, idempotent, DB state = checkpoint); NO Provider, NO long loop in upgrade(). Unknown ownership is PERSISTED as lease_backfill_state='reconcile' (no fabrication) so it leaves the candidate set -> the loop TERMINATES and a restart never re-selects it.
 8.  Lease EXPIRY is a runtime protocol, not a migration-batch claim; UPDATE ... RETURNING is the Day47 guard, not the compatibility mechanism.
 9.  SWITCH = every Writer (Workers/recovery/admin/completion-failure) on the token protocol; the OLD path cannot write. Not merely a new binary.
 10. CONTRACT is destructive + LAST (after Validate + Switch + evidence + observation). Once real data/side effects exist -> FORWARD-FIX, not a destructive downgrade.
 11. revision/down_revision = the graph + required predecessor (downgrade = reverse traversal); parallel revisions -> multiple heads -> merge revision.
 12. autogenerate = a CANDIDATE diff to review (DDL/data/locks/multi-version); Day46 metadata is INPUT, PostgreSQL is authority.
 13. BASELINE/stamp: `alembic stamp` writes alembic_version, does NO DDL, safe only after PROVEN match; new DB upgrades from empty, existing DB is stamped then upgraded.
-14. env.py stays MINIMAL (DB config + Base.metadata + execution); Alembic control plane != FastAPI startup != Day47 UoW; app never self-migrates.
+14. env.py stays MINIMAL (DB config + Base.metadata + execution); Alembic control plane != FastAPI startup != Day47 UoW; app never self-migrates. DB URL resolves `-x db_url` > env DAY48_ALEMBIC_DATABASE_URL > ini placeholder (offline-only, no credentials committed).
 15. CREATE INDEX CONCURRENTLY is NON-transactional; never inside a migration tx; a failed build leaves an invalid index to inspect/repair before retry.
 16. EVIDENCE: static/offline (ScriptDirectory + `--sql` render) proves TEXT/STRUCTURE; real PostgreSQL proves BEHAVIOR (NOT VALID/VALIDATE/locks). SQLite/fake/`upgrade`-success are NOT PostgreSQL proof.
 17. Provider/Object Storage are outside DB tx; interrupted calls are UNKNOWN outcomes; Outbox intent != Provider-success proof; recover via Job/Attempt/Event + correlation/idempotency.
@@ -1086,10 +1105,10 @@ destructive downgrade) corrupting history or double-executing paid Provider call
 Upload/Artifact references on the safely evolved schema. Most important interview answer: `NOT VALID` protects
 the future, `VALIDATE` proves the past, and `upgrade` success is only DDL evidence.
 
-Validation status: **10 static/offline tests** are **real executed evidence** — the Alembic revision graph +
+Validation status: **16 static/offline tests** are **real executed evidence** — the Alembic revision graph +
 migration source were inspected via `ScriptDirectory`, the fake-session backfill control flow was exercised, and
 the offline `alembic upgrade --sql` **rendered** the Expand/Validate/Contract DDL, all on Python 3.10.12 / Alembic
-1.13.1 / SQLAlchemy 2.0.29 / pytest 7.4.3 → **10 passed** with **no database connection**. But offline render and
+1.13.1 / SQLAlchemy 2.0.29 / pytest 7.4.3 → **16 passed** with **no database connection**. But offline render and
 static checks are **not** PostgreSQL proof: **PostgreSQL runtime is NOT RUN** (no server; a real `NOT VALID`/
 `VALIDATE`/backfill test would apply the Day42 raw SQL and prove behavior), **SQLite/fake sessions are not
 PostgreSQL evidence**, and `alembic upgrade` success alone does not prove Backfill/Switch/Contract or production

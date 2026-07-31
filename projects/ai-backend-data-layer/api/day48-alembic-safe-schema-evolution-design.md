@@ -41,10 +41,15 @@ long paid Provider calls.
 ## 2. Expand (revision `0002_expand_lease`)
 
 ```text
-ALTER TABLE app.jobs ADD COLUMN lease_owner text, ADD COLUMN lease_token uuid, ADD COLUMN lease_expires_at timestamptz;
+ALTER TABLE app.jobs ADD COLUMN lease_owner text, ADD COLUMN lease_token uuid, ADD COLUMN lease_expires_at timestamptz,
+                      ADD COLUMN lease_backfill_state text;
   -> ALL NULLABLE, NO fabricated default. NULL honestly means "no PROVED Lease ownership".
   -> Do NOT generate tokens for queued, terminal, or unprovable running Jobs (fabrication is forbidden).
+  -> lease_backfill_state is a PERSISTENT reconciliation marker (see section 3): 'reconcile' records that an
+     unknown-ownership running Job could not be proved, so it leaves the automatic Backfill candidate set. It
+     fabricates NO Lease field.
 ALTER TABLE app.jobs ADD CONSTRAINT jobs_lease_triple_coherent CHECK (all-three-NULL OR all-three-NOT-NULL) NOT VALID;
+ALTER TABLE app.jobs ADD CONSTRAINT jobs_lease_backfill_state_allowed CHECK (lease_backfill_state IS NULL OR lease_backfill_state = 'reconcile') NOT VALID;
   -> NOT VALID protects EVERY future INSERT/UPDATE immediately while TEMPORARILY tolerating legacy rows.
   -> NOT validated here. No Backfill loop, no Provider call, no long transaction in upgrade().
 ```
@@ -58,9 +63,13 @@ them — this is why Expand must be deployed **first** and alone.
 
 ```text
 day48_lease_backfill.py (operator-run, restartable): SHORT tx + FOR UPDATE SKIP LOCKED batches, idempotent predicates,
-  DB state = the recovery checkpoint. Fills ONLY running Jobs with Lease NULL AND trusted ownership evidence.
-  Unknown-ownership running Jobs -> reconciliation/recovery, NEVER fabricated.
-  UPDATE ... WHERE job_id=... AND job_status='running' AND lease_owner IS NULL RETURNING  (guarded, idempotent, re-runnable).
+  DB state = the recovery checkpoint. Candidate query:
+    SELECT ... WHERE job_status='running' AND lease_owner IS NULL AND lease_backfill_state IS NULL FOR UPDATE SKIP LOCKED
+  A PROVED Job gets its Lease (apply_lease_evidence: guarded UPDATE ... WHERE running AND lease_owner IS NULL RETURNING).
+  An UNKNOWN-ownership Job is ROUTED to a PERSISTENT reconciliation marker (route_to_reconciliation:
+    UPDATE ... SET lease_backfill_state='reconcile' WHERE running AND lease_owner IS NULL AND lease_backfill_state IS NULL RETURNING),
+  which fabricates NO Lease owner/token/expiry. Because both outcomes remove the Job from the candidate query,
+  the loop TERMINATES (even with max_batches=None) and a RESTART never re-selects the same unknown Job.
   Calls NO Provider; holds NO long transaction. NOT the Day47 Lease runtime protocol and NOT a Lease-expiry batch claim.
 ```
 
@@ -112,6 +121,10 @@ autogenerate emits a CANDIDATE diff, not an approved migration -> review DDL, da
   compatibility, operational work, and downgrade/forward-fix conditions.
 env.py stays MINIMAL: migration DB config + target Base.metadata + Alembic execution. It does NOT build the FastAPI app
   or share a business Session. Alembic != FastAPI startup != a Day47 request/Job UoW.
+Database URL resolution (env.py, highest priority first): `alembic -x db_url=<url>` > env `DAY48_ALEMBIC_DATABASE_URL`
+  > `alembic.ini` sqlalchemy.url. The ini value is a NON-CREDENTIAL PLACEHOLDER used ONLY for offline `--sql` rendering
+  (dialect selection; it never connects and is NOT a production connection). env.py is import-safe so the pure
+  resolve_database_url() is unit-testable; NEVER commit a real connection string/username/password/token.
 CREATE INDEX CONCURRENTLY is NON-transactional -> never inside a normal migration transaction; a failed concurrent build
   can leave an INVALID index that must be inspected and repaired/removed before retry. (Not used in this Lease chain.)
 Keep Expand, Validate, Contract as SEPARATELY gated revisions; no long Backfill/reconciliation loop in upgrade().
@@ -150,14 +163,18 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 
 ```text
 CONCEPTUAL / STATIC REVIEW : the runbook mirrors Day36's phases and the classroom trajectory.
-STATIC ALEMBIC (RUN)       : 10 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
-                             (single head 0004; linear 0004->0003->0002->0001->None; Expand nullable/no-default/NOT VALID;
-                             Validate separate; Contract destructive+gated; no loop in any upgrade()/downgrade(); minimal
-                             env.py) plus FAKE-SESSION backfill control flow (SKIP LOCKED batch; fills known, skips unknown
-                             for reconciliation; idempotent guarded write; no Provider). No database connection.
+STATIC ALEMBIC (RUN)       : 16 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
+                             (single head 0004; linear 0004->0003->0002->0001->None; Expand nullable/no-default/NOT VALID +
+                             the lease_backfill_state marker; Validate separate; Contract destructive+gated; no loop in any
+                             upgrade()/downgrade(); minimal env.py) plus FAKE-SESSION backfill control flow (SKIP LOCKED batch
+                             excluding reconciliation-routed rows; fills known, ROUTES unknown to a persistent 'reconcile'
+                             marker with no fabrication; TERMINATES when all candidates are unknown; restart does not
+                             re-select a routed Job; idempotent guarded writes; no Provider) and the database-URL resolution
+                             (`-x db_url` > env DAY48_ALEMBIC_DATABASE_URL > ini placeholder; placeholder is offline-only).
+                             No database connection.
 OFFLINE ALEMBIC SQL (RUN)  : `alembic upgrade 0001_baseline:head --sql` RENDERS the Expand/Validate/Contract DDL text using
                              the PostgreSQL dialect and NEVER connects -> static/offline evidence, NOT PostgreSQL proof.
-                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 10 passed.
+                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 16 passed.
 POSTGRESQL RUNTIME         : NOT RUN. No PostgreSQL server was available. A real test would apply the Day42 raw SQL, create
                              a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a
                              NEW illegal write is rejected, and prove VALIDATE FAILS until the legacy violation is repaired/

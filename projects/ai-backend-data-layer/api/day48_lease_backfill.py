@@ -9,7 +9,12 @@ loops must never live in a migration transaction). It:
       running Job is NEVER fabricated; it goes to reconciliation/recovery;
     * uses SHORT transactions with ``FOR UPDATE SKIP LOCKED`` batching so it is
       concurrent-safe, idempotent, and RESTARTABLE — the database state is the
-      recovery checkpoint (re-selecting ``lease_owner IS NULL`` resumes cleanly);
+      recovery checkpoint;
+    * TERMINATES: every selected Job leaves the candidate set within the batch —
+      a proved Job gets its Lease (``lease_owner`` becomes NON-NULL) and an
+      unknown-ownership Job is routed to a PERSISTENT reconciliation marker
+      (``lease_backfill_state = 'reconcile'``), so neither is re-selected in this
+      run or after a restart. Routing NEVER fabricates a Lease owner/token/expiry;
     * calls NO Provider and holds NO long transaction;
     * is NOT the Day47 Lease runtime protocol and NOT the migration-batch claim of
       a Lease expiry — it is a one-time operational backfill.
@@ -54,12 +59,16 @@ async def select_backfill_batch(
     session: AsyncSession, *, batch_size: int
 ) -> List[uuid.UUID]:
     """One SHORT selection of a concurrent-safe batch. Selects only running Jobs
-    with Lease still NULL, locking them with FOR UPDATE SKIP LOCKED so parallel
-    backfill workers never contend or double-process a row."""
+    with Lease still NULL AND not yet routed to reconciliation
+    (``lease_backfill_state IS NULL``), locking them with FOR UPDATE SKIP LOCKED so
+    parallel backfill workers never contend or double-process a row. Excluding
+    reconciliation-routed rows is what makes the backfill TERMINATE and be
+    restart-safe."""
     result = await session.execute(
         text(
             "SELECT job_id FROM app.jobs "
             "WHERE job_status = 'running' AND lease_owner IS NULL "
+            "AND lease_backfill_state IS NULL "  # exclude Jobs already routed to reconciliation
             "ORDER BY created_at "
             "FOR UPDATE SKIP LOCKED "
             "LIMIT :batch_size"
@@ -93,10 +102,30 @@ async def apply_lease_evidence(session: AsyncSession, evidence: LeaseEvidence) -
     return len(result.fetchall())
 
 
+async def route_to_reconciliation(session: AsyncSession, job_id: uuid.UUID) -> int:
+    """Persist an unknown-ownership running Job into the reconciliation state so it
+    leaves the candidate set. Idempotent + guarded (running, still unowned, not yet
+    routed) and RESTART-safe: re-running is a no-op (0 rows) once routed. This does
+    NOT fabricate any Lease field — lease_owner/token/expiry stay NULL; it only
+    records 'ownership could not be proved -> reconcile'."""
+    result = await session.execute(
+        text(
+            "UPDATE app.jobs "
+            "SET lease_backfill_state = 'reconcile' "
+            "WHERE job_id = :job_id "
+            "AND job_status = 'running' AND lease_owner IS NULL "
+            "AND lease_backfill_state IS NULL "
+            "RETURNING job_id"
+        ),
+        {"job_id": job_id},
+    )
+    return len(result.fetchall())
+
+
 @dataclass
 class BackfillReport:
     backfilled: int = 0
-    skipped_unknown: int = 0  # running + unowned but NO trusted evidence -> reconcile
+    routed_to_reconciliation: int = 0  # running + unowned + NO trusted evidence -> persisted 'reconcile'
 
 
 async def run_backfill(
@@ -107,9 +136,11 @@ async def run_backfill(
     max_batches: Optional[int] = None,
 ) -> BackfillReport:
     """Drive the backfill in SHORT, restartable batches. Each batch is its own
-    short transaction (select-lock -> apply evidence -> commit). A Job with no
-    trusted evidence is SKIPPED (counted for reconciliation), never fabricated.
-    Stops when a batch is empty (checkpoint = the database state)."""
+    short transaction (select-lock -> apply evidence OR route unknowns -> commit).
+    A Job with no trusted evidence is ROUTED to a persistent reconciliation marker
+    (never fabricated), so it leaves the candidate set and the loop TERMINATES even
+    with ``max_batches=None``; stops when a batch is empty (checkpoint = the
+    database state, so a restart resumes cleanly)."""
     report = BackfillReport()
     batches = 0
     while max_batches is None or batches < max_batches:
@@ -122,8 +153,12 @@ async def run_backfill(
             for job_id in job_ids:
                 evidence = await evidence_source.prove(job_id)
                 if evidence is None:
-                    # Unknown ownership -> reconciliation/recovery, NOT fabrication.
-                    report.skipped_unknown += 1
+                    # Unknown ownership -> PERSIST a reconciliation marker so this
+                    # Job is not re-selected in this run or after a restart. NOT
+                    # fabrication: no Lease owner/token/expiry is written.
+                    report.routed_to_reconciliation += await route_to_reconciliation(
+                        session, job_id
+                    )
                     continue
                 report.backfilled += await apply_lease_evidence(session, evidence)
             await session.commit()

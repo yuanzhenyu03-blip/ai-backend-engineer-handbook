@@ -12,6 +12,13 @@ terminal, or unprovable running Jobs here — that fabrication is forbidden, and
 Backfill (a SEPARATE operational step, NOT this upgrade) fills only running Jobs
 with trusted ownership evidence.
 
+It also adds ``lease_backfill_state`` (NULLABLE, no default) — a PERSISTENT
+reconciliation marker the operational Backfill uses to route an unknown-ownership
+running Job OUT of the automatic candidate set (state = 'reconcile'). This does
+NOT fabricate any Lease field; it only records that ownership could not be proved,
+so the Backfill terminates and is restart-safe instead of re-selecting the same
+unknown Job forever.
+
 The coherence rule is added as ``CHECK ... NOT VALID`` so it protects EVERY future
 INSERT/UPDATE immediately while temporarily tolerating legacy rows. It is NOT
 validated here; ``VALIDATE CONSTRAINT`` is the separate 0003 revision, run only
@@ -32,7 +39,16 @@ def upgrade() -> None:
         "ALTER TABLE app.jobs "
         "ADD COLUMN lease_owner text, "
         "ADD COLUMN lease_token uuid, "
-        "ADD COLUMN lease_expires_at timestamptz"
+        "ADD COLUMN lease_expires_at timestamptz, "
+        "ADD COLUMN lease_backfill_state text"
+    )
+    # Restrict the reconciliation marker's values on FUTURE writes; NOT VALID keeps
+    # it consistent with the Expand discipline (tolerate legacy rows until VALIDATE
+    # in 0003 is unaffected — this constraint only guards new writes).
+    op.execute(
+        "ALTER TABLE app.jobs "
+        "ADD CONSTRAINT jobs_lease_backfill_state_allowed "
+        "CHECK (lease_backfill_state IS NULL OR lease_backfill_state = 'reconcile') NOT VALID"
     )
     # Future-write protection: an all-or-nothing Lease triple. NOT VALID protects
     # new INSERT/UPDATE now while tolerating legacy rows until 0003 VALIDATE.
@@ -51,9 +67,11 @@ def downgrade() -> None:
     # Safe ONLY before any real Lease data or Provider side effects exist. Once
     # real Lease tokens/Provider effects exist, DO NOT downgrade destructively —
     # preserve durable evidence and forward-fix + reconcile instead.
+    op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_lease_backfill_state_allowed")
     op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_lease_triple_coherent")
     op.execute(
         "ALTER TABLE app.jobs "
+        "DROP COLUMN IF EXISTS lease_backfill_state, "
         "DROP COLUMN IF EXISTS lease_expires_at, "
         "DROP COLUMN IF EXISTS lease_token, "
         "DROP COLUMN IF EXISTS lease_owner"
