@@ -638,8 +638,11 @@ EXPAND: ADD COLUMN ... NULLABLE, NO fabricated default (NULL = no proved ownersh
   Deploy Expand FIRST and alone (old Workers coexist because they ignore nullable cols). No Backfill loop / no Provider in upgrade().
 BACKFILL (operational, NOT in upgrade()): short tx + FOR UPDATE SKIP LOCKED batches, idempotent, restartable (DB state=checkpoint).
   candidate = running AND lease_owner IS NULL AND lease_backfill_state IS NULL. Fill ONLY running Jobs with trusted evidence; No Provider.
-  unknown-running -> ROUTE to a PERSISTENT marker lease_backfill_state='reconcile' (guarded/idempotent, NO fabricated lease) so it leaves the candidate set -> the loop TERMINATES and a restart never re-selects it (counting in memory would loop forever).
-  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconcile. lease_backfill_state is a nullable Expand column (no fabricated default).
+  unknown-running -> ROUTE to a PERSISTENT marker lease_backfill_state='reconcile' (guarded/idempotent, NO fabricated lease) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it.
+  BUT reconcile = TRIAGE, not RESOLUTION: Day36 core CHECK jobs_running_requires_lease (job_status<>'running' OR lease triple NOT NULL) NOT VALID in Expand, VALIDATEd in 0003. A reconcile-marked running Job with NULL Lease STILL violates it.
+  automatic_backfill_candidates (running + lease_owner NULL + lease_backfill_state NULL) != unresolved_running_without_lease (ALL running + lease_owner NULL, INCLUDING reconcile-marked = Day36 remaining_targets). VALIDATE/Switch/Contract require unresolved==0.
+  RESOLUTION only via (a) trusted Lease backfill (apply_lease_evidence, also clears the marker) or (b) audited real recovery (resolve_by_verified_terminal_state -> verified terminal, NEVER fabricated 'failed'/'running'). run_backfill reports unresolved so "loop stopped" != "history compliant".
+  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconcile (triage). lease_backfill_state is a nullable Expand column (no fabricated default).
 VALIDATE (SEPARATE revision): ALTER TABLE ... VALIDATE CONSTRAINT -> proves HISTORY; FAILS until legacy truly resolved (exception queue != resolution).
 NOT VALID = protect the FUTURE now; VALIDATE = prove the PAST later. UPDATE...RETURNING is the Day47 runtime guard, NOT the migration mechanism.
 ```
@@ -652,7 +655,7 @@ CONTRACT: destructive + LAST; only after Validate + Switch + evidence + observat
 revision/down_revision = the graph + required predecessor (downgrade = reverse traversal). Parallel revisions -> multiple heads -> alembic MERGE revision.
 autogenerate = a CANDIDATE diff to REVIEW (DDL/data/locks/multi-version); Day46 Base.metadata = INPUT, PostgreSQL = authority.
 BASELINE/stamp: `alembic stamp <baseline>` writes alembic_version and does NO DDL -> only after PROVEN exact match. New DB: raw SQL -> stamp -> upgrade; existing DB: prove -> stamp -> upgrade later revisions. alembic_version = a version DECLARATION, not a proof.
-env.py stays MINIMAL (DB config + Base.metadata + execution); app must NEVER self-run migrations on startup. DB URL resolves `-x db_url=` > env DAY48_ALEMBIC_DATABASE_URL > alembic.ini sqlalchemy.url (a NON-CREDENTIAL offline-render placeholder, NOT a production connection; commit no real URL). CREATE INDEX CONCURRENTLY is NON-transactional (never in a migration tx; a failed build leaves an invalid index to inspect/repair).
+env.py stays MINIMAL (DB config + Base.metadata + execution); app must NEVER self-run migrations on startup. DB URL resolves `-x db_url=` > env DAY48_ALEMBIC_DATABASE_URL; alembic.ini sqlalchemy.url is a NON-CREDENTIAL OFFLINE-render placeholder ONLY (NOT an online fallback) -> ONLINE fails fast without an external URL; commit no real URL. CREATE INDEX CONCURRENTLY is NON-transactional (never in a migration tx; a failed build leaves an invalid index to inspect/repair).
 EVIDENCE: static/offline (ScriptDirectory + `alembic upgrade --sql` render) proves TEXT/STRUCTURE; real PostgreSQL proves BEHAVIOR (NOT VALID/VALIDATE/locks). SQLite/fake-session/`upgrade`-success are NOT PostgreSQL proof.
 Provider/Object Storage outside DB tx; interrupted call = UNKNOWN outcome; Outbox intent != Provider-success proof; recover via Job/Attempt/Event + correlation/idempotency.
 ```
@@ -684,7 +687,7 @@ evidence; the Day47 UoW is one short business tx while Alembic is deploy-time sc
 ```
 
 Validation: REAL static/offline evidence executed — Alembic revision-graph + migration-source inspection (ScriptDirectory) and
-FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 16 passed), plus an offline
+FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20 passed), plus an offline
 `alembic upgrade --sql` DDL render (no DB connection). **PostgreSQL runtime NOT RUN** (SQLite/fake/`upgrade`-success are not PostgreSQL
 proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
 

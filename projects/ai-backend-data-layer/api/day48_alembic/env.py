@@ -10,13 +10,14 @@ Database URL resolution (highest priority first):
     1. ``alembic -x db_url=<url>``  (per-invocation override)
     2. env var ``DAY48_ALEMBIC_DATABASE_URL``
     3. ``sqlalchemy.url`` in ``alembic.ini`` — a NON-CREDENTIAL PLACEHOLDER used
-       ONLY for offline ``--sql`` rendering (dialect selection; it never connects
-       and is NOT a production connection configuration).
+       ONLY for offline ``--sql`` rendering (dialect selection). It is used ONLY in
+       OFFLINE mode and is NEVER an online connection fallback.
 
 Offline mode (``alembic upgrade --sql``) renders DDL text using the resolved URL's
-dialect and NEVER connects — static/offline evidence, NOT PostgreSQL runtime
-proof. Online mode connects to the resolved URL supplied out-of-band (never a
-committed credential).
+dialect and NEVER connects — static/offline evidence, NOT PostgreSQL runtime proof.
+ONLINE mode REQUIRES a real external URL (``-x db_url=...`` or
+``DAY48_ALEMBIC_DATABASE_URL``) and FAILS FAST otherwise; it never falls back to the
+placeholder and never commits a credential.
 
 This module is import-safe: outside an Alembic run the migration block is skipped,
 so ``resolve_database_url`` can be unit-tested without a database or a live context.
@@ -38,32 +39,40 @@ def resolve_database_url(
     x_arguments: Mapping[str, str],
     environ: Mapping[str, str],
     ini_url: Optional[str],
+    *,
+    allow_placeholder: bool,
 ) -> str:
     """Resolve the migration database URL by explicit priority (PURE + testable):
 
-        alembic -x db_url=...  >  env DAY48_ALEMBIC_DATABASE_URL  >  alembic.ini sqlalchemy.url (offline placeholder)
+        alembic -x db_url=...  >  env DAY48_ALEMBIC_DATABASE_URL  >  [ini sqlalchemy.url, OFFLINE ONLY]
 
-    The ini value is only a non-credential offline-render placeholder; a real run
-    supplies a URL via -x or the environment (never a committed credential)."""
+    The ini ``sqlalchemy.url`` is a NON-CREDENTIAL placeholder used ONLY for offline
+    ``--sql`` rendering (dialect selection). It is NOT an online connection fallback:
+    ``allow_placeholder`` is True only in offline mode. In ONLINE mode a real
+    external URL (``-x db_url=...`` or ``DAY48_ALEMBIC_DATABASE_URL``) is REQUIRED and
+    the function fails fast otherwise (no credential is ever printed)."""
     x_url = x_arguments.get("db_url")
     if x_url:
         return x_url
     env_url = environ.get("DAY48_ALEMBIC_DATABASE_URL")
     if env_url:
         return env_url
-    if ini_url:
+    if allow_placeholder and ini_url:
         return ini_url
     raise RuntimeError(
-        "No migration database URL: pass `-x db_url=...`, set "
-        "DAY48_ALEMBIC_DATABASE_URL, or configure sqlalchemy.url (offline only)."
+        "Online migration requires an external database URL: pass "
+        "`alembic -x db_url=<url>` or set DAY48_ALEMBIC_DATABASE_URL. The "
+        "alembic.ini sqlalchemy.url is a non-credential OFFLINE-render placeholder "
+        "only and is NOT used as an online connection fallback."
     )
 
 
-def _resolved_url() -> str:
+def _resolved_url(*, allow_placeholder: bool) -> str:
     return resolve_database_url(
         context.get_x_argument(as_dictionary=True),
         os.environ,
         context.config.get_main_option("sqlalchemy.url"),
+        allow_placeholder=allow_placeholder,
     )
 
 
@@ -72,7 +81,7 @@ def run_migrations_offline() -> None:
     from day46_orm_mapping import Base
 
     context.configure(
-        url=_resolved_url(),
+        url=_resolved_url(allow_placeholder=True),  # offline may use the ini placeholder
         target_metadata=Base.metadata,
         literal_binds=True,
         include_schemas=True,
@@ -87,7 +96,8 @@ def run_migrations_online() -> None:
 
     from day46_orm_mapping import Base
 
-    connectable = create_engine(_resolved_url(), poolclass=pool.NullPool)
+    # ONLINE: require a real external URL; the ini placeholder is NOT a fallback.
+    connectable = create_engine(_resolved_url(allow_placeholder=False), poolclass=pool.NullPool)
     with connectable.connect() as connection:
         context.configure(
             connection=connection,

@@ -61,12 +61,27 @@ def upgrade() -> None:
         "  (lease_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL) "
         ") NOT VALID"
     )
+    # Day36 CORE invariant: a running Job MUST carry a complete, trusted Lease.
+    # NOT VALID protects every new write now while tolerating legacy running rows
+    # until 0003 VALIDATE. A reconcile-marked running Job with NULL Lease STILL
+    # violates this (the reconcile marker is TRIAGE, not RESOLUTION), so VALIDATE
+    # cannot pass until each such row is truthfully resolved.
+    op.execute(
+        "ALTER TABLE app.jobs "
+        "ADD CONSTRAINT jobs_running_requires_lease "
+        "CHECK ( "
+        "  job_status <> 'running' "
+        "  OR "
+        "  (lease_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL) "
+        ") NOT VALID"
+    )
 
 
 def downgrade() -> None:
     # Safe ONLY before any real Lease data or Provider side effects exist. Once
     # real Lease tokens/Provider effects exist, DO NOT downgrade destructively —
     # preserve durable evidence and forward-fix + reconcile instead.
+    op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_running_requires_lease")
     op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_lease_backfill_state_allowed")
     op.execute("ALTER TABLE app.jobs DROP CONSTRAINT IF EXISTS jobs_lease_triple_coherent")
     op.execute(

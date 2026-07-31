@@ -6,8 +6,10 @@ Create Date: 2026-07-31
 
 VALIDATE phase. Run ONLY after the operational Backfill/reconciliation has truly
 resolved every legacy violation (an exception queue is NOT resolution). VALIDATE
-proves the historical rows also satisfy the already-enforced future rule; it takes
-a lighter lock than a fresh validating CHECK and does not re-scan enforced rows.
+proves the historical rows also satisfy BOTH already-enforced future rules —
+jobs_lease_triple_coherent AND the Day36 core jobs_running_requires_lease — with a
+lighter lock than a fresh validating CHECK. It FAILS while any running-without-Lease
+row remains (reconcile-marked rows included).
 
 This is deliberately a SEPARATE revision from Expand: the phases are gated by
 deployment, data, Writer-protocol, and observation evidence — not merely to avoid
@@ -26,6 +28,11 @@ def upgrade() -> None:
     # Backfill/reconciliation is not actually complete. Do not "fix" by excluding
     # rows; resolve or reconcile the violation first.
     op.execute("ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_lease_triple_coherent")
+    # Day36 CORE: prove EVERY historical running row carries a complete Lease. This
+    # FAILS while any running-without-Lease row remains — including reconcile-marked
+    # rows (triage is not resolution), so it cannot pass until each is truthfully
+    # resolved (a trusted Lease backfill or an audited real state recovery).
+    op.execute("ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_running_requires_lease")
 
 
 def downgrade() -> None:

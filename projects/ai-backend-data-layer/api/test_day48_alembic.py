@@ -28,6 +28,8 @@ from day48_lease_backfill import (
     BackfillReport,
     LeaseEvidence,
     apply_lease_evidence,
+    count_unresolved_running_without_lease,
+    resolve_by_verified_terminal_state,
     route_to_reconciliation,
     run_backfill,
     select_backfill_batch,
@@ -85,6 +87,9 @@ def test_expand_is_nullable_no_default_and_not_valid():
     assert "ADD COLUMN lease_expires_at timestamptz" in src
     assert "ADD COLUMN lease_backfill_state text" in src  # persistent reconciliation marker (nullable)
     assert "jobs_lease_backfill_state_allowed" in src      # value guard for the marker
+    # Day36 CORE invariant: a running Job MUST have a complete Lease (NOT VALID here).
+    assert "jobs_running_requires_lease" in src
+    assert "job_status <> 'running'" in src
     assert "DEFAULT" not in src  # no fabricated server default on the new nullable columns
     assert "NOT VALID" in src
     assert "VALIDATE CONSTRAINT jobs_lease_triple_coherent" not in src  # the VALIDATE op lives only in 0003
@@ -96,6 +101,9 @@ def test_expand_is_nullable_no_default_and_not_valid():
 def test_validate_is_separate_and_validates():
     src = _revision_source("0003_validate_lease.py")
     assert "VALIDATE CONSTRAINT jobs_lease_triple_coherent" in src
+    # The Day36 core invariant is proven over history too — VALIDATE fails while any
+    # running-without-Lease row remains (reconcile-marked rows included).
+    assert "VALIDATE CONSTRAINT jobs_running_requires_lease" in src
     assert 'down_revision = "0002_expand_lease"' in src
     assert not _function_body_has_loop(src, "upgrade")
 
@@ -196,9 +204,10 @@ def test_backfill_fills_known_and_routes_unknown_for_reconciliation():
     sess = FakeAsyncSession(
         execute_rows=[
             [(JOB_A,), (JOB_B,)],  # select batch 1
-            [(JOB_A,)],            # apply evidence for JOB_A -> 1 row
+            [(JOB_A,)],            # apply evidence for JOB_A -> 1 row (marker cleared)
             [(JOB_B,)],            # route JOB_B to reconciliation -> 1 row
-            [],                    # select batch 2 -> empty (terminates)
+            [],                    # select batch 2 -> empty (automatic loop terminates)
+            [(1,)],                # final unresolved count -> JOB_B still unresolved
         ]
     )
 
@@ -210,16 +219,23 @@ def test_backfill_fills_known_and_routes_unknown_for_reconciliation():
     assert isinstance(report, BackfillReport)
     assert report.backfilled == 1                 # only JOB_A had trusted evidence
     assert report.routed_to_reconciliation == 1   # JOB_B persistently routed, not fabricated
+    # Reconcile is TRIAGE, not RESOLUTION: JOB_B STILL counts as unresolved.
+    assert report.unresolved_running_without_lease == 1
     assert sess.calls.count("commit") == 1        # one batch committed
-    # The apply used a guarded, idempotent UPDATE (running + unowned + RETURNING).
+    # The apply used a guarded, idempotent UPDATE and cleared the reconcile marker.
     apply_sql = sess.executed[1][0]
     assert "job_status = 'running' AND lease_owner IS NULL" in apply_sql
+    assert "lease_backfill_state = NULL" in apply_sql  # resolution clears any triage marker
     assert "RETURNING job_id" in apply_sql
     # The route persisted lease_backfill_state='reconcile' WITHOUT any lease field.
     route_sql = sess.executed[2][0]
     assert "SET lease_backfill_state = 'reconcile'" in route_sql
     assert "lease_owner" not in route_sql.split("WHERE")[0]  # no lease_owner in SET
     assert "lease_token" not in route_sql and "lease_expires_at" not in route_sql
+    # The final count query includes reconcile-marked rows (no state filter).
+    count_sql = sess.executed[4][0]
+    assert "job_status = 'running' AND lease_owner IS NULL" in count_sql
+    assert "lease_backfill_state" not in count_sql
 
 
 # 9. apply_lease_evidence is idempotent/restartable: an already-owned row -> 0 rows.
@@ -247,7 +263,8 @@ def test_backfill_terminates_when_all_candidates_unknown():
             [(JOB_A,), (JOB_B,)],  # select batch 1
             [(JOB_A,)],            # route JOB_A -> 1 row
             [(JOB_B,)],            # route JOB_B -> 1 row
-            [],                    # select batch 2 -> empty (terminates)
+            [],                    # select batch 2 -> empty (automatic loop terminates)
+            [(2,)],                # final unresolved count -> both still unresolved
         ]
     )
 
@@ -258,7 +275,9 @@ def test_backfill_terminates_when_all_candidates_unknown():
     report = asyncio.run(run_backfill(lambda: sess, NoEvidence(), batch_size=100))  # max_batches=None
     assert report.backfilled == 0
     assert report.routed_to_reconciliation == 2
-    assert sess.calls.count("execute") == 4  # 2 selects + 2 routes, then it stopped
+    # The automatic loop STOPPED but the migration is INCOMPLETE: both remain unresolved.
+    assert report.unresolved_running_without_lease == 2
+    assert sess.calls.count("execute") == 5  # 2 selects + 2 routes + 1 final count
 
 
 # 12. Finding 1 — RESTART SAFETY: a Job already routed to reconciliation is no
@@ -267,7 +286,7 @@ def test_backfill_terminates_when_all_candidates_unknown():
 def test_backfill_does_not_reselect_reconciled_job_on_restart():
     # Simulate a restart where the previously-routed JOB_B is no longer returned by
     # the candidate query (its lease_backfill_state is now 'reconcile').
-    sess = FakeAsyncSession(execute_rows=[[]])  # candidate query returns nothing
+    sess = FakeAsyncSession(execute_rows=[[], [(1,)]])  # no auto candidates; 1 still unresolved
 
     class NoEvidence:
         async def prove(self, job_id):
@@ -276,9 +295,12 @@ def test_backfill_does_not_reselect_reconciled_job_on_restart():
     report = asyncio.run(run_backfill(lambda: sess, NoEvidence(), batch_size=100))
     assert report.routed_to_reconciliation == 0
     assert report.backfilled == 0
-    # And the candidate SQL structurally excludes reconciliation-routed rows.
+    # The automatic candidate query excludes reconciliation-routed rows (no re-select)...
     select_sql = sess.executed[0][0]
     assert "lease_backfill_state IS NULL" in select_sql
+    # ...but the previously-routed Job is STILL an unresolved running-without-Lease
+    # target -> reconcile is triage, NOT resolution; VALIDATE precondition unmet.
+    assert report.unresolved_running_without_lease == 1
 
 
 # 13. Finding 1 — route_to_reconciliation is idempotent/guarded and NEVER fabricates
@@ -310,23 +332,32 @@ def _load_env_module():
     return module
 
 
-# 14. Finding 2 — the override priority is -x db_url > env var > ini placeholder.
-def test_database_url_override_priority():
+# 14. Finding 2 — priority is -x db_url > env var; the ini placeholder is used ONLY
+#     in offline mode (allow_placeholder=True), never as an online fallback.
+def test_database_url_override_priority_and_offline_placeholder():
     env = _load_env_module()
     resolve = env.resolve_database_url
     x = {"db_url": "postgresql://h/from_xarg"}
     e = {"DAY48_ALEMBIC_DATABASE_URL": "postgresql://h/from_env"}
     ini = "postgresql://localhost/appdb_placeholder"
-    assert resolve(x, e, ini) == "postgresql://h/from_xarg"   # -x wins
-    assert resolve({}, e, ini) == "postgresql://h/from_env"   # env var fallback
-    assert resolve({}, {}, ini) == ini                        # ini placeholder last
+    # -x wins over env in BOTH modes.
+    assert resolve(x, e, ini, allow_placeholder=True) == "postgresql://h/from_xarg"
+    assert resolve(x, e, ini, allow_placeholder=False) == "postgresql://h/from_xarg"
+    # env var is the online fallback (no -x), in both modes.
+    assert resolve({}, e, ini, allow_placeholder=False) == "postgresql://h/from_env"
+    assert resolve({}, e, ini, allow_placeholder=True) == "postgresql://h/from_env"
+    # OFFLINE with no external URL -> the ini placeholder is allowed.
+    assert resolve({}, {}, ini, allow_placeholder=True) == ini
 
 
-# 15. Finding 2 — with no source at all, resolution fails loudly (no silent bad URL).
-def test_database_url_resolution_requires_a_source():
+# 15. Finding 2 — ONLINE with no external URL FAILS FAST (never the ini placeholder).
+def test_online_requires_external_url_no_placeholder_fallback():
     env = _load_env_module()
+    ini = "postgresql://localhost/appdb_placeholder"
     with pytest.raises(RuntimeError):
-        env.resolve_database_url({}, {}, None)
+        env.resolve_database_url({}, {}, ini, allow_placeholder=False)  # online, no -x/env
+    with pytest.raises(RuntimeError):
+        env.resolve_database_url({}, {}, None, allow_placeholder=True)   # offline, but no url at all
 
 
 # 16. Finding 2 — env.py and alembic.ini document the placeholder as OFFLINE-only
@@ -342,4 +373,71 @@ def test_url_config_docs_are_consistent():
     # Both files name the env var and describe the ini URL as an offline placeholder.
     assert "DAY48_ALEMBIC_DATABASE_URL" in ini_src
     assert "placeholder" in ini_src.lower() and "offline" in ini_src.lower()
-    assert "NOT a production" in ini_src or "not a production" in ini_src.lower()
+    assert "not a production" in ini_src.lower()
+    # Both files state the placeholder is NOT an online connection fallback.
+    assert "not an online connection fallback" in ini_src.lower()
+    assert "never an online connection fallback" in env_src.lower() or "fails fast" in env_src.lower()
+
+
+# 17. R2 Finding 1 — count_unresolved_running_without_lease INCLUDES reconcile-marked
+#     rows (no lease_backfill_state filter): being queued is not being resolved.
+def test_unresolved_count_includes_reconcile_marked_rows():
+    sess = FakeAsyncSession(execute_rows=[[(3,)]])
+    n = asyncio.run(count_unresolved_running_without_lease(sess))
+    assert n == 3
+    sql = sess.executed[0][0]
+    assert "count(*)" in sql
+    assert "job_status = 'running' AND lease_owner IS NULL" in sql
+    assert "lease_backfill_state" not in sql  # reconcile-marked rows are counted too
+
+
+# 18. R2 Finding 1 — a TRUSTED Lease backfill (resolution a) resolves even a
+#     reconcile-parked row: it sets the Lease AND clears the marker, so the row is
+#     no longer a running-without-Lease target.
+def test_trusted_backfill_resolves_and_clears_marker():
+    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)]])  # 1 row updated
+    assert asyncio.run(apply_lease_evidence(sess, _evidence(JOB_A))) == 1
+    sql = sess.executed[0][0]
+    assert "SET lease_owner = :lease_owner" in sql
+    assert "lease_backfill_state = NULL" in sql  # marker cleared on resolution
+    assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
+
+
+# 19. R2 Finding 1 — an AUDITED real recovery (resolution b) sets the Job's TRUE
+#     verified terminal state (never a fabricated 'failed'); 'running' is rejected.
+def test_resolve_by_verified_terminal_state():
+    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)]])
+    assert asyncio.run(resolve_by_verified_terminal_state(sess, JOB_A, "failed")) == 1
+    sql = sess.executed[0][0]
+    assert "SET job_status = :verified_status" in sql
+    assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
+    # Refuses to "resolve" back into a still-running state.
+    with pytest.raises(ValueError):
+        asyncio.run(resolve_by_verified_terminal_state(FakeAsyncSession(), JOB_A, "running"))
+
+
+# 20. R2 Finding 1 — VALIDATE precondition is unresolved==0: after a trusted backfill
+#     resolves the last parked row, the unresolved count reaches 0 (only THEN may the
+#     migration VALIDATE/Switch/Contract). Reaching 0 by routing alone is impossible.
+def test_validate_precondition_reached_only_after_real_resolution():
+    # Round 1: one unknown Job is routed; unresolved stays 1 (not compliant).
+    routed = FakeAsyncSession(execute_rows=[[(JOB_A,)], [(JOB_A,)], [], [(1,)]])
+
+    class NoEvidence:
+        async def prove(self, job_id):
+            return None
+
+    r1 = asyncio.run(run_backfill(lambda: routed, NoEvidence(), batch_size=100))
+    assert r1.routed_to_reconciliation == 1
+    assert r1.unresolved_running_without_lease == 1  # queued != resolved
+
+    # Round 2: a trusted source now proves JOB_A; it is backfilled and unresolved -> 0.
+    resolved = FakeAsyncSession(execute_rows=[[(JOB_A,)], [(JOB_A,)], [], [(0,)]])
+
+    class KnownNow:
+        async def prove(self, job_id):
+            return _evidence(job_id)
+
+    r2 = asyncio.run(run_backfill(lambda: resolved, KnownNow(), batch_size=100))
+    assert r2.backfilled == 1
+    assert r2.unresolved_running_without_lease == 0  # NOW the VALIDATE precondition holds

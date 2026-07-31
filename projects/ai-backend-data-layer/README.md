@@ -11,7 +11,7 @@ Expand/Validate/Contract revisions), an operational restartable `FOR UPDATE SKIP
 migration, and the `CHECK ... NOT VALID` (protect future writes) vs `VALIDATE CONSTRAINT` (prove history)
 separation. A migration is a versioned transition across schema, data, and every writer — successful DDL is not
 completion. **REAL static/offline tests were executed** (Alembic revision-graph + migration-source inspection and
-fake-session backfill control flow -> 16 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
+fake-session backfill control flow -> 20 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
 deps pinned in `api/requirements-day48.txt`) plus an offline `alembic upgrade --sql` DDL render. This is **not**
 database proof: **PostgreSQL runtime is NOT RUN** (no server; SQLite/fake/`upgrade`-success are not PostgreSQL
 evidence); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. (See the
@@ -103,7 +103,7 @@ projects/ai-backend-data-layer/
 │   ├── day48-alembic-safe-schema-evolution-design.md   # Day48: Alembic safe-evolution design/runbook
 │   ├── day48_alembic/                                  # Day48: Alembic control plane (env.py + gated Expand/Validate/Contract revisions)
 │   ├── day48_lease_backfill.py                         # Day48: operational restartable FOR UPDATE SKIP LOCKED backfill (off the migration)
-│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 16 passed)
+│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 20 passed)
 │   └── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -175,7 +175,7 @@ Column intent:
 operational `day48_lease_backfill.py`, and `test_day48_alembic.py`) makes Day36's Expand -> Backfill -> Validate
 -> Switch -> Contract discipline executable with Alembic for a Lease-ownership evolution of `app.jobs`. The
 artifact and its **static/offline** tests are **real, executed**: **Python 3.10.12, Alembic 1.13.1, SQLAlchemy
-2.0.29, pytest 7.4.3 -> `16 passed`** (deps pinned in `api/requirements-day48.txt`), plus an offline `alembic
+2.0.29, pytest 7.4.3 -> `20 passed`** (deps pinned in `api/requirements-day48.txt`), plus an offline `alembic
 upgrade --sql` DDL render. These prove the migration **text/structure and control flow** only; **PostgreSQL
 runtime is NOT RUN**.
 
@@ -184,11 +184,11 @@ runtime is NOT RUN**.
 | Section | Contents |
 | --- | --- |
 | Mental model | a migration is a versioned transition across schema + historical rows + every writer; `alembic upgrade head` success is DDL-only evidence; safe evolution = Expand/Backfill/Validate/Switch/Contract, each separately gated |
-| Expand | `ADD COLUMN` lease_owner/lease_token/lease_expires_at + a `lease_backfill_state` reconciliation marker, all **nullable, no fabricated default** (NULL = no proved ownership); `CHECK ... NOT VALID` protects future writes; deploy first, no Backfill/Provider in `upgrade()` |
-| Backfill | operational, restartable `FOR UPDATE SKIP LOCKED` script **off the migration** (candidate = running + `lease_owner IS NULL` + `lease_backfill_state IS NULL`); fills only running Jobs with trusted ownership; unknown -> **persisted** `lease_backfill_state='reconcile'` marker (guarded/idempotent, no fabricated lease) so the loop **terminates** and a restart never re-selects it; no Provider; DB state = checkpoint |
-| Validate | `VALIDATE CONSTRAINT` in a **separate** revision proves history; fails until legacy violations are truly resolved |
+| Expand | `ADD COLUMN` lease_owner/lease_token/lease_expires_at + a `lease_backfill_state` reconciliation marker, all **nullable, no fabricated default** (NULL = no proved ownership); `CHECK ... NOT VALID` for triple coherence **and** the Day36 core `jobs_running_requires_lease` (a running Job must carry a complete Lease); deploy first, no Backfill/Provider in `upgrade()` |
+| Backfill | operational, restartable `FOR UPDATE SKIP LOCKED` script **off the migration** (automatic candidate = running + `lease_owner IS NULL` + `lease_backfill_state IS NULL`); fills only running Jobs with trusted ownership; unknown -> **persisted** `lease_backfill_state='reconcile'` marker (guarded/idempotent, no fabricated lease) so the **automatic loop terminates** and a restart never re-selects it. Reconcile is **triage, not resolution**: such a row still violates the Day36 `jobs_running_requires_lease` invariant and still counts in `unresolved_running_without_lease` (Day36 remaining_targets). VALIDATE/Switch/Contract require `unresolved==0`, reached only by (a) a trusted Lease backfill or (b) an audited real recovery; no Provider; DB state = checkpoint |
+| Validate | `VALIDATE CONSTRAINT` (both `jobs_lease_triple_coherent` and the Day36 core `jobs_running_requires_lease`) in a **separate** revision proves history; fails until every running-without-Lease row (reconcile-marked included) is truly resolved |
 | Switch / Contract | Switch = every Writer on the token protocol, old path can't write; Contract destructive + last, after evidence + observation; forward-fix (not destructive downgrade) once real data/side effects exist |
-| Alembic specifics | revision graph / `down_revision` / merge heads; autogenerate is a candidate diff to review; baseline/`stamp` writes `alembic_version` and does no DDL; minimal `env.py` (no FastAPI, no UoW) with DB-URL resolution `-x db_url` > env `DAY48_ALEMBIC_DATABASE_URL` > ini offline placeholder (no credentials committed); `CREATE INDEX CONCURRENTLY` is non-transactional |
+| Alembic specifics | revision graph / `down_revision` / merge heads; autogenerate is a candidate diff to review; baseline/`stamp` writes `alembic_version` and does no DDL; minimal `env.py` (no FastAPI, no UoW) with DB-URL resolution `-x db_url` > env `DAY48_ALEMBIC_DATABASE_URL` (ini placeholder is **offline-render only**, never an online fallback -> online **fails fast** without an external URL; no credentials committed); `CREATE INDEX CONCURRENTLY` is non-transactional |
 | Evidence | 10 **static/offline** tests (`ScriptDirectory` graph/source + fake-session backfill) + offline `--sql` render; **PostgreSQL runtime NOT RUN**; SQLite/fake/`upgrade`-success are not PostgreSQL proof |
 
 ### Run the tests / render DDL
@@ -208,8 +208,10 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 > fails until repaired). **SQLite/fake sessions are not PostgreSQL evidence**, and `alembic upgrade` success alone
 > does not prove Backfill/Switch/Contract or production safety. It does not migrate on FastAPI startup, run no
 > Provider in Backfill, put no long Backfill loop in `upgrade()`, and does not implement the Day49 upload workflow
-> or Day50 Outbox/Celery delivery. No secrets or real database URLs (the `alembic.ini` URL is a non-credential
-> placeholder for offline rendering).
+> or Day50 Outbox/Celery delivery. Routing a Job to `'reconcile'` is **triage, not resolution** — it never makes a
+> running-without-Lease Job compliant and never satisfies the `VALIDATE` precondition. No secrets or real database
+> URLs: the `alembic.ini` URL is a non-credential **offline-render placeholder only** (online mode **requires**
+> `-x db_url=...` or `DAY48_ALEMBIC_DATABASE_URL` and **fails fast** otherwise).
 
 ### Day48 known gaps (deliberate)
 
