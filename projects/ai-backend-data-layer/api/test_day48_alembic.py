@@ -952,3 +952,73 @@ def test_forward_revision_reachable_from_published_head():
     assert '"0006_add_reconciliation_polling"' in merge_src
     script = _script()
     assert script.get_heads() == [POLLING_MERGE_REV]  # single head after the merge
+
+
+# --- R9: the Contract gate must not be crossed by `upgrade head` on 0003/0004 -----
+# Static doc/source assertions only — NOT PostgreSQL runtime proof.
+
+import re as _re
+
+
+def _flat(text):
+    # Collapse whitespace AND table pipes so assertions survive Markdown table wrap.
+    return _re.sub(r"[\s|]+", " ", text)
+
+
+def _design_doc():
+    with open(os.path.join(HERE, "day48-alembic-safe-schema-evolution-design.md")) as fh:
+        return fh.read()
+
+
+# 39. The merge revision (0007) doc no longer tells a 0003- or 0004-stage database to
+#     run `upgrade head`; it prescribes explicit staged targets and marks Contract as
+#     destructive + human-gated (head crosses 0005 automatically).
+def test_merge_doc_does_not_recommend_upgrade_head_for_0003_or_0004():
+    src = _revision_source("0007_merge_reconciliation_polling.py")
+    flat = _flat(src)
+    # The old dangerous guidance ("A database ... can upgrade head directly") is gone.
+    assert "can ``upgrade head`` directly" not in src
+    assert "upgrade head`` directly" not in src
+    # It explicitly states head is NOT the default for 0003/0004 and names 0005 gated.
+    assert "NOT the default command for a 0003- or 0004-stage" in flat
+    # Explicit staged targets are prescribed for both 0003 and 0004 (not `head`).
+    assert "alembic upgrade 0006_add_reconciliation_polling" in src
+    assert "alembic upgrade 0004_validate_lease" in src
+    # 0004 stage is explicitly told NOT to use `upgrade head`.
+    assert "do NOT ``upgrade head`` (it would auto-run destructive 0005)" in src
+    # Contract is destructive + human-gated.
+    assert "DESTRUCTIVE" in src and "human" in src.lower()
+
+
+# 40. The runbook encodes the staged 0003 order and the 0004 -> 0006 (not 0004 -> head)
+#     order, and states head crosses Contract so it is not the 0003/0004 default.
+def test_runbook_encodes_staged_contract_gated_order():
+    doc = _design_doc()
+    assert "0003 -> 0006 -> reconciliation -> 0004 -> observation -> head" in doc
+    assert "0004 -> 0006 -> (Contract gate) -> head" in doc  # 0004 goes to 0006, NOT head
+    flat = _flat(doc)
+    assert "NOT the default command for a 0003- or 0004-stage database" in flat
+    # Explicitly: `upgrade head` from 0003/0004 would auto-run destructive 0005 Contract.
+    assert "would AUTOMATICALLY run 0005 Contract" in doc
+    # Only a 0005-stage DB may `upgrade head` (crosses no new Contract).
+    assert "A 0005-stage database has already recorded 0005 as applied" in doc
+
+
+# 41. The runbook documents that a database's alembic_version may TRANSIENTLY show
+#     multiple heads during the staged rollout, while the REPOSITORY graph keeps ONE
+#     final head (0007) — the two are not the same thing.
+def test_runbook_explains_transient_vs_final_heads():
+    doc = _design_doc()
+    flat = _flat(doc)
+    assert "TRANSIENT" in doc
+    assert "repository graph's single final head is 0007_merge_reconciliation_polling" in flat
+    # And the graph really is single-head at rest.
+    assert _script().get_heads() == [POLLING_MERGE_REV]
+
+
+# 42. HONESTY: these are static document/source checks, not a real PostgreSQL run of
+#     the staged upgrade order (which would need a server to apply 0006/0004/0005/0007
+#     and observe that `upgrade head` crosses Contract). See the runbook.
+def test_rollout_gate_evidence_is_static_not_postgres_runtime():
+    doc = _design_doc()
+    assert "NOT RUN" in doc  # the runbook states the PostgreSQL-runtime boundary

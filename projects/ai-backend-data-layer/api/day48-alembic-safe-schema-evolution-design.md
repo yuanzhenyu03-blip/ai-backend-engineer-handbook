@@ -283,26 +283,39 @@ REVISION GRAPH (single head via intentional branch + merge):
   Published parentage of 0002/0003/0004/0005 is UNCHANGED. The branch off 0003 lets a 0003-stage DB obtain polling
   columns WITHOUT running Validate/Contract; the merge restores a single head.
 
-UPGRADE MATRIX (operator order matters — see the WARNING):
+CONTRACT GATE — READ FIRST: `head = 0007_merge_reconciliation_polling` DEPENDS ON `0005_contract_legacy`. Therefore
+  `alembic upgrade head` from a 0003- or 0004-stage database would AUTOMATICALLY run 0005 Contract (a DESTRUCTIVE,
+  manually-gated step that requires Switch complete + an observation period + health evidence + explicit human approval).
+  `alembic upgrade head` is NOT the default command for a 0003- or 0004-stage database. Use EXPLICIT staged revision
+  TARGETS instead; only run `upgrade head` (which crosses Contract) as the FINAL step after the Contract gate is met.
+  A 0005-stage database has already recorded 0005 as applied, so its `upgrade head` adds ONLY 0006 + 0007 and crosses
+  NO new Contract.
 
-  | Current alembic_version        | Steps                                                                            |
-  |--------------------------------|----------------------------------------------------------------------------------|
-  | NEW / empty DB                 | apply Day42 baseline SQL; `alembic stamp 0001_baseline`; `alembic upgrade head`.  |
-  |                                | (No legacy running-without-Lease rows exist, so there is nothing to reconcile —   |
-  |                                |  running Validate/Contract as part of `upgrade head` is safe.)                    |
-  | 0003_add_lease_constraints     | 1) `alembic upgrade 0006_add_reconciliation_polling`  (gets polling schema, does  |
-  | (strict-constraint stage)      |    NOT run Validate/Contract). 2) deploy the resolver. 3) run reconciliation until |
-  |                                |    count_unresolved_running_without_lease() == 0. 4) THEN `alembic upgrade head`  |
-  |                                |    (runs 0004 Validate, 0005 Contract, 0007 merge).                               |
-  | 0004_validate_lease            | `alembic upgrade head` (applies 0006 then 0007). Validate already passed, so      |
-  | (already validated)            | unresolved == 0 and there is NO legacy reconciliation to do; the columns are added |
-  |                                | for SCHEMA COMPATIBILITY with the resolver code / any future routed records.       |
-  | 0005_contract_legacy           | `alembic upgrade head` (applies 0006 then 0007). Same as 0004: schema-compat only; |
-  | (already contracted)           | no legacy reconciliation. Do NOT try to add columns by editing a historical revision. |
+UPGRADE MATRIX (use EXPLICIT revision targets; do NOT use `upgrade head` on a 0003/0004 DB except as the final gated step):
 
-  WARNING — DO NOT blindly `alembic upgrade head` on a 0003-stage DB: that would run 0004 (Validate) and 0005 (Contract)
-  BEFORE reconciliation, and Validate would (correctly) FAIL while running-without-Lease rows remain. Upgrade to 0006
-  first, reconcile to unresolved == 0, THEN `upgrade head`.
+  | Current alembic_version        | Staged steps (each `alembic upgrade <target>` is an explicit, separately-authorized target)             |
+  |--------------------------------|---------------------------------------------------------------------------------------------------------|
+  | NEW / empty DB                 | apply Day42 baseline SQL; `alembic stamp 0001_baseline`; then `alembic upgrade head`. A fresh DB has no  |
+  |                                | legacy running-without-Lease rows, so there is nothing to reconcile and no Contract-gated data to lose;  |
+  |                                | crossing Contract as part of the initial build is acceptable ONLY for a brand-new empty database.        |
+  | 0003_add_lease_constraints     | Staged order: 0003 -> 0006 -> reconciliation -> 0004 -> observation -> head. Concretely:                 |
+  | (strict-constraint stage)      | 1) `alembic upgrade 0006_add_reconciliation_polling` (polling schema ONLY; does NOT run Validate/Contract). |
+  |                                | 2) deploy/enable the reconciliation resolver and run reconciliation (NO Provider calls).                 |
+  |                                | 3) ONLY when `count_unresolved_running_without_lease() == 0`: `alembic upgrade 0004_validate_lease`      |
+  |                                |    (Validate ONLY — this target does NOT reach 0005). 4) complete Switch, run the observation period,    |
+  |                                |    collect health evidence. 5) ONLY after explicit human Contract approval: `alembic upgrade head`       |
+  |                                |    (now runs 0005 Contract + 0007 merge). Do NOT jump from 0003 straight to `head`.                      |
+  | 0004_validate_lease            | Staged order: 0004 -> 0006 -> (Contract gate) -> head. Concretely:                                       |
+  | (already validated)            | 1) `alembic upgrade 0006_add_reconciliation_polling` (runtime SCHEMA COMPATIBILITY only). Do NOT use     |
+  |                                | `alembic upgrade head` here — it would auto-run destructive 0005. 2) Validate having passed means the    |
+  |                                | historical constraints held AT THAT TIME; whether reconciliation is needed NOW must be decided from      |
+  |                                | current running data + a schema-compat check, NOT assumed. 3) still complete Switch + observation +      |
+  |                                | health evidence + human Contract approval. 4) ONLY then `alembic upgrade head` (0005 Contract + 0007).   |
+  | 0005_contract_legacy           | `alembic upgrade head` is allowed: it applies 0006 then 0007 and crosses NO new Contract (0005 is already |
+  | (already contracted)           | recorded as applied). Do NOT try to add the columns by editing a historical revision.                   |
+
+  `0005_contract_legacy` is DESTRUCTIVE and HUMAN-GATED (Switch complete + observation period + health evidence +
+  explicit approval). No convenience command — `upgrade head` included — may auto-cross it on a 0003/0004 database.
 
 RUNTIME DEPLOYMENT ORDER: the resolver (run_reconciliation_resolution) references the polling columns, so it must be
   deployed/started ONLY AFTER 0006 is applied on its target database (verify the columns exist first). Never deploy the
@@ -315,8 +328,14 @@ VERIFY IN REAL POSTGRESQL (NOT RUN here — no server):
                             or:  SELECT column_name FROM information_schema.columns
                                  WHERE table_schema='app' AND table_name='job_lease_reconciliation'
                                    AND column_name IN ('next_attempt_at','last_checked_at','check_attempts');
-  * revision graph:        `alembic -c day48_alembic/alembic.ini heads`    (expect single head 0007_merge_reconciliation_polling)
-                           `alembic -c day48_alembic/alembic.ini history`  (expect the 0003->0006 branch + the 0007 merge)
+  * revision graph:        `alembic -c day48_alembic/alembic.ini heads`    (the REPOSITORY graph has ONE final head,
+                           0007_merge_reconciliation_polling) and `alembic ... history` (expect the 0003->0006 branch + 0007 merge).
+
+  TRANSIENT MULTIPLE alembic_version ROWS: during a staged branch rollout a database's `alembic_version` may briefly
+  record MORE THAN ONE head (e.g. after applying 0006 while still on the 0004 line, `alembic current` shows both
+  0006_add_reconciliation_polling and 0004_validate_lease). That is a TRANSIENT per-database state, NOT a claim that the
+  repository graph has multiple final heads — the repository graph's single final head is 0007_merge_reconciliation_polling,
+  reached once the merge is applied. Do not "fix" the transient two-row state by forcing `upgrade head` past the Contract gate.
 ```
 
 ---
@@ -338,7 +357,7 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 
 ```text
 CONCEPTUAL / STATIC REVIEW : the runbook mirrors Day36's phases and the classroom trajectory.
-STATIC ALEMBIC (RUN)       : 40 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
+STATIC ALEMBIC (RUN)       : 44 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
                              (single head 0007_merge_reconciliation_polling via an intentional BRANCH + MERGE: 0006_add_reconciliation_polling branches off 0003 and is merged with the 0005 Contract head by 0007 — every PUBLISHED revision (0002/0003/0004/0005) keeps its ORIGINAL parentage (no history rewrite), the polling columns are added FORWARD/additively, and a 0003-stage DB can reach polling BEFORE Validate; PURE Expand (Lease columns +
                              the INDEPENDENT app.job_lease_reconciliation queue table, NO constraint on app.jobs = the
                              compatibility window); a SEPARATE constraint revision adds the triple + Day36
@@ -363,7 +382,7 @@ STATIC ALEMBIC (RUN)       : 40 pytest cases inspect the revision graph + migrat
                              placeholder is OFFLINE-only and online FAILS FAST without an external URL). No database connection.
 OFFLINE ALEMBIC SQL (RUN)  : `alembic upgrade 0001_baseline:head --sql` RENDERS the Expand/Validate/Contract DDL text using
                              the PostgreSQL dialect and NEVER connects -> static/offline evidence, NOT PostgreSQL proof.
-                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 40 passed.
+                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 44 passed.
 POSTGRESQL RUNTIME         : NOT RUN. No PostgreSQL server was available. A real test would apply the Day42 raw SQL, create
                              a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a
                              NEW illegal write is rejected, and prove VALIDATE FAILS until the legacy violation is repaired/

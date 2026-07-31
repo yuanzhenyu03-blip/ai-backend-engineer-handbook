@@ -415,8 +415,20 @@ those were never applied, and forcing a database still at `0003` to run Validate
 columns is the exact ordering bug to avoid (the resolver runs during Backfill, *before* Validate). So `0006` is an
 **intentional branch** off `0003` — a `0003`-stage database reaches the polling schema without Validate/Contract — and
 a no-DDL **merge** revision `0007_merge_reconciliation_polling` (parents `0005` and `0006`) restores a single head. Every
-published revision keeps its original parentage; the upgrade **matrix** in the runbook spells out the order for a new DB
-and for databases already at `0003`, `0004`, or `0005` (and warns against a blind `upgrade head` on a `0003` DB). The
+published revision keeps its original parentage.
+
+There is one more sharp edge, and it is a *safety-gate* edge, not a graph edge. Because `head = 0007` depends on `0005`,
+`alembic upgrade head` from a database still at `0003` or `0004` would **automatically run `0005` Contract** — a
+destructive step that Day48 requires to be **manually gated** behind a completed Switch, an observation period, health
+evidence, and explicit human approval. So `upgrade head` is **not** the default command for a `0003`- or `0004`-stage
+database. The runbook's upgrade **matrix** uses explicit staged targets instead: a `0003` database goes
+`0003 → 0006 → reconciliation → 0004 → observation → head` (Validate is its own `alembic upgrade 0004_validate_lease`,
+reached only when `unresolved == 0`, and `head` — which crosses Contract — is the final step *after* the gate); a `0004`
+database goes `alembic upgrade 0006_add_reconciliation_polling` for schema compatibility (**not** `upgrade head`, which
+would auto-run `0005`); only a `0005` database may `upgrade head`, because `0005` is already applied so it crosses no new
+Contract. (During a staged rollout a single database's `alembic_version` may transiently list two heads — e.g. `0006`
+alongside `0004` — which is a per-database transient, not a claim that the repository graph has more than one final head:
+that final head is always `0007`.) The
 `NOT NULL DEFAULT now()` DDL default gives every **existing** open row an immediately-due `next_attempt_at` — a real
 initial value from the `ADD COLUMN`, not a fabricated Lease and not a separate data-backfill loop. The selector
 only returns **due** records (`next_attempt_at <= now()`), and when a check finds no evidence the resolver issues a
