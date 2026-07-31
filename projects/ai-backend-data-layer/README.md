@@ -4,17 +4,18 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day47 — async sessions, transactions, repository and unit of work** that drives the
-faithful Day46 mapping through SHORT, isolated async database units of work — without treating a long external
-AI-Provider call as transactional database work: a process-scoped `AsyncEngine` + `async_sessionmaker`, a
-request/Job-scoped `AsyncSession`, repositories that never commit, a `UnitOfWork` with explicit
-commit/rollback/close, the guarded `UPDATE ... WHERE job_status='queued' RETURNING` claim (zero rows = a normal
-stale/no-op), flush-before-dependent-write, a second guarded completion UoW, and a fake Provider seam with
-correlation-key-before-the-call recovery. **REAL fake-session control-flow tests were executed** (Python
-3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 23 passed; deps pinned in
-`api/requirements-day47.txt`). A mock is **not** database proof: **PostgreSQL runtime is NOT RUN** (no
-server/driver; SQLite is not PostgreSQL evidence); FastAPI/Worker integration, real Provider, Object Storage, and
-production NOT RUN. (See the Day46 note below for the prior increment.)
+Current increment: **Day48 — Alembic and safe AI backend schema evolution** that makes Day36's Expand ->
+Backfill -> Validate -> Switch -> Contract discipline executable with Alembic over the Day46 mapping and Day47
+boundary, for a Lease-ownership evolution of `app.jobs`: a minimal Alembic control plane (`env.py` + gated
+Expand/Validate/Contract revisions), an operational restartable `FOR UPDATE SKIP LOCKED` backfill kept OFF the
+migration, and the `CHECK ... NOT VALID` (protect future writes) vs `VALIDATE CONSTRAINT` (prove history)
+separation. A migration is a versioned transition across schema, data, and every writer — successful DDL is not
+completion. **REAL static/offline tests were executed** (Alembic revision-graph + migration-source inspection and
+fake-session backfill control flow -> 10 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
+deps pinned in `api/requirements-day48.txt`) plus an offline `alembic upgrade --sql` DDL render. This is **not**
+database proof: **PostgreSQL runtime is NOT RUN** (no server; SQLite/fake/`upgrade`-success are not PostgreSQL
+evidence); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. (See the
+Day47 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
@@ -71,6 +72,7 @@ Lessons:
 - Day45 (DI/lifespan/config/adapters): [`docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md`](../../docs/fastapi/day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md)
 - Day46 (SQLAlchemy mapping): [`docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md`](../../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md)
 - Day47 (async sessions/tx/UoW): [`docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md`](../../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md)
+- Day48 (Alembic safe evolution): [`docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md`](../../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md)
 
 ---
 
@@ -97,7 +99,12 @@ projects/ai-backend-data-layer/
 │   ├── day47-async-persistence-boundary-design.md      # Day47: async session/UoW design
 │   ├── day47_async_uow.py                              # Day47: async Engine/session-factory + repos + UnitOfWork
 │   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 23 passed)
-│   └── requirements-day47.txt                          # Day47: pinned deps (sqlalchemy[asyncio]==2.0.29, pytest==7.4.3)
+│   ├── requirements-day47.txt                          # Day47: pinned deps (sqlalchemy[asyncio]==2.0.29, pytest==7.4.3)
+│   ├── day48-alembic-safe-schema-evolution-design.md   # Day48: Alembic safe-evolution design/runbook
+│   ├── day48_alembic/                                  # Day48: Alembic control plane (env.py + gated Expand/Validate/Contract revisions)
+│   ├── day48_lease_backfill.py                         # Day48: operational restartable FOR UPDATE SKIP LOCKED backfill (off the migration)
+│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 10 passed)
+│   └── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -159,6 +166,60 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day48 increment — Alembic and safe AI backend schema evolution
+
+`api/day48-alembic-safe-schema-evolution-design.md` (with a runnable `day48_alembic/` control plane, an
+operational `day48_lease_backfill.py`, and `test_day48_alembic.py`) makes Day36's Expand -> Backfill -> Validate
+-> Switch -> Contract discipline executable with Alembic for a Lease-ownership evolution of `app.jobs`. The
+artifact and its **static/offline** tests are **real, executed**: **Python 3.10.12, Alembic 1.13.1, SQLAlchemy
+2.0.29, pytest 7.4.3 -> `10 passed`** (deps pinned in `api/requirements-day48.txt`), plus an offline `alembic
+upgrade --sql` DDL render. These prove the migration **text/structure and control flow** only; **PostgreSQL
+runtime is NOT RUN**.
+
+### What the control plane contains
+
+| Section | Contents |
+| --- | --- |
+| Mental model | a migration is a versioned transition across schema + historical rows + every writer; `alembic upgrade head` success is DDL-only evidence; safe evolution = Expand/Backfill/Validate/Switch/Contract, each separately gated |
+| Expand | `ADD COLUMN` lease_owner/lease_token/lease_expires_at **nullable, no fabricated default** (NULL = no proved ownership); `CHECK ... NOT VALID` protects future writes; deploy first, no Backfill/Provider in `upgrade()` |
+| Backfill | operational, restartable `FOR UPDATE SKIP LOCKED` script **off the migration**; fills only running Jobs with trusted ownership, unknown -> reconciliation (never fabricated); no Provider; DB state = checkpoint |
+| Validate | `VALIDATE CONSTRAINT` in a **separate** revision proves history; fails until legacy violations are truly resolved |
+| Switch / Contract | Switch = every Writer on the token protocol, old path can't write; Contract destructive + last, after evidence + observation; forward-fix (not destructive downgrade) once real data/side effects exist |
+| Alembic specifics | revision graph / `down_revision` / merge heads; autogenerate is a candidate diff to review; baseline/`stamp` writes `alembic_version` and does no DDL; minimal `env.py` (no FastAPI, no UoW); `CREATE INDEX CONCURRENTLY` is non-transactional |
+| Evidence | 10 **static/offline** tests (`ScriptDirectory` graph/source + fake-session backfill) + offline `--sql` render; **PostgreSQL runtime NOT RUN**; SQLite/fake/`upgrade`-success are not PostgreSQL proof |
+
+### Run the tests / render DDL
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day48.txt   # alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary
+python3 -m py_compile day48_lease_backfill.py test_day48_alembic.py
+python3 -m pytest -q test_day48_alembic.py
+python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql   # offline DDL render, no DB
+```
+
+> **What this increment deliberately does not do:** it does **not** connect to a database — the tests inspect the
+> Alembic revision graph/source and a fake backfill session, and the offline `--sql` render never connects.
+> **PostgreSQL runtime is NOT RUN** (a real `NOT VALID`/`VALIDATE`/backfill test applies the Day42 raw SQL,
+> creates a violating legacy row, and proves the old row survives, a new illegal write is rejected, and `VALIDATE`
+> fails until repaired). **SQLite/fake sessions are not PostgreSQL evidence**, and `alembic upgrade` success alone
+> does not prove Backfill/Switch/Contract or production safety. It does not migrate on FastAPI startup, run no
+> Provider in Backfill, put no long Backfill loop in `upgrade()`, and does not implement the Day49 upload workflow
+> or Day50 Outbox/Celery delivery. No secrets or real database URLs (the `alembic.ini` URL is a non-credential
+> placeholder for offline rendering).
+
+### Day48 known gaps (deliberate)
+
+```text
+runtime    isolated PostgreSQL NOT VALID / VALIDATE / backfill test (apply Day42 SQL, prove behavior) — NOT RUN here
+Day49      Upload Sessions / Object Storage / Artifact verification on the safely evolved model
+Day50      tenant-scoped idempotency + atomic Job + Outbox intent over the same boundary (intent != Provider proof)
+Day55      real supported-broker/Celery delivery semantics
+scope      real Provider SDK/network (Day53), FastAPI/Worker drain integration, and production migration remain future
+```
 
 ---
 

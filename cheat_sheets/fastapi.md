@@ -617,3 +617,74 @@ deps pinned in `projects/ai-backend-data-layer/api/requirements-day47.txt`). A m
 Alembic = Day48; upload workflow = Day49; idempotent acceptance/Outbox = Day50.
 
 Related: [Day47 lesson](../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md) · [Day47 design](../projects/ai-backend-data-layer/api/day47-async-persistence-boundary-design.md) · [code](../projects/ai-backend-data-layer/api/day47_async_uow.py) · [tests](../projects/ai-backend-data-layer/api/test_day47_async_uow.py)
+
+---
+
+## Day48 Alembic and Safe AI Backend Schema Evolution
+
+Central rule:
+
+```text
+A migration = a versioned transition across SCHEMA + HISTORICAL ROWS + EVERY deployed writer. `alembic upgrade head` success
+is DDL-on-one-database evidence ONLY. Safe evolution = Day36's Expand -> Backfill -> Validate -> Switch -> Contract, each
+SEPARATELY GATED. Alembic is a deployment control plane != FastAPI startup != a Day47 request/Job UoW.
+```
+
+### Expand / Backfill / Validate
+
+```text
+EXPAND: ADD COLUMN ... NULLABLE, NO fabricated default (NULL = no proved ownership); never fabricate historical Lease.
+  + ADD CONSTRAINT ... CHECK (...) NOT VALID  -> protects EVERY future INSERT/UPDATE now, tolerates legacy rows.
+  Deploy Expand FIRST and alone (old Workers coexist because they ignore nullable cols). No Backfill loop / no Provider in upgrade().
+BACKFILL (operational, NOT in upgrade()): short tx + FOR UPDATE SKIP LOCKED batches, idempotent, restartable (DB state=checkpoint).
+  Fill ONLY running Jobs with lease NULL AND trusted evidence; unknown-running -> reconciliation (NEVER fabricated). No Provider.
+  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconcile.
+VALIDATE (SEPARATE revision): ALTER TABLE ... VALIDATE CONSTRAINT -> proves HISTORY; FAILS until legacy truly resolved (exception queue != resolution).
+NOT VALID = protect the FUTURE now; VALIDATE = prove the PAST later. UPDATE...RETURNING is the Day47 runtime guard, NOT the migration mechanism.
+```
+
+### Switch / Contract / graph / evidence
+
+```text
+SWITCH: EVERY Writer (Workers/recovery/admin-scripts/completion-failure) uses the token protocol; the OLD path CANNOT write. Not merely a new binary.
+CONTRACT: destructive + LAST; only after Validate + Switch + evidence + observation. Once real Lease data/Provider side effects exist -> FORWARD-FIX + reconcile, NOT a destructive downgrade (a downgrade is not a time machine).
+revision/down_revision = the graph + required predecessor (downgrade = reverse traversal). Parallel revisions -> multiple heads -> alembic MERGE revision.
+autogenerate = a CANDIDATE diff to REVIEW (DDL/data/locks/multi-version); Day46 Base.metadata = INPUT, PostgreSQL = authority.
+BASELINE/stamp: `alembic stamp <baseline>` writes alembic_version and does NO DDL -> only after PROVEN exact match. New DB: raw SQL -> stamp -> upgrade; existing DB: prove -> stamp -> upgrade later revisions. alembic_version = a version DECLARATION, not a proof.
+env.py stays MINIMAL (DB config + Base.metadata + execution); app must NEVER self-run migrations on startup. CREATE INDEX CONCURRENTLY is NON-transactional (never in a migration tx; a failed build leaves an invalid index to inspect/repair).
+EVIDENCE: static/offline (ScriptDirectory + `alembic upgrade --sql` render) proves TEXT/STRUCTURE; real PostgreSQL proves BEHAVIOR (NOT VALID/VALIDATE/locks). SQLite/fake-session/`upgrade`-success are NOT PostgreSQL proof.
+Provider/Object Storage outside DB tx; interrupted call = UNKNOWN outcome; Outbox intent != Provider-success proof; recover via Job/Attempt/Event + correlation/idempotency.
+```
+
+### Weak vs strong (Day48)
+
+```text
+Weak:   "Autogenerate NOT-NULL Lease columns with defaults, upgrade on startup, downgrade if it breaks."
+Strong: "Expand nullable + NOT VALID; backfill only provable running ownership off the migration; VALIDATE; Switch closes the old path; Contract after observation; forward-fix, not downgrade."
+
+Weak:   "alembic upgrade head succeeded, so the migration is safe."
+Strong: "That's DDL on one DB. History, old Workers, and Provider side effects need gated phases + real evidence."
+
+Weak:   "Exclude the violating rows so VALIDATE passes."
+Strong: "A failing VALIDATE means backfill/reconciliation isn't done; an exception queue is not resolution."
+
+Weak:   "Downgrade to undo the migration."
+Strong: "After real data/side effects, forward-fix and reconcile; a destructive downgrade loses data and double-executes paid calls."
+
+Weak:   "stamp the DB and it's at that version."
+Strong: "stamp does no DDL; only stamp after independently proving the schema matches."
+```
+
+### One-line mental model
+
+```text
+Alembic records schema change as a reviewable revision graph; safe evolution is Expand/Backfill/Validate/Switch/Contract gated by real
+evidence; the Day47 UoW is one short business tx while Alembic is deploy-time schema evolution; after real data, forward-fix, never destructive downgrade.
+```
+
+Validation: REAL static/offline evidence executed — Alembic revision-graph + migration-source inspection (ScriptDirectory) and
+FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 10 passed), plus an offline
+`alembic upgrade --sql` DDL render (no DB connection). **PostgreSQL runtime NOT RUN** (SQLite/fake/`upgrade`-success are not PostgreSQL
+proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
+
+Related: [Day48 lesson](../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md) · [Day48 design/runbook](../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md) · [alembic](../projects/ai-backend-data-layer/api/day48_alembic) · [backfill](../projects/ai-backend-data-layer/api/day48_lease_backfill.py) · [tests](../projects/ai-backend-data-layer/api/test_day48_alembic.py)

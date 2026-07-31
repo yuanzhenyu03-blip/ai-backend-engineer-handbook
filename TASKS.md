@@ -10,13 +10,13 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day47 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day48 completed)
 
 ---
 
 ## Current Lesson
 
-Day48 — Alembic and Safe AI Backend Schema Evolution (Phase 4)
+Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4)
 
 Status:
 Planned / Not started
@@ -32,11 +32,28 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 - [x] Complete Day45 Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4) — lesson, composition design + runnable code/tests (executed: 20 passed with a fake no-network Provider), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4) — lesson, mapping design + runnable code/static tests (executed: 20 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day47 Async Sessions, Transactions, Repository and Unit of Work (Phase 4) — lesson, async persistence-boundary design + runnable code/fake-session tests (executed: 23 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
-- [ ] Prepare for Day48 — Alembic and Safe AI Backend Schema Evolution (Phase 4; see the Day48 Preparation block below).
+- [x] Complete Day48 Alembic and Safe AI Backend Schema Evolution (Phase 4) — lesson, Alembic control-plane design/runbook + runnable revisions/backfill/static tests (executed: 10 passed + offline `--sql` render; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
+- [ ] Prepare for Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4; see the Day49 Preparation block below).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
 (Day29-Day45 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Phase 4 is in progress; Day48 is next.)
+Preparation history blocks. Phase 4 is in progress; Day49 is next.)
+
+---
+
+## Completed Day48 Tasks
+
+- [x] Complete Day48 Alembic and Safe AI Backend Schema Evolution classroom learning.
+- [x] Generate the Day48 lesson using LESSON_TEMPLATE_v2 (v3.2 continuity + Day47->Day48 mental-model evolution), preserving verbatim student answers including the "不知道" (stamp / new-vs-existing DB / failure drill) and the taught final synthesis requested via "你帮我回答吧".
+- [x] Build the runnable Day48 Alembic artifact inside the existing project `api/` directory (no parallel project): the `day48_alembic/` control plane (minimal env.py + gated Expand/Validate/Contract revisions), the operational `day48_lease_backfill.py` (FOR UPDATE SKIP LOCKED, off the migration), `test_day48_alembic.py`, `day48-alembic-safe-schema-evolution-design.md`, and scoped `requirements-day48.txt`; keep schema revisions, operational backfill, and validation evidence separated.
+- [x] Run `py_compile` and `pytest` on the Day48 artifact and record exact results (10 static/offline tests passed) plus an offline `alembic upgrade --sql` DDL render; label PostgreSQL runtime NOT RUN; do not use SQLite/fake-session/`upgrade`-success as PostgreSQL evidence.
+- [x] Update `projects/ai-backend-data-layer/README.md` with the Day48 increment (artifact/code/test links, honest static-offline-vs-NOT-RUN matrix).
+- [x] Append the Day48 section to `cheat_sheets/fastapi.md`.
+- [x] Append Day48 questions to `interview/fastapi.md` (no duplicate file created).
+- [x] Update `docs/README.md` (Day48 is the latest FastAPI lesson).
+- [x] Update the Day47 lesson Next Lesson link to the released Day48 lesson.
+- [x] Update `CURRICULUM.md` (Day48 Completed; Phase 4 In Progress; Day49-Day100 remain Planned) and `ROADMAP.md` (Day48 Completed).
+- [x] Update `PROJECT_STATUS.md`, `TASKS.md`, `CHANGELOG.md`, and `AGENTS.md`.
 
 ---
 
@@ -827,12 +844,21 @@ Preparation history blocks. Phase 4 is in progress; Day48 is next.)
 
 ---
 
-### Day48 Preparation — Alembic and Safe AI Backend Schema Evolution
+### Day49 Preparation — Upload Sessions, Object Storage and Artifact Verification
 
-- [ ] Read the Day48 input when provided.
-- [ ] Review the Day46 mapping and the Day47 Engine/session/repository/UoW runtime boundaries that Alembic builds on.
-- [ ] Preview Alembic migrations enforcing the Day36 Expand -> Backfill -> Validate -> Switch -> Contract discipline.
-- [ ] Keep the Day49 upload workflow, the Day50 acceptance/Outbox workflow, and real Provider integration (Day53) out of scope.
+- [ ] Read the Day49 input when provided.
+- [ ] Review the Day46 UploadSession/ResultArtifact mapping and the Day47 short-transaction rule that Day49 builds on.
+- [ ] Preview persisting verified Upload Sessions and Artifact references while Object Storage I/O stays OUTSIDE DB transactions.
+- [ ] Keep the Day50 acceptance/Outbox workflow, real Provider integration (Day53), and Celery (Day55) out of scope.
+
+---
+
+### Day48 Preparation — Alembic and Safe AI Backend Schema Evolution (completed)
+
+- [x] Read the Day48 input when provided.
+- [x] Review the Day46 mapping and the Day47 Engine/session/repository/UoW runtime boundaries that Alembic builds on.
+- [x] Preview Alembic migrations enforcing the Day36 Expand -> Backfill -> Validate -> Switch -> Contract discipline.
+- [x] Keep the Day49 upload workflow, the Day50 acceptance/Outbox workflow, and real Provider integration (Day53) out of scope.
 
 ---
 

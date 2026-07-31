@@ -32,7 +32,8 @@ docs/
 │   ├── day44-pydantic-v2-and-structured-ai-input-output-contracts.md
 │   ├── day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md
 │   ├── day46-sqlalchemy-mapping-for-the-day42-data-model.md
-│   └── day47-async-sessions-transactions-repository-and-unit-of-work.md  # latest
+│   ├── day47-async-sessions-transactions-repository-and-unit-of-work.md
+│   └── day48-alembic-and-safe-ai-backend-schema-evolution.md  # latest
 ├── playwright/
 └── n8n/
 ```

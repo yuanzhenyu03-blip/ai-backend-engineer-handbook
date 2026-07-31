@@ -763,3 +763,96 @@ Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAl
 pytest 7.4.3 -> 23 passed). PostgreSQL runtime NOT RUN (no server/driver; SQLite is not PostgreSQL evidence).
 FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN. Alembic = Day48; upload = Day49;
 acceptance/Outbox = Day50.
+
+---
+
+## Day48 Alembic and Safe AI Backend Schema Evolution (Phase 4)
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day48), the
+[Day48 lesson](../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md), the
+[Day48 design/runbook](../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md), the
+runnable [alembic package](../projects/ai-backend-data-layer/api/day48_alembic) / [backfill](../projects/ai-backend-data-layer/api/day48_lease_backfill.py), and the
+[static tests](../projects/ai-backend-data-layer/api/test_day48_alembic.py).
+
+> The student requested a direct final synthesis ("你帮我回答吧"); these are Tech-Lead-taught model answers, and
+> the student explicitly answered "不知道" on `stamp`, new-vs-existing databases, and the full failure drill.
+
+### Q1 (Beginner) — What is Alembic, and why is `alembic upgrade head` succeeding not the same as a safe migration?
+
+Model answer:
+
+Alembic records schema changes as a versioned graph of revisions (each with a `down_revision` predecessor).
+`alembic upgrade head` succeeding only means the DDL executed on one database; it does not prove existing rows
+are compatible, that old and new code can coexist, or that external side effects are safe. Safe migration is a
+phased, evidence-gated process (Expand -> Backfill -> Validate -> Switch -> Contract), not a single command.
+
+Student note: the student correctly saw an all-at-once change is unsafe — "不会，旧的worker与新增的列不兼容" — and
+refused to fabricate historical Lease data — "不会，历史job不能伪造，追溯困难".
+
+### Q2 (Intermediate) — Explain `NOT VALID` versus `VALIDATE`, and why they are separate steps on a populated table.
+
+Model answer:
+
+`CHECK ... NOT VALID` immediately enforces the new rule on every future INSERT/UPDATE while temporarily
+tolerating pre-existing violating rows and avoiding a big blocking full-table scan. After the legacy rows are
+backfilled/reconciled, `VALIDATE CONSTRAINT` (a separate revision) proves the historical rows also comply. They
+are separate because future protection and historical proof are gated by different work; a failing `VALIDATE`
+means the backfill/reconciliation isn't done (an exception queue is not resolution).
+
+Student note: initially proposed `UPDATE ... RETURNING` (the Day47 runtime guard) — corrected to `CHECK ... NOT
+VALID`; correctly described `VALIDATE` as "证明并纳入历史数据也符合已经上线的规则".
+
+### Q3 (Senior) — Expand deployed, real Lease tokens exist, a faulty token guard, an old Worker may write, unknown Provider outcomes. How do you recover?
+
+Model answer:
+
+Stop old claims and the faulty paths and prevent any bypass writer, while preserving the real Lease data — no
+destructive downgrade, because real data and Provider side effects exist. Drain/isolate old Workers; in a new UoW
+load durable Job/Attempt/Event/correlation evidence and verify the Provider/Artifact; run a new guarded
+completion only when confirmed, otherwise preserve an unknown/recovery state. Then forward-fix the guard,
+reconcile, complete the backfill, `VALIDATE`, observe, and only then Contract. The Outbox row is dispatch intent,
+not proof the Provider ran.
+
+Student note: on the drill the student said "不知道" (direct teaching given); chose forward-fix elsewhere — "保留已
+写入的 durable state 做 forward-fix，防止二次provider调用".
+
+### Q4 (Intermediate) — Which Jobs get a backfilled Lease, and where does Backfill run?
+
+Model answer:
+
+Only running Jobs with trusted, provable ownership evidence are backfilled; queued and terminal Jobs get none,
+and unknown-running Jobs go to reconciliation (never fabricated). Backfill runs as a restartable operator script
+— short transactions, `FOR UPDATE SKIP LOCKED` batches, idempotent predicates, the database state as checkpoint —
+not as a long loop in an Alembic `upgrade()`, and it calls no Provider.
+
+Student note: classified "C backfill D reconciliation"; restart predicate "依赖仍是 running 且 Lease 字段仍为空、且
+可信来源仍存在的行".
+
+### Q5 (Intermediate) — Is deploying the new binary a completed Switch? And after real data, do you downgrade to fix a problem?
+
+Model answer:
+
+No — Switch requires that every Writer (Workers, recovery, admin scripts, completion/failure paths) uses the
+token protocol and the old write path can no longer write; a new binary alone is not enough. And after real Lease
+data or Provider side effects exist, you forward-fix and reconcile rather than destructively downgrade — a
+downgrade loses data/history and can double-execute a paid Provider call. Contract is destructive and last, after
+evidence and an observation period.
+
+Student note: "不能，还缺少旧的work限制" (Switch) and "保留已写入的 durable state 做 forward-fix" (recovery).
+
+### Q6 (Intermediate) — Does `alembic stamp` or an offline `--sql` render prove the migration is safe on PostgreSQL?
+
+Model answer:
+
+No. `alembic stamp` writes `alembic_version` and performs no DDL — it is only safe after the database is
+independently proven to match the baseline. Offline `--sql` rendering and static graph/source checks prove the
+migration text/structure, not database behavior, and SQLite/fake sessions are not PostgreSQL evidence. A real
+`NOT VALID`/`VALIDATE` test needs PostgreSQL: create a legacy violating row, apply Expand, prove the old row
+survives, prove a new illegal write is rejected, and prove `VALIDATE` fails until the row is repaired.
+
+Student note: "不能，因为还需要看实际运行"; on `stamp`/new-vs-existing DBs the student said "不知道".
+
+Validation: REAL static/offline evidence executed (Alembic revision-graph + migration-source inspection and
+fake-session backfill control flow -> 10 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3)
+plus an offline `alembic upgrade --sql` DDL render. PostgreSQL runtime NOT RUN (SQLite/fake/`upgrade`-success are
+not PostgreSQL proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN.

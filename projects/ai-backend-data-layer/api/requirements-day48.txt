@@ -1,0 +1,25 @@
+# Day48 Alembic and Safe AI Backend Schema Evolution — pinned dependencies for the
+# recorded repository STATIC/OFFLINE test evidence.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day48.txt
+#   python3 -m py_compile day48_lease_backfill.py test_day48_alembic.py
+#   python3 -m pytest -q test_day48_alembic.py
+#   # optional offline DDL render (no DB connection; static evidence only):
+#   python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
+#
+# Runtime scope: the pytest suite is STATIC (Alembic revision-graph + migration
+# source inspection via ScriptDirectory) plus FAKE-SESSION backfill control-flow —
+# NO database connection. The optional offline `--sql` render uses the PostgreSQL
+# dialect (psycopg2) to emit DDL text and STILL never connects. A REAL PostgreSQL
+# runtime test (NOT VALID / VALIDATE / backfill against a disposable database with
+# the Day42 raw SQL applied) is NOT part of these deps and was NOT RUN. SQLite,
+# fake sessions, and static checks are NOT PostgreSQL evidence, and `alembic
+# upgrade` success alone does not prove Backfill/Switch/Contract or production safety.
+alembic==1.13.1
+sqlalchemy[asyncio]==2.0.29
+pytest==7.4.3
+# For offline `--sql` DDL rendering (PostgreSQL dialect) and any real run; the
+# static pytest suite does not require it.
+psycopg2-binary==2.9.9

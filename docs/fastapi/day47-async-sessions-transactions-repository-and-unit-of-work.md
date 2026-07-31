@@ -16,7 +16,7 @@ Prerequisite: Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model
 
 Previous Lesson: [Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model](day46-sqlalchemy-mapping-for-the-day42-data-model.md)
 
-Next Lesson: Day48 — Alembic and Safe AI Backend Schema Evolution (planned — Phase 4; see [CURRICULUM.md](../../CURRICULUM.md) and [ROADMAP.md](../../ROADMAP.md); the Day48 lesson file does not exist yet)
+Next Lesson: [Day48 — Alembic and Safe AI Backend Schema Evolution](day48-alembic-and-safe-ai-backend-schema-evolution.md)
 
 Phase: Phase 4 — Production AI API Engineering
 
