@@ -20,7 +20,7 @@ Next Lesson: Day49 — Upload Sessions, Object Storage and Artifact Verification
 
 Phase: Phase 4 — Production AI API Engineering
 
-Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + gated Expand/Validate/Contract revisions for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (20 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
+Engineering Artifact: The Day48 Alembic control plane ([`projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md`](../../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md)) with a runnable Alembic package [`day48_alembic/`](../../projects/ai-backend-data-layer/api/day48_alembic) (minimal `env.py` + a linear 5-revision chain — pure Expand columns, a SEPARATE constraint revision, Validate, Contract — for the Lease evolution of `app.jobs`), an operational backfill script [`day48_lease_backfill.py`](../../projects/ai-backend-data-layer/api/day48_lease_backfill.py) (restartable `FOR UPDATE SKIP LOCKED`, off the migration), and tests [`test_day48_alembic.py`](../../projects/ai-backend-data-layer/api/test_day48_alembic.py). Static Alembic + fake-session tests were executed (22 passed) and the offline `alembic upgrade --sql` rendered the DDL (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); **PostgreSQL runtime, integration, and production migration are NOT RUN** — see [projects/ai-backend-data-layer/README.md](../../projects/ai-backend-data-layer/README.md)
 
 FastAPI Cheat Sheet: [cheat_sheets/fastapi.md](../../cheat_sheets/fastapi.md)
 
@@ -76,7 +76,7 @@ history with `VALIDATE CONSTRAINT` after `NOT VALID` has already protected new w
 onto the token protocol so the old path can no longer write, and only then — after evidence and an observation
 period — **Contract** destructively.
 
-This lesson has **real static/offline evidence**: **20 tests passed** (Alembic revision-graph + migration-source
+This lesson has **real static/offline evidence**: **22 tests passed** (Alembic revision-graph + migration-source
 inspection via `ScriptDirectory`, plus fake-session backfill control flow), and the offline `alembic upgrade
 --sql` **rendered** the Expand/Validate/Contract DDL — all with **no database connection**. But that is **not**
 PostgreSQL proof: **PostgreSQL runtime is NOT RUN** (no server), and `alembic upgrade` success alone does not
@@ -91,7 +91,7 @@ Storage, and production migration are all **NOT RUN**.
 Day36 raw-PostgreSQL safe-migration discipline
 Day46 faithful SQLAlchemy mapping of the Day42 contract
 Day47 async UoW / runtime persistence boundary
-Day48 Alembic versioned schema evolution (Expand/Backfill/Validate/Switch/Contract)   <-- you are here
+Day48 Alembic versioned schema evolution (Expand[cols] -> Constraints -> Backfill -> Validate -> Switch -> Contract)   <-- you are here
 Day49 Upload Sessions / Object Storage / Artifact verification on the evolved model
 Day50 tenant-scoped idempotency + atomic Job + Outbox intent over the same boundary
 ```
@@ -147,8 +147,12 @@ Alembic records SCHEMA CHANGE as a reviewable, versioned revision GRAPH; it does
 
 Safe evolution = Day36's phases, each SEPARATELY GATED by different evidence:
 
-  EXPAND    add nullable cols, NO fabricated default; CHECK ... NOT VALID (protect FUTURE writes, tolerate legacy)
-     |      old Workers coexist (they ignore nullable cols) -> deploy Expand FIRST and alone
+  EXPAND    add nullable cols ONLY, NO fabricated default, NO constraint -> the OLD/NEW COMPATIBILITY WINDOW
+     |      (old Writers can still write a running-without-Lease row). Deploy FIRST and alone.
+     v
+  CONSTRAINTS add CHECK ... NOT VALID (triple coherence + jobs_running_requires_lease) in a SEPARATE revision,
+     |      ONLY AFTER old Writers are DRAINED/ISOLATED. NOT VALID skips the legacy SCAN but ENFORCES every future
+     |      write by ANY Writer version (an old Worker writing a running-without-Lease row is now REJECTED).
      v
   BACKFILL  operational, restartable, FOR UPDATE SKIP LOCKED, idempotent; fill ONLY running+trusted-evidence Jobs;
      |      unknown -> reconciliation, NEVER fabricate; NOT in upgrade(); no Provider; DB state = checkpoint
@@ -232,8 +236,10 @@ nullable and the truth ("we don't know yet") must be representable.
 
 ### Production Example
 
-`ALTER TABLE app.jobs ADD COLUMN lease_owner text, lease_token uuid, lease_expires_at timestamptz` — all
-nullable; the three-column `jobs_lease_triple_coherent` CHECK is added `NOT VALID`.
+`ALTER TABLE app.jobs ADD COLUMN lease_owner text, lease_token uuid, lease_expires_at timestamptz,
+lease_backfill_state text` — all nullable, **no constraint** (the compatibility window). The three-column
+`jobs_lease_triple_coherent` and `jobs_running_requires_lease` CHECKs are added `NOT VALID` in the **separate**
+`0003_add_lease_constraints` revision, after old Writers are drained/isolated.
 
 ### Framework Connection
 
@@ -275,13 +281,15 @@ deploy, without a giant blocking table scan or a lie about historical rows.
 
 ### Production Example
 
-`ADD CONSTRAINT jobs_lease_triple_coherent CHECK (...) NOT VALID` (Expand) then, after Backfill,
-`VALIDATE CONSTRAINT jobs_lease_triple_coherent` (a separate Validate revision).
+`ADD CONSTRAINT jobs_lease_triple_coherent CHECK (...) NOT VALID` (the separate `0003_add_lease_constraints`
+revision, applied after old Writers are drained) then, after Backfill, `VALIDATE CONSTRAINT ...` (the separate
+`0004_validate_lease` revision). `NOT VALID` protects new writes from **every** Writer version — it is not a
+"no-op for old code," which is why it lands only after the old write path is closed.
 
 ### Framework Connection
 
-PostgreSQL `CHECK ... NOT VALID` + `VALIDATE CONSTRAINT`; two gated Alembic revisions (`0002_expand_lease`,
-`0003_validate_lease`).
+PostgreSQL `CHECK ... NOT VALID` + `VALIDATE CONSTRAINT`; the constraint revision (`0003_add_lease_constraints`,
+applied after old Writers are drained) and the separate `0004_validate_lease` revision.
 
 ## Concept 4: Classify Jobs for Backfill vs reconciliation
 
@@ -364,9 +372,14 @@ remove it from the **unresolved** set. So the backfill separates two counts: **a
 the Day36 `remaining_targets`). `run_backfill()` reports the unresolved count so "the loop stopped" is never
 mistaken for "the history is compliant." That count reaches **0 — the hard `VALIDATE`/Switch/Contract
 precondition — only** when each parked row is truthfully resolved by **(a)** a trusted Lease backfill
-(`apply_lease_evidence`, which also clears the marker) or **(b)** an audited real recovery
-(`resolve_by_verified_terminal_state` -> a genuinely verified terminal status, **never** a fabricated `'failed'`
-and never `'running'`) — never by routing alone.
+(`apply_lease_evidence`, which also clears the marker) or **(b)** an audited real recovery **routed** (not mutated) by
+`classify_unknown_running_recovery`: a verified `'succeeded'` to the **Day47 guarded completion UoW** (which
+commits `finished_at` + the ResultArtifact reference + the `job_succeeded` Event together — a bare
+`UPDATE job_status='succeeded'` would violate `jobs_succeeded_has_finished_at` and leave partial state), and a
+verified `'failed'`/`'cancelled'` to the **guarded terminal-recovery** path (state machine + Event + audit). An
+**unverified** outcome stays `KEEP_UNKNOWN` (reconciliation) and a `'queued'` requeue or a bare status flip is
+**refused** — never by routing alone, and never by a requeue that clears the count without proving the Provider
+ran.
 
 ### Engineering Thinking
 
@@ -451,7 +464,7 @@ than dropping the Lease columns and losing the ownership evidence.
 
 ### Framework Connection
 
-The Contract revision (`0004_contract_legacy`) drops the Day42 legacy `result_object_key` only under explicit
+The Contract revision (`0005_contract_legacy`) drops the Day42 legacy `result_object_key` only under explicit
 preconditions; its `downgrade()` re-adds a nullable column but cannot restore data.
 
 ## Concept 8: The Alembic revision graph and autogenerate review
@@ -704,6 +717,28 @@ NULL means "no proved ownership."
 Why beginners think this: NOT NULL feels cleaner.
 How to remember: don't fabricate history.
 
+`NOT VALID` means old Workers are unaffected
+
+❌ "Add the running-requires-Lease CHECK in Expand; `NOT VALID` means old Workers keep working."
+✅ `NOT VALID` skips only the one-time scan of legacy rows; it fully enforces the rule on every future
+INSERT/UPDATE by any Writer version, so an old Worker updating a running-without-Lease Job is rejected. Pure
+Expand (columns only) is the compatibility window; the strict constraint is a separate revision applied only
+after old Writers are drained/isolated.
+
+Why beginners think this: "NOT VALID" sounds like "not enforced."
+How to remember: NOT VALID protects future writes regardless of who writes them.
+
+Requeue an unknown Provider outcome to `queued`
+
+❌ "If we can't tell what the Provider did, set the Job back to `queued` so it clears the unresolved count."
+✅ A requeue clears the count without proving whether the Provider executed, charged, or produced an Artifact —
+it double-executes paid work. An unknown outcome stays unknown/reconciliation; a verified `succeeded` goes
+through the Day47 guarded completion UoW and a verified `failed`/`cancelled` through guarded terminal-recovery,
+never a bare status flip.
+
+Why beginners think this: `queued` looks like a safe retry.
+How to remember: unknown is a state, not a requeue.
+
 `UPDATE ... RETURNING` enforces the new rule
 
 ❌ "Use a guarded UPDATE to enforce future Lease validity."
@@ -828,7 +863,7 @@ control plane separate.
 # Hands-on Exercises
 
 These map to the runnable artifact and its tests, which **were executed** (Python 3.10.12, Alembic 1.13.1,
-SQLAlchemy 2.0.29, pytest 7.4.3 → **20 passed**; install via `requirements-day48.txt`), plus an offline `alembic
+SQLAlchemy 2.0.29, pytest 7.4.3 → **22 passed**; install via `requirements-day48.txt`), plus an offline `alembic
 upgrade --sql` render. All of this is **static/offline evidence** with **no database connection**; a real
 **PostgreSQL runtime** `NOT VALID`/`VALIDATE`/backfill test is **NOT RUN**, and SQLite/fake sessions are not
 PostgreSQL proof.
@@ -1077,7 +1112,7 @@ Provider side effects exist I forward-fix rather than downgrade."
 4.  Coherence rule via CHECK ... NOT VALID protects EVERY future write NOW while tolerating legacy rows.
 5.  VALIDATE CONSTRAINT (a SEPARATE revision) proves HISTORY; it FAILS until Backfill/reconciliation truly resolves violations (an exception queue != resolution).
 6.  Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconciliation (never invented).
-7.  BACKFILL is operational + restartable (short tx, FOR UPDATE SKIP LOCKED, idempotent, DB state = checkpoint); NO Provider, NO long loop in upgrade(). Unknown ownership is PERSISTED as lease_backfill_state='reconcile' (no fabrication) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it. But reconcile is TRIAGE, not RESOLUTION: a running Job with NULL Lease STILL violates jobs_running_requires_lease (Day36 core) and STILL counts in unresolved_running_without_lease (Day36 remaining_targets). VALIDATE/Switch/Contract require unresolved==0, reached ONLY by (a) a trusted Lease backfill (clears the marker) or (b) an audited real recovery (verified terminal state, never fabricated).
+7.  BACKFILL is operational + restartable (short tx, FOR UPDATE SKIP LOCKED, idempotent, DB state = checkpoint); NO Provider, NO long loop in upgrade(). Unknown ownership is PERSISTED as lease_backfill_state='reconcile' (no fabrication) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it. But reconcile is TRIAGE, not RESOLUTION: a running Job with NULL Lease STILL violates jobs_running_requires_lease (Day36 core) and STILL counts in unresolved_running_without_lease (Day36 remaining_targets). VALIDATE/Switch/Contract require unresolved==0, reached ONLY by (a) a trusted Lease backfill (clears the marker) or (b) an audited real recovery ROUTED to a full boundary (Day47 completion UoW for verified 'succeeded'; guarded terminal-recovery for 'failed'/'cancelled'); an unknown outcome stays reconciliation and a 'queued' requeue / bare status flip is REFUSED.
 8.  Lease EXPIRY is a runtime protocol, not a migration-batch claim; UPDATE ... RETURNING is the Day47 guard, not the compatibility mechanism.
 9.  SWITCH = every Writer (Workers/recovery/admin/completion-failure) on the token protocol; the OLD path cannot write. Not merely a new binary.
 10. CONTRACT is destructive + LAST (after Validate + Switch + evidence + observation). Once real data/side effects exist -> FORWARD-FIX, not a destructive downgrade.
@@ -1124,10 +1159,10 @@ destructive downgrade) corrupting history or double-executing paid Provider call
 Upload/Artifact references on the safely evolved schema. Most important interview answer: `NOT VALID` protects
 the future, `VALIDATE` proves the past, and `upgrade` success is only DDL evidence.
 
-Validation status: **20 static/offline tests** are **real executed evidence** — the Alembic revision graph +
+Validation status: **22 static/offline tests** are **real executed evidence** — the Alembic revision graph +
 migration source were inspected via `ScriptDirectory`, the fake-session backfill control flow was exercised, and
 the offline `alembic upgrade --sql` **rendered** the Expand/Validate/Contract DDL, all on Python 3.10.12 / Alembic
-1.13.1 / SQLAlchemy 2.0.29 / pytest 7.4.3 → **20 passed** with **no database connection**. But offline render and
+1.13.1 / SQLAlchemy 2.0.29 / pytest 7.4.3 → **22 passed** with **no database connection**. But offline render and
 static checks are **not** PostgreSQL proof: **PostgreSQL runtime is NOT RUN** (no server; a real `NOT VALID`/
 `VALIDATE`/backfill test would apply the Day42 raw SQL and prove behavior), **SQLite/fake sessions are not
 PostgreSQL evidence**, and `alembic upgrade` success alone does not prove Backfill/Switch/Contract or production

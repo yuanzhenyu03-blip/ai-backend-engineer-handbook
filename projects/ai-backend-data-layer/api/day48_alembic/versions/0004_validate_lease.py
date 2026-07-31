@@ -1,7 +1,7 @@
 """Validate: VALIDATE CONSTRAINT (separately gated, after Backfill/reconciliation).
 
-Revision ID: 0003_validate_lease
-Revises: 0002_expand_lease
+Revision ID: 0004_validate_lease
+Revises: 0003_add_lease_constraints
 Create Date: 2026-07-31
 
 VALIDATE phase. Run ONLY after the operational Backfill/reconciliation has truly
@@ -17,8 +17,8 @@ one long transaction. No Backfill loop lives here.
 """
 from alembic import op
 
-revision = "0003_validate_lease"
-down_revision = "0002_expand_lease"
+revision = "0004_validate_lease"
+down_revision = "0003_add_lease_constraints"
 branch_labels = None
 depends_on = None
 

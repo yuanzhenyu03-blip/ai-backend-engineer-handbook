@@ -27,9 +27,11 @@ from alembic.script import ScriptDirectory
 from day48_lease_backfill import (
     BackfillReport,
     LeaseEvidence,
+    RecoveryBoundary,
+    UnsafeRecoveryError,
     apply_lease_evidence,
+    classify_unknown_running_recovery,
     count_unresolved_running_without_lease,
-    resolve_by_verified_terminal_state,
     route_to_reconciliation,
     run_backfill,
     select_backfill_batch,
@@ -40,8 +42,9 @@ ALEMBIC_DIR = os.path.join(HERE, "day48_alembic")
 VERSIONS_DIR = os.path.join(ALEMBIC_DIR, "versions")
 
 EXPECTED_CHAIN = [
-    "0004_contract_legacy",
-    "0003_validate_lease",
+    "0005_contract_legacy",
+    "0004_validate_lease",
+    "0003_add_lease_constraints",
     "0002_expand_lease",
     "0001_baseline",
 ]
@@ -72,47 +75,64 @@ def _function_body_has_loop(source: str, func_name: str) -> bool:
 def test_revision_graph_is_single_head_and_linear():
     script = _script()
     heads = script.get_heads()
-    assert heads == ["0004_contract_legacy"], f"expected one head, got {heads}"
+    assert heads == ["0005_contract_legacy"], f"expected one head, got {heads}"
     walked = [rev.revision for rev in script.walk_revisions()]
     assert walked == EXPECTED_CHAIN
     assert script.get_revision("0001_baseline").down_revision is None
 
 
-# 2. EXPAND adds nullable Lease columns with NO fabricated default and a
-#    CHECK ... NOT VALID, and does NOT validate here.
-def test_expand_is_nullable_no_default_and_not_valid():
+# 2. PURE EXPAND: nullable columns with NO fabricated default AND NO Lease
+#    constraint — the OLD/NEW compatibility window (old Writers can still write a
+#    running-without-Lease row while only Expand is applied).
+def test_expand_is_columns_only_no_constraints():
     src = _revision_source("0002_expand_lease.py")
     assert "ADD COLUMN lease_owner text" in src
     assert "ADD COLUMN lease_token uuid" in src
     assert "ADD COLUMN lease_expires_at timestamptz" in src
     assert "ADD COLUMN lease_backfill_state text" in src  # persistent reconciliation marker (nullable)
-    assert "jobs_lease_backfill_state_allowed" in src      # value guard for the marker
-    # Day36 CORE invariant: a running Job MUST have a complete Lease (NOT VALID here).
-    assert "jobs_running_requires_lease" in src
-    assert "job_status <> 'running'" in src
     assert "DEFAULT" not in src  # no fabricated server default on the new nullable columns
-    assert "NOT VALID" in src
-    assert "VALIDATE CONSTRAINT jobs_lease_triple_coherent" not in src  # the VALIDATE op lives only in 0003
-    # No long Backfill/reconciliation loop inside the migration.
+    # The strict Lease constraints must NOT be added in the pure Expand — they
+    # belong to the separate constraint revision so old Writers can coexist during
+    # Expand. (Assert on the DDL: no ADD CONSTRAINT statement is emitted here.)
+    assert "ADD CONSTRAINT" not in src
+    assert "VALIDATE CONSTRAINT" not in src
     assert not _function_body_has_loop(src, "upgrade")
 
 
-# 3. VALIDATE is a separate revision that validates the constraint.
+# 2b. The CONSTRAINT revision is SEPARATE from Expand, adds the coherence +
+#     running-requires-Lease CHECKs (NOT VALID), and documents the drain/isolate
+#     precondition (NOT VALID protects every future write, any Writer version).
+def test_constraint_revision_is_separate_and_gated():
+    src = _revision_source("0003_add_lease_constraints.py")
+    assert 'down_revision = "0002_expand_lease"' in src
+    assert "jobs_lease_triple_coherent" in src
+    assert "jobs_running_requires_lease" in src
+    assert "job_status <> 'running'" in src
+    assert "NOT VALID" in src
+    assert "VALIDATE CONSTRAINT" not in src  # validation is the separate 0004 revision
+    # Precondition: OLD Writers must be drained/isolated before this revision.
+    low = src.lower()
+    assert "drain" in low and ("isolate" in low or "isolated" in low)
+    assert "every future" in low or "every future insert/update" in low
+    assert not _function_body_has_loop(src, "upgrade")
+
+
+# 3. VALIDATE is a separate revision that validates BOTH constraints.
 def test_validate_is_separate_and_validates():
-    src = _revision_source("0003_validate_lease.py")
+    src = _revision_source("0004_validate_lease.py")
     assert "VALIDATE CONSTRAINT jobs_lease_triple_coherent" in src
     # The Day36 core invariant is proven over history too — VALIDATE fails while any
     # running-without-Lease row remains (reconcile-marked rows included).
     assert "VALIDATE CONSTRAINT jobs_running_requires_lease" in src
-    assert 'down_revision = "0002_expand_lease"' in src
+    assert 'down_revision = "0003_add_lease_constraints"' in src
     assert not _function_body_has_loop(src, "upgrade")
 
 
 # 4. CONTRACT is destructive (drops the Day42 legacy column) and separately gated.
 def test_contract_is_destructive_and_separate():
-    src = _revision_source("0004_contract_legacy.py")
+    src = _revision_source("0005_contract_legacy.py")
     assert 'op.drop_column("jobs", "result_object_key", schema="app")' in src
-    assert 'down_revision = "0003_validate_lease"' in src
+    assert 'down_revision = "0004_validate_lease"' in src
     # Preconditions must be spelled out (Alembic cannot check them).
     assert "observation period" in src.lower()
     assert "forward-fix" in src.lower()
@@ -246,11 +266,15 @@ def test_apply_lease_evidence_is_idempotent():
     assert asyncio.run(apply_lease_evidence(again, _evidence(JOB_A))) == 0
 
 
-# 10. The backfill performs NO Provider call (no provider seam exists in its module).
+# 10. The backfill performs NO Provider call: it imports no Provider seam and makes
+#     no generate/run call (prose reminders like "never re-call the Provider" are OK).
 def test_backfill_module_calls_no_provider():
     import day48_lease_backfill as m
     src = open(m.__file__).read()
-    assert "provider" not in src.lower().replace("no provider", "").replace("calls no provider", "")
+    assert "AIProvider" not in src        # no Provider interface imported/used
+    assert "FakeProvider" not in src      # no Provider double
+    assert ".generate(" not in src        # no Provider generate() call
+    assert "day45_composition" not in src # no Provider seam import
 
 
 # 11. Finding 1 — TERMINATION: when EVERY candidate lacks trusted evidence, the
@@ -403,17 +427,39 @@ def test_trusted_backfill_resolves_and_clears_marker():
     assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
 
 
-# 19. R2 Finding 1 — an AUDITED real recovery (resolution b) sets the Job's TRUE
-#     verified terminal state (never a fabricated 'failed'); 'running' is rejected.
-def test_resolve_by_verified_terminal_state():
-    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)]])
-    assert asyncio.run(resolve_by_verified_terminal_state(sess, JOB_A, "failed")) == 1
-    sql = sess.executed[0][0]
-    assert "SET job_status = :verified_status" in sql
-    assert "job_status = 'running' AND lease_owner IS NULL" in sql  # guarded
-    # Refuses to "resolve" back into a still-running state.
-    with pytest.raises(ValueError):
-        asyncio.run(resolve_by_verified_terminal_state(FakeAsyncSession(), JOB_A, "running"))
+# 19. R3 Finding 2 — recovery ROUTING (no DB mutation). An unknown outcome stays
+#     unknown; verified succeeded -> Day47 completion UoW; failed/cancelled ->
+#     guarded terminal-recovery; a requeue ('queued') / 'running' / bad status is
+#     REFUSED. This function performs NO bare status UPDATE.
+def test_unknown_outcome_recovery_routing_and_refusals():
+    # Unknown outcome -> keep unknown / reconciliation (never requeue, never retry).
+    assert classify_unknown_running_recovery(None) is RecoveryBoundary.KEEP_UNKNOWN
+    # Verified success needs the Day47 guarded completion UoW (finished_at+Artifact+Event).
+    assert classify_unknown_running_recovery("succeeded") is RecoveryBoundary.COMPLETION_UOW
+    # Verified failure/cancellation needs the guarded terminal-recovery path.
+    assert classify_unknown_running_recovery("failed") is RecoveryBoundary.GUARDED_TERMINAL_RECOVERY
+    assert classify_unknown_running_recovery("cancelled") is RecoveryBoundary.GUARDED_TERMINAL_RECOVERY
+    # A requeue of an unknown Job is FORBIDDEN (clears the count without proof).
+    with pytest.raises(UnsafeRecoveryError):
+        classify_unknown_running_recovery("queued")
+    # 'running' and any non-terminal / unexpected status are refused too.
+    with pytest.raises(UnsafeRecoveryError):
+        classify_unknown_running_recovery("running")
+    with pytest.raises(UnsafeRecoveryError):
+        classify_unknown_running_recovery("banana")
+
+
+# 19b. R3 Finding 2 — the router is a pure classifier: importing/using it touches NO
+#      session and issues NO SQL (no bare status flip that could bypass Day47 facts).
+def test_recovery_routing_issues_no_sql():
+    # A fresh fake session must remain untouched by classification.
+    sess = FakeAsyncSession()
+    classify_unknown_running_recovery("succeeded")
+    classify_unknown_running_recovery(None)
+    assert sess.executed == [] and sess.calls == []
+    # And the dangerous bare-mutation helper no longer exists.
+    import day48_lease_backfill as m
+    assert not hasattr(m, "resolve_by_verified_terminal_state")
 
 
 # 20. R2 Finding 1 — VALIDATE precondition is unresolved==0: after a trusted backfill

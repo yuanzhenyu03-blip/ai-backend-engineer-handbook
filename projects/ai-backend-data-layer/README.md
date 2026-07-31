@@ -11,7 +11,7 @@ Expand/Validate/Contract revisions), an operational restartable `FOR UPDATE SKIP
 migration, and the `CHECK ... NOT VALID` (protect future writes) vs `VALIDATE CONSTRAINT` (prove history)
 separation. A migration is a versioned transition across schema, data, and every writer — successful DDL is not
 completion. **REAL static/offline tests were executed** (Alembic revision-graph + migration-source inspection and
-fake-session backfill control flow -> 20 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
+fake-session backfill control flow -> 22 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
 deps pinned in `api/requirements-day48.txt`) plus an offline `alembic upgrade --sql` DDL render. This is **not**
 database proof: **PostgreSQL runtime is NOT RUN** (no server; SQLite/fake/`upgrade`-success are not PostgreSQL
 evidence); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. (See the
@@ -103,7 +103,7 @@ projects/ai-backend-data-layer/
 │   ├── day48-alembic-safe-schema-evolution-design.md   # Day48: Alembic safe-evolution design/runbook
 │   ├── day48_alembic/                                  # Day48: Alembic control plane (env.py + gated Expand/Validate/Contract revisions)
 │   ├── day48_lease_backfill.py                         # Day48: operational restartable FOR UPDATE SKIP LOCKED backfill (off the migration)
-│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 20 passed)
+│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 22 passed)
 │   └── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -184,10 +184,11 @@ runtime is NOT RUN**.
 | Section | Contents |
 | --- | --- |
 | Mental model | a migration is a versioned transition across schema + historical rows + every writer; `alembic upgrade head` success is DDL-only evidence; safe evolution = Expand/Backfill/Validate/Switch/Contract, each separately gated |
-| Expand | `ADD COLUMN` lease_owner/lease_token/lease_expires_at + a `lease_backfill_state` reconciliation marker, all **nullable, no fabricated default** (NULL = no proved ownership); `CHECK ... NOT VALID` for triple coherence **and** the Day36 core `jobs_running_requires_lease` (a running Job must carry a complete Lease); deploy first, no Backfill/Provider in `upgrade()` |
-| Backfill | operational, restartable `FOR UPDATE SKIP LOCKED` script **off the migration** (automatic candidate = running + `lease_owner IS NULL` + `lease_backfill_state IS NULL`); fills only running Jobs with trusted ownership; unknown -> **persisted** `lease_backfill_state='reconcile'` marker (guarded/idempotent, no fabricated lease) so the **automatic loop terminates** and a restart never re-selects it. Reconcile is **triage, not resolution**: such a row still violates the Day36 `jobs_running_requires_lease` invariant and still counts in `unresolved_running_without_lease` (Day36 remaining_targets). VALIDATE/Switch/Contract require `unresolved==0`, reached only by (a) a trusted Lease backfill or (b) an audited real recovery; no Provider; DB state = checkpoint |
-| Validate | `VALIDATE CONSTRAINT` (both `jobs_lease_triple_coherent` and the Day36 core `jobs_running_requires_lease`) in a **separate** revision proves history; fails until every running-without-Lease row (reconcile-marked included) is truly resolved |
-| Switch / Contract | Switch = every Writer on the token protocol, old path can't write; Contract destructive + last, after evidence + observation; forward-fix (not destructive downgrade) once real data/side effects exist |
+| Expand (0002) | `ADD COLUMN` lease_owner/lease_token/lease_expires_at + a `lease_backfill_state` marker, all **nullable, no fabricated default**, **no constraint** — the OLD/NEW compatibility window (old Writers can still write a running-without-Lease row); deploy first |
+| Constraints (0003) | **separate** revision: `CHECK ... NOT VALID` for triple coherence **and** the Day36 core `jobs_running_requires_lease`, applied **only after old Writers are drained/isolated** — `NOT VALID` skips the legacy scan but enforces every future write by **any** Writer version (an old Worker writing a running-without-Lease row is rejected), so it is not a "no-op for old code" |
+| Backfill | operational, restartable `FOR UPDATE SKIP LOCKED` script **off the migration** (automatic candidate = running + `lease_owner IS NULL` + `lease_backfill_state IS NULL`); fills only running Jobs with trusted ownership; unknown -> **persisted** `lease_backfill_state='reconcile'` marker (guarded/idempotent, no fabricated lease) so the **automatic loop terminates** and a restart never re-selects it. Reconcile is **triage, not resolution**: such a row still violates `jobs_running_requires_lease` and still counts in `unresolved_running_without_lease`. `unresolved==0` is reached only by (a) a trusted Lease backfill or (b) an audited real recovery **routed** by `classify_unknown_running_recovery` (verified `succeeded` -> Day47 completion UoW; `failed`/`cancelled` -> guarded terminal-recovery; unknown -> stay reconciliation; a `queued` requeue / bare status flip is refused); no Provider; DB state = checkpoint |
+| Validate (0004) | `VALIDATE CONSTRAINT` (both `jobs_lease_triple_coherent` and the Day36 core `jobs_running_requires_lease`) in a **separate** revision proves history; fails until every running-without-Lease row (reconcile-marked included) is truly resolved |
+| Switch / Contract (0005) | Switch = every Writer on the token protocol, old path can't write; Contract destructive + last, after evidence + observation; forward-fix (not destructive downgrade) once real data/side effects exist |
 | Alembic specifics | revision graph / `down_revision` / merge heads; autogenerate is a candidate diff to review; baseline/`stamp` writes `alembic_version` and does no DDL; minimal `env.py` (no FastAPI, no UoW) with DB-URL resolution `-x db_url` > env `DAY48_ALEMBIC_DATABASE_URL` (ini placeholder is **offline-render only**, never an online fallback -> online **fails fast** without an external URL; no credentials committed); `CREATE INDEX CONCURRENTLY` is non-transactional |
 | Evidence | 10 **static/offline** tests (`ScriptDirectory` graph/source + fake-session backfill) + offline `--sql` render; **PostgreSQL runtime NOT RUN**; SQLite/fake/`upgrade`-success are not PostgreSQL proof |
 

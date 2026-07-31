@@ -1,7 +1,7 @@
 """Contract: destructive removal of legacy compatibility (heavily gated).
 
-Revision ID: 0004_contract_legacy
-Revises: 0003_validate_lease
+Revision ID: 0005_contract_legacy
+Revises: 0004_validate_lease
 Create Date: 2026-07-31
 
 CONTRACT is destructive and is the LAST phase. Preconditions that MUST hold before
@@ -22,8 +22,8 @@ table; Day42/003 deliberately did NOT drop it, deferring to this safe sequence).
 from alembic import op
 import sqlalchemy as sa
 
-revision = "0004_contract_legacy"
-down_revision = "0003_validate_lease"
+revision = "0005_contract_legacy"
+down_revision = "0004_validate_lease"
 branch_labels = None
 depends_on = None
 

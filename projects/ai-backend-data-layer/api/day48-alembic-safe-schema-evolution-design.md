@@ -38,28 +38,37 @@ long paid Provider calls.
 
 ---
 
-## 2. Expand (revision `0002_expand_lease`)
+## 2. Expand (revision `0002_expand_lease`) — columns ONLY (compatibility window)
 
 ```text
 ALTER TABLE app.jobs ADD COLUMN lease_owner text, ADD COLUMN lease_token uuid, ADD COLUMN lease_expires_at timestamptz,
                       ADD COLUMN lease_backfill_state text;
   -> ALL NULLABLE, NO fabricated default. NULL honestly means "no PROVED Lease ownership".
+  -> NO constraint here. This is a PURE Expand -> the OLD/NEW code COMPATIBILITY WINDOW: while only this revision
+     is applied an OLD Writer can still update a legacy running Job that has a NULL Lease (no constraint rejects it).
   -> Do NOT generate tokens for queued, terminal, or unprovable running Jobs (fabrication is forbidden).
-  -> lease_backfill_state is a PERSISTENT reconciliation marker (see section 3): 'reconcile' records that an
-     unknown-ownership running Job could not be proved, so it leaves the automatic Backfill candidate set. It
-     fabricates NO Lease field.
+  -> lease_backfill_state is a PERSISTENT reconciliation marker (see section 3); it fabricates NO Lease field.
+```
+
+The strict Lease constraints are a SEPARATE later revision (section 2b), so old and new code truly coexist here.
+
+---
+
+## 2b. Constraints (revision `0003_add_lease_constraints`) — closes the compatibility window
+
+```text
+PRECONDITIONS (operator MUST ensure, Alembic cannot): new code deployed & tolerates NULL Lease; OLD Writers DRAINED/ISOLATED.
 ALTER TABLE app.jobs ADD CONSTRAINT jobs_lease_triple_coherent CHECK (all-three-NULL OR all-three-NOT-NULL) NOT VALID;
 ALTER TABLE app.jobs ADD CONSTRAINT jobs_running_requires_lease CHECK (job_status <> 'running' OR (lease_owner IS NOT NULL AND lease_token IS NOT NULL AND lease_expires_at IS NOT NULL)) NOT VALID;
 ALTER TABLE app.jobs ADD CONSTRAINT jobs_lease_backfill_state_allowed CHECK (lease_backfill_state IS NULL OR lease_backfill_state = 'reconcile') NOT VALID;
-  -> jobs_running_requires_lease is the Day36 CORE invariant (Day48 field names): a running Job MUST carry a
-     complete Lease. A reconcile-marked running Job with a NULL Lease STILL VIOLATES it (reconcile is TRIAGE, not
-     RESOLUTION), so VALIDATE cannot pass until each such row is truthfully resolved.
-  -> NOT VALID protects EVERY future INSERT/UPDATE immediately while TEMPORARILY tolerating legacy rows.
-  -> NOT validated here. No Backfill loop, no Provider call, no long transaction in upgrade().
+  -> jobs_running_requires_lease is the Day36 CORE invariant (Day48 field names): a running Job MUST carry a complete Lease.
+     A reconcile-marked running Job with a NULL Lease STILL VIOLATES it (reconcile is TRIAGE, not RESOLUTION).
+  -> NOT VALID does NOT mean "old Writers unaffected": it skips only the one-time SCAN of legacy rows, but ENFORCES the rule
+     on EVERY future INSERT/UPDATE by ANY writer version. An OLD Worker updating a running-without-Lease Job is REJECTED
+     (23514). THAT is why this revision must land ONLY after the old write path is drained/isolated. Pure Expand = compat
+     window; the strict NOT VALID Lease constraint = old Writers can no longer write a running-without-Lease Job.
+  -> NOT validated here (0004 VALIDATEs it). No Backfill loop, no Provider call, no long transaction.
 ```
-
-Old Workers keep working because the new columns are nullable and old code ignores
-them — this is why Expand must be deployed **first** and alone.
 
 ---
 
@@ -81,8 +90,12 @@ day48_lease_backfill.py (operator-run, restartable): SHORT tx + FOR UPDATE SKIP 
       This is the Day36 remaining_targets and the HARD VALIDATE/Switch/Contract precondition (must be 0). The
       automatic loop stopping does NOT reduce it and does NOT mean the history is compliant.
   A parked row is resolved ONLY by (a) a TRUSTED Lease backfill (apply_lease_evidence, which also clears the marker)
-    or (b) an AUDITED real recovery (resolve_by_verified_terminal_state -> a genuinely verified terminal status,
-    NEVER a fabricated 'failed', NEVER 'running'). run_backfill exposes unresolved_running_without_lease so
+    or (b) an AUDITED real recovery ROUTED by classify_unknown_running_recovery (a NON-mutating classifier) to a FULL
+    boundary: verified 'succeeded' -> the Day47 GUARDED COMPLETION UoW (finished_at + ResultArtifact + job_succeeded
+    Event together); verified 'failed'/'cancelled' -> the guarded terminal-recovery path (state machine + Event + audit);
+    an UNVERIFIED outcome -> KEEP_UNKNOWN (stay unknown/reconciliation, NEVER requeue, NEVER blind Provider retry);
+    'queued'/'running'/any other status -> UnsafeRecoveryError. Day48 CLASSIFIES/ROUTES and NEVER bare-flips a status
+    (a bare UPDATE would bypass the Day47 completion contract). run_backfill exposes unresolved_running_without_lease so
     "the loop stopped" is never reported as "done".
   Calls NO Provider; holds NO long transaction. NOT the Day47 Lease runtime protocol and NOT a Lease-expiry batch claim.
 ```
@@ -91,7 +104,7 @@ Long Backfill/reconciliation loops must **never** live in a migration `upgrade()
 
 ---
 
-## 4. Validate (revision `0003_validate_lease`) and NOT VALID vs VALIDATE
+## 4. Validate (revision `0004_validate_lease`) and NOT VALID vs VALIDATE
 
 ```text
 ALTER TABLE app.jobs VALIDATE CONSTRAINT jobs_lease_triple_coherent;
@@ -111,7 +124,7 @@ one long transaction.
 
 ---
 
-## 5. Switch and Contract (revision `0004_contract_legacy`)
+## 5. Switch and Contract (revision `0005_contract_legacy`)
 
 ```text
 SWITCH (operational gate, not a single DDL): EVERY Writer -- Workers, recovery, admin/scripts, completion/failure paths --
@@ -182,21 +195,23 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 
 ```text
 CONCEPTUAL / STATIC REVIEW : the runbook mirrors Day36's phases and the classroom trajectory.
-STATIC ALEMBIC (RUN)       : 20 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
-                             (single head 0004; linear 0004->0003->0002->0001->None; Expand nullable/no-default/NOT VALID +
-                             the lease_backfill_state marker + the Day36 jobs_running_requires_lease invariant; Validate
+STATIC ALEMBIC (RUN)       : 22 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
+                             (single head 0005; linear 0005->0004->0003->0002->0001->None; PURE Expand (columns only, NO
+                             constraint = the compatibility window); a SEPARATE constraint revision adds the triple +
+                             Day36 jobs_running_requires_lease NOT VALID with a drain/isolate precondition; Validate
                              validates BOTH constraints; Contract destructive+gated; no loop in any upgrade()/downgrade();
                              minimal env.py) plus FAKE-SESSION backfill control flow (SKIP LOCKED automatic-candidate batch
                              excluding reconciliation-routed rows; fills known and CLEARS the marker; ROUTES unknown to a
                              persistent 'reconcile' marker with no fabrication; TERMINATES when all candidates are unknown;
                              restart does not re-select a routed Job BUT it STILL counts in unresolved_running_without_lease
-                             (reconcile != resolution); an audited terminal-state recovery rejects 'running'; the VALIDATE
-                             precondition unresolved==0 is reached only after real resolution; idempotent guarded writes; no
-                             Provider) and the database-URL resolution (`-x db_url` > env DAY48_ALEMBIC_DATABASE_URL; ini
+                             (reconcile != resolution); recovery ROUTING (non-mutating): unknown -> KEEP_UNKNOWN, verified
+                             succeeded -> Day47 completion UoW, failed/cancelled -> guarded terminal-recovery, a 'queued'
+                             requeue / 'running' / bad status -> UnsafeRecoveryError; the VALIDATE precondition
+                             unresolved==0 is reached only after real resolution; idempotent guarded writes; no Provider) and the database-URL resolution (`-x db_url` > env DAY48_ALEMBIC_DATABASE_URL; ini
                              placeholder is OFFLINE-only and online FAILS FAST without an external URL). No database connection.
 OFFLINE ALEMBIC SQL (RUN)  : `alembic upgrade 0001_baseline:head --sql` RENDERS the Expand/Validate/Contract DDL text using
                              the PostgreSQL dialect and NEVER connects -> static/offline evidence, NOT PostgreSQL proof.
-                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20 passed.
+                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 22 passed.
 POSTGRESQL RUNTIME         : NOT RUN. No PostgreSQL server was available. A real test would apply the Day42 raw SQL, create
                              a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a
                              NEW illegal write is rejected, and prove VALIDATE FAILS until the legacy violation is repaired/

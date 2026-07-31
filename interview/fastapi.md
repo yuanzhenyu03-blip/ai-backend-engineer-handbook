@@ -847,12 +847,12 @@ Model answer:
 No. `alembic stamp` writes `alembic_version` and performs no DDL — it is only safe after the database is
 independently proven to match the baseline. Offline `--sql` rendering and static graph/source checks prove the
 migration text/structure, not database behavior, and SQLite/fake sessions are not PostgreSQL evidence. A real
-`NOT VALID`/`VALIDATE` test needs PostgreSQL: create a legacy violating row, apply Expand, prove the old row
+`NOT VALID`/`VALIDATE` test needs PostgreSQL: create a legacy violating row, apply Expand + the separate constraint revision, prove the old row
 survives, prove a new illegal write is rejected, and prove `VALIDATE` fails until the row is repaired.
 
 Student note: "不能，因为还需要看实际运行"; on `stamp`/new-vs-existing DBs the student said "不知道".
 
 Validation: REAL static/offline evidence executed (Alembic revision-graph + migration-source inspection and
-fake-session backfill control flow -> 20 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3)
+fake-session backfill control flow -> 22 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3)
 plus an offline `alembic upgrade --sql` DDL render. PostgreSQL runtime NOT RUN (SQLite/fake/`upgrade`-success are
 not PostgreSQL proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN.

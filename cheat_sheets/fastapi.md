@@ -633,7 +633,8 @@ SEPARATELY GATED. Alembic is a deployment control plane != FastAPI startup != a 
 ### Expand / Backfill / Validate
 
 ```text
-EXPAND: ADD COLUMN ... NULLABLE, NO fabricated default (NULL = no proved ownership); never fabricate historical Lease.
+EXPAND (0002): ADD COLUMN ... NULLABLE, NO fabricated default, NO constraint = the OLD/NEW COMPATIBILITY WINDOW (old Writers can still write a running-without-Lease row). Never fabricate historical Lease.
+CONSTRAINTS (0003, SEPARATE): add CHECK ... NOT VALID (triple coherence + Day36 jobs_running_requires_lease) ONLY AFTER old Writers are DRAINED/ISOLATED. NOT VALID skips the legacy SCAN but ENFORCES every future write by ANY Writer version (old Worker writing a running-without-Lease row -> REJECTED). NOT VALID != "old Workers unaffected".
   + ADD CONSTRAINT ... CHECK (...) NOT VALID  -> protects EVERY future INSERT/UPDATE now, tolerates legacy rows.
   Deploy Expand FIRST and alone (old Workers coexist because they ignore nullable cols). No Backfill loop / no Provider in upgrade().
 BACKFILL (operational, NOT in upgrade()): short tx + FOR UPDATE SKIP LOCKED batches, idempotent, restartable (DB state=checkpoint).
@@ -641,7 +642,7 @@ BACKFILL (operational, NOT in upgrade()): short tx + FOR UPDATE SKIP LOCKED batc
   unknown-running -> ROUTE to a PERSISTENT marker lease_backfill_state='reconcile' (guarded/idempotent, NO fabricated lease) so it leaves the AUTOMATIC candidate set -> the auto-loop TERMINATES and a restart never re-selects it.
   BUT reconcile = TRIAGE, not RESOLUTION: Day36 core CHECK jobs_running_requires_lease (job_status<>'running' OR lease triple NOT NULL) NOT VALID in Expand, VALIDATEd in 0003. A reconcile-marked running Job with NULL Lease STILL violates it.
   automatic_backfill_candidates (running + lease_owner NULL + lease_backfill_state NULL) != unresolved_running_without_lease (ALL running + lease_owner NULL, INCLUDING reconcile-marked = Day36 remaining_targets). VALIDATE/Switch/Contract require unresolved==0.
-  RESOLUTION only via (a) trusted Lease backfill (apply_lease_evidence, also clears the marker) or (b) audited real recovery (resolve_by_verified_terminal_state -> verified terminal, NEVER fabricated 'failed'/'running'). run_backfill reports unresolved so "loop stopped" != "history compliant".
+  RESOLUTION only via (a) trusted Lease backfill (apply_lease_evidence, also clears the marker) or (b) audited real recovery ROUTED by classify_unknown_running_recovery (NON-mutating): verified 'succeeded' -> Day47 guarded completion UoW (finished_at+Artifact+Event), 'failed'/'cancelled' -> guarded terminal-recovery, unverified -> KEEP_UNKNOWN, 'queued'/'running'/bad status -> UnsafeRecoveryError. NEVER a requeue, NEVER a bare status flip. run_backfill reports unresolved so "loop stopped" != "history compliant".
   Classify: queued/terminal = no Lease; trusted-running = backfill; unknown-running = reconcile (triage). lease_backfill_state is a nullable Expand column (no fabricated default).
 VALIDATE (SEPARATE revision): ALTER TABLE ... VALIDATE CONSTRAINT -> proves HISTORY; FAILS until legacy truly resolved (exception queue != resolution).
 NOT VALID = protect the FUTURE now; VALIDATE = prove the PAST later. UPDATE...RETURNING is the Day47 runtime guard, NOT the migration mechanism.
@@ -687,7 +688,7 @@ evidence; the Day47 UoW is one short business tx while Alembic is deploy-time sc
 ```
 
 Validation: REAL static/offline evidence executed — Alembic revision-graph + migration-source inspection (ScriptDirectory) and
-FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 20 passed), plus an offline
+FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 22 passed), plus an offline
 `alembic upgrade --sql` DDL render (no DB connection). **PostgreSQL runtime NOT RUN** (SQLite/fake/`upgrade`-success are not PostgreSQL
 proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
 

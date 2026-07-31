@@ -21,8 +21,10 @@ loops must never live in a migration transaction). It:
       the Day36 ``jobs_running_requires_lease`` invariant and STILL counts as an
       UNRESOLVED running-without-Lease target. The migration stays INCOMPLETE (do
       NOT run VALIDATE / Switch / Contract) until every such row is truthfully
-      resolved by (a) a trusted Lease backfill or (b) an audited real state
-      recovery — NEVER by the marker alone;
+      resolved by (a) a trusted Lease backfill or (b) an audited real recovery routed
+      to a full boundary (Day47 completion UoW for a verified success; guarded
+      terminal-recovery for a verified failure/cancellation) — NEVER by the marker
+      alone, NEVER by a requeue, and NEVER by a bare status flip;
     * calls NO Provider and holds NO long transaction;
     * is NOT the Day47 Lease runtime protocol and NOT the migration-batch claim of
       a Lease expiry — it is a one-time operational backfill.
@@ -37,6 +39,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from enum import Enum
 from typing import Awaitable, Callable, List, Optional, Protocol
 
 from sqlalchemy import text
@@ -149,27 +152,61 @@ async def count_unresolved_running_without_lease(session: AsyncSession) -> int:
     return int(rows[0][0]) if rows else 0
 
 
-async def resolve_by_verified_terminal_state(
-    session: AsyncSession, job_id: uuid.UUID, verified_status: str
-) -> int:
-    """RESOLUTION path (b): an AUDITED real recovery that establishes the Job's TRUE
-    current state (e.g. a genuinely verified terminal outcome), so it is no longer a
-    running-without-Lease row. ``verified_status`` MUST come from a dedicated
-    recovery / human reconciliation — NEVER a fabricated 'failed' just to clear the
-    count. Guarded + idempotent: only a still-running, still-unowned row is changed."""
-    if verified_status == "running":
-        raise ValueError("verified_status must be a resolved (non-running) state")
-    result = await session.execute(
-        text(
-            "UPDATE app.jobs "
-            "SET job_status = :verified_status, lease_backfill_state = NULL "
-            "WHERE job_id = :job_id "
-            "AND job_status = 'running' AND lease_owner IS NULL "
-            "RETURNING job_id"
-        ),
-        {"job_id": job_id, "verified_status": verified_status},
+class UnsafeRecoveryError(ValueError):
+    """Raised when a caller asks Day48 to "resolve" an unknown running Job in a way
+    that would be unsafe: a requeue (``queued``), a non-terminal state, or a bare
+    status flip that fabricates a verified terminal outcome."""
+
+
+class RecoveryBoundary(str, Enum):
+    """Which FULL boundary owns the recovery of an unresolved running Job. Day48's
+    migration/backfill layer classifies and ROUTES; it does NOT mutate the row
+    itself (a bare status UPDATE cannot honor the Day47 completion contract or the
+    guarded terminal-recovery/audit requirements)."""
+
+    COMPLETION_UOW = "day47_guarded_completion_uow"          # verified succeeded
+    GUARDED_TERMINAL_RECOVERY = "guarded_terminal_recovery"  # verified failed/cancelled
+    KEEP_UNKNOWN = "keep_unknown_reconciliation"             # outcome not verified
+
+
+# Day42 terminal states (the status allowlist's terminal members). A Job may only
+# be RESOLVED into one of these — never back to 'queued' (a requeue) or 'running'.
+_VERIFIED_TERMINAL_STATES = frozenset({"succeeded", "failed", "cancelled"})
+
+
+def classify_unknown_running_recovery(verified_outcome: Optional[str]) -> RecoveryBoundary:
+    """Classify how an unresolved running-without-Lease Job must be recovered, and
+    REFUSE unsafe requests. This performs NO database write — it only routes to the
+    correct FULL boundary (Day48 does not orchestrate completion or failure):
+
+        * ``None`` (outcome NOT verified) -> KEEP_UNKNOWN. Stay unknown/reconciliation;
+          NEVER requeue and NEVER blindly re-call the Provider (Day47 unknown-outcome
+          boundary): the Provider may have already executed, charged, or produced an
+          Artifact.
+        * ``'succeeded'`` -> COMPLETION_UOW. A verified success MUST go through the
+          Day47 guarded completion UoW so it commits finished_at + the ResultArtifact
+          reference + the job_succeeded Event together — a bare ``UPDATE
+          job_status='succeeded'`` would violate jobs_succeeded_has_finished_at and
+          leave partial state. Day48 does NOT perform it.
+        * ``'failed'`` / ``'cancelled'`` -> GUARDED_TERMINAL_RECOVERY. A verified
+          business failure/cancellation MUST go through the guarded terminal-recovery
+          path (state machine + Event + audit), not a bare status flip.
+        * ``'queued'`` / ``'running'`` / anything else -> UnsafeRecoveryError.
+          Requeuing an unknown Job clears the unresolved count WITHOUT proving whether
+          the Provider ran; a non-terminal/unknown status is never a resolution."""
+    if verified_outcome is None:
+        return RecoveryBoundary.KEEP_UNKNOWN
+    if verified_outcome == "succeeded":
+        return RecoveryBoundary.COMPLETION_UOW
+    if verified_outcome in ("failed", "cancelled"):
+        return RecoveryBoundary.GUARDED_TERMINAL_RECOVERY
+    raise UnsafeRecoveryError(
+        f"cannot resolve an unknown running Job to {verified_outcome!r}: requeuing "
+        "('queued') or a non-terminal state is forbidden, and a bare status update "
+        "cannot fabricate a verified terminal outcome. 'succeeded' -> Day47 guarded "
+        "completion UoW; 'failed'/'cancelled' -> guarded terminal-recovery; an "
+        "unverified outcome stays unknown/reconciliation."
     )
-    return len(result.fetchall())
 
 
 @dataclass
