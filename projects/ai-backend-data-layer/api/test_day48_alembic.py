@@ -34,6 +34,7 @@ from day48_lease_backfill import (
     classify_unknown_running_recovery,
     close_reconciliation_record,
     count_unresolved_running_without_lease,
+    defer_reconciliation_record,
     route_to_reconciliation,
     run_backfill,
     run_reconciliation_resolution,
@@ -615,6 +616,7 @@ def test_open_reconciliation_record_selected_only_by_resolution_path():
     assert "FROM app.job_lease_reconciliation r" in res_sql
     assert "JOIN app.jobs j ON j.job_id = r.job_id" in res_sql
     assert "r.resolution_status = 'open'" in res_sql
+    assert "r.next_attempt_at <= now()" in res_sql  # only DUE records (backoff gate)
     assert "j.job_status = 'running' AND j.lease_owner IS NULL" in res_sql
     assert "FOR UPDATE OF r SKIP LOCKED" in res_sql
     assert params["batch_size"] == 50
@@ -643,11 +645,12 @@ def test_reconciliation_resolution_writes_lease_then_closes_record():
     assert sess.calls.index("commit") > sess.calls.index("execute")
 
 
-# 25. With NO trusted evidence, an OPEN record stays OPEN: no Lease is fabricated, no
-#     requeue, no bare status flip, no Provider — and the record is NOT closed.
-def test_reconciliation_resolution_leaves_record_open_without_evidence():
-    # select [(JOB_A)] -> (no apply/close) -> select [] -> count [(1)].
-    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)], [], [(1,)]])
+# 25. With NO trusted evidence, an OPEN record stays OPEN but is DEFERRED with a
+#     queue-only backoff: no Lease fabricated, no requeue, no app.jobs write, no
+#     Provider — and the record is NOT closed (resolution_status stays 'open').
+def test_reconciliation_resolution_defers_open_record_without_evidence():
+    # select [(JOB_A)] -> defer [(rec_id)] -> select [] -> count [(1)].
+    sess = FakeAsyncSession(execute_rows=[[(JOB_A,)], [(uuid.uuid4(),)], [], [(1,)]])
 
     class NoEvidence:
         async def prove(self, job_id):
@@ -658,10 +661,16 @@ def test_reconciliation_resolution_leaves_record_open_without_evidence():
     )
     assert report.resolved == 0 and report.still_open == 1
     assert report.unresolved_running_without_lease == 1  # still a remaining_target
-    # Only the two SELECTs ran — NO UPDATE of app.jobs, NO close of the queue record.
+    # The only write is the queue-only DEFER: it pushes next_attempt_at forward and
+    # bumps check_attempts; it never touches app.jobs and never closes the record.
+    defer_sql = sess.executed[1][0]
+    assert "UPDATE app.job_lease_reconciliation" in defer_sql
+    assert "next_attempt_at = now() + make_interval" in defer_sql
+    assert "check_attempts = check_attempts + 1" in defer_sql
+    assert "resolution_status = 'resolved'" not in defer_sql  # NOT closed
+    assert "resolution_status = 'open'" in defer_sql          # guarded on open
     for sql, _ in sess.executed:
         assert "UPDATE app.jobs" not in sql
-        assert "UPDATE app.job_lease_reconciliation" not in sql
 
 
 # 26. Idempotent / restartable: an ALREADY-resolved record (or an already-owned Job)
@@ -710,3 +719,100 @@ def test_reconciliation_resolution_no_provider_no_fabrication():
     # close only ever moves 'open' -> 'resolved'; never sets a Lease or a Job status.
     assert "resolution_status = 'resolved'" in src
     assert "SET job_status" not in src  # no bare status flip anywhere in the module
+
+
+# --- R6 Finding 1: reconciliation POLLING/BACKOFF (not Job/Provider retry) -------
+# Still FAKE-SESSION / static control-flow evidence, NOT PostgreSQL runtime proof.
+
+# 29. defer_reconciliation_record is a QUEUE-ONLY, guarded, audited backoff write: it
+#     bumps check_attempts + last_checked_at and pushes next_attempt_at forward by an
+#     exponential capped interval — never touching app.jobs, never closing the record,
+#     never fabricating a Lease / requeuing / flipping a status / calling a Provider.
+def test_defer_reconciliation_record_is_queue_only_backoff():
+    sess = FakeAsyncSession(execute_rows=[[(uuid.uuid4(),)]])  # 1 open record deferred
+    n = asyncio.run(defer_reconciliation_record(sess, JOB_A))
+    assert n == 1
+    sql, params = sess.executed[0]
+    assert "UPDATE app.job_lease_reconciliation" in sql
+    assert "check_attempts = check_attempts + 1" in sql
+    assert "last_checked_at = now()" in sql
+    assert "next_attempt_at = now() + make_interval" in sql  # pushed into the FUTURE
+    assert "LEAST(" in sql                                    # capped exponential backoff
+    assert "WHERE job_id = :job_id AND resolution_status = 'open'" in sql  # guarded
+    assert "app.jobs" not in sql                             # queue-only, no business row
+    assert "resolution_status = 'resolved'" not in sql       # NOT a close
+    assert params["job_id"] == JOB_A
+    assert params["base_backoff_seconds"] >= 1 and params["max_backoff_seconds"] >= params["base_backoff_seconds"]
+
+
+# 30. TERMINATION without an evidence: run_reconciliation_resolution(max_batches=None)
+#     must NOT reprocess the same OPEN record forever. Termination rests on the
+#     due-filter (next_attempt_at <= now()) PLUS the forward backoff written by defer
+#     — NOT on a fake session arbitrarily returning an empty batch. This fake MODELS
+#     real SQL: the record is "due" until a defer pushes next_attempt_at past now(),
+#     after which the selector no longer returns it.
+def test_reconciliation_resolution_terminates_via_due_filter_and_backoff():
+    state = {"due": True, "defers": 0}
+
+    class DueModelingSession:
+        def __init__(self):
+            self.executed = []
+            self.calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *exc):
+            self.calls.append("close")
+
+        async def execute(self, stmt, params=None):
+            sql = str(stmt)
+            self.executed.append((sql, dict(params or {})))
+            self.calls.append("execute")
+            if "SELECT r.job_id" in sql and "FROM app.job_lease_reconciliation r" in sql:
+                # Selector returns the record ONLY while it is due (models the SQL
+                # predicate next_attempt_at <= now()).
+                return FakeResult([(JOB_A,)] if state["due"] else [])
+            if "check_attempts = check_attempts + 1" in sql:
+                # A defer pushes next_attempt_at into the future -> no longer due.
+                state["due"] = False
+                state["defers"] += 1
+                return FakeResult([(uuid.uuid4(),)])
+            if "count(*)" in sql:
+                return FakeResult([(1,)])
+            return FakeResult([])
+
+        async def commit(self):
+            self.calls.append("commit")
+
+        async def rollback(self):
+            self.calls.append("rollback")
+
+    class NoEvidence:
+        async def prove(self, job_id):
+            return None
+
+    report = asyncio.run(
+        run_reconciliation_resolution(
+            lambda: DueModelingSession(), NoEvidence(), batch_size=100, max_batches=None
+        )
+    )
+    # The record was deferred EXACTLY once and then not re-selected — the loop ended
+    # because the defer made it not-due, NOT because of an arbitrary empty fake batch.
+    assert state["defers"] == 1
+    assert report.still_open == 1
+    assert report.unresolved_running_without_lease == 1
+
+
+# 31. DUE-FILTER + BACKOFF are what guarantee termination — assert BOTH facts on the
+#     module source so the argument does not rest on any single mocked batch.
+def test_termination_rests_on_due_filter_plus_forward_backoff():
+    import day48_lease_backfill as m
+    src = open(m.__file__).read()
+    # (a) the resolver selects ONLY due records ...
+    assert "r.next_attempt_at <= now()" in src
+    # (b) ... and a fruitless check pushes next_attempt_at into the FUTURE.
+    assert "next_attempt_at = now() + make_interval" in src
+    # This is reconciliation POLLING, explicitly NOT Job retry or Provider retry.
+    assert "POLLING" in src and "NOT Job retry" in src
+    assert ".generate(" not in src  # never a Provider retry

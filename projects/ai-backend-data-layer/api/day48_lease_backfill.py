@@ -166,6 +166,53 @@ async def close_reconciliation_record(
     return len(result.fetchall())
 
 
+# Backoff bounds for reconciliation POLLING (NOT Job retry, NOT Provider retry):
+# each fruitless check pushes next_attempt_at forward by an exponentially growing
+# interval, capped, so the resolver stops hot-looping on an unprovable record while
+# still re-checking it periodically until trusted evidence appears.
+DEFAULT_RECONCILIATION_BASE_BACKOFF_SECONDS = 60
+DEFAULT_RECONCILIATION_MAX_BACKOFF_SECONDS = 3600
+
+
+async def defer_reconciliation_record(
+    session: AsyncSession,
+    job_id: uuid.UUID,
+    *,
+    base_backoff_seconds: int = DEFAULT_RECONCILIATION_BASE_BACKOFF_SECONDS,
+    max_backoff_seconds: int = DEFAULT_RECONCILIATION_MAX_BACKOFF_SECONDS,
+) -> int:
+    """POLLING/BACKOFF step for an OPEN record that STILL has no trusted evidence.
+    This is a QUEUE-ONLY, short, auditable UPDATE: it records that a check happened
+    (``last_checked_at = now()``, ``check_attempts + 1``) and pushes
+    ``next_attempt_at`` into the future by an exponential, capped backoff, so the
+    SAME record is not re-selected in the current loop (``select_open_reconciliation_batch``
+    only returns due records). It does NOT fabricate a Lease, does NOT requeue, does
+    NOT touch ``app.jobs`` / ``job_status``, and calls NO Provider — the record stays
+    ``resolution_status='open'`` and STILL counts as an unresolved target. This is
+    reconciliation POLLING, NOT Job retry and NOT Provider retry. The backoff uses
+    the PRE-increment ``check_attempts`` (SQL evaluates all SET right-hand sides
+    against the OLD row), so attempt 0 waits ``base`` seconds, then doubles, capped
+    at ``max``. Guarded on ``resolution_status='open'`` and idempotent per due-cycle."""
+    result = await session.execute(
+        text(
+            "UPDATE app.job_lease_reconciliation "
+            "SET check_attempts = check_attempts + 1, "
+            "    last_checked_at = now(), "
+            "    next_attempt_at = now() + make_interval(secs => "
+            "        LEAST(:base_backoff_seconds * power(2, check_attempts), "
+            "              :max_backoff_seconds)) "
+            "WHERE job_id = :job_id AND resolution_status = 'open' "
+            "RETURNING reconciliation_id"
+        ),
+        {
+            "job_id": job_id,
+            "base_backoff_seconds": base_backoff_seconds,
+            "max_backoff_seconds": max_backoff_seconds,
+        },
+    )
+    return len(result.fetchall())
+
+
 async def count_unresolved_running_without_lease(session: AsyncSession) -> int:
     """Count EVERY still-violating running-without-Lease row on app.jobs — INCLUDING
     Jobs routed into the reconciliation queue (routing does NOT change app.jobs).
@@ -186,11 +233,17 @@ async def count_unresolved_running_without_lease(session: AsyncSession) -> int:
 async def select_open_reconciliation_batch(
     session: AsyncSession, *, batch_size: int
 ) -> List[uuid.UUID]:
-    """One SHORT, concurrent-safe selection of OPEN reconciliation records whose Job
-    is STILL running AND still unowned (so a resolution is still needed and still
-    legal). We lock the reconciliation rows with ``FOR UPDATE OF r SKIP LOCKED`` so
-    parallel resolvers never contend and a crash mid-batch leaves the record OPEN for
-    a restart to retry. This is the ONLY selector that revisits a routed Job — the
+    """One SHORT, concurrent-safe selection of DUE OPEN reconciliation records whose
+    Job is STILL running AND still unowned (so a resolution is still needed and still
+    legal). "Due" means ``next_attempt_at <= now()`` — a record a resolver just
+    deferred (its ``next_attempt_at`` pushed into the future by the backoff) is
+    therefore NOT re-selected until it is due again, which is what makes
+    ``run_reconciliation_resolution`` TERMINATE in real PostgreSQL even with
+    ``max_batches=None`` (it is NOT the fake session returning an empty batch that
+    proves termination — it is this due-filter combined with the forward backoff).
+    We lock the reconciliation rows with ``FOR UPDATE OF r SKIP LOCKED`` so parallel
+    resolvers never contend and a crash mid-batch leaves the record OPEN for a
+    restart to retry. This is the ONLY selector that revisits a routed Job — the
     AUTOMATIC candidate query (``select_backfill_batch``) permanently excludes queued
     Jobs, matching real SQL: once a Job has a queue row it is not an automatic
     candidate again; its resolution flows through THIS path instead."""
@@ -200,8 +253,9 @@ async def select_open_reconciliation_batch(
             "FROM app.job_lease_reconciliation r "
             "JOIN app.jobs j ON j.job_id = r.job_id "
             "WHERE r.resolution_status = 'open' "
+            "AND r.next_attempt_at <= now() "
             "AND j.job_status = 'running' AND j.lease_owner IS NULL "
-            "ORDER BY r.routed_at "
+            "ORDER BY r.next_attempt_at "
             "FOR UPDATE OF r SKIP LOCKED "
             "LIMIT :batch_size"
         ),
@@ -352,6 +406,8 @@ async def run_reconciliation_resolution(
     *,
     batch_size: int = 100,
     max_batches: Optional[int] = None,
+    base_backoff_seconds: int = DEFAULT_RECONCILIATION_BASE_BACKOFF_SECONDS,
+    max_backoff_seconds: int = DEFAULT_RECONCILIATION_MAX_BACKOFF_SECONDS,
 ) -> ReconciliationResolutionReport:
     """RESOLUTION path for records already in the reconciliation queue — the piece
     the AUTOMATIC loop cannot do (``select_backfill_batch`` permanently excludes
@@ -362,11 +418,20 @@ async def run_reconciliation_resolution(
       2. ONLY if that UPDATE actually affected the row (returned 1) is the queue
          record marked ``resolved`` with ``resolved_at`` — in the SAME short tx.
 
-    If no trusted evidence exists yet, the record is LEFT open (never a fabricated
-    Lease, never a requeue, never a bare status flip, never a Provider call). If the
-    guarded UPDATE affects 0 rows (e.g. the Job was concurrently resolved so it no
-    longer matches running + unowned), the record is NOT closed by this attempt —
-    closing is gated on THIS UoW's own successful write, keeping the pass idempotent
+    If no trusted evidence exists yet, the record is LEFT open AND DEFERRED
+    (``defer_reconciliation_record``): a queue-only, short, audited UPDATE bumps
+    ``check_attempts`` / ``last_checked_at`` and pushes ``next_attempt_at`` forward by
+    an exponential capped backoff — never a fabricated Lease, never a requeue, never
+    a bare ``app.jobs.job_status`` flip, never a Provider call. Because the selector
+    only returns DUE records (``next_attempt_at <= now()``), deferring guarantees the
+    SAME record is not immediately re-selected, so THIS loop TERMINATES in real
+    PostgreSQL even with ``max_batches=None`` — termination rests on the due-filter +
+    forward backoff, NOT on a fake session returning an empty batch. This is
+    reconciliation POLLING/BACKOFF, NOT Job retry and NOT Provider retry.
+
+    If the guarded UPDATE affects 0 rows (e.g. the Job was concurrently resolved so
+    it no longer matches running + unowned), the record is NOT closed by this attempt
+    — closing is gated on THIS UoW's own successful write, keeping the pass idempotent
     and restart-safe (the checkpoint is the durable DB state). This does NOT reduce
     ``unresolved_running_without_lease`` except by a REAL Lease write; only then may
     VALIDATE/Switch/Contract proceed. Calls NO Provider and holds NO long tx."""
@@ -384,7 +449,16 @@ async def run_reconciliation_resolution(
             for job_id in job_ids:
                 evidence = await evidence_source.prove(job_id)
                 if evidence is None:
-                    # Still unprovable -> leave the record OPEN. No fabrication.
+                    # Still unprovable -> leave the record OPEN, but DEFER it with a
+                    # queue-only backoff so this loop does not re-select it and
+                    # spin forever. No Lease fabricated, no requeue, no status flip,
+                    # no Provider. (Reconciliation polling, not Job/Provider retry.)
+                    await defer_reconciliation_record(
+                        session,
+                        job_id,
+                        base_backoff_seconds=base_backoff_seconds,
+                        max_backoff_seconds=max_backoff_seconds,
+                    )
                     report.still_open += 1
                     continue
                 applied = await apply_lease_evidence(session, evidence)

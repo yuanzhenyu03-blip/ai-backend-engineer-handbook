@@ -54,7 +54,11 @@ CREATE TABLE app.job_lease_reconciliation (        -- INDEPENDENT triage queue (
   routed_at         timestamptz NOT NULL DEFAULT now(),
   resolution_status text NOT NULL DEFAULT 'open',  -- CHECK resolution_status IN ('open','resolved')
   resolved_at       timestamptz,
-  CONSTRAINT job_lease_reconciliation_job_unique UNIQUE (job_id)  -- one triage row per Job -> idempotent routing
+  next_attempt_at   timestamptz NOT NULL DEFAULT now(),  -- RECONCILIATION POLLING backoff: only due records are re-checked
+  last_checked_at   timestamptz,                         -- audit: when the resolver last looked for evidence
+  check_attempts    integer NOT NULL DEFAULT 0,          -- audit: how many fruitless checks (drives the exponential backoff)
+  CONSTRAINT job_lease_reconciliation_job_unique UNIQUE (job_id),  -- one triage row per Job -> idempotent routing
+  CONSTRAINT job_lease_reconciliation_check_attempts_nonneg CHECK (check_attempts >= 0)
 );
   -> WHY a separate table and NOT a marker column on app.jobs: after 0003 the strict jobs_running_requires_lease CHECK
      rejects ANY UPDATE that leaves a row running with a NULL Lease. A "reconcile" marker column would require exactly
@@ -113,14 +117,22 @@ day48_lease_backfill.py (operator-run, restartable): SHORT tx + FOR UPDATE SKIP 
       automatic loop stopping does NOT reduce it and does NOT mean the history is compliant.
   RESOLVING A QUEUED ROW IS A SEPARATE PATH — the AUTOMATIC loop never re-selects it (select_backfill_batch excludes
     queued Jobs via NOT EXISTS, exactly as real SQL requires; a re-run selects nothing). When trusted evidence appears
-    LATER, run_reconciliation_resolution drives SHORT restartable batches over resolution_status='open' records whose
+    LATER, run_reconciliation_resolution drives SHORT restartable batches over DUE resolution_status='open' records whose
     Job is still running+unowned (select_open_reconciliation_batch: JOIN app.jobs, WHERE r.resolution_status='open' AND
-    j.job_status='running' AND j.lease_owner IS NULL, ORDER BY r.routed_at, FOR UPDATE OF r SKIP LOCKED). For each, in ONE
-    short tx: (1) guarded UPDATE app.jobs writes the full Lease triple (apply_lease_evidence); (2) ONLY if that UPDATE
-    actually affected the row is the queue record marked resolved+resolved_at (close_reconciliation_record). No evidence ->
-    the record stays OPEN (no fabricated Lease, no requeue, no bare status flip, no Provider). If the guarded UPDATE hits 0
-    rows (the Job no longer matches running+unowned), the record is NOT closed by that attempt — closing is gated on this
-    UoW's own successful write, keeping the pass idempotent + restartable.
+    r.next_attempt_at <= now() AND j.job_status='running' AND j.lease_owner IS NULL, ORDER BY r.next_attempt_at,
+    FOR UPDATE OF r SKIP LOCKED). For each, in ONE short tx: (1) guarded UPDATE app.jobs writes the full Lease triple
+    (apply_lease_evidence); (2) ONLY if that UPDATE actually affected the row is the queue record marked
+    resolved+resolved_at (close_reconciliation_record).
+  NO EVIDENCE YET -> the record stays OPEN and is DEFERRED (defer_reconciliation_record): a QUEUE-ONLY, short, audited
+    UPDATE bumps check_attempts + last_checked_at and pushes next_attempt_at into the FUTURE by an exponential, capped
+    backoff (base 60s, doubling, cap 3600s). It NEVER fabricates a Lease, NEVER requeues, NEVER touches app.jobs /
+    job_status, NEVER calls a Provider. Because the selector only returns DUE records, deferring means the SAME record is
+    not re-selected in this loop, so run_reconciliation_resolution TERMINATES in real PostgreSQL even with max_batches=None
+    — termination rests on the due-filter + forward backoff, NOT on a fake session returning an empty batch. This is
+    reconciliation POLLING/BACKOFF, explicitly NOT Job retry and NOT Provider retry (no external call is repeated; we only
+    re-check whether trusted ownership evidence has appeared). If the guarded UPDATE hits 0 rows (the Job no longer matches
+    running+unowned), the record is NOT closed by that attempt — closing is gated on this UoW's own successful write,
+    keeping the pass idempotent + restartable.
   A routed row is resolved ONLY by (a) a TRUSTED Lease backfill via run_reconciliation_resolution (apply_lease_evidence
     sets the Lease triple on app.jobs, then close_reconciliation_record closes the record)
     or (b) an AUDITED real recovery ROUTED by classify_unknown_running_recovery (a NON-mutating classifier) to a FULL
@@ -228,7 +240,7 @@ python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql
 
 ```text
 CONCEPTUAL / STATIC REVIEW : the runbook mirrors Day36's phases and the classroom trajectory.
-STATIC ALEMBIC (RUN)       : 30 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
+STATIC ALEMBIC (RUN)       : 33 pytest cases inspect the revision graph + migration source via Alembic's ScriptDirectory
                              (single head 0005; linear 0005->0004->0003->0002->0001->None; PURE Expand (Lease columns +
                              the INDEPENDENT app.job_lease_reconciliation queue table, NO constraint on app.jobs = the
                              compatibility window); a SEPARATE constraint revision adds the triple + Day36
@@ -240,17 +252,20 @@ STATIC ALEMBIC (RUN)       : 30 pytest cases inspect the revision graph + migrat
                              and no fabrication; close_reconciliation_record audits the queue only; TERMINATES when all
                              candidates are unknown; restart does not re-select a routed Job BUT it STILL counts in
                              unresolved_running_without_lease (triage != resolution); the DEDICATED
-                             run_reconciliation_resolution path selects OPEN records (FOR UPDATE OF r SKIP LOCKED) and, when
-                             trusted evidence appears LATER, writes the Lease triple on app.jobs THEN closes the record in one
-                             tx — only a real Lease write drives unresolved -> 0; no evidence -> record stays OPEN, a 0-row
-                             UPDATE does not close it; recovery ROUTING (non-mutating): unknown -> KEEP_UNKNOWN, verified
+                             run_reconciliation_resolution path selects DUE OPEN records (next_attempt_at <= now(),
+                             FOR UPDATE OF r SKIP LOCKED) and, when trusted evidence appears LATER, writes the Lease triple on
+                             app.jobs THEN closes the record in one tx — only a real Lease write drives unresolved -> 0; no
+                             evidence -> the record stays OPEN and is DEFERRED (queue-only backoff pushing next_attempt_at
+                             forward with check_attempts/last_checked_at), so the loop TERMINATES via the due-filter + backoff
+                             (NOT via a mocked empty batch) — reconciliation POLLING, not Job/Provider retry; a 0-row UPDATE
+                             does not close the record; recovery ROUTING (non-mutating): unknown -> KEEP_UNKNOWN, verified
                              succeeded -> Day47 completion UoW, failed/cancelled -> guarded terminal-recovery, a 'queued'
                              requeue / 'running' / bad status -> UnsafeRecoveryError; the VALIDATE precondition
                              unresolved==0 is reached only after real resolution; idempotent guarded writes; no Provider) and the database-URL resolution (`-x db_url` > env DAY48_ALEMBIC_DATABASE_URL; ini
                              placeholder is OFFLINE-only and online FAILS FAST without an external URL). No database connection.
 OFFLINE ALEMBIC SQL (RUN)  : `alembic upgrade 0001_baseline:head --sql` RENDERS the Expand/Validate/Contract DDL text using
                              the PostgreSQL dialect and NEVER connects -> static/offline evidence, NOT PostgreSQL proof.
-                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 30 passed.
+                             Executed: Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3 -> 33 passed.
 POSTGRESQL RUNTIME         : NOT RUN. No PostgreSQL server was available. A real test would apply the Day42 raw SQL, create
                              a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a
                              NEW illegal write is rejected, and prove VALIDATE FAILS until the legacy violation is repaired/

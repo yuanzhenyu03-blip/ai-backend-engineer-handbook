@@ -11,7 +11,7 @@ Expand/Validate/Contract revisions), an operational restartable `FOR UPDATE SKIP
 migration, and the `CHECK ... NOT VALID` (protect future writes) vs `VALIDATE CONSTRAINT` (prove history)
 separation. A migration is a versioned transition across schema, data, and every writer — successful DDL is not
 completion. **REAL static/offline tests were executed** (Alembic revision-graph + migration-source inspection and
-fake-session backfill control flow -> 30 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
+fake-session backfill control flow -> 33 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
 deps pinned in `api/requirements-day48.txt`) plus an offline `alembic upgrade --sql` DDL render. This is **not**
 database proof: **PostgreSQL runtime is NOT RUN** (no server; SQLite/fake/`upgrade`-success are not PostgreSQL
 evidence); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. (See the
@@ -103,7 +103,7 @@ projects/ai-backend-data-layer/
 │   ├── day48-alembic-safe-schema-evolution-design.md   # Day48: Alembic safe-evolution design/runbook
 │   ├── day48_alembic/                                  # Day48: Alembic control plane (env.py + gated Expand/Validate/Contract revisions)
 │   ├── day48_lease_backfill.py                         # Day48: operational restartable FOR UPDATE SKIP LOCKED backfill (off the migration)
-│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 30 passed)
+│   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 33 passed)
 │   └── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
