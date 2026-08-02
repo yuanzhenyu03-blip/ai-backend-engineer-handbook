@@ -696,3 +696,41 @@ FAKE-SESSION backfill control flow (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2
 proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. Upload workflow = Day49; Outbox/Celery = Day50/Day55.
 
 Related: [Day48 lesson](../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md) · [Day48 design/runbook](../projects/ai-backend-data-layer/api/day48-alembic-safe-schema-evolution-design.md) · [alembic](../projects/ai-backend-data-layer/api/day48_alembic) · [backfill](../projects/ai-backend-data-layer/api/day48_lease_backfill.py) · [tests](../projects/ai-backend-data-layer/api/test_day48_alembic.py)
+
+---
+
+## Day49 Upload Sessions, Object Storage and Artifact Verification
+
+```text
+Upload success   = storage-layer fact      Verified = business fact + evidence
+Upload Session   = temporary server-owned workflow state (initiated/uploading/verified/failed/expired)
+Presigned URL    = scoped short-lived BEARER credential (replayable until expiry; NOT identity; NOT one-time)
+Bucket+key+version = deterministic immutable identity   (ETag != SHA-256)
+Document         = durable verified INPUT reference (not bytes)
+ResultArtifact   = durable verified OUTPUT reference for a JobAttempt (not bytes)
+```
+
+Rules:
+- Server owns key identity at session creation; filename is untrusted; completion rejects a client-supplied key != persisted key.
+- Verify = frozen EXPECTED (size/sha256/type, frozen before upload) == TRUSTED OBSERVED (inspect storage). NEVER overwrite the expectation; NEVER accept ETag as SHA-256; a missing full-object SHA-256 is a hard mismatch. Mismatch -> failed/quarantine, no Document, no Job.
+- Content/security gates are SEPARATE from byte integrity. Mandatory scan outage = FAIL-CLOSED (keep waiting, bounded backoff, no Document); unsafe = failed/quarantine. 2 GB scan never inside a request tx. Malware-clean != content-trustworthy (prompt injection).
+- Finalization: inspect+verify+scan OUTSIDE db tx -> short guarded UoW creates exactly one Document + flips session verified atomically. Already verified -> return existing. DB commit fail -> re-inspect the same deterministic object, DO NOT re-upload. Stable identity = upload_session_id + guarded transition + UNIQUE(documents.upload_session_id) (NOT Day50's client idempotency key).
+- Completion vs cleanup: serialize on DB state (FOR UPDATE / guarded UPDATE); NEVER hold a DB lock across storage I/O. Cleanup commits expired first, then deletes exact unverified object/version outside the tx; failed delete = recoverable orphan. Verified/documented session is NEVER deleted.
+- Three lifecycles: session expiry (stop accepting completion) | credential expiry (storage stops honoring signature) | cleanup eligibility. cleanup_not_before = credential_expiry + clock_skew + safety_buffer (12:00 + 2m + 1m = 12:03).
+- Multipart (2 GB): upload_id + per-part short creds + bounded parts. Part success = transport progress, NOT a final object, NOT a Document. Timed-out Complete = UNKNOWN: inspect deterministic final object first; absent -> inspect upload_id/parts; never blindly restart. Evidence is a bound tuple, not a checksum string.
+- Output ordering: upload bytes -> verify immutable evidence -> short UoW inserts ResultArtifact+JobEvent + guarded Job succeeded. NEVER mark succeeded before the result reference commits. Crash after verified upload, before DB completion -> inspect object, idempotent guarded completion, DO NOT re-call the paid Provider; missing/inconsistent evidence -> preserve unknown.
+- Provenance: UNIQUE(upload_session_id) = at-most-one Document; composite FK (tenant_id, upload_session_id) ON DELETE RESTRICT = same-tenant provenance (NOT authorization; Day52). No exactly-once across PostgreSQL + Object Storage.
+- Secrets: presigned URL is a bearer secret (TLS-only, redact from logs, never store as Artifact identity); CORS is not authorization; no real creds/buckets/tokens/signed query strings committed.
+
+Least-privilege presigned grant: exact op/method + bucket + EXACT key + expiry + size policy + expected checksum + allowed content-type. Never list/read-other/delete/arbitrary-key/copy/admin/ACL/long-lived creds.
+
+### Weak vs strong (Day49)
+
+Weak: "Storage returned 200, so I create the Document and start the Job."
+Strong: "200 is a storage fact. I verify key/version/size/full-checksum + security against a frozen expectation outside the DB tx, then create exactly one Document in a short guarded UoW. Unknown outcomes are reconciled from the deterministic object, never blindly retried, and I never re-call a paid Provider on recovery."
+
+Schema honesty: published upload_sessions allowlist has NO `verifying`; Day49 keeps the row `uploading` until all gates pass (no Alembic change, no CHECK edit). Adding `verifying` would be a Day48-safe forward branch revision.
+
+Validation: FAKE in-memory Object Storage adapter — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 -> 17 passed; stdlib-only module). **NOT** real presigned/checksum/multipart/versioning semantics, **NOT** PostgreSQL runtime, **NOT** a real Object Storage integration, **NOT** production. Day50 Outbox / Day51 JWT / Day52 authorization / Day55 Celery / real Provider NOT implemented.
+
+Related: [Day49 lesson](../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md) · [Day49 design/runbook](../projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md) · [model](../projects/ai-backend-data-layer/api/day49_upload_verification.py) · [tests](../projects/ai-backend-data-layer/api/test_day49_upload_verification.py)

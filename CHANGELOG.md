@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.96 — Day49 Upload Sessions, Object Storage and Artifact Verification
+
+Date: 2026-08-02
+
+Day: Day49
+
+Lesson title: Upload Sessions, Object Storage and Artifact Verification
+
+### Added
+
+- `docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md` — the Day49 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving the verbatim Chinese/English student answers and the terminology/partial/conceptual-error distinctions.
+- `projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md` — design/runbook (lifecycle + state ownership, single/multipart presigned contracts, deterministic ObjectReference + StoredObjectEvidence, expected/observed verification, content/security boundary, Document + ResultArtifact finalization UoWs, completion/cleanup concurrency, unknown-result reconciliation, cleanup timing + orphan recovery, evidence matrix).
+- `projects/ai-backend-data-layer/api/day49_upload_verification.py` — provider-neutral control-flow model with an in-memory FAKE Object Storage adapter (server-owned key derivation, least-privilege presigned grant contract with no real credential, expected-vs-observed verification, idempotent finalization, cleanup eligibility + recovery classification, multipart unknown-completion recovery, output ResultArtifact recovery).
+- `projects/ai-backend-data-layer/api/test_day49_upload_verification.py` — fake-adapter tests (17 cases).
+- `projects/ai-backend-data-layer/api/requirements-day49.txt` — pinned `pytest==7.4.3` (module + tests are Python-standard-library only).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day49 sections.
+- `projects/ai-backend-data-layer/README.md` — current increment set to Day49, file tree, doc links, and a Day49 increment section (Day48 section left intact).
+- `CURRICULUM.md` (Day49 Planned -> Completed), `ROADMAP.md` (Day49 -> Completed), `PROJECT_STATUS.md` (Day49 completed, Last Completed Lesson, Next = Day50; Day48 block archived), `TASKS.md` (Day49 complete, next = Day50).
+
+### Main learning outcome
+
+Upload success is a storage-layer fact; verified is a business fact backed by evidence. The server owns deterministic object identity (bucket + key + immutable version); a presigned URL is a scoped bearer credential, not identity and not naturally one-time. Verification compares a frozen expected contract with trusted observed evidence and never rewrites it (ETag != SHA-256). Finalization verifies OUTSIDE the DB tx then creates exactly one Document in a short guarded UoW; completion and cleanup serialize on DB state (never a DB lock over storage I/O); `cleanup_not_before = credential_expiry + clock_skew + safety_buffer`. Unknown outcomes (timed-out multipart Complete, crash before DB completion) are reconciled from the deterministic object without re-calling a paid Provider. Content/security gates are separate from byte integrity and fail closed.
+
+### Validation
+
+- Executed: `python3 -m pip install -r requirements-day49.txt`; `python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py`; `python3 -m pytest -q test_day49_upload_verification.py` -> **17 passed** (Python 3.10.12, pytest 7.4.3). Application CONTROL FLOW against an in-memory FAKE Object Storage adapter only.
+- Markdown: Day49 lesson has all 16 required sections in order; changed Markdown fences balanced.
+- Secrets: no real cloud credentials, bucket URLs, tokens, signed query strings, or connection strings; the fake grant string is not shaped like a secret.
+- NOT RUN: real PostgreSQL FK/constraint runtime, real Object Storage (presign/checksum/multipart/versioning) semantics, FastAPI/scanner integration, production validation. Day48 evidence is not inherited as Day49 evidence. Day50 Outbox / Day51 JWT / Day52 authorization / Day55 Celery / a real Provider are not implemented.
+
+---
+
 ## v0.1.95 — Day48 Alembic and Safe AI Backend Schema Evolution
 
 Date: 2026-07-31

@@ -1,0 +1,19 @@
+# Day49 Upload Sessions, Object Storage and Artifact Verification — pinned
+# dependencies for the recorded repository FAKE-ADAPTER test evidence.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day49.txt
+#   python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py
+#   python3 -m pytest -q test_day49_upload_verification.py
+#
+# Runtime scope: the pytest suite exercises APPLICATION CONTROL FLOW against an
+# IN-MEMORY fake Object Storage adapter and an in-memory session/document store
+# (server-owned key identity, expected-vs-observed verification, idempotent
+# finalization, completion/cleanup concurrency, multipart unknown-completion
+# recovery, output ResultArtifact recovery, and the modeled schema invariants). It
+# is NOT proof of real presigned/checksum/multipart/versioning semantics, NOT
+# PostgreSQL runtime, NOT a real S3/Object Storage integration, and NOT production
+# validation. The module + tests use only the Python standard library, so this file
+# pins ONLY the test runner. No cloud SDK, no real credentials, no network.
+pytest==7.4.3

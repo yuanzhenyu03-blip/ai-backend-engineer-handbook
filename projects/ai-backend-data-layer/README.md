@@ -4,18 +4,20 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day48 — Alembic and safe AI backend schema evolution** that makes Day36's Expand ->
-Backfill -> Validate -> Switch -> Contract discipline executable with Alembic over the Day46 mapping and Day47
-boundary, for a Lease-ownership evolution of `app.jobs`: a minimal Alembic control plane (`env.py` + gated
-Expand/Validate/Contract revisions), an operational restartable `FOR UPDATE SKIP LOCKED` backfill kept OFF the
-migration, and the `CHECK ... NOT VALID` (protect future writes) vs `VALIDATE CONSTRAINT` (prove history)
-separation. A migration is a versioned transition across schema, data, and every writer — successful DDL is not
-completion. **REAL static/offline tests were executed** (Alembic revision-graph + migration-source inspection and
-fake-session backfill control flow -> 44 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3;
-deps pinned in `api/requirements-day48.txt`) plus an offline `alembic upgrade --sql` DDL render. This is **not**
-database proof: **PostgreSQL runtime is NOT RUN** (no server; SQLite/fake/`upgrade`-success are not PostgreSQL
-evidence); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN. (See the
-Day47 note below for the prior increment.)
+Current increment: **Day49 — Upload Sessions, Object Storage and Artifact verification** that turns large external
+bytes into deterministic, verified, recoverable database references without confusing Object Storage success,
+content safety, and durable business truth. A provider-neutral control-flow model (`day49_upload_verification.py`)
+with a fake in-memory Object Storage adapter covers server-owned key identity, expected-vs-observed verification
+(never rewrite the expectation; ETag != SHA-256), a fail-closed content/security gate, idempotent Document
+finalization, completion-vs-cleanup concurrency + the three expiry lifecycles, multipart unknown-completion
+recovery, and output ResultArtifact recovery without re-calling a paid Provider. **REAL fake-adapter tests were
+executed** (application control flow only; Python 3.10.12, pytest 7.4.3 -> 17 passed; the module + tests are
+Python-standard-library only; deps pinned in `api/requirements-day49.txt`). This is **not** storage/database proof:
+**PostgreSQL runtime, real Object Storage (presign/checksum/multipart/versioning), FastAPI/scanner integration, and
+production are NOT RUN**; Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery, and a real Provider are not
+implemented. Schema honesty: the published `upload_sessions` status allowlist has no `verifying`, so Day49 keeps the
+row `uploading` until all gates pass — **no Alembic change** and no CHECK edit. (See the Day48 note below for the
+prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
@@ -73,6 +75,7 @@ Lessons:
 - Day46 (SQLAlchemy mapping): [`docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md`](../../docs/fastapi/day46-sqlalchemy-mapping-for-the-day42-data-model.md)
 - Day47 (async sessions/tx/UoW): [`docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md`](../../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md)
 - Day48 (Alembic safe evolution): [`docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md`](../../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md)
+- Day49 (verified upload boundary): [`docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md`](../../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md)
 
 ---
 
@@ -104,7 +107,11 @@ projects/ai-backend-data-layer/
 │   ├── day48_alembic/                                  # Day48: Alembic control plane (env.py + gated Expand/Validate/Contract revisions)
 │   ├── day48_lease_backfill.py                         # Day48: operational restartable FOR UPDATE SKIP LOCKED backfill (off the migration)
 │   ├── test_day48_alembic.py                           # Day48: static Alembic + fake-session backfill tests (executed: 44 passed)
-│   └── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
+│   ├── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
+│   ├── day49-upload-object-storage-and-artifact-verification-design.md  # Day49: verified upload boundary design/runbook
+│   ├── day49_upload_verification.py                    # Day49: provider-neutral upload/verify control-flow model + fake in-memory adapter
+│   ├── test_day49_upload_verification.py               # Day49: fake-adapter tests (executed: 17 passed)
+│   └── requirements-day49.txt                          # Day49: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -166,6 +173,46 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day49 increment — verified Object Storage upload boundary
+
+`api/day49-upload-object-storage-and-artifact-verification-design.md` (with a runnable
+`day49_upload_verification.py` and `test_day49_upload_verification.py`) turns large external bytes into
+deterministic, verified, recoverable database references. The tests are **real, executed** against a **fake
+in-memory Object Storage adapter** — **application control flow only**: **Python 3.10.12, pytest 7.4.3 ->
+`17 passed`** (the module + tests are Python-standard-library only; deps pinned in `api/requirements-day49.txt`).
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Mental model | upload success = storage-layer fact; verified = business fact + evidence. Presigned URL = scoped bearer credential (replayable until expiry, not identity, not one-time). `bucket + key + immutable version` = deterministic identity. Document = verified INPUT reference; ResultArtifact = verified OUTPUT reference (neither is the bytes). |
+| Server-owned identity | `derive_object_key(tenant_id, upload_session_id)`; the filename is untrusted; `finalize_upload` returns `REJECTED_KEY` if the client key != the persisted key. |
+| Verification | `verify_object(expected, observed)` compares a **frozen** expected contract with **trusted observed** evidence; never rewrites the expectation; requires an immutable version + size + a trustworthy full-object SHA-256; **ETag is not accepted as SHA-256**. |
+| Security gate | separate from byte integrity; a mandatory scanner outage is **fail-closed** (`SCAN_RETRY_LATER`, session stays `uploading`, no Document); unsafe content -> `SCAN_FAILED`/quarantine. |
+| Finalization UoW | inspect + verify + scan OUTSIDE a DB tx -> short guarded UoW creates exactly one Document + flips the session `verified` atomically; already verified -> return the existing Document; a lost race hitting `UNIQUE(upload_session_id)` collapses to `ALREADY_VERIFIED`. |
+| Completion vs cleanup | `classify_cleanup` keeps a verified/documented session (`KEEP_VERIFIED`/`KEEP_HAS_DOCUMENT`) and is `KEEP_TOO_EARLY` before `cleanup_not_before = credential_expiry + clock_skew + safety_buffer` (12:00 + 2m + 1m = 12:03). Never hold a DB lock across storage I/O. |
+| Multipart recovery | `classify_multipart_completion` -> `COMPLETE_SUCCEEDED` / `FINAL_OBJECT_MISMATCH` / `RECOVER_FROM_PARTS` / `PARTS_NOT_ASSEMBLED`; parts are transport progress, not a Document; a timed-out Complete inspects the deterministic final object before any retry. |
+| Output recovery | `classify_result_recovery` -> `COMPLETE_IDEMPOTENT_NO_PROVIDER` / `PRESERVE_UNKNOWN` / `ALREADY_COMPLETED`; never re-call a paid Provider on recovery. |
+| Provenance | modeled `UNIQUE(upload_session_id)` (`DuplicateDocumentError`) + composite FK `(tenant_id, upload_session_id)` (`ProvenanceError`); authorization is Day52, not here. |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day49.txt   # pytest==7.4.3 (module + tests are stdlib-only)
+python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py
+python3 -m pytest -q test_day49_upload_verification.py
+```
+
+> **What this increment deliberately does not do:** it uses a **fake in-memory** adapter, so it proves application
+> control flow only. **NOT RUN:** real PostgreSQL FK/constraint runtime, real Object Storage
+> (presign/checksum/multipart/versioning) semantics, FastAPI/scanner integration, and production. It does not
+> implement Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery, or a real Provider, and uses no real
+> credentials/buckets/tokens/signed URLs. Schema honesty: the published `upload_sessions` allowlist has no
+> `verifying`, so the session stays `uploading` until all gates pass — **no Alembic change, no CHECK edit**.
 
 ---
 

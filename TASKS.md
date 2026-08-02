@@ -10,13 +10,13 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day48 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day49 completed)
 
 ---
 
 ## Current Lesson
 
-Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4)
+Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4)
 
 Status:
 Planned / Not started
@@ -33,11 +33,12 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 - [x] Complete Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4) — lesson, mapping design + runnable code/static tests (executed: 20 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day47 Async Sessions, Transactions, Repository and Unit of Work (Phase 4) — lesson, async persistence-boundary design + runnable code/fake-session tests (executed: 23 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day48 Alembic and Safe AI Backend Schema Evolution (Phase 4) — lesson, Alembic control-plane design/runbook + runnable revisions/backfill/static tests (executed: 44 passed + offline `--sql` render; revision chain split into pure Expand + a separate constraint revision; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
-- [ ] Prepare for Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4; see the Day49 Preparation block below).
+- [x] Complete Day49 Upload Sessions, Object Storage and Artifact Verification (Phase 4) — lesson, verified-upload-boundary design/runbook + runnable provider-neutral fake-adapter model/tests (executed: 17 passed, application control flow only; real PostgreSQL/Object Storage/integration/production NOT RUN; no schema/Alembic change — session stays `uploading` until all gates pass), FastAPI cheat-sheet/interview appends, README increment, and status updates.
+- [ ] Prepare for Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
 (Day29-Day45 are complete; their work is recorded under the Completed Day** sections and the corresponding
-Preparation history blocks. Phase 4 is in progress; Day49 is next.)
+Preparation history blocks. Phase 4 is in progress; Day50 is next.)
 
 ---
 

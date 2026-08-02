@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day48 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day49 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -14,10 +14,10 @@ Phase 3 — Backend Foundations (Complete)
 Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4)
 
 Status:
-Planned / Not started
+✅ Completed
 
-(The Day49 lesson has not started and no Day49 lesson file exists yet; see CURRICULUM.md and ROADMAP.md.
-Day48 is recorded under Last Completed Lesson.)
+(The Day49 lesson, design/runbook, runnable fake-adapter model + tests, and status files are coherent; see
+CURRICULUM.md and ROADMAP.md. Day50 is the next lesson.)
 
 ---
 
@@ -71,6 +71,7 @@ Day48 is recorded under Last Completed Lesson.)
 - ✅ Day46 — SQLAlchemy 2.0 Mapping for the Day42 Data Model
 - ✅ Day47 — Async Sessions, Transactions, Repository and Unit of Work
 - ✅ Day48 — Alembic and Safe AI Backend Schema Evolution
+- ✅ Day49 — Upload Sessions, Object Storage and Artifact Verification
 
 ---
 
@@ -81,6 +82,31 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day49 — Upload Sessions, Object Storage and Artifact Verification
+
+Completed Time:
+2026-08-02
+
+Main Artifact:
+Day49 verified Object Storage upload boundary (projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md) with a runnable provider-neutral control-flow model (day49_upload_verification.py) using a fake in-memory Object Storage adapter, plus test_day49_upload_verification.py: server-owned deterministic key identity (client key cannot override the persisted key); expected-vs-observed verification that never rewrites the frozen expectation and never accepts an ETag as a SHA-256 (a missing full-object SHA-256 is a hard mismatch); a fail-closed content/security gate (scanner outage keeps the session uploading with no Document; unsafe content is quarantined); idempotent Document finalization (external verification outside the DB tx -> short guarded UoW creates exactly one Document via the modeled UNIQUE(documents.upload_session_id) + guarded transition; already-verified retry returns the same Document; a DB commit failure re-inspects the same deterministic object rather than re-uploading); completion-vs-cleanup concurrency with three distinct expiry lifecycles (cleanup_not_before = credential_expiry + clock_skew + safety_buffer, e.g. 12:00 + 2m + 1m = 12:03) and never a DB lock held across storage I/O; multipart unknown-completion recovery (parts are transport progress not a Document; a timed-out Complete inspects the deterministic final object first); output ResultArtifact ordering + crash recovery without re-calling a paid Provider; and tenant provenance modeled by the composite FK (tenant_id, upload_session_id) as distinct from UNIQUE. Schema honesty: the published upload_sessions allowlist has no verifying, so the row stays uploading until all gates pass — no Alembic change, no CHECK edit.
+
+Validation Boundary:
+Day49 has REAL executed FAKE-ADAPTER evidence (application control flow only). Executed: python3 -m pip install -r requirements-day49.txt; python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py (passed); python3 -m pytest -q test_day49_upload_verification.py -> 17 passed (Python 3.10.12, pytest 7.4.3; the module + tests are Python-standard-library only, pinned in projects/ai-backend-data-layer/api/requirements-day49.txt). These prove APPLICATION CONTROL FLOW against an in-memory fake Object Storage adapter only. NOT RUN: real PostgreSQL FK/constraint runtime (SQLAlchemy metadata inspection proves declaration, not FK behavior); real Object Storage presign/checksum/multipart/versioning semantics (fake adapter tests prove control flow, not storage semantics); FastAPI/scanner integration; production validation. Boundary preserved: upload success is a storage-layer fact, not a verified business fact; the server owns object identity; verification compares a frozen expected contract with trusted observed evidence and never rewrites it; no exactly-once across PostgreSQL and Object Storage; unknown outcomes are reconciled from evidence and a paid Provider is never re-called on recovery. Day48 evidence is NOT inherited as Day49 evidence. Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery, and a real Provider are not implemented.
+
+Completed Work:
+
+- Day49 classroom learning
+- Day49 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved)
+- Day49 design/runbook + runnable provider-neutral fake-adapter model + tests (executed: 17 passed) and project README increment
+- Day49 storage-success-vs-verified, server-owned identity, presigned-not-one-time, expected-vs-observed, Document-vs-Upload-Session, fail-closed scan, completion-vs-cleanup, multipart-unknown-completion, output-ordering, tenant-provenance, and evidence-level exercises
+- Day49 FastAPI cheat sheet append
+- Day49 FastAPI interview notes append
+- Day49 repository status update
+
+---
+
+## Superseded — Day48 Last Completed Lesson (archived)
 
 Day48 — Alembic and Safe AI Backend Schema Evolution
 
@@ -106,7 +132,7 @@ Completed Work:
 
 ## Next
 
-- Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4 — Production AI API Engineering)
+- Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4 — Production AI API Engineering)
 
 Status:
 Planned / Not started

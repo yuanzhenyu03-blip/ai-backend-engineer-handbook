@@ -861,3 +861,81 @@ Validation: REAL static/offline evidence executed (Alembic revision-graph + migr
 fake-session backfill control flow -> 44 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3)
 plus an offline `alembic upgrade --sql` DDL render. PostgreSQL runtime NOT RUN (SQLite/fake/`upgrade`-success are
 not PostgreSQL proof); FastAPI/Worker integration, real Provider, Object Storage, and production migration NOT RUN.
+
+---
+
+## Day49 — Upload Sessions, Object Storage and Artifact Verification
+
+Key vocabulary: presigned URL, bearer credential, bucket, object key, immutable version, ETag vs full-object
+checksum, Upload Session, Document, ResultArtifact, idempotent finalization, guarded transition, fail-closed,
+multipart upload, abort incomplete multipart, reconciliation, composite foreign key, tenant provenance.
+
+### Q1 (Beginner) — What is a presigned URL, and can you trust the upload once it returns success?
+
+Weak answer: "The client uploaded the file and storage returned 200, so the file is ready to use."
+
+Strong answer: "A presigned URL grants temporary, limited permission to upload an object to a server-defined
+storage location without exposing long-lived credentials. Before creating a Document, the backend must verify that
+the stored object has the expected key, version, size, and checksum, and that it passes the required security
+checks. An upload response alone does not prove the object is safe or suitable for business use."
+
+### Q2 (Intermediate) — How do you finalize an upload safely and idempotently?
+
+Strong answer: "I inspect and verify the immutable object outside the database transaction, comparing trusted
+observed evidence against an expectation frozen before upload — I never rewrite the expectation and never treat an
+ETag as a SHA-256. Then I open a short transaction, lock and re-read the Upload Session, create exactly one
+Document, and mark the session verified in the same commit. A retry that finds the session already verified returns
+the existing Document; a unique constraint on the upload session ID plus a guarded transition prevents duplicates.
+If the database commit fails, I re-verify the same deterministic object instead of re-uploading it."
+
+Follow-up: "Why not a client idempotency key here?" — "That is Day50's Job-acceptance concern; Day49's stable
+identity is the upload_session_id plus the guarded transition and the unique constraint."
+
+### Q3 (Intermediate) — Completion and cleanup race on the same session. How do you keep them safe?
+
+Strong answer: "I serialize them on the database state with `SELECT ... FOR UPDATE` or a guarded UPDATE, and I never
+hold a database lock across slow Object Storage I/O. If completion commits verified plus a Document first, cleanup's
+eligible-state predicate affects zero rows and must not delete the object. If cleanup commits expired first,
+completion's final guarded check fails and creates no Document. Cleanup commits the durable decision first, then
+deletes the exact unverified object/version outside the transaction; a failed delete leaves a recoverable orphan,
+not a dangling verified fact."
+
+Follow-up: "URL expires 12:00, 2-minute skew, 1-minute buffer — earliest delete?" — "12:03: credential expiry plus
+clock skew plus safety buffer."
+
+### Q4 (Senior) — Recover an unknown multipart completion while the malware scanner is down.
+
+Weak answer: "The Complete call timed out, so I restart the upload and skip the scan to keep moving."
+
+Strong answer: "I first inspect the deterministic object reference to determine whether the multipart completion
+actually succeeded; I do not restart the upload just because the response timed out. If the final object exists, I
+verify its version, size, and checksum and preserve it for scanning. Because the scanner is unavailable, I fail
+closed: the session stays in a verification state, no Document is created, and scanning is retried with bounded
+backoff. The cleanup worker uses a guarded transition and must not delete an object that is being verified or has
+already produced a Document. After the scanner succeeds, I finalize in a short transaction with a unique constraint
+and a guarded transition. Unknown outcomes are reconciled from evidence instead of blindly retrying external side
+effects — and I never re-call the paid Provider on recovery."
+
+### Q5 (Senior) — Output ordering: mark the Job succeeded first, or write the result object first?
+
+Strong answer: "Write and verify the output object first, then in a short unit of work insert the ResultArtifact
+and JobEvent and guardedly mark the Job succeeded. Marking succeeded first can publish a false fact when the result
+is absent. External-first can leave a recoverable orphan on a DB failure — recovered deterministically by key,
+version, checksum, and Attempt correlation — which is strictly safer than a false success. On a crash after the
+verified upload but before completion, I inspect the object and do an idempotent guarded completion without calling
+the Provider again; if evidence is missing or inconsistent, I preserve the unknown/recovery state."
+
+Production scenario / trade-off prompt: "UNIQUE vs composite FK for tenant provenance?" — "UNIQUE(upload_session_id)
+guarantees at most one Document per session; same-tenant provenance needs the composite FK (tenant_id,
+upload_session_id). The composite FK is relationship integrity, not authorization — that is Day52."
+
+Validation: FAKE in-memory Object Storage adapter tests — application CONTROL FLOW only (Python 3.10.12,
+pytest 7.4.3 -> 17 passed). NOT real presigned/checksum/multipart/versioning semantics, NOT PostgreSQL runtime,
+NOT a real Object Storage integration, NOT production. Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery,
+and a real Provider are not implemented.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day49), the
+[Day49 lesson](../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md), the
+[Day49 design/runbook](../projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md),
+the [model](../projects/ai-backend-data-layer/api/day49_upload_verification.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day49_upload_verification.py).
