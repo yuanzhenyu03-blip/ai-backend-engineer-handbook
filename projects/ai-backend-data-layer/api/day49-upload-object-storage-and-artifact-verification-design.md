@@ -29,7 +29,7 @@ semantics, NOT real PostgreSQL FK/constraint/**transaction atomicity**, and NOT 
 Three distinct claims are kept separate throughout: **Conceptual Artifact**, **Static/Fake-adapter Verification**,
 and **Real Runtime Verification** (the last is NOT RUN). Day48's evidence is NOT inherited as Day49 evidence.
 
-Executed: `python3 -m pytest -q test_day49_upload_verification.py` -> **35 passed**
+Executed: `python3 -m pytest -q test_day49_upload_verification.py` -> **44 passed**
 (Python 3.10.12, pytest 7.4.3; the module + tests are Python-standard-library only).
 
 ---
@@ -97,17 +97,26 @@ Hardened guards (review round 1):
 
 - **Legal-state guard** — `finalize_upload` proceeds only from `uploading` or `verifying`; `initiated`, `failed`,
   `expired` (including a row a cleanup worker already claimed) are rejected (`ILLEGAL_STATE`).
-- **Expiry re-check** — a hard session expiry stops completion in any state; credential expiry stops an `uploading`
-  session that has not begun verifying (a `verifying` row already has an uploaded object and continues, bounded by
-  session expiry).
-- **Verification hold** — a transient scanner outage moves the row to `verifying` with `verification_hold_until =
-  now + hold_ttl`; `classify_cleanup` returns `KEEP_VERIFICATION_HOLD` while the hold is live, so cleanup cannot
-  delete an object a live verifier is still retrying. A dead verifier (hold deadline passed, not renewed, past the
-  timing gate) is reclaimable — bounded, so a transient outage never becomes a permanent business failure while a
-  live retry loop is always protected.
-- **Deterministic race** — `claim_cleanup` commits the durable `expired` decision FIRST and only then returns the
-  exact reference to delete; a completion that races it then sees `ILLEGAL_STATE`. Whoever commits its guarded DB
-  decision first wins.
+- **Expiry re-check (Finding 3)** — a hard **workflow** `session_expires_at` stops completion in any state. A
+  **credential** expiry does NOT by itself invalidate an object that was already uploaded: after credential expiry
+  but before session expiry, completion inspects the server-owned bucket/key and, if the object exists and matches
+  the frozen contract, binds the version, scans and completes; if the object is absent it returns
+  `UPLOAD_WINDOW_EXPIRED` (credential closed, nothing arrived) or `OBJECT_NOT_FOUND` (credential still valid) — it
+  never fabricates a Document.
+- **Verification lease (fencing)** — BEFORE scanning, a guarded CAS (`claim_verification`) takes a lease with an
+  owner/fencing token + `verification_hold_until` and binds the exact version. The scanner runs with NO DB lock
+  held; `classify_cleanup` returns `KEEP_VERIFICATION_HOLD` while the lease is live, so a slow-but-normal scan is
+  protected (not only a scanner outage). A dead verifier (deadline passed, not renewed, past the timing gate) is
+  bounded-reclaimable, so a transient outage never becomes a permanent business failure while a live retry is
+  always protected.
+- **Guarded commit (fencing)** — after the scan, `commit_document_if_owner` re-reads and commits ONLY if still
+  `VERIFYING`, still owned by this token, not session-expired, and cleanup has not won; a stale worker gets
+  `lease_lost` and a cleanup-won row gets `cleanup_won`. `EXPIRED` is never flipped back to `VERIFIED`.
+- **Deterministic race (proven by interleaving control-flow tests)** — `claim_cleanup` commits the durable
+  `expired` decision FIRST, then returns the exact-version reference; a completion that races it is refused at the
+  guarded commit. Determinism is demonstrated by tests whose scanner double calls `claim_cleanup` mid-scan (cleanup
+  wins vs completion wins vs live-lease-blocks-cleanup). This is fake-adapter control-flow evidence, NOT real DB
+  fencing/`SELECT ... FOR UPDATE`.
 
 Schema-honesty decision (updated after review round 1): the published `upload_sessions` status allowlist is
 `initiated/uploading/verified/failed/expired` with **no** `verifying` state. The hardened model needs a
@@ -206,16 +215,20 @@ failure. Permanent malicious/invalid content is failed/quarantined (`SCAN_FAILED
 
 ## 7. Document + ResultArtifact finalization UoWs
 
-**Input (Document).** Object Storage inspection + scanning happen outside a DB transaction. Finalization first
-applies the **legal-state guard** and **expiry re-check** (section 2), rejects any client-supplied bucket/key/version
-(section 3), inspects+verifies the EXACT server-owned reference, scans, and only then opens the short UoW. That UoW
-(`InMemoryStore.finalize_document_and_verify`) creates exactly one Document AND flips the session to `verified`
-**atomically** — all validation + object construction happen before any mutation, then a single commit block applies
-both facts with no intervening failure point, so a failure before commit leaves NEITHER (see the atomicity test).
-This models transactional atomicity; it is **not** proof of real PostgreSQL transaction behavior. If already
-verified, return the existing Document. Natural stable identity = `upload_session_id` + guarded transition +
-`UNIQUE(documents.upload_session_id)` — distinct from Day50's tenant-scoped client idempotency key. A DB commit
-failure does **not** justify re-uploading bytes: retry re-inspects the same deterministic immutable object and
+**Input (Document).** Finalization applies the **legal-state guard** and workflow-expiry re-check (section 2),
+rejects any client-supplied bucket/key/version (section 3), inspects+verifies the EXACT server-owned reference, then
+takes a **verification lease** and **binds the exact version BEFORE scanning** via a guarded compare-and-set
+(`InMemoryStore.claim_verification`: owner/fencing token + `verification_hold_until`, version bound unbound->observed).
+The scanner runs with **no DB lock held**; a live lease keeps cleanup out. After the scan the clock is re-read and a
+second guarded CAS (`InMemoryStore.commit_document_if_owner`) creates exactly one Document AND flips the session to
+`verified` **atomically** — but ONLY if the row is still `VERIFYING`, still owned by this token, not
+session-expired, and cleanup has not won; otherwise it refuses (`lease_lost` / `cleanup_won` / `session_expired`)
+and NEVER flips `EXPIRED` back to `VERIFIED`. All validation + object construction precede the single commit block,
+so a failure before commit leaves NEITHER fact (atomicity test). This models transactional atomicity + fencing; it
+is **not** proof of real PostgreSQL behavior. If already verified, return the existing Document. Natural stable
+identity = `upload_session_id` + guarded transition + `UNIQUE(documents.upload_session_id)` — distinct from Day50's
+tenant-scoped client idempotency key. A DB commit failure does **not** justify re-uploading bytes: retry re-inspects
+the same deterministic immutable object (the bound version) and
 retries only the short DB finalization.
 
 **Output (ResultArtifact).** Correct ordering: upload output bytes -> verify immutable Object Storage evidence ->
@@ -243,10 +256,14 @@ Both compete on the same Upload Session DB state via `SELECT ... FOR UPDATE` or 
   orphan rather than a dangling verified fact.
 
 `classify_cleanup` never returns `DELETE_ORPHAN` for a `verified` session (`KEEP_VERIFIED`), one that already
-produced a Document (`KEEP_HAS_DOCUMENT`), or one with a **live verification hold** (`KEEP_VERIFICATION_HOLD`), and
-returns `KEEP_TOO_EARLY` before `cleanup_not_before`. `claim_cleanup` commits the durable `expired` decision FIRST
-and only then returns the exact reference to delete, so a racing completion then sees `ILLEGAL_STATE` — the race is
-deterministic (first guarded DB commit wins).
+produced a Document (`KEEP_HAS_DOCUMENT`), or one with a **live verification lease** (`KEEP_VERIFICATION_HOLD`), and
+returns `KEEP_TOO_EARLY` before `cleanup_not_before`. `claim_cleanup` commits the durable `expired` decision FIRST,
+then resolves the EXACT version to delete: it uses the bound version, or (if unbound) inspects the server-owned
+bucket/key for the exact observed version and PERSISTS that binding — so its returned `CleanupClaim` always carries
+a usable exact version (`DELETE_EXACT_VERSION`) or reports `NO_OBJECT_PRESENT`, never a `version=None` delete. The
+delete itself is a separate `execute_cleanup_delete` whose result is reconciliation-honest: `DELETED`, or
+`VERSION_ABSENT_RECONCILE` when the exact version is already gone (never a false "deleted"). A racing completion is
+refused at the guarded commit — determinism is proven by the interleaving control-flow tests.
 
 Integrated race (Exercise 21): concurrent completion A/B, response lost after A commits, cleanup racing. B
 re-reads and returns the existing Document; cleanup's guarded eligible-state UPDATE affects zero rows and does not
@@ -276,8 +293,9 @@ idempotent guarded completion + reconciliation.
 provenance. The existing Day31 design uses parent candidate key `UNIQUE(tenant_id, upload_session_id)` plus a child
 composite FK `FOREIGN KEY (tenant_id, upload_session_id) REFERENCES upload_sessions(...)` `ON DELETE RESTRICT`.
 Composite FK = persistent relationship integrity, **not** request authorization (Day52 supplies authorization).
-The in-memory `InMemoryStore.finalize_document_and_verify` models both invariants (`DuplicateDocumentError`,
-`ProvenanceError`) inside the atomic finalize UoW.
+The in-memory store models both invariants: `UNIQUE(documents.upload_session_id)` inside the guarded
+`commit_document_if_owner` CAS (`DuplicateDocumentError`), and the composite FK via `assert_document_provenance`
+(`ProvenanceError`).
 
 ---
 
@@ -297,10 +315,11 @@ leaves a recoverable orphan (inventory/reconciliation later), never a dangling v
 |---|---|---|
 | Conceptual design | COMPLETED | this runbook + lesson |
 | Static file checks | RUN | `py_compile` module + tests |
-| Fake Object Storage runtime | RUN | in-memory adapter, 35 pytest cases (control flow only) |
-| Atomic Document+verify UoW | MODELED (RUN) | in-memory all-or-nothing with a mid-transaction failure test — control flow, not real tx atomicity |
-| Verification hold / cleanup race | MODELED (RUN) | `VERIFYING` + `verification_hold_until`; hold/retry/claim tests |
-| Create-only + version-history adapter | MODELED (RUN) | create-only PUT, exact-version inspect/delete tests |
+| Fake Object Storage runtime | RUN | in-memory adapter, 44 pytest cases (control flow only) |
+| Atomic + fenced commit UoW | MODELED (RUN) | guarded CAS `commit_document_if_owner` (owner token + state + expiry), mid-transaction failure test — control flow, not real tx atomicity/fencing |
+| Verification lease + completion/cleanup interleaving | MODELED (RUN) | `claim_verification` (owner/hold) + interleaving tests: cleanup-wins, completion-wins, live-lease-blocks-cleanup, stale-lease-refused, retry-renews, dead-verifier-reclaim |
+| Exact version bound before scan + version-safe delete | MODELED (RUN) | version bound in `claim_verification`; `claim_cleanup` returns exact version; `execute_cleanup_delete` exact-version/reconcile tests |
+| Credential vs session vs cleanup timing (Finding 3) | MODELED (RUN) | complete-after-credential-expiry, upload-window-expired, session-expiry-blocks, boundary tests |
 | Real PostgreSQL FK/constraint/tx-atomicity runtime | NOT RUN | needs a server + async driver + Day42 raw SQL + a `verifying`-status forward migration |
 | Real Object Storage (presign/checksum/multipart/versioning) | NOT RUN | needs an S3-compatible endpoint |
 | FastAPI/scanner integration | NOT RUN | no request-layer wiring executed |

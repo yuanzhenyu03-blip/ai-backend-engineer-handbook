@@ -12,8 +12,8 @@ Prerequisite: Day48 — Alembic and Safe AI Backend Schema Evolution
 Previous Lesson: Day48 — Alembic and Safe AI Backend Schema Evolution
 Next Lesson: Day50 — Idempotent Job Acceptance and Atomic Job/Outbox Intent
 Engineering Artifact: projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md
-  + runnable day49_upload_verification.py + test_day49_upload_verification.py (fake in-memory adapter; 35 passed,
-  hardened after Codex review round 1)
+  + runnable day49_upload_verification.py + test_day49_upload_verification.py (fake in-memory adapter; 44 passed,
+  hardened after Codex review rounds 1-2)
 ```
 
 Main engineering artifact: a provider-neutral upload-verification control-flow model with a fake in-memory Object
@@ -292,8 +292,18 @@ idempotency key solves a different problem (Job acceptance); don't conflate them
 session in `uploading` or `verifying` may proceed; `initiated`, `failed`, `expired` (including a row a cleanup
 worker already claimed) are rejected (`ILLEGAL_STATE`); and session/credential expiry is re-checked at finalize
 time (`SESSION_EXPIRED`). The Document-create and the `verified` transition are one **atomic** UoW
-(`finalize_document_and_verify`): a failure before commit leaves NEITHER fact — modeled in-memory (control flow),
+(`commit_document_if_owner`, a guarded compare-and-set fenced by the verification owner token): a failure before
+commit leaves NEITHER fact — modeled in-memory (control flow),
 not a claim of real PostgreSQL transaction atomicity.
+
+**Hardened further (review round 2):** the completion path is now **lease-fenced**. BEFORE the (slow) scanner
+runs, a guarded compare-and-set (`claim_verification`) takes a verification lease — an owner/**fencing token** plus
+a `verification_hold_until` — and **binds the exact object version** (so a scanner-outage retry, and cleanup, all
+use the same version, never "the latest"). The scan holds **no DB lock**, but cleanup sees the live lease and
+refuses. After the scan, `commit_document_if_owner` re-reads and commits ONLY if the row is still `verifying`,
+still owned by this token, not session-expired, and cleanup has not won — otherwise it returns `lease_lost` or
+`cleanup_won` and **never flips `expired` back to `verified`**. A stale/paused worker whose token was superseded
+cannot commit.
 
 **Engineering Thinking:** Idempotency comes from deterministic identity + a guarded transition, not from
 re-doing expensive external work.
@@ -323,7 +333,7 @@ external effect.
 **Hardened (review round 1):** cleanup also recognizes a **verification hold** — a session in `verifying` with a
 live `verification_hold_until` returns `KEEP_VERIFICATION_HOLD` and is never deleted while a live verifier is
 retrying. `claim_cleanup` commits the durable `expired` decision FIRST and only then returns the exact reference to
-delete, so a racing completion then sees `ILLEGAL_STATE` — the race is deterministic (first guarded DB commit wins).
+delete, so a racing completion is refused at the guarded commit — the race is deterministic **in the model, proven by interleaving fake-adapter tests** (a scanner double calls `claim_cleanup` mid-scan): cleanup-wins, completion-wins, and live-lease-blocks-cleanup. This is control-flow evidence, not real DB `SELECT ... FOR UPDATE` fencing.
 
 **Framework Connection:** `classify_cleanup` returns `KEEP_VERIFIED`/`KEEP_HAS_DOCUMENT`/`KEEP_VERIFICATION_HOLD`
 and `KEEP_TOO_EARLY` before the timing gate; `claim_cleanup` performs the guarded durable claim.
@@ -345,7 +355,15 @@ skew + buffer). Session expiry must not precede credential expiry.
 **Engineering Thinking:** Distributed clocks and in-flight credentials mean "expired" is a window, not an instant;
 buffers prevent deleting an object a late-but-valid write is still producing.
 
-**Framework Connection:** `cleanup_not_before(credential_expires_at, max_clock_skew, safety_buffer)`.
+**Hardened (review round 2, Finding 3):** credential expiry is **not** stored-object invalidation. If the object
+was uploaded before the presigned credential expired, a completion arriving after credential expiry but before
+**session** expiry still inspects the server-owned bucket/key and, if the object matches the frozen contract, binds
+the version, scans and completes (`CREATED`). If no object is present it returns `UPLOAD_WINDOW_EXPIRED` (credential
+closed, nothing arrived) or `OBJECT_NOT_FOUND` (credential still valid) — never a fabricated Document. Only the
+**workflow** `session_expires_at`, or a cleanup that has won the guarded claim, stops completion.
+
+**Framework Connection:** `cleanup_not_before(credential_expires_at, max_clock_skew, safety_buffer)`; finalize
+returns `UPLOAD_WINDOW_EXPIRED` / `OBJECT_NOT_FOUND` / `SESSION_EXPIRED` / `CLEANUP_WON` for the distinct cases.
 
 ---
 
@@ -425,7 +443,7 @@ provenance. The existing Day31 design carries that with a **composite FK** `(ten
 REFERENCES upload_sessions(...)` `ON DELETE RESTRICT`. Composite FK = persistent relationship integrity, not
 request authorization (Day52 does authorization).
 
-**Framework Connection:** `InMemoryStore.create_document` raises `DuplicateDocumentError` (UNIQUE) and
+**Framework Connection:** `InMemoryStore.commit_document_if_owner` raises `DuplicateDocumentError` (UNIQUE) and `assert_document_provenance` raises
 `ProvenanceError` (composite FK) — modeled, not real PostgreSQL FK proof.
 
 ---
@@ -603,8 +621,12 @@ Follow-up: why is no DB lock held across the storage delete?
 - **PostgreSQL / SQLAlchemy** — durable session/document/artifact facts; `UNIQUE(documents.upload_session_id)`;
   the composite tenant-aware FK; guarded transitions; short UoWs (Day47). Metadata inspection proves declaration,
   not real FK behavior.
-- **Alembic** — any new state/columns/constraints follow Day48 safe **forward** evolution (branch + merge if
-  needed); no revision-history rewrite; no destructive Contract auto-crossed. Day49 deliberately needs none.
+- **Alembic** — the hardened model adds a `verifying` state, a verification owner/lease token, a
+  `verification_hold_until` deadline, and a bound object version. The published `upload_sessions` schema has none of
+  these, so the **real** schema needs a **Day48-safe forward migration** (a `verifying` status + owner/hold columns
+  via a branch revision, or a verification-lease table, plus a bound-version column) — following Day48's
+  branch+merge, with no revision-history rewrite and no destructive Contract auto-crossed. That migration is **not**
+  implemented here; the states/lease/version are **modeled in-memory** only, so no real PostgreSQL runtime is claimed.
 - **Object Storage** — bucket/key/version, presigned credentials, metadata/full checksum, multipart, abort,
   versioning, lifecycle, inventory, and external-side-effect recovery. A presigned URL is a bearer credential,
   never Artifact identity.
@@ -754,5 +776,5 @@ Engineering artifact + runbook:
 [`projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md`](../../projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md).
 Runnable model: [`day49_upload_verification.py`](../../projects/ai-backend-data-layer/api/day49_upload_verification.py);
 tests: [`test_day49_upload_verification.py`](../../projects/ai-backend-data-layer/api/test_day49_upload_verification.py)
-(fake in-memory adapter; **35 passed**; Python 3.10.12, pytest 7.4.3). PostgreSQL / Object Storage / integration /
+(fake in-memory adapter; **44 passed**; Python 3.10.12, pytest 7.4.3). PostgreSQL / Object Storage / integration /
 production validation: **NOT RUN**.

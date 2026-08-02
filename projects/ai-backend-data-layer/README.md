@@ -11,7 +11,7 @@ with a fake in-memory Object Storage adapter covers server-owned key identity, e
 (never rewrite the expectation; ETag != SHA-256), a fail-closed content/security gate, idempotent Document
 finalization, completion-vs-cleanup concurrency + the three expiry lifecycles, multipart unknown-completion
 recovery, and output ResultArtifact recovery without re-calling a paid Provider. **REAL fake-adapter tests were
-executed** (application control flow only; Python 3.10.12, pytest 7.4.3 -> 35 passed, hardened after Codex review round 1; the module + tests are
+executed** (application control flow only; Python 3.10.12, pytest 7.4.3 -> 44 passed, hardened after Codex review rounds 1-2; the module + tests are
 Python-standard-library only; deps pinned in `api/requirements-day49.txt`). This is **not** storage/database proof:
 **PostgreSQL runtime, real Object Storage (presign/checksum/multipart/versioning), FastAPI/scanner integration, and
 production are NOT RUN**; Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery, and a real Provider are not
@@ -110,7 +110,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day48.txt                          # Day48: pinned deps (alembic==1.13.1, sqlalchemy[asyncio]==2.0.29, pytest==7.4.3, psycopg2-binary)
 │   ├── day49-upload-object-storage-and-artifact-verification-design.md  # Day49: verified upload boundary design/runbook
 │   ├── day49_upload_verification.py                    # Day49: provider-neutral upload/verify control-flow model + fake in-memory adapter
-│   ├── test_day49_upload_verification.py               # Day49: fake-adapter tests (executed: 35 passed)
+│   ├── test_day49_upload_verification.py               # Day49: fake-adapter tests (executed: 44 passed)
 │   └── requirements-day49.txt                          # Day49: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -182,7 +182,7 @@ Column intent:
 `day49_upload_verification.py` and `test_day49_upload_verification.py`) turns large external bytes into
 deterministic, verified, recoverable database references. The tests are **real, executed** against a **fake
 in-memory Object Storage adapter** — **application control flow only**: **Python 3.10.12, pytest 7.4.3 ->
-`35 passed`** (hardened after Codex review round 1; the module + tests are Python-standard-library only; deps pinned in `api/requirements-day49.txt`).
+`44 passed`** (hardened after Codex review rounds 1-2; the module + tests are Python-standard-library only; deps pinned in `api/requirements-day49.txt`).
 
 ### What the model contains
 
@@ -193,7 +193,7 @@ in-memory Object Storage adapter** — **application control flow only**: **Pyth
 | Verification | `verify_object(expected, observed)` compares a **frozen** expected contract with **trusted observed** evidence; never rewrites the expectation; requires an immutable version + size + a trustworthy full-object SHA-256; **ETag is not accepted as SHA-256**. |
 | Security gate | separate from byte integrity; a mandatory scanner outage is **fail-closed** (`SCAN_RETRY_LATER`, session -> `verifying` with a `verification_hold_until` deadline, no Document) so cleanup cannot delete a retrying object; unsafe content -> `SCAN_FAILED`/quarantine. |
 | State/expiry guard | finalize proceeds only from `uploading`/`verifying`; `INITIATED`/`FAILED`/`EXPIRED` and cleanup-claimed rows are rejected (`ILLEGAL_STATE`); session/credential expiry re-checked (`SESSION_EXPIRED`). |
-| Atomic UoW | `finalize_document_and_verify` creates the Document AND flips `verified` all-or-nothing (MODELED in-memory; mid-tx failure leaves neither fact) — not a claim of real PostgreSQL tx atomicity. |
+| Lease + atomic commit | `claim_verification` takes an owner/fencing-token lease + `verification_hold_until` and binds the exact version BEFORE scanning; `commit_document_if_owner` guarded-CAS creates the Document + flips `verified` only if still verifying + our token + not expired + cleanup hasn't won (MODELED; not real tx/fencing). Interleaving tests prove cleanup-wins vs completion-wins. |
 | Adapter | create-only writes (replay -> `ObjectAlreadyExistsError`) + per-`(bucket,key)` version history with exact-version inspect/delete. |
 | Identity | server owns bucket+key (+ bound version); completion rejects client-supplied identity (`REJECTED_IDENTITY`); verify compares observed bucket/key/version/size/sha256/content-type. |
 | Finalization UoW | inspect + verify + scan OUTSIDE a DB tx -> short guarded UoW creates exactly one Document + flips the session `verified` atomically; already verified -> return the existing Document; a lost race hitting `UNIQUE(upload_session_id)` collapses to `ALREADY_VERIFIED`. |

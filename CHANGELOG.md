@@ -9,6 +9,80 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.98 — Day49 review round 2 (Codex): fence verification and bind exact object versions
+
+Date: 2026-08-02
+
+Day: Day49 (review fix, round 2)
+
+Addresses three round-2 findings plus documentation-consistency items. Round-1 fixes are preserved (not reverted).
+The artifact remains a FAKE in-memory adapter with a store that now MODELS guarded compare-and-set (CAS)
+transitions; determinism is demonstrated by explicit interleaving tests. Real PostgreSQL/Object Storage/scanner/
+production remain NOT RUN.
+
+### Fixed
+
+- **Finding 1 (P1) — real completion/cleanup race via a verification lease + guarded CAS.** Before the scanner runs,
+  `finalize_upload` takes a persistent verification lease through a guarded CAS (`InMemoryStore.claim_verification`):
+  a `VERIFYING` state, an `verification_owner` fencing token, and `verification_hold_until`. The scan holds NO DB
+  lock, but `classify_cleanup` returns `KEEP_VERIFICATION_HOLD` for a live lease (protecting a slow-but-normal scan,
+  not only a `ScannerUnavailable` outage). After the scan the clock is re-read and `commit_document_if_owner`
+  guarded-CAS-commits ONLY if the row is still `VERIFYING`, still owned by this token, not session-expired, and
+  cleanup has not won — otherwise it refuses (`lease_lost` / `cleanup_won` / `session_expired`) and NEVER flips
+  `EXPIRED` back to `VERIFIED`. A cleanup that has claimed the row wins; a stale/superseded worker cannot commit.
+- **Finding 2 (P1) — bind the exact version before scanning; cleanup deletes the exact version.** `claim_verification`
+  binds the exact observed version (guarded CAS; unbound -> observed, and it cannot be rebound to a different value —
+  `bind_object_version` / `VersionAlreadyBoundError`), so a scanner-outage retry re-inspects the bound version (not
+  "the latest"), and a new object written to the same key cannot masquerade as the original. `claim_cleanup` now
+  returns a `CleanupClaim`: it commits `EXPIRED` first, then resolves an EXACT version (binding it from a fresh
+  inspection if unbound) and returns `DELETE_EXACT_VERSION` with a non-null version, or `NO_OBJECT_PRESENT` — never a
+  `version=None` delete. `execute_cleanup_delete` returns `DELETED` or `VERSION_ABSENT_RECONCILE` (a reconciliation
+  signal, never a false success).
+- **Finding 3 (P2) — credential expiry != stored-object invalidation.** An `UPLOADING` session is no longer forced
+  to `EXPIRED` on credential expiry. After credential expiry but before `session_expires_at`, completion inspects the
+  server-owned bucket/key and completes an already-uploaded, matching object; a missing object returns
+  `UPLOAD_WINDOW_EXPIRED` (credential closed) or `OBJECT_NOT_FOUND` (credential still valid), never a fabricated
+  Document. Only session expiry or a cleanup-won guarded claim stops completion. `credential_expires_at`,
+  `session_expires_at`, and `cleanup_not_before` are documented as three distinct times.
+- **Documentation consistency.** Replaced the stale `InMemoryStore.create_document` reference with the actual API
+  (`commit_document_if_owner` / `assert_document_provenance`); "deterministic" is now qualified as proven by
+  interleaving fake-adapter tests (control flow, not real DB fencing); removed the contradiction that Day49 "needs
+  no Alembic change" — the model adds a `verifying` state + owner/hold + bound-version that the REAL schema must add
+  via a Day48-safe forward migration (not implemented; no real PostgreSQL runtime claimed).
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day49_upload_verification.py` -> **44 passed** (was 35; Python 3.10.12,
+  pytest 7.4.3; stdlib-only module). Full `projects/ai-backend-data-layer/api/` suite -> **175 passed**, no regression.
+- Interleaving/race tests (fake-adapter control flow): `test_live_hold_blocks_cleanup_during_slow_scan_and_completion_wins`,
+  `test_cleanup_wins_completion_creates_no_document`, `test_completion_wins_then_cleanup_returns_no_delete_ref`,
+  `test_stale_lease_worker_cannot_commit`, `test_live_lease_blocks_a_second_claimer`,
+  `test_transient_failure_then_retry_renews_and_completes`,
+  `test_dead_verifier_hold_expires_then_cleanup_reclaims_exact_version`.
+- Version tests: `test_version_and_lease_bound_before_scanner_runs`,
+  `test_scanner_outage_new_version_same_key_retry_checks_original`,
+  `test_concurrent_workers_bind_different_versions_only_one_wins`,
+  `test_claim_cleanup_returns_exact_version_and_deletes_only_it`, `test_claim_cleanup_binds_version_when_unbound`,
+  `test_delete_wrong_or_missing_version_is_reconcile_not_success`, `test_cleanup_vs_version_binding_race_is_deterministic`.
+- Timing tests: `test_object_uploaded_before_credential_expiry_completes_after`,
+  `test_no_object_after_credential_expiry_does_not_create_document`, `test_object_not_found_while_credential_still_valid`,
+  `test_session_expiry_blocks_even_with_object_present`, `test_three_time_boundaries_are_distinct`.
+- Three claims kept separate: **Conceptual Artifact**; **Static/Fake-adapter Verification** (all of the above —
+  control-flow, incl. the MODELED CAS/lease/atomicity); **Real Runtime Verification** (NOT RUN — real PostgreSQL
+  FK/constraint/tx-atomicity + `SELECT ... FOR UPDATE` fencing, real Object Storage presign/checksum/multipart/
+  versioning, real scanner, FastAPI integration, production). The real schema needs a Day48-safe forward migration
+  to add the verifying status + owner/hold + bound-version; not implemented here; no published Alembic revision
+  rewritten.
+
+### Updated
+
+- `projects/ai-backend-data-layer/api/day49_upload_verification.py`, `test_day49_upload_verification.py`,
+  `day49-upload-object-storage-and-artifact-verification-design.md`;
+  `docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md`; `cheat_sheets/fastapi.md`;
+  `interview/fastapi.md`; `projects/ai-backend-data-layer/README.md`; `CURRICULUM.md`; `PROJECT_STATUS.md`; `TASKS.md`.
+
+---
+
 ## v0.1.97 — Day49 review round 1 (Codex): harden upload finalization and cleanup races
 
 Date: 2026-08-02

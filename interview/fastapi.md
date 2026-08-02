@@ -930,7 +930,7 @@ guarantees at most one Document per session; same-tenant provenance needs the co
 upload_session_id). The composite FK is relationship integrity, not authorization — that is Day52."
 
 Validation: FAKE in-memory Object Storage adapter tests — application CONTROL FLOW only (Python 3.10.12,
-pytest 7.4.3 -> 35 passed; hardened after Codex review round 1). NOT real presigned/checksum/multipart/versioning semantics, NOT PostgreSQL runtime,
+pytest 7.4.3 -> 44 passed; hardened after Codex review rounds 1-2 — verification lease/fencing, exact-version binding before scan, and credential!=session timing). NOT real presigned/checksum/multipart/versioning semantics, NOT PostgreSQL runtime,
 NOT a real Object Storage integration, NOT production. Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery,
 and a real Provider are not implemented.
 
