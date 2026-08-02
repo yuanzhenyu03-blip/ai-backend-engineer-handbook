@@ -23,11 +23,13 @@ FASTAPI / SCANNER INTEGRATION : NOT RUN
 PRODUCTION VALIDATION         : NOT RUN
 ```
 
-The fake in-memory adapter proves APPLICATION CONTROL FLOW only. It is NOT proof of real
-presigned/checksum/multipart/versioning semantics, NOT PostgreSQL FK/constraint behavior, and NOT a real Object
-Storage integration. Day48's evidence is NOT inherited as Day49 evidence.
+The fake in-memory adapter proves APPLICATION CONTROL FLOW only, including a **modeled** atomic Unit of Work
+(all-or-nothing over two in-memory facts). It is NOT proof of real presigned/checksum/multipart/versioning
+semantics, NOT real PostgreSQL FK/constraint/**transaction atomicity**, and NOT a real Object Storage integration.
+Three distinct claims are kept separate throughout: **Conceptual Artifact**, **Static/Fake-adapter Verification**,
+and **Real Runtime Verification** (the last is NOT RUN). Day48's evidence is NOT inherited as Day49 evidence.
 
-Executed: `python3 -m pytest -q test_day49_upload_verification.py` -> **17 passed**
+Executed: `python3 -m pytest -q test_day49_upload_verification.py` -> **35 passed**
 (Python 3.10.12, pytest 7.4.3; the module + tests are Python-standard-library only).
 
 ---
@@ -61,17 +63,25 @@ Recovery = inspect external evidence -> re-read PostgreSQL truth
 ```text
                  client uploads bytes directly to Object Storage (FastAPI never proxies 2 GB)
                                     |
- create Upload Session  --(presigned grant)-->  [initiated] -> [uploading]
-   server owns key identity                          |
-   freezes expected size/sha256/content-type         |  finalize (idempotent):
-                                                      |    inspect+verify OUTSIDE db tx
-                                                      |    scan (fail-closed)
-                                                      v    short UoW: create Document + flip
-                                            [verified] -----------------------------> Document
-                                                      |
-                        no completion + credential expiry + skew + buffer
-                                                      v
-                                           [expired] --(guarded)--> cleanup deletes unverified object
+ create Upload Session  --(grant)-->  [initiated] --(bytes uploaded)--> [uploading]
+   server owns bucket+key identity                       |
+   freezes expected size/sha256/content-type             |  finalize() — GUARDED:
+                                                          |   legal-state guard (only uploading/verifying)
+                                                          |   re-check session/credential expiry
+                                                          |   reject client bucket/key/version
+                                                          |   inspect+verify EXACT ref OUTSIDE db tx
+                                                          |   scan ---- transient outage -----> [verifying] (hold_until)
+                                                          |    | unsafe                              |  retry (bounded backoff
+                                                          |    v                                     |   renews the hold)
+                                                          | [failed]                                 |  scanner back -> finalize
+                                                          v                                          v
+                                       ATOMIC short UoW: create Document + flip ----------> [verified] -> Document
+                                                          |
+   legal-state guard + expiry re-check reject INITIATED/FAILED/EXPIRED and a cleanup-claimed row
+                                                          |
+             no completion + credential expiry + skew + buffer + NO live verification hold
+                                                          v
+   cleanup CLAIM commits [expired] FIRST (guarded), THEN deletes the exact unverified object/version outside the tx
 ```
 
 Three distinct lifecycles (do NOT collapse them):
@@ -83,11 +93,29 @@ Three distinct lifecycles (do NOT collapse them):
 `cleanup_not_before = credential_expiry + max_clock_skew + safety_buffer`
 (classroom example: 12:00 + 2m + 1m -> **12:03**). Session expiry must not precede credential expiry.
 
-Schema-honesty decision: the published `upload_sessions` status allowlist is
-`initiated/uploading/verified/failed/expired` with **no** `verifying` state. This artifact keeps the row
-`uploading` until all gates pass, so **no Alembic change** and **no edit to a published CHECK** is needed. Adding a
-`verifying` status would be a Day48-safe **forward branch** revision (never a rewrite of published history) if
-operational visibility later requires it — intentionally not done here.
+Hardened guards (review round 1):
+
+- **Legal-state guard** — `finalize_upload` proceeds only from `uploading` or `verifying`; `initiated`, `failed`,
+  `expired` (including a row a cleanup worker already claimed) are rejected (`ILLEGAL_STATE`).
+- **Expiry re-check** — a hard session expiry stops completion in any state; credential expiry stops an `uploading`
+  session that has not begun verifying (a `verifying` row already has an uploaded object and continues, bounded by
+  session expiry).
+- **Verification hold** — a transient scanner outage moves the row to `verifying` with `verification_hold_until =
+  now + hold_ttl`; `classify_cleanup` returns `KEEP_VERIFICATION_HOLD` while the hold is live, so cleanup cannot
+  delete an object a live verifier is still retrying. A dead verifier (hold deadline passed, not renewed, past the
+  timing gate) is reclaimable — bounded, so a transient outage never becomes a permanent business failure while a
+  live retry loop is always protected.
+- **Deterministic race** — `claim_cleanup` commits the durable `expired` decision FIRST and only then returns the
+  exact reference to delete; a completion that races it then sees `ILLEGAL_STATE`. Whoever commits its guarded DB
+  decision first wins.
+
+Schema-honesty decision (updated after review round 1): the published `upload_sessions` status allowlist is
+`initiated/uploading/verified/failed/expired` with **no** `verifying` state. The hardened model needs a
+**persistent verification hold** so a transient scanner outage cannot leave a row that cleanup later deletes, so it
+**models** a `VERIFYING` state plus a `verification_hold_until` deadline on the session row. In the **real schema**
+this requires a Day48-safe **forward** migration (add a `verifying` status via a branch revision, or a separate
+verification-hold/lease table) — that migration is **Real Runtime scope and is NOT implemented here**; the in-memory
+`VERIFYING` + hold is Static/Fake-adapter (control-flow) evidence only, never a rewrite of published Alembic history.
 
 ---
 
@@ -99,14 +127,21 @@ The **server** chooses `bucket + key` when creating the session; the client choo
 key = uploads/{tenant_id}/{upload_session_id}/source     # server-owned; example shape
 ```
 
-Original filename is untrusted metadata and never controls the internal path. Completion loads the **persisted**
-key and rejects a different client-supplied key (`derive_object_key`, `finalize_upload(... client_supplied_key)`
--> `REJECTED_KEY`).
+The Upload Session persists the **full** server-owned expected reference — `expected_bucket` + `expected_key`
+(both chosen by the server at creation) plus the `expected_version` **bound after** the upload is confirmed
+(`ExpectedContract`). Completion never trusts client-supplied bucket/key/version: `finalize_upload` rejects any
+`client_supplied_bucket`/`client_supplied_key`/`client_supplied_version` that differs from the persisted values
+(`REJECTED_IDENTITY`), and inspects the EXACT server-owned reference. `verify_object` compares observed
+**bucket, key, version, size, full-object SHA-256, and content-type** against the frozen contract; any identity
+mismatch fails.
 
 - **Bucket** = top-level namespace/policy/config container — not a filesystem folder.
 - **Object key** = identity inside a bucket; `/` is naming convention, not automatically a security boundary.
-- **Version** (or an enforced create-only/no-overwrite invariant) pins the exact immutable bytes that were
-  verified. A reference is conceptually `bucket + key + version` + verification evidence.
+- **Version** (plus an enforced create-only/no-overwrite invariant) pins the exact immutable bytes that were
+  verified. A reference is conceptually `bucket + key + version` + verification evidence. The fake adapter keeps a
+  per-`(bucket, key)` **version history**, defaults to **create-only** writes (a replayed PUT to an existing key
+  raises `ObjectAlreadyExistsError`), and inspects/deletes an **exact** version — so a later write to the same key
+  can never be verified as the original bytes.
 
 ---
 
@@ -162,20 +197,26 @@ malware/decompression-bomb checks in isolation; business/tenant policy. Malware-
 instructions/claims trustworthy for an AI/RAG pipeline.
 
 The 2 GB scan must **not** run inside a FastAPI request transaction. Scanner outage on a **mandatory** gate is
-**fail-closed**: keep waiting/verifying with bounded backoff and create no Document (`finalize_upload` ->
-`SCAN_RETRY_LATER`, session stays `uploading`). Permanent malicious/invalid content is failed/quarantined
-(`SCAN_FAILED` -> `failed`), not retried forever.
+**fail-closed**: `finalize_upload` -> `SCAN_RETRY_LATER`, moving the row to `verifying` and taking a
+`verification_hold_until` deadline so cleanup will not delete the object while a live verifier keeps retrying with
+bounded backoff (each retry renews the hold). A transient outage therefore never becomes a permanent business
+failure. Permanent malicious/invalid content is failed/quarantined (`SCAN_FAILED` -> `failed`), not retried forever.
 
 ---
 
 ## 7. Document + ResultArtifact finalization UoWs
 
-**Input (Document).** Object Storage inspection + scanning happen outside a DB transaction. Finalization opens a
-short UoW, re-reads/locks the Upload Session, rechecks state/expiry, creates exactly one Document, and flips the
-session to `verified` in the same commit. If already verified, return the existing Document. Natural stable
-identity = `upload_session_id` + guarded transition + `UNIQUE(documents.upload_session_id)` — distinct from Day50's
-tenant-scoped client idempotency key for Job creation. A DB commit failure does **not** justify re-uploading bytes:
-retry re-inspects the same deterministic immutable object and retries only the short DB finalization.
+**Input (Document).** Object Storage inspection + scanning happen outside a DB transaction. Finalization first
+applies the **legal-state guard** and **expiry re-check** (section 2), rejects any client-supplied bucket/key/version
+(section 3), inspects+verifies the EXACT server-owned reference, scans, and only then opens the short UoW. That UoW
+(`InMemoryStore.finalize_document_and_verify`) creates exactly one Document AND flips the session to `verified`
+**atomically** — all validation + object construction happen before any mutation, then a single commit block applies
+both facts with no intervening failure point, so a failure before commit leaves NEITHER (see the atomicity test).
+This models transactional atomicity; it is **not** proof of real PostgreSQL transaction behavior. If already
+verified, return the existing Document. Natural stable identity = `upload_session_id` + guarded transition +
+`UNIQUE(documents.upload_session_id)` — distinct from Day50's tenant-scoped client idempotency key. A DB commit
+failure does **not** justify re-uploading bytes: retry re-inspects the same deterministic immutable object and
+retries only the short DB finalization.
 
 **Output (ResultArtifact).** Correct ordering: upload output bytes -> verify immutable Object Storage evidence ->
 short UoW inserts ResultArtifact + JobEvent and guardedly marks the Job succeeded. **Never mark a Job succeeded
@@ -183,7 +224,8 @@ before its result reference can be committed coherently.** External-first may le
 failure; DB-first can publish the false fact `succeeded` while the result is absent.
 
 ```text
-Document finalize outcomes : CREATED | ALREADY_VERIFIED | VERIFY_FAILED | SCAN_FAILED | SCAN_RETRY_LATER | REJECTED_KEY
+Document finalize outcomes : CREATED | ALREADY_VERIFIED | ILLEGAL_STATE | SESSION_EXPIRED | VERIFY_FAILED |
+                             SCAN_FAILED | SCAN_RETRY_LATER | REJECTED_IDENTITY
 Result recovery            : COMPLETE_IDEMPOTENT_NO_PROVIDER | ALREADY_COMPLETED | PRESERVE_UNKNOWN
 ```
 
@@ -200,8 +242,11 @@ Both compete on the same Upload Session DB state via `SELECT ... FOR UPDATE` or 
   first, then deletes the exact unverified object/version OUTSIDE the DB tx. Delete failure leaves a recoverable
   orphan rather than a dangling verified fact.
 
-`classify_cleanup` never returns `DELETE_ORPHAN` for a `verified` session or one that already produced a Document
-(`KEEP_VERIFIED` / `KEEP_HAS_DOCUMENT`), and returns `KEEP_TOO_EARLY` before `cleanup_not_before`.
+`classify_cleanup` never returns `DELETE_ORPHAN` for a `verified` session (`KEEP_VERIFIED`), one that already
+produced a Document (`KEEP_HAS_DOCUMENT`), or one with a **live verification hold** (`KEEP_VERIFICATION_HOLD`), and
+returns `KEEP_TOO_EARLY` before `cleanup_not_before`. `claim_cleanup` commits the durable `expired` decision FIRST
+and only then returns the exact reference to delete, so a racing completion then sees `ILLEGAL_STATE` — the race is
+deterministic (first guarded DB commit wins).
 
 Integrated race (Exercise 21): concurrent completion A/B, response lost after A commits, cleanup racing. B
 re-reads and returns the existing Document; cleanup's guarded eligible-state UPDATE affects zero rows and does not
@@ -231,7 +276,8 @@ idempotent guarded completion + reconciliation.
 provenance. The existing Day31 design uses parent candidate key `UNIQUE(tenant_id, upload_session_id)` plus a child
 composite FK `FOREIGN KEY (tenant_id, upload_session_id) REFERENCES upload_sessions(...)` `ON DELETE RESTRICT`.
 Composite FK = persistent relationship integrity, **not** request authorization (Day52 supplies authorization).
-The in-memory `InMemoryStore.create_document` models both invariants (`DuplicateDocumentError`, `ProvenanceError`).
+The in-memory `InMemoryStore.finalize_document_and_verify` models both invariants (`DuplicateDocumentError`,
+`ProvenanceError`) inside the atomic finalize UoW.
 
 ---
 
@@ -251,8 +297,11 @@ leaves a recoverable orphan (inventory/reconciliation later), never a dangling v
 |---|---|---|
 | Conceptual design | COMPLETED | this runbook + lesson |
 | Static file checks | RUN | `py_compile` module + tests |
-| Fake Object Storage runtime | RUN | in-memory adapter, 17 pytest cases (control flow only) |
-| Real PostgreSQL FK/constraint runtime | NOT RUN | needs a server + async driver + Day42 raw SQL |
+| Fake Object Storage runtime | RUN | in-memory adapter, 35 pytest cases (control flow only) |
+| Atomic Document+verify UoW | MODELED (RUN) | in-memory all-or-nothing with a mid-transaction failure test — control flow, not real tx atomicity |
+| Verification hold / cleanup race | MODELED (RUN) | `VERIFYING` + `verification_hold_until`; hold/retry/claim tests |
+| Create-only + version-history adapter | MODELED (RUN) | create-only PUT, exact-version inspect/delete tests |
+| Real PostgreSQL FK/constraint/tx-atomicity runtime | NOT RUN | needs a server + async driver + Day42 raw SQL + a `verifying`-status forward migration |
 | Real Object Storage (presign/checksum/multipart/versioning) | NOT RUN | needs an S3-compatible endpoint |
 | FastAPI/scanner integration | NOT RUN | no request-layer wiring executed |
 | Production validation | NOT RUN | — |

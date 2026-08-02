@@ -1,14 +1,21 @@
 """Day49 — verified Object Storage upload boundary (provider-neutral, FAKE adapter).
 
-IMPORTANT EVIDENCE LABEL: everything here runs against an IN-MEMORY FAKE object
-storage adapter and an in-memory session/document store. These exercise the
-APPLICATION CONTROL FLOW only — server-owned key identity, expected-vs-observed
-verification, idempotent finalization, completion/cleanup concurrency, multipart
-unknown-completion recovery, and output ResultArtifact recovery. They are NOT proof
-of real presigned/checksum/multipart/versioning semantics, NOT PostgreSQL runtime,
-NOT a real S3/Object Storage integration, and NOT production validation. No real
-cloud credentials, buckets, tokens, or signed query strings appear anywhere; the
-fake "grant" string is deliberately not shaped like a secret.
+IMPORTANT EVIDENCE LABEL (three distinct claims — do not conflate them):
+  * CONCEPTUAL ARTIFACT: the state machine, verification, hold/lease, atomic-UoW, and
+    cleanup-race semantics described here and in the design doc.
+  * STATIC / FAKE-ADAPTER VERIFICATION: what the pytest suite actually executes — the
+    APPLICATION CONTROL FLOW against an IN-MEMORY fake Object Storage adapter and an
+    in-memory session/document store. This includes a MODELED atomic Unit of Work
+    (all-or-nothing over two in-memory facts) — it is control-flow evidence, not proof
+    of real database transaction atomicity.
+  * REAL RUNTIME VERIFICATION: NOT RUN here — no real PostgreSQL (FK/constraint/tx
+    atomicity), no real Object Storage (presign/checksum/multipart/versioning), no real
+    scanner, no FastAPI integration, no production. SQLAlchemy metadata inspection would
+    prove declaration, not FK behavior; a fake adapter proves control flow, not storage
+    semantics.
+
+No real cloud credentials, buckets, tokens, or signed query strings appear anywhere;
+the fake "grant" string is deliberately not shaped like a secret.
 
 Boundary reused from earlier lessons (NOT re-implemented here):
   * Day47 short Unit of Work + guarded state transition (modeled in-memory).
@@ -19,12 +26,16 @@ Boundary reused from earlier lessons (NOT re-implemented here):
     composite FK (tenant_id, upload_session_id). This module MODELS those invariants
     in memory; it does not redefine or migrate the schema.
 
-Schema-honesty decision (see the design doc): the published upload_sessions status
-allowlist is initiated/uploading/verified/failed/expired and has NO 'verifying'
-state. This module keeps the row 'uploading' until every gate passes, so NO Alembic
-change and NO edit to a published CHECK is required. Adding a 'verifying' status
-would be a Day48-safe forward branch revision if operational visibility later needs
-it — it is intentionally NOT done here.
+SCHEMA-HONESTY (updated after review round 1): the published upload_sessions status
+allowlist is initiated/uploading/verified/failed/expired and has NO 'verifying' state.
+The hardened model needs a persistent "verification in progress / awaiting scan retry /
+temporarily not cleanable" claim so a transient scanner outage cannot leave a session
+that cleanup later deletes. This module MODELS that as a VERIFYING state plus a
+``verification_hold_until`` deadline on the session row. In the REAL schema this
+requires a Day48-safe FORWARD migration (add a 'verifying' status via a branch revision,
+or a separate verification-hold/lease table) — that migration is NOT implemented here
+and is documented as conceptual/real-runtime scope in the design doc. The fake model is
+control-flow evidence only.
 """
 
 from __future__ import annotations
@@ -43,11 +54,12 @@ from typing import Optional, Protocol
 @dataclass(frozen=True)
 class ObjectReference:
     """Deterministic identity of external bytes: bucket + key + immutable version.
+    ``version`` is None until the upload is confirmed and the exact version is bound.
     A presigned URL is a CREDENTIAL, never this durable identity."""
 
     bucket: str
     key: str
-    version: str
+    version: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -55,7 +67,8 @@ class StoredObjectEvidence:
     """TRUSTED observed evidence returned by inspecting Object Storage. ``etag`` is
     provider-defined and MUST NOT be assumed to equal a SHA-256 (multipart/encryption
     change it), so a separate ``checksum_sha256`` carries the trustworthy full-object
-    hash when (and only when) the provider can expose one."""
+    hash when (and only when) the provider can expose one. ``content_type`` is the
+    provider-reported media type when available."""
 
     bucket: str
     key: str
@@ -63,16 +76,23 @@ class StoredObjectEvidence:
     size: int
     etag: str
     checksum_sha256: Optional[str]
+    content_type: Optional[str] = None
 
 
 @dataclass(frozen=True)
 class ExpectedContract:
-    """Frozen BEFORE upload, in the Upload Session. Verification compares observed
-    evidence against this; it MUST NEVER overwrite the expectation to force a pass."""
+    """The server-owned expected object reference + integrity contract, frozen in the
+    Upload Session BEFORE upload. bucket + key are chosen by the server at session
+    creation; ``expected_version`` is None until the upload is confirmed and bound.
+    Verification compares observed evidence against this; it MUST NEVER be overwritten
+    to force a pass (frozen dataclass; binding the version creates a NEW contract)."""
 
+    expected_bucket: str
+    expected_key: str
     expected_size: int
     expected_sha256: str
     expected_content_type: str
+    expected_version: Optional[str] = None
 
 
 def derive_object_key(tenant_id: uuid.UUID, upload_session_id: uuid.UUID) -> str:
@@ -102,20 +122,20 @@ class PresignedGrant:
 
 
 def create_upload_grant(
-    ref: ObjectReference,
     expected: ExpectedContract,
     *,
     now: datetime,
     ttl_seconds: int = 900,
     operation: str = "PUT",
 ) -> PresignedGrant:
-    """Bind the credential to an EXACT operation/bucket/key/expiry/size/checksum.
-    Never grants list, read-other, delete, arbitrary-key write, copy/admin, or ACL
-    changes. Short TTL lowers leak/replay risk but is not immutability proof."""
+    """Bind the credential to an EXACT operation/bucket/key/expiry/size/checksum from
+    the server-owned expected contract. Never grants list, read-other, delete,
+    arbitrary-key write, copy/admin, or ACL changes. Short TTL lowers leak/replay risk
+    but is not immutability proof."""
     return PresignedGrant(
         operation=operation,
-        bucket=ref.bucket,
-        key=ref.key,
+        bucket=expected.expected_bucket,
+        key=expected.expected_key,
         expires_at=now + timedelta(seconds=ttl_seconds),
         max_size=expected.expected_size,
         expected_sha256=expected.expected_sha256,
@@ -130,49 +150,84 @@ class ObjectStorageError(Exception):
     pass
 
 
+class ObjectAlreadyExistsError(ObjectStorageError):
+    """Raised by a create-only PUT when the (bucket, key) already exists — models a
+    provider create-only/no-overwrite conditional write so a presigned replay cannot
+    silently overwrite a verified object."""
+
+
 class ObjectStorageAdapter(Protocol):
-    def inspect_object(self, bucket: str, key: str) -> Optional[StoredObjectEvidence]: ...
+    def inspect_object(
+        self, bucket: str, key: str, version: Optional[str] = None
+    ) -> Optional[StoredObjectEvidence]: ...
 
     def delete_object(self, bucket: str, key: str, version: str) -> bool: ...
 
 
 class InMemoryObjectStorage:
-    """Deterministic fake for tests ONLY. Enforces create-only (no silent overwrite)
-    and assigns a monotonic version per key so a re-PUT is a NEW immutable version.
-    Multipart is modeled as: create -> upload parts -> complete assembles a final
-    object. NOT a real Object Storage; no network, no real signing."""
+    """Deterministic fake for tests ONLY. Keeps a per-(bucket, key) VERSION HISTORY so
+    a later write to the same key never masquerades as the original bytes: inspection
+    and deletion target an EXACT version. ``put_object`` defaults to create-only (a
+    second write to the same key raises) and can opt into versioning
+    (``create_only=False``) to append a new immutable version. NOT a real Object
+    Storage; no network, no real signing."""
 
     def __init__(self) -> None:
-        self._objects: dict[tuple[str, str], StoredObjectEvidence] = {}
-        self._version_counter = 0
+        # (bucket, key) -> ordered list of immutable versions (oldest first).
+        self._versions: dict[tuple[str, str], list[StoredObjectEvidence]] = {}
+        self._counter = 0
         self._multipart: dict[str, dict] = {}
 
     # --- single-object path ---
     def put_object(
-        self, bucket: str, key: str, data: bytes, *, content_type: str = "application/octet-stream"
+        self,
+        bucket: str,
+        key: str,
+        data: bytes,
+        *,
+        content_type: str = "application/octet-stream",
+        create_only: bool = True,
     ) -> StoredObjectEvidence:
-        self._version_counter += 1
-        version = f"v{self._version_counter}"
+        history = self._versions.setdefault((bucket, key), [])
+        if create_only and history:
+            raise ObjectAlreadyExistsError(f"{bucket}/{key} already exists (create-only)")
+        self._counter += 1
         ev = StoredObjectEvidence(
             bucket=bucket,
             key=key,
-            version=version,
+            version=f"v{self._counter}",
             size=len(data),
             etag=hashlib.md5(data).hexdigest(),  # provider ETag != SHA-256 on purpose
             checksum_sha256=hashlib.sha256(data).hexdigest(),
+            content_type=content_type,
         )
-        self._objects[(bucket, key)] = ev
+        history.append(ev)
         return ev
 
-    def inspect_object(self, bucket: str, key: str) -> Optional[StoredObjectEvidence]:
-        return self._objects.get((bucket, key))
+    def inspect_object(
+        self, bucket: str, key: str, version: Optional[str] = None
+    ) -> Optional[StoredObjectEvidence]:
+        history = self._versions.get((bucket, key))
+        if not history:
+            return None
+        if version is None:
+            return history[-1]  # latest version
+        for ev in history:
+            if ev.version == version:
+                return ev
+        return None  # requested an exact version that does not exist
 
     def delete_object(self, bucket: str, key: str, version: str) -> bool:
-        cur = self._objects.get((bucket, key))
-        if cur is not None and cur.version == version:
-            del self._objects[(bucket, key)]
-            return True
-        return False  # version mismatch or absent -> nothing deleted (recoverable)
+        history = self._versions.get((bucket, key))
+        if not history:
+            return False
+        for i, ev in enumerate(history):
+            if ev.version == version:
+                del history[i]
+                if not history:
+                    del self._versions[(bucket, key)]
+                return True
+        return False  # exact version absent -> nothing deleted (recoverable)
 
     # --- multipart path ---
     def create_multipart(self, bucket: str, key: str) -> str:
@@ -188,7 +243,7 @@ class InMemoryObjectStorage:
     def complete_multipart(self, upload_id: str) -> StoredObjectEvidence:
         mp = self._multipart[upload_id]
         joined = b"".join(mp["parts"][n] for n in sorted(mp["parts"]))
-        ev = self.put_object(mp["bucket"], mp["key"], joined)
+        ev = self.put_object(mp["bucket"], mp["key"], joined)  # create-only final object
         mp["final"] = ev
         return ev
 
@@ -197,7 +252,7 @@ class InMemoryObjectStorage:
 
 
 # ---------------------------------------------------------------------------
-# Expected vs observed verification (never rewrites the expectation)
+# Expected vs observed verification (full identity + integrity; never rewrites)
 # ---------------------------------------------------------------------------
 class VerifyStatus(str, Enum):
     OK = "ok"
@@ -214,13 +269,21 @@ class VerificationResult:
 def verify_object(
     expected: ExpectedContract, observed: Optional[StoredObjectEvidence]
 ) -> VerificationResult:
-    """Compare the FROZEN expected contract with TRUSTED observed evidence. Returns a
-    NEW result; it never mutates ``expected``. A missing full-object SHA-256 is a hard
-    failure (we do NOT fall back to ETag as a SHA-256 substitute)."""
+    """Compare the FROZEN expected contract with TRUSTED observed evidence. Checks full
+    server-owned identity (bucket, key, version) AND integrity (size, full-object
+    SHA-256) AND content metadata when the provider exposes it. Returns a NEW result;
+    it never mutates ``expected``. A missing full-object SHA-256 is a hard failure (we
+    do NOT fall back to ETag as a SHA-256 substitute)."""
     if observed is None:
         return VerificationResult(VerifyStatus.MISSING, "no object at reference")
+    if observed.bucket != expected.expected_bucket:
+        return VerificationResult(VerifyStatus.MISMATCH, "bucket mismatch")
+    if observed.key != expected.expected_key:
+        return VerificationResult(VerifyStatus.MISMATCH, "key mismatch")
     if not observed.version:
         return VerificationResult(VerifyStatus.MISMATCH, "no immutable version pinned")
+    if expected.expected_version is not None and observed.version != expected.expected_version:
+        return VerificationResult(VerifyStatus.MISMATCH, "version mismatch")
     if observed.size != expected.expected_size:
         return VerificationResult(VerifyStatus.MISMATCH, "size mismatch")
     if observed.checksum_sha256 is None:
@@ -229,6 +292,8 @@ def verify_object(
         )
     if observed.checksum_sha256 != expected.expected_sha256:
         return VerificationResult(VerifyStatus.MISMATCH, "checksum mismatch")
+    if observed.content_type is not None and observed.content_type != expected.expected_content_type:
+        return VerificationResult(VerifyStatus.MISMATCH, "content-type mismatch")
     return VerificationResult(VerifyStatus.OK)
 
 
@@ -236,7 +301,8 @@ def verify_object(
 # Content/security scan gate (separate from byte integrity)
 # ---------------------------------------------------------------------------
 class ScannerUnavailable(Exception):
-    """Mandatory-gate outage -> fail CLOSED (keep waiting, create no Document)."""
+    """Mandatory-gate TRANSIENT outage -> fail CLOSED (hold + retry, create no
+    Document). A transient outage must NEVER become a permanent business failure."""
 
 
 class ScanVerdict(str, Enum):
@@ -254,19 +320,34 @@ class ScanGate(Protocol):
 class SessionState(str, Enum):
     INITIATED = "initiated"
     UPLOADING = "uploading"
+    VERIFYING = "verifying"  # MODELED hold state (real schema: Day48-safe forward migration)
     VERIFIED = "verified"
     FAILED = "failed"
     EXPIRED = "expired"
+
+
+# States from which a completion may legally proceed to verify + commit.
+COMPLETABLE_STATES = frozenset({SessionState.UPLOADING, SessionState.VERIFYING})
 
 
 @dataclass
 class UploadSessionRow:
     upload_session_id: uuid.UUID
     tenant_id: uuid.UUID
-    object_key: str
+    expected: ExpectedContract  # server-owned bucket+key (+ bound version) + integrity
     state: SessionState
-    expected: ExpectedContract
     credential_expires_at: datetime
+    session_expires_at: datetime
+    verification_hold_until: Optional[datetime] = None
+
+    # Convenience accessors so callers never re-derive identity from the client.
+    @property
+    def object_key(self) -> str:
+        return self.expected.expected_key
+
+    @property
+    def bucket(self) -> str:
+        return self.expected.expected_bucket
 
 
 @dataclass(frozen=True)
@@ -288,6 +369,10 @@ class DuplicateDocumentError(Exception):
     """Models UNIQUE(documents.upload_session_id) — at most one Document per session."""
 
 
+class SimulatedCommitFailure(Exception):
+    """Injected in a test to prove the finalize UoW is all-or-nothing in the model."""
+
+
 class InMemoryStore:
     """Models the short-UoW guarded transition plus the two schema invariants. A real
     implementation is a PostgreSQL short transaction (Day47); this is control flow."""
@@ -299,15 +384,26 @@ class InMemoryStore:
     def add_session(self, row: UploadSessionRow) -> None:
         self.sessions[row.upload_session_id] = row
 
-    def create_document(
-        self, session: UploadSessionRow, observed: StoredObjectEvidence
+    def finalize_document_and_verify(
+        self,
+        session: UploadSessionRow,
+        observed: StoredObjectEvidence,
+        *,
+        fail_before_commit: bool = False,
     ) -> DocumentRow:
+        """ATOMIC (modeled) Unit of Work: create exactly one Document AND flip the
+        session to verified together, all-or-nothing. All validation and object
+        construction happen BEFORE any mutation; the commit block then applies both
+        facts with no intervening failure point, so an exception before commit leaves
+        NEITHER fact. ``fail_before_commit`` injects a mid-transaction failure for the
+        atomicity test. This models transactional atomicity; it is NOT proof of real
+        PostgreSQL transaction behavior (see the module evidence label)."""
+        parent = self.sessions.get(session.upload_session_id)
         # UNIQUE(upload_session_id): at most one Document per session.
         if session.upload_session_id in self.documents_by_session:
             raise DuplicateDocumentError(str(session.upload_session_id))
         # Composite FK provenance: the Document's tenant must match the parent session.
-        existing = self.sessions.get(session.upload_session_id)
-        if existing is None or existing.tenant_id != session.tenant_id:
+        if parent is None or parent.tenant_id != session.tenant_id:
             raise ProvenanceError("tenant/session provenance does not match parent")
         doc = DocumentRow(
             document_id=uuid.uuid4(),
@@ -318,20 +414,29 @@ class InMemoryStore:
             checksum_sha256=observed.checksum_sha256 or "",
             content_type=session.expected.expected_content_type,
         )
+        if fail_before_commit:
+            # Nothing has been mutated yet -> atomic rollback (neither fact persists).
+            raise SimulatedCommitFailure("injected mid-transaction failure before commit")
+        # --- single logical commit: both facts applied together ---
         self.documents_by_session[session.upload_session_id] = doc
+        parent.state = SessionState.VERIFIED
+        parent.verification_hold_until = None
+        parent.expected = replace(parent.expected, expected_version=observed.version)
         return doc
 
 
 # ---------------------------------------------------------------------------
-# Idempotent input finalization (Document)
+# Idempotent input finalization (Document) — state/expiry guarded
 # ---------------------------------------------------------------------------
 class FinalizeOutcome(str, Enum):
     CREATED = "created"
     ALREADY_VERIFIED = "already_verified"  # idempotent retry
+    ILLEGAL_STATE = "illegal_state"  # not UPLOADING/VERIFYING (e.g. INITIATED/FAILED/EXPIRED)
+    SESSION_EXPIRED = "session_expired"  # session/credential expiry re-checked at finalize
     VERIFY_FAILED = "verify_failed"
     SCAN_FAILED = "scan_failed"
-    SCAN_RETRY_LATER = "scan_retry_later"  # fail-closed on scanner outage
-    REJECTED_KEY = "rejected_key"  # client tried to override the persisted key
+    SCAN_RETRY_LATER = "scan_retry_later"  # fail-closed hold on scanner outage
+    REJECTED_IDENTITY = "rejected_identity"  # client tried to override bucket/key/version
 
 
 @dataclass
@@ -341,66 +446,122 @@ class FinalizeResult:
     reason: str = ""
 
 
+DEFAULT_VERIFICATION_HOLD = timedelta(minutes=5)
+
+
 def finalize_upload(
     store: InMemoryStore,
     adapter: ObjectStorageAdapter,
     scanner: ScanGate,
     upload_session_id: uuid.UUID,
     *,
-    bucket: str,
+    now: datetime,
+    client_supplied_bucket: Optional[str] = None,
     client_supplied_key: Optional[str] = None,
+    client_supplied_version: Optional[str] = None,
+    hold_ttl: timedelta = DEFAULT_VERIFICATION_HOLD,
+    fail_commit: bool = False,
 ) -> FinalizeResult:
-    """One idempotent finalization. Object Storage inspection + scanning happen
-    OUTSIDE any DB transaction; then a short guarded UoW creates exactly one Document
-    and marks the session verified in the same commit.
+    """One idempotent, state- and expiry-guarded finalization.
 
-    Order: idempotency short-circuit -> reject client key override -> inspect+verify
-    -> scan (fail-closed) -> guarded create-Document + verified transition."""
+    Order:
+      1. idempotency short-circuit (already VERIFIED -> return the existing Document);
+      2. legal-state guard (only UPLOADING/VERIFYING may proceed; INITIATED/FAILED/
+         EXPIRED and any cleanup-claimed state are rejected as ILLEGAL_STATE);
+      3. expiry re-check (session or credential expired -> mark EXPIRED, SESSION_EXPIRED);
+      4. reject any client-supplied bucket/key/version that differs from the persisted,
+         server-owned identity (never trust the client for identity);
+      5. inspect + verify the EXACT server-owned reference OUTSIDE the DB tx;
+      6. scan (fail-closed: transient outage -> VERIFYING + hold deadline, retryable);
+      7. ATOMIC finalize: create exactly one Document + flip to verified together.
+    """
     session = store.sessions[upload_session_id]
 
-    # Idempotent short-circuit: already verified -> return the existing Document.
+    # (1) Idempotent short-circuit.
     if session.state == SessionState.VERIFIED:
         return FinalizeResult(
             FinalizeOutcome.ALREADY_VERIFIED,
             document=store.documents_by_session.get(upload_session_id),
         )
 
-    # The server-owned persisted key wins; a different client key is rejected.
-    if client_supplied_key is not None and client_supplied_key != session.object_key:
-        return FinalizeResult(FinalizeOutcome.REJECTED_KEY, reason="client key != persisted key")
+    # (2) Legal-state guard — reject INITIATED / FAILED / EXPIRED (and anything a
+    #     cleanup worker has already claimed by transitioning to EXPIRED).
+    if session.state not in COMPLETABLE_STATES:
+        return FinalizeResult(
+            FinalizeOutcome.ILLEGAL_STATE, reason=f"state {session.state.value} is not completable"
+        )
 
-    # External evidence (outside the DB tx).
-    observed = adapter.inspect_object(bucket, session.object_key)
+    # (3) Re-check expiry at finalize time. A hard SESSION expiry stops completion in
+    #     any state (that is the cleanup domain). CREDENTIAL expiry stops an UPLOADING
+    #     session that has not started verifying (its upload window has closed); a
+    #     VERIFYING session already has an uploaded object and continues (backend
+    #     inspection does not use the client's presigned credential). If cleanup already
+    #     owns the row it is EXPIRED and was rejected by the legal-state guard above.
+    if now >= session.session_expires_at:
+        session.state = SessionState.EXPIRED
+        session.verification_hold_until = None
+        return FinalizeResult(FinalizeOutcome.SESSION_EXPIRED, reason="session expired")
+    if session.state == SessionState.UPLOADING and now >= session.credential_expires_at:
+        session.state = SessionState.EXPIRED
+        session.verification_hold_until = None
+        return FinalizeResult(
+            FinalizeOutcome.SESSION_EXPIRED, reason="upload credential expired before verification"
+        )
+
+    # (4) Never trust client-supplied identity; the server-owned reference wins.
+    if client_supplied_bucket is not None and client_supplied_bucket != session.expected.expected_bucket:
+        return FinalizeResult(FinalizeOutcome.REJECTED_IDENTITY, reason="client bucket != persisted")
+    if client_supplied_key is not None and client_supplied_key != session.expected.expected_key:
+        return FinalizeResult(FinalizeOutcome.REJECTED_IDENTITY, reason="client key != persisted")
+    if (
+        client_supplied_version is not None
+        and session.expected.expected_version is not None
+        and client_supplied_version != session.expected.expected_version
+    ):
+        return FinalizeResult(FinalizeOutcome.REJECTED_IDENTITY, reason="client version != bound")
+
+    # (5) External evidence (outside the DB tx), inspected at the EXACT server-owned
+    #     reference (and the bound version once known).
+    observed = adapter.inspect_object(
+        session.expected.expected_bucket,
+        session.expected.expected_key,
+        session.expected.expected_version,
+    )
     verdict = verify_object(session.expected, observed)
     if verdict.status is not VerifyStatus.OK:
         return FinalizeResult(FinalizeOutcome.VERIFY_FAILED, reason=verdict.reason)
 
-    # Content/security gate is SEPARATE from byte integrity, and fail-closed.
+    # (6) Content/security gate is SEPARATE from byte integrity, and fail-closed.
     try:
         scan = scanner.scan(observed)  # type: ignore[arg-type]
     except ScannerUnavailable as exc:
-        # Fail closed: no Document, session stays 'uploading' for a bounded retry.
+        # Fail closed WITHOUT creating a permanent business failure: take/renew a
+        # verification hold so cleanup will not delete this object while a live
+        # verifier keeps retrying with bounded backoff.
+        session.state = SessionState.VERIFYING
+        session.verification_hold_until = now + hold_ttl
         return FinalizeResult(FinalizeOutcome.SCAN_RETRY_LATER, reason=str(exc) or "scanner down")
     if scan is ScanVerdict.UNSAFE:
         session.state = SessionState.FAILED
+        session.verification_hold_until = None
         return FinalizeResult(FinalizeOutcome.SCAN_FAILED, reason="unsafe content")
 
-    # Short guarded UoW: create exactly one Document + flip to verified atomically.
-    # DuplicateDocumentError models a lost race where another finalizer already won.
+    # (7) ATOMIC finalize (modeled): create Document + flip verified together.
     try:
-        doc = store.create_document(session, observed)  # type: ignore[arg-type]
+        doc = store.finalize_document_and_verify(session, observed, fail_before_commit=fail_commit)
     except DuplicateDocumentError:
+        # A concurrent finalizer already committed the Document; converge idempotently.
         session.state = SessionState.VERIFIED
+        session.verification_hold_until = None
         return FinalizeResult(
             FinalizeOutcome.ALREADY_VERIFIED,
             document=store.documents_by_session.get(upload_session_id),
         )
-    session.state = SessionState.VERIFIED
     return FinalizeResult(FinalizeOutcome.CREATED, document=doc)
 
 
 # ---------------------------------------------------------------------------
-# Completion vs cleanup concurrency + timing
+# Completion vs cleanup concurrency + timing (verification-hold aware)
 # ---------------------------------------------------------------------------
 def cleanup_not_before(
     credential_expires_at: datetime,
@@ -415,29 +576,65 @@ def cleanup_not_before(
 
 
 class CleanupDecision(str, Enum):
-    DELETE_ORPHAN = "delete_orphan"  # unverified + past cleanup_not_before
+    DELETE_ORPHAN = "delete_orphan"  # unverified + past timing gate + no live hold
     KEEP_TOO_EARLY = "keep_too_early"  # not yet past the timing gate
-    KEEP_VERIFIED = "keep_verified"  # verified / has a Document -> never delete
-    KEEP_HAS_DOCUMENT = "keep_has_document"
+    KEEP_VERIFIED = "keep_verified"  # verified -> never delete
+    KEEP_HAS_DOCUMENT = "keep_has_document"  # a Document exists -> never delete
+    KEEP_VERIFICATION_HOLD = "keep_verification_hold"  # a live verifier owns the row
 
 
 def classify_cleanup(
     store: InMemoryStore, upload_session_id: uuid.UUID, *, now: datetime,
     max_clock_skew: timedelta, safety_buffer: timedelta,
 ) -> CleanupDecision:
-    """Guarded cleanup eligibility. A verified session or one that already produced a
-    Document is NEVER deleted (that would destroy a durable verified fact)."""
+    """Guarded cleanup eligibility. NEVER deletes a verified/documented session, and
+    NEVER deletes a session whose verification hold is still live (a scanner retry is
+    in flight). Only an unverified row past the timing gate with NO live hold is an
+    orphan. A hold whose deadline has passed (the verifier is presumed dead and did
+    not renew) is reclaimable once past the timing gate — bounded, so a transient
+    outage with a live retry loop is always protected while a dead one is not held
+    forever."""
     session = store.sessions[upload_session_id]
     if session.state == SessionState.VERIFIED:
         return CleanupDecision.KEEP_VERIFIED
     if upload_session_id in store.documents_by_session:
         return CleanupDecision.KEEP_HAS_DOCUMENT
+    if (
+        session.state == SessionState.VERIFYING
+        and session.verification_hold_until is not None
+        and now < session.verification_hold_until
+    ):
+        return CleanupDecision.KEEP_VERIFICATION_HOLD
     not_before = cleanup_not_before(
         session.credential_expires_at, max_clock_skew=max_clock_skew, safety_buffer=safety_buffer
     )
     if now < not_before:
         return CleanupDecision.KEEP_TOO_EARLY
     return CleanupDecision.DELETE_ORPHAN
+
+
+def claim_cleanup(
+    store: InMemoryStore, upload_session_id: uuid.UUID, *, now: datetime,
+    max_clock_skew: timedelta, safety_buffer: timedelta,
+) -> Optional[ObjectReference]:
+    """Guarded cleanup CLAIM: if (and only if) the row is a deletable orphan, commit
+    the durable EXPIRED decision FIRST (so a later completion sees an illegal state and
+    cannot commit), then return the exact unverified reference to delete OUTSIDE the DB
+    tx. Returns None if the row must be kept. This makes the completion-vs-cleanup race
+    deterministic: whoever commits its guarded DB decision first wins."""
+    decision = classify_cleanup(
+        store, upload_session_id, now=now, max_clock_skew=max_clock_skew, safety_buffer=safety_buffer
+    )
+    if decision is not CleanupDecision.DELETE_ORPHAN:
+        return None
+    session = store.sessions[upload_session_id]
+    session.state = SessionState.EXPIRED  # durable decision committed before external delete
+    session.verification_hold_until = None
+    return ObjectReference(
+        session.expected.expected_bucket,
+        session.expected.expected_key,
+        session.expected.expected_version,
+    )
 
 
 # ---------------------------------------------------------------------------

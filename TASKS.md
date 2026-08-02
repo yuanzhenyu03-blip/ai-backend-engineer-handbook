@@ -33,7 +33,8 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 - [x] Complete Day46 SQLAlchemy 2.0 Mapping for the Day42 Data Model (Phase 4) — lesson, mapping design + runnable code/static tests (executed: 20 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day47 Async Sessions, Transactions, Repository and Unit of Work (Phase 4) — lesson, async persistence-boundary design + runnable code/fake-session tests (executed: 23 passed; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
 - [x] Complete Day48 Alembic and Safe AI Backend Schema Evolution (Phase 4) — lesson, Alembic control-plane design/runbook + runnable revisions/backfill/static tests (executed: 44 passed + offline `--sql` render; revision chain split into pure Expand + a separate constraint revision; PostgreSQL runtime NOT RUN), FastAPI cheat-sheet/interview appends, and status updates.
-- [x] Complete Day49 Upload Sessions, Object Storage and Artifact Verification (Phase 4) — lesson, verified-upload-boundary design/runbook + runnable provider-neutral fake-adapter model/tests (executed: 17 passed, application control flow only; real PostgreSQL/Object Storage/integration/production NOT RUN; no schema/Alembic change — session stays `uploading` until all gates pass), FastAPI cheat-sheet/interview appends, README increment, and status updates.
+- [x] Complete Day49 Upload Sessions, Object Storage and Artifact Verification (Phase 4) — lesson, verified-upload-boundary design/runbook + runnable provider-neutral fake-adapter model/tests (executed: 35 passed, application control flow only; real PostgreSQL/Object Storage/integration/production NOT RUN), FastAPI cheat-sheet/interview appends, README increment, and status updates.
+- [x] Day49 review round 1 (Codex) hardening — legal-state + expiry-guarded finalization; persistent verification hold (modeled VERIFYING state + `verification_hold_until`) so a transient scanner outage is not deleted by cleanup; create-only + version-history object adapter (exact-version inspect/delete); modeled atomic Document+verify Unit of Work with a mid-transaction failure test; server-owned full identity (bucket+key, bound version) with observed bucket/key/version verification; tests 17 -> 35 passed. Real PostgreSQL/Object Storage/production still NOT RUN; the real schema would need a Day48-safe forward migration to add a `verifying` status/hold.
 - [ ] Prepare for Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
@@ -845,12 +846,12 @@ Preparation history blocks. Phase 4 is in progress; Day50 is next.)
 
 ---
 
-### Day49 Preparation — Upload Sessions, Object Storage and Artifact Verification
+### Day49 Preparation — Upload Sessions, Object Storage and Artifact Verification (completed)
 
-- [ ] Read the Day49 input when provided.
-- [ ] Review the Day46 UploadSession/ResultArtifact mapping and the Day47 short-transaction rule that Day49 builds on.
-- [ ] Preview persisting verified Upload Sessions and Artifact references while Object Storage I/O stays OUTSIDE DB transactions.
-- [ ] Keep the Day50 acceptance/Outbox workflow, real Provider integration (Day53), and Celery (Day55) out of scope.
+- [x] Read the Day49 input.
+- [x] Reviewed the Day46 UploadSession/ResultArtifact mapping and the Day47 short-transaction rule that Day49 builds on.
+- [x] Persisted verified Upload Sessions and Artifact references (modeled) while Object Storage I/O stays OUTSIDE DB transactions.
+- [x] Kept the Day50 acceptance/Outbox workflow, real Provider integration (Day53), and Celery (Day55) out of scope.
 
 ---
 

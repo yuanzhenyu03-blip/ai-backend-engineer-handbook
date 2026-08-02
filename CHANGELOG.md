@@ -9,6 +9,61 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.97 — Day49 review round 1 (Codex): harden upload finalization and cleanup races
+
+Date: 2026-08-02
+
+Day: Day49 (review fix)
+
+Addresses six Codex review findings on the Day49 upload boundary. Implementation + tests were hardened; no
+documentation-only downgrade was used to mask a model gap. The runnable artifact stays a FAKE in-memory adapter
+(Static/Fake-adapter Verification of application control flow); real PostgreSQL/Object Storage/production remain
+NOT RUN.
+
+### Fixed
+
+- **Finding 1 — illegal-state / expiry finalization.** `finalize_upload` now applies a legal-state guard (only
+  `uploading`/`verifying` may proceed; `initiated`/`failed`/`expired` and any cleanup-claimed row are rejected with
+  `ILLEGAL_STATE`) and re-checks session/credential expiry at finalize time (`SESSION_EXPIRED`). A cleanup that has
+  claimed the row (committed `expired`) blocks a racing completion.
+- **Finding 2 — scanner outage vs cleanup deletion.** A transient `ScannerUnavailable` moves the session to a
+  modeled `VERIFYING` state with a persistent `verification_hold_until` deadline; `classify_cleanup` returns
+  `KEEP_VERIFICATION_HOLD` while the hold is live, so cleanup cannot delete an object a live verifier is retrying. A
+  transient outage never becomes a permanent business failure; a dead verifier (hold expired, past the timing gate)
+  is bounded-reclaimable. `claim_cleanup` makes the completion/scanner-retry/cleanup race deterministic.
+- **Finding 3 — object adapter overwrite semantics.** `InMemoryObjectStorage` keeps a per-`(bucket, key)` version
+  history, defaults to create-only (a replayed PUT raises `ObjectAlreadyExistsError`), and inspects/deletes an
+  EXACT version — so a later write to the same key can never be verified as the original bytes.
+- **Finding 4 — pseudo-atomic transaction.** `InMemoryStore.finalize_document_and_verify` creates the Document AND
+  flips the session `verified` in one all-or-nothing block (a failure before commit leaves neither fact), with a
+  mid-transaction failure test. Labeled a MODELED atomic UoW — control flow, not real PostgreSQL tx atomicity.
+- **Finding 5 — server-owned full identity.** The Upload Session persists the full expected reference
+  (`expected_bucket` + `expected_key`, `expected_version` bound after confirmation). Completion never trusts
+  client-supplied bucket/key/version (`REJECTED_IDENTITY`); `verify_object` compares observed bucket, key, version,
+  size, full-object SHA-256, and content-type.
+- **Finding 6 — stale TASKS state.** The Day49 preparation checklist is marked completed and the count/status is
+  made consistent across `TASKS.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, and `CHANGELOG.md`.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day49_upload_verification.py` -> **35 passed** (was 17; Python 3.10.12,
+  pytest 7.4.3; stdlib-only module). Full `api/` suite (Day44–Day49) -> **166 passed**, no regression.
+- Three distinct claims kept separate: **Conceptual Artifact**; **Static/Fake-adapter Verification** (what ran,
+  incl. the modeled atomic UoW and the verification-hold/cleanup-race control flow); **Real Runtime Verification**
+  (NOT RUN — real PostgreSQL FK/constraint/tx-atomicity, real Object Storage presign/checksum/multipart/versioning,
+  real scanner, FastAPI integration, production). The real schema would need a Day48-safe forward migration to add
+  a `verifying` status/hold; it is not implemented here and no published Alembic history was rewritten.
+
+### Updated
+
+- `projects/ai-backend-data-layer/api/day49_upload_verification.py`, `test_day49_upload_verification.py`,
+  `day49-upload-object-storage-and-artifact-verification-design.md`;
+  `docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md`; `cheat_sheets/fastapi.md`;
+  `interview/fastapi.md`; `projects/ai-backend-data-layer/README.md`; `CURRICULUM.md`; `PROJECT_STATUS.md`;
+  `TASKS.md`.
+
+---
+
 ## v0.1.96 — Day49 Upload Sessions, Object Storage and Artifact Verification
 
 Date: 2026-08-02
@@ -22,7 +77,7 @@ Lesson title: Upload Sessions, Object Storage and Artifact Verification
 - `docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md` — the Day49 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving the verbatim Chinese/English student answers and the terminology/partial/conceptual-error distinctions.
 - `projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md` — design/runbook (lifecycle + state ownership, single/multipart presigned contracts, deterministic ObjectReference + StoredObjectEvidence, expected/observed verification, content/security boundary, Document + ResultArtifact finalization UoWs, completion/cleanup concurrency, unknown-result reconciliation, cleanup timing + orphan recovery, evidence matrix).
 - `projects/ai-backend-data-layer/api/day49_upload_verification.py` — provider-neutral control-flow model with an in-memory FAKE Object Storage adapter (server-owned key derivation, least-privilege presigned grant contract with no real credential, expected-vs-observed verification, idempotent finalization, cleanup eligibility + recovery classification, multipart unknown-completion recovery, output ResultArtifact recovery).
-- `projects/ai-backend-data-layer/api/test_day49_upload_verification.py` — fake-adapter tests (17 cases).
+- `projects/ai-backend-data-layer/api/test_day49_upload_verification.py` — fake-adapter tests (17 cases at release; hardened to 35 in v0.1.97).
 - `projects/ai-backend-data-layer/api/requirements-day49.txt` — pinned `pytest==7.4.3` (module + tests are Python-standard-library only).
 
 ### Updated
@@ -37,7 +92,7 @@ Upload success is a storage-layer fact; verified is a business fact backed by ev
 
 ### Validation
 
-- Executed: `python3 -m pip install -r requirements-day49.txt`; `python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py`; `python3 -m pytest -q test_day49_upload_verification.py` -> **17 passed** (Python 3.10.12, pytest 7.4.3). Application CONTROL FLOW against an in-memory FAKE Object Storage adapter only.
+- Executed: `python3 -m pip install -r requirements-day49.txt`; `python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py`; `python3 -m pytest -q test_day49_upload_verification.py` -> **17 passed** at release (Python 3.10.12, pytest 7.4.3; hardened to **35 passed** in v0.1.97). Application CONTROL FLOW against an in-memory FAKE Object Storage adapter only.
 - Markdown: Day49 lesson has all 16 required sections in order; changed Markdown fences balanced.
 - Secrets: no real cloud credentials, bucket URLs, tokens, signed query strings, or connection strings; the fake grant string is not shaped like a secret.
 - NOT RUN: real PostgreSQL FK/constraint runtime, real Object Storage (presign/checksum/multipart/versioning) semantics, FastAPI/scanner integration, production validation. Day48 evidence is not inherited as Day49 evidence. Day50 Outbox / Day51 JWT / Day52 authorization / Day55 Celery / a real Provider are not implemented.

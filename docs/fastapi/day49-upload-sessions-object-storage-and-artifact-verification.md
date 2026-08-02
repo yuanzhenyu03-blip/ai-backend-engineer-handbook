@@ -12,7 +12,8 @@ Prerequisite: Day48 — Alembic and Safe AI Backend Schema Evolution
 Previous Lesson: Day48 — Alembic and Safe AI Backend Schema Evolution
 Next Lesson: Day50 — Idempotent Job Acceptance and Atomic Job/Outbox Intent
 Engineering Artifact: projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md
-  + runnable day49_upload_verification.py + test_day49_upload_verification.py (fake in-memory adapter; 17 passed)
+  + runnable day49_upload_verification.py + test_day49_upload_verification.py (fake in-memory adapter; 35 passed,
+  hardened after Codex review round 1)
 ```
 
 Main engineering artifact: a provider-neutral upload-verification control-flow model with a fake in-memory Object
@@ -189,7 +190,7 @@ crash can always re-derive exactly which object to inspect.
 regardless of filename.
 
 **Framework Connection:** `derive_object_key(tenant_id, upload_session_id)` in the artifact; `finalize_upload`
-returns `REJECTED_KEY` if the client key differs from the persisted one.
+returns `REJECTED_IDENTITY` if a client-supplied bucket/key/version differs from the persisted one.
 
 ---
 
@@ -217,8 +218,17 @@ and verify the pinned version.
 **Production Example:** Short expiry lowers replay risk but a leaked URL can still overwrite until it expires —
 create-only or versioning is the real guard.
 
-**Framework Connection:** `ObjectReference(bucket, key, version)`; the fake adapter assigns a new version per PUT
-so an overwrite is a distinct immutable version.
+**Tech Lead Review (hardened, review round 1):** the Upload Session persists the FULL server-owned reference —
+`expected_bucket` + `expected_key` at creation, and `expected_version` **bound after** the upload is confirmed.
+Completion never trusts a client-supplied bucket/key/version (any mismatch -> `REJECTED_IDENTITY`), and verification
+compares observed **bucket, key, version, size, full-object SHA-256, and content-type**. True create-only writes are
+enforced: a replayed PUT to an existing key raises `ObjectAlreadyExistsError`, and the adapter keeps a per-`(bucket,
+key)` **version history** with **exact-version** inspect/delete, so a later write to the same key can never be
+verified as the original bytes.
+
+**Framework Connection:** `ObjectReference(bucket, key, version)`; the fake adapter keeps a version history and
+defaults to create-only, so a re-PUT either raises (create-only) or becomes a DISTINCT immutable version that a
+v1-bound contract will not accept.
 
 ---
 
@@ -278,6 +288,13 @@ same object and retries only the short DB finalization. One refinement: Day49's 
 `upload_session_id` + a guarded transition + `UNIQUE(documents.upload_session_id)`. Day50's tenant-scoped client
 idempotency key solves a different problem (Job acceptance); don't conflate them.
 
+**Hardened (review round 1):** finalization is **state- and expiry-guarded** before it verifies or commits: only a
+session in `uploading` or `verifying` may proceed; `initiated`, `failed`, `expired` (including a row a cleanup
+worker already claimed) are rejected (`ILLEGAL_STATE`); and session/credential expiry is re-checked at finalize
+time (`SESSION_EXPIRED`). The Document-create and the `verified` transition are one **atomic** UoW
+(`finalize_document_and_verify`): a failure before commit leaves NEITHER fact — modeled in-memory (control flow),
+not a claim of real PostgreSQL transaction atomicity.
+
 **Engineering Thinking:** Idempotency comes from deterministic identity + a guarded transition, not from
 re-doing expensive external work.
 
@@ -303,8 +320,13 @@ delete leaves a recoverable orphan, not a dangling verified fact.
 **Engineering Thinking:** Use the database as the serialization point for the decision, and reconciliation for the
 external effect.
 
-**Framework Connection:** `classify_cleanup` returns `KEEP_VERIFIED`/`KEEP_HAS_DOCUMENT` for a verified/documented
-session and `KEEP_TOO_EARLY` before the timing gate.
+**Hardened (review round 1):** cleanup also recognizes a **verification hold** — a session in `verifying` with a
+live `verification_hold_until` returns `KEEP_VERIFICATION_HOLD` and is never deleted while a live verifier is
+retrying. `claim_cleanup` commits the durable `expired` decision FIRST and only then returns the exact reference to
+delete, so a racing completion then sees `ILLEGAL_STATE` — the race is deterministic (first guarded DB commit wins).
+
+**Framework Connection:** `classify_cleanup` returns `KEEP_VERIFIED`/`KEEP_HAS_DOCUMENT`/`KEEP_VERIFICATION_HOLD`
+and `KEEP_TOO_EARLY` before the timing gate; `claim_cleanup` performs the guarded durable claim.
 
 ---
 
@@ -337,11 +359,16 @@ down, do you fail open or fail closed?
 **Tech Lead Review:** Both right. Identity/integrity is separate from safety and semantic validity. Layered gates:
 storage identity/integrity; real media-type detection from bytes; parser/structure + bounded-resource checks;
 malware/decompression-bomb checks in isolation; business/tenant policy. On a **mandatory** gate, a scanner outage
-is **fail-closed**: keep waiting with bounded backoff and create no Document; permanent bad content is
+is **fail-closed**: create no Document and keep retrying with bounded backoff; permanent bad content is
 failed/quarantined, not retried forever. The 2 GB scan must not run inside a request transaction. Note: passing a
 malware scan does not make the document's *content* trustworthy against semantic errors or prompt injection.
 
-**Framework Connection:** `finalize_upload` returns `SCAN_RETRY_LATER` (session stays `uploading`) on
+**Hardened (review round 1):** a transient outage must not become a permanent failure AND the object must not be
+deleted while it waits. So `SCAN_RETRY_LATER` moves the session to `verifying` and takes a persistent
+`verification_hold_until` deadline; `classify_cleanup` returns `KEEP_VERIFICATION_HOLD` while the hold is live
+(each retry renews it), and only a dead verifier (hold expired, past the timing gate) is reclaimable.
+
+**Framework Connection:** `finalize_upload` returns `SCAN_RETRY_LATER` (session -> `verifying`, hold taken) on
 `ScannerUnavailable`, and `SCAN_FAILED` (session `failed`) on an unsafe verdict.
 
 ---
@@ -470,6 +497,19 @@ ETag equals SHA-256
 ❌ Vague "wobble time".
 ✅ Bounded **clock skew** plus an explicit **cleanup safety buffer**.
 
+"Keep the row uploading during a scanner outage is fine" (engineering mental-model evolution, review round 1)
+❌ Leave a scanner-blocked session in `uploading`; cleanup only cares about verified/documented rows.
+✅ A session left `uploading` past the timing gate is an orphan cleanup can delete — while a live verifier is still
+   retrying. Persist a **verification hold** (modeled `verifying` + `verification_hold_until`) that cleanup
+   recognizes; the real schema adds a `verifying` status/hold via a Day48-safe forward migration.
+Initial model -> keep uploading (minimal, no schema change). Reasoning -> cleanup won't touch an in-progress
+upload. Correction -> cleanup's timing gate does not know verification is in progress. Final model -> an explicit,
+persistent, cleanup-recognized hold with a deadline, bounded so a transient outage never becomes permanent failure.
+
+Also: "the completion caller can pass bucket/key" ❌ -> the server owns bucket+key+version; completion rejects any
+client-supplied identity (`REJECTED_IDENTITY`). And "same key means same object" ❌ -> a key can have many versions;
+verification binds and inspects an **exact** version (create-only prevents silent overwrite).
+
 ---
 
 ## 9. Engineering Trade-offs
@@ -492,9 +532,13 @@ Fail-open  vs  Fail-closed on a mandatory scan gate
 Fail-open: availability; but can admit malicious/invalid content. -> rejected for mandatory safety.
 Fail-closed: safety; but blocks progress during a scanner outage (bounded backoff, no Document). -> chosen.
 
-Keep session 'uploading' until all gates pass  vs  Add a 'verifying' status
-Keep 'uploading': no schema/Alembic change, no CHECK edit, minimal. -> chosen for Day49.
-Add 'verifying': better operational visibility; but a Day48-safe forward branch revision + wider blast radius.
+Model a 'verifying' hold  vs  Keep the row 'uploading' until all gates pass
+Keep 'uploading': no schema change, minimal — but a scanner outage leaves a row cleanup can delete after the timing
+gate (the review-round-1 bug). -> rejected.
+Model 'verifying' + verification_hold_until: cleanup recognizes a live hold and cannot delete a retrying object;
+transient outage never becomes permanent failure. -> chosen (MODELED in-memory). The REAL schema needs a Day48-safe
+forward migration (add a 'verifying' status via a branch revision, or a verification-hold/lease table) — Real
+Runtime scope, not implemented here; never a rewrite of published Alembic history.
 
 Object Storage lifecycle rule cleanup  vs  Application-driven guarded cleanup
 Lifecycle rule: cheap, automatic; but can delete objects you still need if scoped wrong -> never let it delete
@@ -520,7 +564,7 @@ Follow-up: name two things `200` does not prove.
 ### Exercise 2: Who owns `object_key`?
 
 Expected Output: the server, at session creation; the filename is untrusted metadata.
-Follow-up: what does `finalize_upload` do with a different client key? (`REJECTED_KEY`.)
+Follow-up: what does `finalize_upload` do with a different client bucket/key/version? (`REJECTED_IDENTITY`.)
 
 ### Exercise 3: Compute `cleanup_not_before`
 
@@ -710,5 +754,5 @@ Engineering artifact + runbook:
 [`projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md`](../../projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md).
 Runnable model: [`day49_upload_verification.py`](../../projects/ai-backend-data-layer/api/day49_upload_verification.py);
 tests: [`test_day49_upload_verification.py`](../../projects/ai-backend-data-layer/api/test_day49_upload_verification.py)
-(fake in-memory adapter; **17 passed**; Python 3.10.12, pytest 7.4.3). PostgreSQL / Object Storage / integration /
+(fake in-memory adapter; **35 passed**; Python 3.10.12, pytest 7.4.3). PostgreSQL / Object Storage / integration /
 production validation: **NOT RUN**.
