@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.101 — Day51 Authentication, Password Security and JWT
+
+Date: 2026-08-03
+
+Day: Day51
+
+Lesson title: Authentication, Password Security and JWT
+
+### Added
+
+- `docs/fastapi/day51-authentication-password-security-and-jwt.md` — the Day51 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving the verbatim Chinese/English student answers and corrections, and labeling the final Chinese synthesis as assistant-assisted at the student's request.
+- `projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md` — design/runbook (passwords, JWT verification contract, key authority + rotation, Access vs Refresh, guarded rotation + grace/replay, browser/CSRF, FastAPI integration contract, evidence matrix, schema honesty).
+- `projects/ai-backend-data-layer/api/day51_authentication_jwt.py` — provider-neutral control-flow model using REAL Argon2id (argon2-cffi) and REAL asymmetric RS256 JWT (PyJWT + cryptography) with EPHEMERAL in-process keys, plus an in-memory user + `AuthSession` store (guarded `rotate_refresh` modeling `UPDATE ... RETURNING`, grace/replay, family revocation with retained evidence) and a CSRF decision contract.
+- `projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py` — real-crypto tests (27 cases).
+- `projects/ai-backend-data-layer/api/requirements-day51.txt` — pinned `argon2-cffi==23.1.0`, `PyJWT[crypto]==2.8.0`, `cryptography>=42.0.0`, `pytest==7.4.3`.
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day51 sections.
+- `projects/ai-backend-data-layer/README.md` — current increment set to Day51, file tree, doc links, and a Day51 increment section (Day50 section left intact).
+- `CURRICULUM.md` (Day51 Planned -> Completed), `ROADMAP.md` (Day51 -> Completed), `PROJECT_STATUS.md` (Day51 completed, Last Completed Lesson, Next = Day52; Day50 block archived), `TASKS.md` (Day51 complete, next = Day52).
+
+### Main learning outcome
+
+Authenticate WHO the caller is before deciding what they may do (Day52). Store an adaptive password hash only (Argon2id) and verify with the library; return one generic failure and use `needs_rehash`. A normal signed JWT is readable, so it carries only minimal non-secret claims and is trusted only after a full verification contract (pinned algorithm, trusted key by an allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub`); only the verified `sub` -> user_id is trusted, never a client-supplied tenant. The Auth Service signs with a private key; verifiers hold public keys; K1->K2 rotates with overlap and an emergency revoke. Access Tokens are short and stateless; continuity uses a revocable per-device Refresh Session that stores only the token hash. Rotation is one guarded `UPDATE ... RETURNING` winner, all-or-nothing (rollback keeps A); a bounded grace recovers a lost response for the same rotation, and a post-grace replay revokes and RETAINS the token family for audit. HttpOnly is not CSRF defense; state-changing cookie endpoints need SameSite + Origin + a CSRF token.
+
+### Validation
+
+- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **27 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **231 passed**. REAL crypto primitives + application control flow.
+- Markdown: Day51 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
+- Secrets: no plaintext passwords, refresh tokens, JWTs, Provider keys, real/operational signing keys, signed URLs, database URLs, or user data committed; test signing keys are generated in-process; raw credentials/JWT payloads are never logged.
+- Three claims kept separate — Conceptual Artifact; Static/real-library control-flow Verification (what ran: real Argon2id + real RS256 + in-memory guarded rotation); Real Runtime Verification (NOT RUN): real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE is out of scope. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, no published Alembic revision rewritten. Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented.
+
+---
+
 ## v0.1.100 — Day50 review round 1 (Codex): atomic acceptance, live-lease fencing, retry-safe ordering
 
 Date: 2026-08-03

@@ -1006,3 +1006,74 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day50), the
 [Day50 design/runbook](../projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md),
 the [model](../projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py).
+
+---
+
+## Day51 — Authentication, Password Security and JWT
+
+Key vocabulary: password hash, Argon2id, salt, work factor, `needs_rehash`, generic auth failure, JWT (signed vs
+JWE), claims (`sub`/`iss`/`aud`/`exp`/`nbf`/`jti`), `kid` allowlist, algorithm pinning, asymmetric signing, key
+rotation, Access vs Refresh, per-device session, refresh-token hash, guarded rotation, `UPDATE ... RETURNING`, retry
+grace, replay detection, token family, HttpOnly/Secure/SameSite, CSRF.
+
+### Q1 (Beginner) — password hash vs JWT
+
+Weak answer: "A password hash is a hash stored at registration; a JWT is a short-term token issued after login."
+(True but incomplete.)
+
+Strong answer: "A password hash is one-way verification evidence stored with a slow adaptive scheme (Argon2id); the
+raw password is never stored. A JWT is a short-lived signed identity credential issued after login — it is readable,
+so it holds only non-secret claims and is trusted only after a full verification (algorithm, key, signature, issuer,
+audience, expiry, subject)."
+
+### Q2 (Intermediate) — what may never go inside a signed JWT, and what does verification require?
+
+Strong answer: "A normal signed JWT is readable, so it must not contain a password hash, Provider key, prompt,
+Document content, secret, or client-asserted tenant authority. Verification is a full contract: pin the algorithm,
+select a trusted key by an allowlisted `kid`, verify the signature plus expected issuer, audience, expiry and
+not-before, and require `sub`. Only the verified `sub` -> user_id is trusted; tenant authority is Day52."
+
+### Q3 (Intermediate) — how does the guarded refresh rotation pick a single winner?
+
+Weak answer: "use update returning, 1 row has priority, 0 rows has not."
+
+Strong answer: "Rotation is one guarded transaction: `UPDATE ... WHERE current_hash matches AND session active AND
+not expired RETURNING`. Exactly one concurrent request updates and receives the row, so exactly one new refresh
+token is issued; a zero-row result saw a stale/revoked/expired/used token and issues nothing. All rotation state
+commits or rolls back together, so a failure after marking A used but before B persists rolls back and keeps A
+valid."
+
+### Q4 (Senior) — a used refresh token reappears after the grace window
+
+Weak answer: "Reject the request and delete the token family." (Deletion destroys audit evidence.)
+
+Strong answer: "It is a suspected replay. Reject the request and revoke the affected token family, but RETAIN the
+family record and audit evidence rather than deleting it; clear any bounded recovery material, alert, and require the
+device to reauthenticate. A short bounded grace window earlier recovers a lost response for the same rotation, but it
+accepts a small bounded replay risk and never branches into multiple replacement tokens."
+
+### Q5 (Senior) — key authority, rotation, and emergency compromise
+
+Strong answer: "The Auth Service holds the private signing key; API and Worker verify with public keys only, so a
+verifier cannot mint tokens. `kid` is an allowlist identifier, never a URL or file lookup. Planned K1->K2 publishes
+K2, trusts K1 and K2, signs with K2, and retains K1 verification for K1's maximum token lifetime plus clock skew
+before dropping K1. On a confirmed K1 compromise I reject K1 immediately, before normal expiry, and accept forced
+reauthentication."
+
+Production scenario / trade-off prompt: "Is HttpOnly enough for a cookie-based refresh endpoint?" — "No. HttpOnly
+blocks JavaScript reads but not automatic cookie attachment, so it is not CSRF protection. For cookie-authenticated
+state changes I combine SameSite with Origin validation and a CSRF token, and reject a cookie-only cross-site request
+lacking valid Origin/CSRF evidence."
+
+Validation: REAL Argon2id + REAL RS256 JWT with ephemeral in-process keys + an in-memory guarded-rotation store
+(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 27 passed). Proves crypto
+primitives + control flow only. NOT real PostgreSQL (UNIQUE/tx/isolation/`UPDATE ... RETURNING`), NOT FastAPI/browser
+(cookies/SameSite/Origin/CSRF at the wire) or a JWKS endpoint, NOT integration/production. JWE is out of scope. Day52
+authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented. No plaintext passwords, refresh
+tokens, JWTs, or operational signing keys are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day51), the
+[Day51 lesson](../docs/fastapi/day51-authentication-password-security-and-jwt.md), the
+[Day51 design/runbook](../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md),
+the [model](../projects/ai-backend-data-layer/api/day51_authentication_jwt.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py).

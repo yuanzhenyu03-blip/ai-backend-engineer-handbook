@@ -177,7 +177,7 @@ lifecycles) are recorded in `CURRICULUM.md` under "Future Lesson Implementation 
 | Day48 | Alembic and Safe AI Backend Schema Evolution | ✅ Completed |
 | Day49 | Upload Sessions, Object Storage and Artifact Verification | ✅ Completed |
 | Day50 | Idempotent AI Job API and Transactional Outbox Integration | ✅ Completed |
-| Day51 | Authentication, Password Security and JWT | Planned |
+| Day51 | Authentication, Password Security and JWT | ✅ Completed |
 | Day52 | Authorization, Tenant Isolation, Quotas and API Security | Planned |
 | Day53 | OpenAI SDK, Provider Boundaries and Structured Output | Planned |
 | Day54 | AI Streaming, Client Disconnects, Timeouts and Cancellation | Planned |

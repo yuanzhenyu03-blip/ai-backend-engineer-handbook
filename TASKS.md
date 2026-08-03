@@ -10,13 +10,13 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day50 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day51 completed)
 
 ---
 
 ## Current Lesson
 
-Day51 — Authentication, Password Security and JWT (Phase 4)
+Day52 — Authorization, Tenant Isolation, Quotas and API Security (Phase 4)
 
 Status:
 Planned / Not started
@@ -37,7 +37,8 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 - [x] Day49 review round 1 (Codex) hardening — legal-state + expiry-guarded finalization; persistent verification hold (modeled VERIFYING state + `verification_hold_until`); create-only + version-history object adapter; modeled atomic Document+verify UoW; server-owned full identity; tests 17 -> 35 passed.
 - [x] Day49 review round 2 (Codex) hardening — verification LEASE with owner/fencing token taken and exact object version bound BEFORE scanning; guarded compare-and-set `commit_document_if_owner` refuses stale-lease/cleanup-won (never flips EXPIRED->VERIFIED); `claim_cleanup` returns an exact-version ref (or NO_OBJECT_PRESENT) + reconciliation-honest `execute_cleanup_delete`; completion/cleanup determinism proven by interleaving tests; credential expiry distinguished from session expiry (already-uploaded object still completes; absent -> UPLOAD_WINDOW_EXPIRED). Tests 35 -> 44 passed (full api suite 175 passed). Real PostgreSQL/Object Storage/production still NOT RUN; the real schema still needs a Day48-safe forward migration (verifying status + owner/hold + bound-version).
 - [x] Complete Day50 Idempotent AI Job API and Transactional Outbox Integration (Phase 4) — lesson (16-section v2, verbatim student answers), acceptance+outbox design/runbook + runnable provider-neutral fake store/transport model/tests (executed: 29 passed, application control flow only; real PostgreSQL/broker/Celery/Worker/Provider/integration/production NOT RUN; no exactly-once claim; schema honesty: fingerprint/UNIQUE(job_id,event_type)/relay-ops columns modeled, real schema needs a Day48-safe additive migration), FastAPI cheat-sheet/interview appends, README increment, and status updates.
-- [ ] Prepare for Day51 — Authentication, Password Security and JWT (Phase 4).
+- [x] Complete Day51 Authentication, Password Security and JWT (Phase 4) — lesson (16-section v2, verbatim student answers + labeled assistant-assisted synthesis), auth design/runbook + runnable provider-neutral REAL-crypto model/tests (executed: 27 passed with real Argon2id + real RS256 JWT ephemeral keys; real PostgreSQL/FastAPI/browser/JWKS/integration/production NOT RUN; JWE out of scope; no exactly-once/authorization claims; schema honesty: password_hash + AuthSession modeled, real schema needs a Day48-safe additive migration), FastAPI cheat-sheet/interview appends, README increment, and status updates.
+- [ ] Prepare for Day52 — Authorization, Tenant Isolation, Quotas and API Security (Phase 4).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 
 (Day29-Day45 are complete; their work is recorded under the Completed Day** sections and the corresponding

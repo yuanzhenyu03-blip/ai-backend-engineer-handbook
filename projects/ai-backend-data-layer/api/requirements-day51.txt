@@ -1,0 +1,23 @@
+# Day51 Authentication, Password Security and JWT — pinned dependencies for the
+# recorded repository REAL-CRYPTO control-flow test evidence.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day51.txt
+#   python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py
+#   python3 -m pytest -q test_day51_authentication_jwt.py
+#
+# Runtime scope: the pytest suite exercises APPLICATION CONTROL FLOW with REAL
+# Argon2id password hashing (argon2-cffi) and REAL asymmetric RS256 JWT issuance/
+# verification (PyJWT + cryptography) using EPHEMERAL keys generated in-process, over
+# an IN-MEMORY user + AuthSession store that MODELS guarded (UPDATE ... RETURNING)
+# rotation. This proves the crypto primitives + control flow; it is NOT real
+# PostgreSQL (UNIQUE/constraint/transaction/isolation/RETURNING), NOT real FastAPI/
+# browser (cookies/SameSite/Origin/CSRF at the wire), NOT a real JWKS endpoint, NOT
+# integration, and NOT production. NO operational signing keys, plaintext passwords,
+# refresh tokens, or JWTs are committed. Executed versions: argon2-cffi 23.1.0,
+# PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3, Python 3.10.12.
+argon2-cffi==23.1.0
+PyJWT[crypto]==2.8.0
+cryptography>=42.0.0
+pytest==7.4.3

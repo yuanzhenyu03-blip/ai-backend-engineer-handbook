@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day50 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day51 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,13 +11,13 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4)
+Day51 — Authentication, Password Security and JWT (Phase 4)
 
 Status:
 ✅ Completed
 
-(The Day50 lesson, design/runbook, runnable fake-adapter model + tests, and status files are coherent; see
-CURRICULUM.md and ROADMAP.md. Day51 is the next lesson.)
+(The Day51 lesson, design/runbook, runnable real-crypto model + tests, and status files are coherent; see
+CURRICULUM.md and ROADMAP.md. Day52 is the next lesson.)
 
 ---
 
@@ -73,6 +73,7 @@ CURRICULUM.md and ROADMAP.md. Day51 is the next lesson.)
 - ✅ Day48 — Alembic and Safe AI Backend Schema Evolution
 - ✅ Day49 — Upload Sessions, Object Storage and Artifact Verification
 - ✅ Day50 — Idempotent AI Job API and Transactional Outbox Integration
+- ✅ Day51 — Authentication, Password Security and JWT
 
 ---
 
@@ -83,6 +84,31 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day51 — Authentication, Password Security and JWT
+
+Completed Time:
+2026-08-03
+
+Main Artifact:
+Day51 authentication (password security + JWT + refresh sessions) (projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md) with a runnable provider-neutral control-flow model (day51_authentication_jwt.py) using REAL crypto — Argon2id via argon2-cffi and asymmetric RS256 JWT via PyJWT + cryptography with EPHEMERAL in-process keys — plus test_day51_authentication_jwt.py and an in-memory user + AuthSession store: adaptive Argon2id password hash/verify (hash encodes algo/salt/cost; one generic authenticate failure + decoy verify; needs_rehash upgrade; a fast SHA-256 digest is used only for a high-entropy refresh secret, never a password); minimal non-secret JWT claims (sub/iss/aud/iat/exp/jti; never a password hash/provider key/prompt/Document content/secret/client tenant); a full verification contract (verify_access_token pins RS256, resolves a trusted key by an allowlisted kid, verifies signature + iss + aud + exp + nbf + required sub -> AuthenticatedIdentity(user_id=sub), rejecting alg=none/HS256-confusion/wrong-iss-aud/expired/nbf/missing-sub/tamper); kid allowlist + trusted-source unknown-kid refresh (else reject) + emergency revoke_key + planned K1->K2 overlap then drop_key; a per-device Refresh AuthSession storing only refresh_token_hash with a guarded rotate_refresh modeling UPDATE ... RETURNING (single winner; all-or-nothing rollback keeps A on partial-persistence failure), a bounded one-time grace (GRACE_RETRY recovers the same rotation, never A->C) vs post-grace REPLAY_DETECTED that revokes and RETAINS the token_family audit evidence, and revoke_session (current device) vs revoke_all_user_sessions; and a browser cookie/Origin/CSRF decision contract (HttpOnly is not CSRF defense). Authentication establishes a trusted user_id; a client-supplied tenant_id is not authority (Day52).
+
+Validation Boundary:
+Day51 has REAL executed crypto + control-flow evidence. Executed: python3 -m pip install -r requirements-day51.txt; python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py (passed); python3 -m pytest -q test_day51_authentication_jwt.py -> 27 passed (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3, pinned in projects/ai-backend-data-layer/api/requirements-day51.txt). These prove the REAL crypto primitives (Argon2id hashing; RS256 sign/verify) + APPLICATION CONTROL FLOW over an in-memory store only. NOT RUN: real PostgreSQL (UNIQUE/constraint/transaction/isolation or UPDATE ... WHERE ... RETURNING); real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire); a real JWKS endpoint; integration; production validation. JWE (encrypted JWT) is out of scope — a normal signed JWT is readable. Boundary preserved: authentication establishes WHO the caller is (a verified sub -> user_id); a client-supplied tenant_id is not authority; tenant membership/authorization/quota are Day52; the real Provider is Day53; real Celery/broker delivery is Day55. Day50 evidence is NOT inherited as Day51 evidence. Schema honesty: a password_hash column and the per-device AuthSession table are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, never a rewrite of published history. No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+Completed Work:
+
+- Day51 classroom learning
+- Day51 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved; assistant-assisted final synthesis labeled as such)
+- Day51 design/runbook + runnable provider-neutral real-crypto model + tests (executed: 27 passed) and project README increment
+- Day51 password-hash-vs-plaintext, library-verify + generic-failure, readable-JWT + minimal-claims, full-verification-contract, asymmetric-keys + rotation + emergency-revoke, Access-vs-Refresh, guarded-rotation + rollback + grace/replay + family-revoke-with-retained-evidence, and browser/CSRF exercises
+- Day51 FastAPI cheat sheet append
+- Day51 FastAPI interview notes append
+- Day51 repository status update
+
+---
+
+## Superseded — Day50 Last Completed Lesson (archived)
 
 Day50 — Idempotent AI Job API and Transactional Outbox Integration
 
@@ -158,7 +184,7 @@ Completed Work:
 
 ## Next
 
-- Day51 — Authentication, Password Security and JWT (Phase 4 — Production AI API Engineering)
+- Day52 — Authorization, Tenant Isolation, Quotas and API Security (Phase 4 — Production AI API Engineering)
 
 Status:
 Planned / Not started

@@ -778,3 +778,46 @@ Review round 1 (P1): (1) acceptance conflict arbitration is ONE atomic op (`upse
 Validation: FAKE in-memory store + transport — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 -> 29 passed; stdlib-only module). NOT PostgreSQL UNIQUE/tx/isolation/ON CONFLICT/SKIP LOCKED, NOT a real broker/Celery (ACK/redelivery/poison), NOT Worker/Provider runtime, NOT integration/production. Day51 auth / Day52 authz+quota / Day53 real Provider / Day55 real Celery not implemented.
 
 Related: [Day50 lesson](../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md) · [Day50 design/runbook](../projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md) · [model](../projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py) · [tests](../projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py)
+
+---
+
+## Day51 Authentication, Password Security and JWT
+
+```text
+Password hash   = one-way verification evidence (adaptive Argon2id; NEVER plaintext/reversible; SHA-256 too fast for passwords)
+Signed JWT      = short-lived, READABLE-but-tamper-evident identity credential (integrity/authenticity, NOT secrecy)
+Refresh Session = server-owned, revocable, PER-DEVICE state (store the token HASH, not the raw token)
+AuthN = trusted user_id (verified sub)   AuthZ = Day52 decides what the user may do
+```
+
+Passwords:
+- store an adaptive hash only (Argon2id, library salt + work factor). Login: library `verify(candidate, stored_hash)` — do NOT re-hash+compare (hash encodes algo/salt/cost).
+- ONE generic auth failure for unknown account AND wrong password (anti-enumeration; decoy verify for unknown user). On success, `needs_rehash` to upgrade; never keep plaintext.
+- a high-entropy random REFRESH token may use a fast SHA-256 digest (not enumerable) — do NOT generalize to passwords.
+
+JWT (asymmetric RS256):
+- payload is READABLE. Put only sub/iss/aud/iat/exp/jti. NEVER password hash, provider key, prompt, Document content, secret, or client tenant.
+- verification is a CONTRACT, not a decode: pin algorithm (allowlist, reject alg=none / HS256-confusion), select a TRUSTED key by allowlisted kid, verify signature + iss + aud + exp + nbf + require sub -> AuthenticatedIdentity(user_id=sub). tenant_id in the body is NOT trusted (Day52).
+- keys: Auth Service holds the PRIVATE signing key; verifiers hold PUBLIC keys only (symmetric would let every verifier sign). kid is an allowlist id, NEVER a URL/file/lookup. Unknown kid -> refresh once from a preconfigured trusted source, else reject 401 + safe event.
+- rotation K1->K2: publish K2, trust K1+K2, sign with K2, keep K1 verify for its max token lifetime + skew, then drop K1. Confirmed K1 compromise -> revoke K1 immediately (before expiry), force reauth.
+
+Access vs Refresh:
+- short Access Token limits theft window but gives NO immediate logout/password-change revocation (needs server-side session/security-version state).
+- per-device AuthSession: session_id/user_id/token_family_id/refresh_token_hash/created/expires/revoked/last_rotated/rotation_counter + grace fields.
+
+Refresh rotation (guarded, atomic):
+- one `UPDATE ... WHERE current_hash + active + not-expired RETURNING` = SOLE winner; zero rows -> issue nothing. All rotation facts commit together or roll back together (fail after marking A used but before B -> rollback keeps A valid).
+- bounded ONE-TIME retry grace recovers the SAME rotation (never A->C branch) for a lost response; residual small replay risk. Used token AFTER grace = REPLAY_DETECTED -> reject + revoke + RETAIN the token_family (audit evidence; do NOT delete), clear recovery material, require reauth.
+- concurrent rotate of A -> one ROTATED + one GRACE_RETRY (one session/family, one new token).
+
+Browser/CSRF: Refresh in HttpOnly + Secure + appropriate SameSite Cookie (NOT JS-readable JSON / localStorage). HttpOnly blocks JS reads, NOT auto cookie attachment -> NOT CSRF defense. State-changing cookie endpoints: SameSite + Origin (+Referer) + CSRF token/custom header; SameSite=None requires Secure + explicit CSRF. Reject cookie-only cross-site without valid Origin + CSRF.
+
+### Weak vs strong (Day51)
+Weak: "A signed JWT is secure, so I store the tenant + a secret in it and decode it server-side."
+Strong: "A JWT is readable; I keep secrets out, verify the full contract (alg/key/sig/iss/aud/exp/nbf/sub), trust only sub, and let Day52 decide tenant authority. Refresh uses per-device hash-stored sessions with a guarded RETURNING rotation; replay after grace revokes + retains the family evidence."
+
+Schema honesty: users already have a unique identity; a `password_hash` column and the per-device `AuthSession` table (token_family_id, refresh_token_hash, rotation/grace/revoke) are new facts — MODELED in-memory here; the real schema needs a Day48-safe FORWARD additive migration (not implemented; no published Alembic revision rewritten).
+
+Validation: REAL Argon2id (argon2-cffi) + REAL RS256 JWT (PyJWT + cryptography) with EPHEMERAL in-process keys + an in-memory guarded-rotation store (Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 27 passed). Proves crypto primitives + control flow ONLY. NOT real PostgreSQL (UNIQUE/tx/isolation/UPDATE...RETURNING), NOT FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire) / JWKS endpoint, NOT integration/production. JWE (encrypted JWT) out of scope. Day52 authz/quota, Day53 real Provider, Day55 real Celery not implemented. No plaintext passwords / refresh tokens / JWTs / operational signing keys committed.
+
+Related: [Day51 lesson](../docs/fastapi/day51-authentication-password-security-and-jwt.md) · [Day51 design/runbook](../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md) · [model](../projects/ai-backend-data-layer/api/day51_authentication_jwt.py) · [tests](../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py)

@@ -4,23 +4,25 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day50 — Idempotent AI Job API and Transactional Outbox Integration** that accepts one logical
-asynchronous AI Job exactly once at the API boundary, persists its dispatch intent atomically with the Job, then
-relays that intent at-least-once without silently losing work. A provider-neutral control-flow model
-(`day50_job_acceptance_outbox.py`) with a fake in-memory store + `TransportAdapter` covers client
-`Idempotency-Key` + request-fingerprint acceptance (`UNIQUE(tenant_id, idempotency_key)` as the DB arbiter, 409 on a
-changed fingerprint), an atomic modeled Job + one `job.dispatch_requested` Outbox intent, an Outbox Relay
-(claim + lease + fencing, publish OUTSIDE the DB lock, `published_at` checkpoint), at-least-once redelivery on an
-unknown publish result, retry backoff+jitter and quarantine retention, and a Worker guarded `queued -> running`
-claim that absorbs duplicate delivery. **REAL fake-adapter tests were executed** (application control flow only;
-Python 3.10.12, pytest 7.4.3 -> 29 passed; the module + tests are Python-standard-library only; deps pinned in
-`api/requirements-day50.txt`). This is **not** database/broker proof: **PostgreSQL UNIQUE/tx/isolation/`ON
-CONFLICT`/`SKIP LOCKED`, a real broker/Celery (ACK/redelivery/poison), Worker/Provider runtime, integration, and
-production are NOT RUN**; Day51 auth, Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not
-implemented, and no exactly-once is claimed across PostgreSQL + broker + Worker + Provider. Schema honesty: the
-published schema HAS `UNIQUE(tenant_id, idempotency_key)` but LACKS a request-fingerprint column,
-`UNIQUE(job_id, event_type)`, and relay ops columns — all **modeled** in-memory; the real schema needs a Day48-safe
-forward additive migration (not implemented here). (See the Day49 note below for the prior increment.)
+Current increment: **Day51 — Authentication, Password Security and JWT** that establishes a trusted caller identity
+for the Day43-Day50 AI Job API. A provider-neutral control-flow model (`day51_authentication_jwt.py`) uses **real**
+Argon2id password hashing (argon2-cffi) and **real** asymmetric RS256 JWT issuance/verification (PyJWT + cryptography)
+with **ephemeral in-process keys**, plus an in-memory user + `AuthSession` store: password hash/verify with one
+generic failure + `needs_rehash`; minimal non-secret JWT claims; a full verification contract (pinned algorithm,
+trusted key by allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub`, rejecting `alg=none`/HS256-
+confusion/tamper); `kid` allowlist + unknown-kid trusted-source refresh + emergency revoke + K1->K2 rotation
+overlap; a per-device Refresh Session storing only the token hash with a guarded `UPDATE ... RETURNING` rotation,
+all-or-nothing rollback, a bounded grace/replay state machine, and family-revocation-with-retained-evidence; and a
+browser cookie/Origin/CSRF decision contract. **REAL crypto + control-flow tests were executed** (Python 3.10.12;
+argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 27 passed; deps pinned in
+`api/requirements-day51.txt`). This proves crypto primitives + control flow only: **PostgreSQL
+(UNIQUE/tx/isolation/`UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a
+JWKS endpoint, integration, and production are NOT RUN**; JWE is out of scope, and Day52 authorization/quota, Day53
+real Provider, and Day55 real Celery are not implemented. Authentication establishes a trusted `user_id`; a
+client-supplied `tenant_id` is not authority (Day52). Schema honesty: a `password_hash` column and the per-device
+`AuthSession` table are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration
+(not implemented here). No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+(See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
@@ -80,6 +82,7 @@ Lessons:
 - Day48 (Alembic safe evolution): [`docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md`](../../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md)
 - Day49 (verified upload boundary): [`docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md`](../../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md)
 - Day50 (idempotent acceptance + outbox): [`docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md`](../../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md)
+- Day51 (authentication + JWT): [`docs/fastapi/day51-authentication-password-security-and-jwt.md`](../../docs/fastapi/day51-authentication-password-security-and-jwt.md)
 
 ---
 
@@ -119,7 +122,11 @@ projects/ai-backend-data-layer/
 │   ├── day50-idempotent-job-acceptance-and-transactional-outbox-design.md  # Day50: idempotent acceptance + outbox design/runbook
 │   ├── day50_job_acceptance_outbox.py                  # Day50: provider-neutral acceptance/outbox control-flow model + fake store/transport
 │   ├── test_day50_job_acceptance_outbox.py             # Day50: fake-adapter tests (executed: 29 passed)
-│   └── requirements-day50.txt                          # Day50: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
+│   ├── requirements-day50.txt                          # Day50: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
+│   ├── day51-authentication-password-security-and-jwt-design.md  # Day51: auth (password/JWT/refresh) design/runbook
+│   ├── day51_authentication_jwt.py                     # Day51: real Argon2id + real RS256 JWT + guarded refresh model
+│   ├── test_day51_authentication_jwt.py                # Day51: real-crypto tests (executed: 27 passed)
+│   └── requirements-day51.txt                          # Day51: pinned deps (argon2-cffi, PyJWT[crypto], cryptography, pytest)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -181,6 +188,43 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day51 increment — authentication (password security + JWT + refresh sessions)
+
+`api/day51-authentication-password-security-and-jwt-design.md` (with a runnable `day51_authentication_jwt.py` and
+`test_day51_authentication_jwt.py`) establishes a trusted caller identity. The tests are **real, executed** using
+**real crypto** (Argon2id + RS256 JWT) with ephemeral in-process keys: **Python 3.10.12; argon2-cffi 23.1.0,
+PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> `27 passed`** (deps pinned in `api/requirements-day51.txt`).
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Passwords | real Argon2id `PasswordService` (hash starts `$argon2id$`); library `verify`; one generic `authenticate` failure + decoy verify; `needs_rehash`; a fast digest is used ONLY for a high-entropy refresh secret. |
+| JWT verification | `verify_access_token` full contract: `ALLOWED_ALGS=("RS256",)`, trusted key by allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub` -> `AuthenticatedIdentity(user_id=sub)`; rejects `alg=none`/HS256-confusion/wrong-iss/aud/expired/nbf/missing-sub/tamper. |
+| Keys | `KeyRing`: private held by the Auth Service, public allowlist for verifiers; `revoke_key` (emergency), `drop_key` (post-overlap), `refresh_unknown_kid` (trusted-source, else reject); K1->K2 overlap. |
+| Refresh sessions | per-device `AuthSession` storing only `refresh_token_hash`; guarded `rotate_refresh` models `UPDATE ... RETURNING` single winner + all-or-nothing rollback; bounded grace (`GRACE_RETRY`) vs `REPLAY_DETECTED` -> revoke + RETAIN family; `revoke_session` vs `revoke_all_user_sessions`. |
+| Browser/CSRF | `evaluate_state_change_request`: cookie-only cross-site without valid Origin + CSRF -> reject (HttpOnly is not CSRF defense). |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day51.txt   # argon2-cffi, PyJWT[crypto], cryptography, pytest
+python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py
+python3 -m pytest -q test_day51_authentication_jwt.py
+```
+
+> **What this increment deliberately does not do:** it proves crypto primitives + application control flow only.
+> **NOT RUN:** real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... WHERE ... RETURNING`), real
+> FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, and production. JWE
+> (encrypted JWT) is out of scope — a normal signed JWT is readable. Authentication establishes a trusted `user_id`;
+> a client-supplied `tenant_id` is not authority — Day52 owns tenant membership/authorization/quota; Day53 the real
+> Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
+> new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
+> No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
 
 ---
 
