@@ -1049,16 +1049,23 @@ Weak answer: "Reject the request and delete the token family." (Deletion destroy
 
 Strong answer: "It is a suspected replay. Reject the request and revoke the affected token family, but RETAIN the
 family record and audit evidence rather than deleting it; clear any bounded recovery material, alert, and require the
-device to reauthenticate. A short bounded grace window earlier recovers a lost response for the same rotation, but it
-accepts a small bounded replay risk and never branches into multiple replacement tokens."
+device to reauthenticate. Detection covers ANY previously-used token in the family, not just the most recent one: the
+store keeps a per-family used-token ledger (`token_family_id + token_hash`), so replaying the oldest token A after
+A->B->C is still caught. Revocation isolates only that device family — a different device for the same user is
+unaffected. A short bounded grace window earlier does genuinely recover the lost response: the client that retries the
+immediately-previous token in-window gets back the SAME usable replacement token B exactly once (held as short-TTL
+encrypted recovery material, never a new A->C branch); that grace accepts a small bounded replay risk, and once the
+one recovery is consumed the honest fallback is reauthentication."
 
 ### Q5 (Senior) — key authority, rotation, and emergency compromise
 
 Strong answer: "The Auth Service holds the private signing key; API and Worker verify with public keys only, so a
 verifier cannot mint tokens. `kid` is an allowlist identifier, never a URL or file lookup. Planned K1->K2 publishes
 K2, trusts K1 and K2, signs with K2, and retains K1 verification for K1's maximum token lifetime plus clock skew
-before dropping K1. On a confirmed K1 compromise I reject K1 immediately, before normal expiry, and accept forced
-reauthentication."
+before dropping K1. On a confirmed K1 compromise I reject K1 immediately, before normal expiry, for BOTH verification
+and signing: a revoked key can never sign again, and if K1 was the current signing key the issuer fails closed (no
+token is minted) until an operator promotes the already-prepared K2 as the current signer. Then only K2 signs, and
+already-issued K1 tokens fail verification at once. I accept the forced reauthentication."
 
 Production scenario / trade-off prompt: "Is HttpOnly enough for a cookie-based refresh endpoint?" — "No. HttpOnly
 blocks JavaScript reads but not automatic cookie attachment, so it is not CSRF protection. For cookie-authenticated
@@ -1066,7 +1073,7 @@ state changes I combine SameSite with Origin validation and a CSRF token, and re
 lacking valid Origin/CSRF evidence."
 
 Validation: REAL Argon2id + REAL RS256 JWT with ephemeral in-process keys + an in-memory guarded-rotation store
-(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 27 passed). Proves crypto
+(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 34 passed). Proves crypto
 primitives + control flow only. NOT real PostgreSQL (UNIQUE/tx/isolation/`UPDATE ... RETURNING`), NOT FastAPI/browser
 (cookies/SameSite/Origin/CSRF at the wire) or a JWKS endpoint, NOT integration/production. JWE is out of scope. Day52
 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented. No plaintext passwords, refresh

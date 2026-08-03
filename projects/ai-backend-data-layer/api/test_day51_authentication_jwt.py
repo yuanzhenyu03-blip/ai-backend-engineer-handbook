@@ -59,25 +59,31 @@ def _base_claims(now=NOW, ttl=timedelta(minutes=5), sub="user-123"):
     return c
 
 
+def _fast_ps() -> PasswordService:
+    """Test-only: inject weak Argon2id params for speed. NEVER the module default."""
+    from argon2 import PasswordHasher
+    return PasswordService(PasswordHasher(time_cost=1, memory_cost=8, parallelism=1))
+
+
 # ===========================================================================
 # Passwords (real Argon2id)
 # ===========================================================================
 def test_password_is_stored_as_argon2id_hash_never_plaintext():
-    ps = PasswordService()
+    ps = _fast_ps()
     h = ps.hash_password("correct horse battery staple")
     assert h != "correct horse battery staple"
     assert h.startswith("$argon2id$")  # real Argon2id encoded hash (algo+salt+cost)
 
 
 def test_verify_password_true_and_false():
-    ps = PasswordService()
+    ps = _fast_ps()
     h = ps.hash_password("s3cret-pw")
     assert ps.verify_password("s3cret-pw", h) is True
     assert ps.verify_password("wrong-pw", h) is False
 
 
 def test_authenticate_generic_failure_for_unknown_and_wrong():
-    ps = PasswordService()
+    ps = _fast_ps()
     directory = InMemoryUserDirectory()
     directory.add(UserRow(user_id="user-123", username="alice", password_hash=ps.hash_password("pw-alice")))
     assert ps.authenticate(directory, "alice", "pw-alice") is AuthOutcome.OK
@@ -93,6 +99,14 @@ def test_needs_rehash_upgrades_old_parameters():
     old_hash = weak.hash_password("pw")
     assert strong.needs_rehash(old_hash) is True  # a stronger policy flags the old hash
     assert strong.needs_rehash(strong.hash_password("pw")) is False
+
+
+def test_default_password_service_uses_secure_production_params():
+    ps = PasswordService()  # no injected hasher -> library SECURE default (not test params)
+    assert ps._ph.time_cost >= 2
+    assert ps._ph.memory_cost >= 19456  # >= 19 MiB, OWASP Argon2id floor; tune per hardware
+    assert ps._ph.parallelism >= 1
+    assert ps.hash_password("pw").startswith("$argon2id$")  # still real Argon2id
 
 
 def test_refresh_digest_is_fast_hash_but_only_for_high_entropy_secret():
@@ -222,6 +236,35 @@ def test_planned_k1_to_k2_rotation_overlap():
     assert verify_access_token(t_k2, kr, now=NOW, expected_issuer=ISS, expected_audience=AUD).user_id == "u2"
 
 
+def test_revoking_current_signing_key_fails_closed_then_switch_to_k2():
+    kr = _keyring("K1")  # K1 current
+    kr.generate_signing_key("K2", make_current=False)  # K2 prepared + trusted, not yet current
+    old_k1 = issue_access_token(kr, user_id="u", now=NOW, ttl=timedelta(hours=1), issuer=ISS, audience=AUD)
+    kr.revoke_key("K1")  # emergency revoke of the CURRENT signing key
+    # (a) No current key -> signing FAILS CLOSED.
+    with pytest.raises(JwtVerificationError):
+        issue_access_token(kr, user_id="u", now=NOW, ttl=timedelta(minutes=5), issuer=ISS, audience=AUD)
+    # (b) A revoked key can never sign, even when named explicitly.
+    with pytest.raises(JwtVerificationError):
+        issue_access_token(kr, user_id="u", now=NOW, ttl=timedelta(minutes=5), issuer=ISS, audience=AUD, kid="K1")
+    # (c) Promote the prepared K2 -> only K2 signs now.
+    kr.set_current_signing_kid("K2")
+    t2 = issue_access_token(kr, user_id="u", now=NOW, ttl=timedelta(minutes=5), issuer=ISS, audience=AUD)
+    assert jwt.get_unverified_header(t2)["kid"] == "K2"
+    # (d) Already-issued K1 tokens fail verification immediately (revoked).
+    with pytest.raises(JwtVerificationError):
+        verify_access_token(old_k1, kr, now=NOW, expected_issuer=ISS, expected_audience=AUD)
+    # (e) K2 tokens verify fine.
+    assert verify_access_token(t2, kr, now=NOW, expected_issuer=ISS, expected_audience=AUD).user_id == "u"
+
+
+def test_cannot_make_a_revoked_key_the_current_signer():
+    kr = _keyring("K1")
+    kr.revoke_key("K1")
+    with pytest.raises(JwtVerificationError):
+        kr.set_current_signing_kid("K1")
+
+
 # ===========================================================================
 # Refresh Sessions — hash-only storage, guarded rotation, rollback, grace/replay
 # ===========================================================================
@@ -270,13 +313,43 @@ def test_rotation_rollback_keeps_a_valid():
     assert res.outcome is RefreshOutcome.ROTATED
 
 
-def test_grace_retry_recovers_same_rotation_within_window():
+def test_grace_retry_recovers_the_same_usable_b_after_lost_response():
+    store = AuthSessionStore()
+    raw_a, _ = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))
+    first = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30),
+                                 grace=timedelta(seconds=30))
+    assert first.outcome is RefreshOutcome.ROTATED
+    b_delivered = first.raw_refresh_token
+    # Simulate a LOST response: the client never received B and retries A in-window.
+    retry = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1, seconds=5), ttl=timedelta(days=30))
+    assert retry.outcome is RefreshOutcome.GRACE_RETRY
+    assert retry.raw_refresh_token == b_delivered  # the SAME B, actually recovered (not None, not a new C)
+    # The recovered B genuinely continues the refresh flow.
+    nxt = store.rotate_refresh(retry.raw_refresh_token, now=NOW + timedelta(minutes=2), ttl=timedelta(days=30))
+    assert nxt.outcome is RefreshOutcome.ROTATED
+
+
+def test_grace_recovery_is_one_time_then_documented_safe_failure():
     store = AuthSessionStore()
     raw_a, _ = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))
     store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=30))
-    # The client lost the response and retries A within the grace window.
-    retry = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1, seconds=5), ttl=timedelta(days=30))
-    assert retry.outcome is RefreshOutcome.GRACE_RETRY  # not a new A->C branch
+    r1 = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1, seconds=2), ttl=timedelta(days=30))
+    assert r1.outcome is RefreshOutcome.GRACE_RETRY and r1.raw_refresh_token  # recovered once
+    r2 = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1, seconds=4), ttl=timedelta(days=30))
+    # Controlled: material is consumed -> a safe, documented failure, never a fresh token.
+    assert r2.outcome is RefreshOutcome.GRACE_RETRY and r2.raw_refresh_token is None
+
+
+def test_raw_refresh_token_is_never_persisted_in_the_clear():
+    store = AuthSessionStore()
+    raw_a, session = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))
+    res = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30),
+                               grace=timedelta(seconds=30))
+    b = res.raw_refresh_token
+    assert session.refresh_token_hash == digest_refresh_token(b)  # durable field is only a hash
+    assert session.recovery_ciphertext is not None
+    assert b.encode() not in session.recovery_ciphertext  # recovery material is CIPHERTEXT, not raw B
+    assert b not in repr(session)  # raw B is not exposed via repr/log
 
 
 def test_replay_after_grace_revokes_family_but_retains_record():
@@ -292,6 +365,38 @@ def test_replay_after_grace_revokes_family_but_retains_record():
     # The (now revoked) current token B can no longer rotate.
     assert store.rotate_refresh(b.raw_refresh_token, now=NOW + timedelta(minutes=6), ttl=timedelta(days=30)).outcome \
         is RefreshOutcome.INVALID
+
+
+def test_replay_of_older_token_after_multiple_rotations_revokes_family():
+    store = AuthSessionStore()
+    raw_a, session = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))
+    # A -> B -> C, each past the prior grace window.
+    b = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=5))
+    assert b.outcome is RefreshOutcome.ROTATED
+    c = store.rotate_refresh(b.raw_refresh_token, now=NOW + timedelta(minutes=2), ttl=timedelta(days=30),
+                             grace=timedelta(seconds=5))
+    assert c.outcome is RefreshOutcome.ROTATED
+    # Replay the OLDEST token A well after its grace window: the family ledger still catches it.
+    replay = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=10), ttl=timedelta(days=30))
+    assert replay.outcome is RefreshOutcome.REPLAY_DETECTED
+    assert session.revoked_at is not None  # whole family revoked
+    assert session.session_id in store.sessions  # audit record RETAINED
+    # C (the previously-current token) can no longer rotate on the revoked family.
+    assert store.rotate_refresh(c.raw_refresh_token, now=NOW + timedelta(minutes=11), ttl=timedelta(days=30)).outcome \
+        is RefreshOutcome.INVALID
+
+
+def test_family_replay_does_not_affect_other_device_sessions():
+    store = AuthSessionStore()
+    raw_a1, s1 = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))  # device 1
+    raw_a2, s2 = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))  # device 2, same user
+    store.rotate_refresh(raw_a1, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=5))
+    store.rotate_refresh(raw_a2, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=5))
+    # Replay device-1's original token after grace -> revokes ONLY device-1's family.
+    assert store.rotate_refresh(raw_a1, now=NOW + timedelta(minutes=5), ttl=timedelta(days=30)).outcome \
+        is RefreshOutcome.REPLAY_DETECTED
+    assert s1.revoked_at is not None
+    assert s2.revoked_at is None  # the independent device is unaffected
 
 
 def test_invalid_for_unknown_or_expired():

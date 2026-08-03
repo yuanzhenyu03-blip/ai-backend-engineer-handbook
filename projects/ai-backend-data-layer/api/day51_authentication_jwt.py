@@ -41,6 +41,7 @@ from typing import Callable, Optional, Protocol
 import jwt  # PyJWT
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
+from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
@@ -83,8 +84,13 @@ class PasswordService:
     user-chosen passwords, which must use this slow adaptive scheme."""
 
     def __init__(self, hasher: Optional[PasswordHasher] = None) -> None:
-        # Small params keep tests fast; production uses higher cost. Still real Argon2id.
-        self._ph = hasher or PasswordHasher(time_cost=1, memory_cost=8, parallelism=1)
+        # Default is argon2-cffi's SECURE production default (time_cost=3,
+        # memory_cost=65536 KiB, parallelism=4) — NOT a test-tuned value. Operators
+        # MUST benchmark against real deployment hardware and raise the cost until a
+        # single hash costs a deliberate fraction of a second (see the design doc).
+        # Tests that need speed inject an explicit low-cost hasher; that weak value is
+        # never the module default.
+        self._ph = hasher or PasswordHasher()
         # A fixed decoy hash so an unknown-user login still spends verify time
         # (reduces account-enumeration via timing). Never a real user's hash.
         self._decoy = self._ph.hash("decoy-not-a-real-password")
@@ -164,9 +170,17 @@ class KeyRing:
     def set_current_signing_kid(self, kid: str) -> None:
         if kid not in self._private:
             raise JwtVerificationError("cannot sign with a key we do not hold privately")
+        if kid in self._revoked:
+            raise JwtVerificationError("cannot make a revoked key current")
         self._current_kid = kid
 
     def signing_key(self, kid: str) -> rsa.RSAPrivateKey:
+        """Return the PRIVATE key for signing. A revoked key must never sign again,
+        and an unheld key cannot sign. Both fail closed."""
+        if kid in self._revoked:
+            raise JwtVerificationError(f"refusing to sign with revoked key {kid!r}")
+        if kid not in self._private:
+            raise JwtVerificationError(f"no private key held for {kid!r}")
         return self._private[kid]
 
     def public_pem_for(self, kid: str) -> Optional[bytes]:
@@ -177,7 +191,14 @@ class KeyRing:
         return self._public_pem.get(kid)
 
     def revoke_key(self, kid: str) -> None:
+        """Emergency revocation: the key is immediately untrusted for BOTH verification
+        (public_pem_for -> None) AND signing (signing_key raises). If the revoked key is
+        the current signing key we FAIL CLOSED — current is cleared so no token can be
+        issued until an operator explicitly promotes a prepared, non-revoked key via
+        set_current_signing_kid(K2). We deliberately do NOT auto-pick a replacement."""
         self._revoked.add(kid)
+        if self._current_kid == kid:
+            self._current_kid = None
 
     def drop_key(self, kid: str) -> None:
         self._public_pem.pop(kid, None)
@@ -279,8 +300,8 @@ def verify_access_token(
 # ===========================================================================
 class RefreshOutcome(str, Enum):
     ROTATED = "rotated"  # single guarded winner: A -> B
-    GRACE_RETRY = "grace_retry"  # a lost-response retry recovered the SAME rotation (not A->C)
-    REPLAY_DETECTED = "replay_detected"  # used token after grace -> reject + revoke family (retained)
+    GRACE_RETRY = "grace_retry"  # lost-response retry: recovers the SAME usable B once (never A->C)
+    REPLAY_DETECTED = "replay_detected"  # ANY used family token after grace -> reject + revoke family (retained)
     INVALID = "invalid"  # unknown/expired/revoked -> zero rows, issue nothing
 
 
@@ -299,7 +320,11 @@ class AuthSession:
     previous_refresh_token_hash: Optional[str] = None
     previous_used_at: Optional[datetime] = None
     retry_grace_expires_at: Optional[datetime] = None
-    grace_result_token_hash: Optional[str] = None  # the SAME B produced by the winning rotation
+    grace_result_token_hash: Optional[str] = None  # hash of the SAME B produced by the winning rotation
+    # Short-TTL, PROTECTED recovery of the raw replacement token B for a lost response.
+    # Holds Fernet CIPHERTEXT (never the raw token), is bounded by retry_grace_expires_at,
+    # is consumed after ONE recovery, and is cleared on grace expiry / replay / revoke.
+    recovery_ciphertext: Optional[bytes] = None
 
 
 @dataclass
@@ -323,6 +348,15 @@ class AuthSessionStore:
     def __init__(self) -> None:
         self.sessions: dict[uuid.UUID, AuthSession] = {}
         self._by_current_hash: dict[str, uuid.UUID] = {}
+        # Used-token LEDGER: every refresh_token_hash that has ever been retired
+        # (rotated away) -> its token_family_id. This models a durable
+        # `used_refresh_token(token_family_id, token_hash, retired_at)` table and lets
+        # replay of ANY historical family token (not just the latest) be detected.
+        self._used_hashes: dict[str, uuid.UUID] = {}
+        # Ephemeral, in-process key that protects the short-TTL raw-B recovery material.
+        # Generated at runtime, never persisted or logged. A real deployment would hold
+        # this in a KMS/HSM, not process memory.
+        self._recovery_cipher = Fernet(Fernet.generate_key())
         self._lock = threading.Lock()
 
     def create_session(
@@ -356,6 +390,7 @@ class AuthSessionStore:
           * unknown/expired/revoked -> INVALID (zero rows), issue nothing."""
         h = digest_refresh_token(raw_token)
         with self._lock:
+            # (1) CURRENT token on an active session -> the SOLE guarded winner (A->B).
             sid = self._by_current_hash.get(h)
             if sid is not None:
                 session = self.sessions[sid]
@@ -364,14 +399,21 @@ class AuthSessionStore:
                 new_raw = secrets.token_urlsafe(32)
                 new_hash = digest_refresh_token(new_raw)
                 if fail_before_commit:
-                    # Nothing mutated yet -> rollback keeps A as the only valid token.
+                    # Nothing mutated yet -> rollback keeps A as the only valid token,
+                    # and A is NOT yet in the used-ledger, so a later A retry rotates cleanly.
                     raise SimulatedCommitFailure("injected failure before commit")
                 # --- single logical commit: all rotation facts together ---
-                session.previous_refresh_token_hash = session.refresh_token_hash
+                retired_hash = session.refresh_token_hash  # A
+                session.previous_refresh_token_hash = retired_hash
                 session.previous_used_at = now
                 session.retry_grace_expires_at = now + grace
                 session.grace_result_token_hash = new_hash
-                del self._by_current_hash[session.refresh_token_hash]
+                # Protect the raw B for a SHORT, one-time recovery of a lost response.
+                # We store CIPHERTEXT only; the raw token is never persisted in the clear.
+                session.recovery_ciphertext = self._recovery_cipher.encrypt(new_raw.encode("utf-8"))
+                del self._by_current_hash[retired_hash]
+                # Ledger the retired token so replaying A after A->B->C is still detected.
+                self._used_hashes[retired_hash] = session.token_family_id
                 session.refresh_token_hash = new_hash
                 session.last_rotated_at = now
                 session.rotation_counter += 1
@@ -379,24 +421,36 @@ class AuthSessionStore:
                 self._by_current_hash[new_hash] = sid
                 return RefreshResult(RefreshOutcome.ROTATED, raw_refresh_token=new_raw, session=session)
 
-            # Not a current token: is it a previous token (grace or replay)?
+            # (2) GRACE window: the IMMEDIATELY-previous token, retried inside the short
+            # window on an unrevoked session -> recover the SAME usable B exactly once.
             for session in self.sessions.values():
-                if session.previous_refresh_token_hash == h:
-                    if (
-                        session.retry_grace_expires_at is not None
-                        and now < session.retry_grace_expires_at
-                        and session.revoked_at is None
-                    ):
-                        # Lost-response retry: recover the SAME rotation result.
+                if (
+                    session.previous_refresh_token_hash == h
+                    and session.retry_grace_expires_at is not None
+                    and now < session.retry_grace_expires_at
+                    and session.revoked_at is None
+                ):
+                    if session.recovery_ciphertext is not None:
+                        raw_b = self._recovery_cipher.decrypt(session.recovery_ciphertext).decode("utf-8")
+                        session.recovery_ciphertext = None  # one controlled recovery only
                         return RefreshResult(
-                            RefreshOutcome.GRACE_RETRY,
-                            raw_refresh_token=None,  # the raw B was returned once; recovery is idempotent
-                            session=session, reason="grace retry recovered the same rotation",
+                            RefreshOutcome.GRACE_RETRY, raw_refresh_token=raw_b, session=session,
+                            reason="grace retry recovered the same replacement token B",
                         )
-                    # Used token after grace (or revoked) -> suspected replay.
-                    self._revoke_family_locked(session.token_family_id, now)
-                    return RefreshResult(RefreshOutcome.REPLAY_DETECTED, session=session,
-                                         reason="used refresh token after grace")
+                    # Already recovered once within this window: safe, documented failure.
+                    return RefreshResult(
+                        RefreshOutcome.GRACE_RETRY, raw_refresh_token=None, session=session,
+                        reason="recovery already consumed; re-authenticate if B was not received",
+                    )
+
+            # (3) REPLAY: ANY used family token presented outside its grace window ->
+            # reject, revoke the whole family, RETAIN audit evidence, isolate other devices.
+            family_id = self._used_hashes.get(h)
+            if family_id is not None:
+                self._revoke_family_locked(family_id, now)
+                return RefreshResult(RefreshOutcome.REPLAY_DETECTED, reason="replayed used refresh token")
+
+            # (4) Truly unknown token -> INVALID (issue nothing).
             return RefreshResult(RefreshOutcome.INVALID, reason="unknown refresh token")
 
     def revoke_session(self, session_id: uuid.UUID, *, now: datetime) -> bool:
@@ -429,11 +483,13 @@ class AuthSessionStore:
         for session in self.sessions.values():
             if session.token_family_id == token_family_id and session.revoked_at is None:
                 session.revoked_at = now
-                # Clear recovery material but RETAIN the record for audit evidence.
+                # Destroy recovery material, but RETAIN the session record and the
+                # used-token ledger entries as audit evidence (never deleted).
                 session.grace_result_token_hash = None
+                session.recovery_ciphertext = None
                 self._by_current_hash.pop(session.refresh_token_hash, None)
                 count += 1
-        return count  # the family record is retained, not deleted
+        return count  # family record + used-token ledger are retained, not deleted
 
 
 # ===========================================================================

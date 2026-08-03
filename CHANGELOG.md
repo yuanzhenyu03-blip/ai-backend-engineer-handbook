@@ -9,6 +9,50 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.102 — Day51 review (Codex): grace recovery, full-family replay, signing revoke, Argon2 defaults
+
+Date: 2026-08-03
+
+Day: Day51 (review fix)
+
+Addresses five review findings in the Day51 authentication artifact. Only the Day51 module, its tests, and the Day51
+documentation/status files were changed. The artifact is still REAL Argon2id + REAL RS256 JWT with EPHEMERAL
+in-process keys over an in-memory store (real-crypto control-flow evidence); no real PostgreSQL / FastAPI / browser /
+JWKS / integration / production runtime is claimed.
+
+### Fixed
+
+- **F1 — grace retry now truly recovers the lost response.** `rotate_refresh` stores the raw replacement token B as
+  short-TTL Fernet **ciphertext** (`recovery_ciphertext`, ephemeral in-process key; a real deployment uses a KMS/HSM),
+  bounded by `retry_grace_expires_at`. A retry of the immediately-previous token in-window returns the SAME usable B
+  exactly once, then consumes the slot; a second in-window retry returns a documented safe failure (re-authenticate).
+  The raw token is never persisted in the clear, never logged, and never a plain durable field. No A->C branch.
+- **F2 — replay detection covers the whole family, not just the latest token.** A per-family used-token ledger
+  (`_used_hashes`: `token_family_id + token_hash` for every retired token) makes replay of ANY earlier token (e.g. the
+  oldest A after A->B->C) `REPLAY_DETECTED` -> reject + revoke the family + RETAIN records/ledger (audit) + clear
+  recovery material; a sibling device family for the same user is unaffected.
+- **F3 — a revoked signing key can no longer sign.** `revoke_key` blocks BOTH verification and signing (`signing_key`
+  raises for a revoked/unheld key); revoking the current signer clears `current_signing_kid` so `issue_access_token`
+  fails closed until an operator promotes a prepared K2 via `set_current_signing_kid` (which refuses a revoked key).
+- **F4 — secure Argon2id default.** `PasswordService()` now defaults to argon2-cffi's secure production cost
+  (`PasswordHasher()`); the weak params are injected only in speed-sensitive tests, and a new test asserts the default
+  meets a memory/time floor. Real Argon2id verify + `needs_rehash` upgrade retained.
+- **F5 — consistency.** `requirements-day51.txt` pins all four deps to the executed versions (cryptography==48.0.0);
+  PROJECT_STATUS.md and TASKS.md now share one Current-Lesson/Next-Lesson semantic (Day51 = Last Completed; Day52 =
+  Current/Next); test counts, README, lesson, cheat sheet, interview, curriculum and this changelog updated together.
+
+### Validation
+
+- Executed: `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`;
+  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **34 passed** (was 27); full
+  `projects/ai-backend-data-layer/api/` suite -> **238 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
+  cryptography 48.0.0, pytest 7.4.3).
+- Still NOT RUN: real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real
+  FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE out
+  of scope. No plaintext passwords, refresh tokens, JWTs, or operational signing keys committed.
+
+---
+
 ## v0.1.101 — Day51 Authentication, Password Security and JWT
 
 Date: 2026-08-03
@@ -21,9 +65,9 @@ Lesson title: Authentication, Password Security and JWT
 
 - `docs/fastapi/day51-authentication-password-security-and-jwt.md` — the Day51 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving the verbatim Chinese/English student answers and corrections, and labeling the final Chinese synthesis as assistant-assisted at the student's request.
 - `projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md` — design/runbook (passwords, JWT verification contract, key authority + rotation, Access vs Refresh, guarded rotation + grace/replay, browser/CSRF, FastAPI integration contract, evidence matrix, schema honesty).
-- `projects/ai-backend-data-layer/api/day51_authentication_jwt.py` — provider-neutral control-flow model using REAL Argon2id (argon2-cffi) and REAL asymmetric RS256 JWT (PyJWT + cryptography) with EPHEMERAL in-process keys, plus an in-memory user + `AuthSession` store (guarded `rotate_refresh` modeling `UPDATE ... RETURNING`, grace/replay, family revocation with retained evidence) and a CSRF decision contract.
-- `projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py` — real-crypto tests (27 cases).
-- `projects/ai-backend-data-layer/api/requirements-day51.txt` — pinned `argon2-cffi==23.1.0`, `PyJWT[crypto]==2.8.0`, `cryptography>=42.0.0`, `pytest==7.4.3`.
+- `projects/ai-backend-data-layer/api/day51_authentication_jwt.py` — provider-neutral control-flow model using REAL Argon2id (argon2-cffi) and REAL asymmetric RS256 JWT (PyJWT + cryptography) with EPHEMERAL in-process keys, plus an in-memory user + `AuthSession` store (guarded `rotate_refresh` modeling `UPDATE ... RETURNING`, grace/replay recovering the same usable B, a per-family used-hash ledger, key revocation that fails closed for signing, family revocation with retained evidence) and a CSRF decision contract.
+- `projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py` — real-crypto tests (34 cases).
+- `projects/ai-backend-data-layer/api/requirements-day51.txt` — pinned to executed versions: `argon2-cffi==23.1.0`, `PyJWT[crypto]==2.8.0`, `cryptography==48.0.0`, `pytest==7.4.3`.
 
 ### Updated
 
@@ -33,11 +77,11 @@ Lesson title: Authentication, Password Security and JWT
 
 ### Main learning outcome
 
-Authenticate WHO the caller is before deciding what they may do (Day52). Store an adaptive password hash only (Argon2id) and verify with the library; return one generic failure and use `needs_rehash`. A normal signed JWT is readable, so it carries only minimal non-secret claims and is trusted only after a full verification contract (pinned algorithm, trusted key by an allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub`); only the verified `sub` -> user_id is trusted, never a client-supplied tenant. The Auth Service signs with a private key; verifiers hold public keys; K1->K2 rotates with overlap and an emergency revoke. Access Tokens are short and stateless; continuity uses a revocable per-device Refresh Session that stores only the token hash. Rotation is one guarded `UPDATE ... RETURNING` winner, all-or-nothing (rollback keeps A); a bounded grace recovers a lost response for the same rotation, and a post-grace replay revokes and RETAINS the token family for audit. HttpOnly is not CSRF defense; state-changing cookie endpoints need SameSite + Origin + a CSRF token.
+Authenticate WHO the caller is before deciding what they may do (Day52). Store an adaptive password hash only (Argon2id) and verify with the library; return one generic failure and use `needs_rehash`. A normal signed JWT is readable, so it carries only minimal non-secret claims and is trusted only after a full verification contract (pinned algorithm, trusted key by an allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub`); only the verified `sub` -> user_id is trusted, never a client-supplied tenant. The Auth Service signs with a private key; verifiers hold public keys; K1->K2 rotates with overlap and an emergency revoke. Access Tokens are short and stateless; continuity uses a revocable per-device Refresh Session that stores only the token hash. Rotation is one guarded `UPDATE ... RETURNING` winner, all-or-nothing (rollback keeps A); a bounded one-time grace recovers a lost response by returning the SAME usable replacement token B (from a short-TTL encrypted recovery slot, never a new branch), and replay of ANY used family token (a per-family used-hash ledger) revokes and RETAINS the token family for audit while isolating other devices. HttpOnly is not CSRF defense; state-changing cookie endpoints need SameSite + Origin + a CSRF token.
 
 ### Validation
 
-- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **27 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **231 passed**. REAL crypto primitives + application control flow.
+- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **34 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **238 passed**. REAL crypto primitives + application control flow.
 - Markdown: Day51 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
 - Secrets: no plaintext passwords, refresh tokens, JWTs, Provider keys, real/operational signing keys, signed URLs, database URLs, or user data committed; test signing keys are generated in-process; raw credentials/JWT payloads are never logged.
 - Three claims kept separate — Conceptual Artifact; Static/real-library control-flow Verification (what ran: real Argon2id + real RS256 + in-memory guarded rotation); Real Runtime Verification (NOT RUN): real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE is out of scope. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, no published Alembic revision rewritten. Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented.

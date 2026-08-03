@@ -27,7 +27,7 @@ application control flow — it is NOT database, HTTP/browser, or production run
 **Conceptual Artifact**, **Static / real-library control-flow Verification** (what ran), and **Real Runtime
 Verification** (NOT RUN). Day50 evidence is not inherited.
 
-Executed: `python3 -m pytest -q test_day51_authentication_jwt.py` -> **27 passed**
+Executed: `python3 -m pytest -q test_day51_authentication_jwt.py` -> **34 passed**
 (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3).
 
 SECURITY: no plaintext password, refresh token, JWT, Provider key, real/operational signing key, signed URL,
@@ -54,6 +54,11 @@ authority.
 
 - Store an adaptive password **hash only** (Argon2id with library-managed salt + configurable work factor); never
   plaintext or reversibly encrypted. Do NOT use a fast general hash (SHA-256) for user passwords.
+- **Secure default cost**: `PasswordService()` uses argon2-cffi's SECURE production default (`PasswordHasher()` —
+  `time_cost=3`, `memory_cost=65536` KiB, `parallelism=4`), NOT a test-tuned value. Operators MUST benchmark against
+  real deployment hardware and raise the cost until a single hash takes a deliberate fraction of a second. Tests that
+  need speed inject an explicit low-cost hasher; that weak value is never the module default (`needs_rehash` then
+  transparently upgrades any hash made under an older, weaker policy on the next successful login).
 - Login verifies with `PasswordService.verify_password(candidate, stored_hash)` -> the library `PasswordHasher.verify`
   (the stored hash encodes algorithm/salt/cost; never re-hash-and-compare strings).
 - `authenticate` returns ONE generic failure for an unknown account AND a wrong password (anti-enumeration), and
@@ -83,8 +88,13 @@ authority.
   An unknown `kid` may trigger ONE refresh from a preconfigured trusted source (`refresh_unknown_kid`); if still
   unknown -> reject 401 + safe security event. Never trust Header-directed URLs/files.
 - Planned K1->K2: publish K2 public key; verifiers trust K1 + K2; sign new Tokens with K2; retain K1 verification for
-  K1's max token lifetime + clock skew; then `drop_key(K1)`. Confirmed K1 compromise: `revoke_key(K1)` -> reject
-  immediately (before expiry), accepting forced reauthentication.
+  K1's max token lifetime + clock skew; then `drop_key(K1)`.
+- **Confirmed K1 compromise fails closed for BOTH verify and sign**: `revoke_key(K1)` immediately stops trusting K1
+  for verification (`public_pem_for -> None`) AND refuses to SIGN with it (`signing_key` raises). If K1 was the
+  current signing key, `revoke_key` clears `current_signing_kid` so `issue_access_token` fails closed — no token is
+  minted — until an operator promotes a prepared, non-revoked K2 via `set_current_signing_kid("K2")` (which itself
+  refuses a revoked key). We deliberately do NOT auto-pick a replacement. Already-issued K1 tokens fail verification
+  at once; forced reauthentication is accepted.
 
 ---
 
@@ -97,7 +107,9 @@ authority.
   Refresh Token; the server stores only its hash (`refresh_token_hash`). Fields modeled: `session_id`, `user_id`,
   `token_family_id`, `refresh_token_hash`, `created_at`, `expires_at`, `revoked_at`, `last_rotated_at`,
   `rotation_counter`, plus grace fields (`previous_refresh_token_hash`, `previous_used_at`, `retry_grace_expires_at`,
-  `grace_result_token_hash`).
+  `grace_result_token_hash`, and `recovery_ciphertext` — a short-TTL ENCRYPTED copy of the raw replacement token B for
+  a lost-response recovery, never the raw token in the clear). The store also keeps a per-family **used-token ledger**
+  (`token_family_id + token_hash` for every retired token) so replay of ANY earlier token in the family is detected.
 
 ---
 
@@ -105,11 +117,15 @@ authority.
 
 ```text
 rotate_refresh(raw): one guarded critical section (models UPDATE ... WHERE current_hash + active + not-expired RETURNING)
-  current-hash match on active, unexpired session -> SOLE winner: store new hash + previous_* + retry grace + counter
-       (all-or-nothing; fail_before_commit -> rollback -> A stays the only valid token)  -> ROTATED
-  previous-hash match within grace window          -> recover the SAME rotation (never A->C branch)  -> GRACE_RETRY
-  previous-hash match AFTER grace (or revoked)     -> REPLAY_DETECTED: revoke + RETAIN the family (audit), issue none
-  unknown / expired / revoked                      -> INVALID (zero rows), issue nothing
+  (1) current-hash match on active, unexpired session -> SOLE winner: store new hash + previous_* + retry grace +
+       counter + ENCRYPT raw B into recovery_ciphertext + ledger the retired hash
+       (all-or-nothing; fail_before_commit -> rollback -> A stays the only valid token; A not yet ledgered)  -> ROTATED
+  (2) immediately-previous hash within grace window   -> decrypt recovery_ciphertext, return the SAME usable B ONCE
+       (consume the recovery slot; never an A->C branch)                                          -> GRACE_RETRY(B)
+       (already consumed within the window            -> GRACE_RETRY(None): documented safe failure, re-authenticate)
+  (3) ANY used family token via the used-hash ledger  -> REPLAY_DETECTED: revoke the family + RETAIN records/ledger
+       (audit), clear recovery material, isolate other device families, issue nothing
+  (4) unknown / expired / revoked                     -> INVALID (zero rows), issue nothing
 ```
 
 - A successful `UPDATE ... RETURNING` is the **sole winner**; zero rows must not issue a token (concurrent rotate ->
@@ -117,13 +133,18 @@ rotate_refresh(raw): one guarded critical section (models UPDATE ... WHERE curre
 - **All-or-nothing**: new hash, old-token state, retry-grace state, recovery material, counter, and revoke state
   commit together or roll back together. If the DB fails after marking A used but before B/metadata persist, rolling
   back preserves A as the only valid token and enables a safe retry.
-- **Bounded grace trade-off**: a short, tightly bounded retry grace is acceptable for a lost refresh response; it
-  recovers the same rotation result, keeps only a narrowly TTL-bounded, strongly-protected recovery reference
-  (hash-only persistence), and does NOT distinguish every network retry from theft — a documented residual replay
-  risk.
-- **Replay after grace** -> reject, revoke/retain the `token_family_id` (per-device family, distinct from all user
-  devices), clear recovery material, audit + alert, require reauthentication. **Do not delete the family record** —
-  deletion destroys security evidence.
+- **Bounded grace trade-off**: a short, tightly bounded retry grace genuinely recovers a lost refresh response — the
+  client retrying the immediately-previous token in-window receives the SAME usable replacement token B exactly once.
+  The recoverable material is the raw B held as Fernet **ciphertext** under an ephemeral in-process key (a real
+  deployment uses a KMS/HSM), bounded by `retry_grace_expires_at`, consumed after one recovery, and cleared on grace
+  expiry / replay / revoke — the raw token is never persisted in the clear, never logged, and never a plain durable
+  field. The grace does NOT distinguish every network retry from theft — a documented residual replay risk — and once
+  the single recovery is consumed the honest fallback is reauthentication.
+- **Replay of ANY used family token after grace** -> reject, revoke/retain the `token_family_id` (per-device family,
+  distinct from other user devices), clear recovery material, audit + alert, require reauthentication. Detection uses
+  the per-family **used-token ledger**, so replaying the OLDEST token A after A->B->C is caught (not only the latest
+  token). Revocation isolates only that device family; a sibling device for the same user keeps working. **Do not
+  delete the family record or ledger** — deletion destroys security evidence.
 - Revocation scopes: `revoke_session` (normal `/logout`, current device only); `revoke_family` /
   `revoke_all_user_sessions` (logout-all / password change / key compromise / confirmed replay).
 
@@ -160,9 +181,10 @@ used as proof here (NOT RUN).
 | Static file checks | RUN | `py_compile` module + tests |
 | Real Argon2id password hash/verify | RUN | argon2-cffi; hash!=plaintext, verify T/F, generic failure, needs_rehash |
 | Real RS256 JWT full-contract verification | RUN | PyJWT+cryptography ephemeral keys; alg pin, iss/aud/exp/nbf/sub, alg=none/HS256/tamper rejected |
-| kid allowlist + unknown-kid refresh + emergency revoke + K1->K2 overlap | RUN (real crypto) | trusted-set lookup; refresh-then-reject; revoke; drop_key |
+| kid allowlist + unknown-kid refresh + emergency revoke + K1->K2 overlap | RUN (real crypto) | trusted-set lookup; refresh-then-reject; revoke blocks verify AND sign; revoking current signer fails closed then promote K2; drop_key |
 | Per-device Refresh: hash-only, guarded rotation, rollback | MODELED (RUN) | in-memory store + lock; UPDATE-RETURNING single winner; mid-tx rollback keeps A |
-| Bounded grace + replay -> family revoke (retained) | MODELED (RUN) | grace recovers same B; post-grace replay revokes + retains family |
+| Bounded grace recovers the SAME usable B (once, encrypted, never A->C) | MODELED (RUN) | lost-response retry returns the same usable B; one-time consume; raw never plain-persisted |
+| Replay of ANY used family token -> family revoke (retained), devices isolated | MODELED (RUN) | per-family used-hash ledger; replay of oldest token after A->B->C revokes+retains; sibling device unaffected |
 | CSRF/browser decision | MODELED (RUN) | `evaluate_state_change_request` cookie/Origin/CSRF logic |
 | Real PostgreSQL UNIQUE/tx/isolation/`UPDATE ... RETURNING` | NOT RUN | needs a server + async driver + Day42 raw SQL + a Day48-safe additive AuthSession migration |
 | Real FastAPI/browser (cookies/SameSite/Origin/CSRF) + JWKS endpoint | NOT RUN | HTTP-layer runtime |

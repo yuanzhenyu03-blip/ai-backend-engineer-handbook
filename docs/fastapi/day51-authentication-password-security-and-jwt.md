@@ -12,7 +12,7 @@ Prerequisite: Day50 — Idempotent AI Job API and Transactional Outbox Integrati
 Previous Lesson: Day50 — Idempotent AI Job API and Transactional Outbox Integration
 Next Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Engineering Artifact: projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md
-  + runnable day51_authentication_jwt.py + test_day51_authentication_jwt.py (real Argon2id + real RS256 JWT; 27 passed)
+  + runnable day51_authentication_jwt.py + test_day51_authentication_jwt.py (real Argon2id + real RS256 JWT; 34 passed)
 ```
 
 Main engineering artifact: a provider-neutral authentication control-flow model using **real** Argon2id and **real**
@@ -139,7 +139,9 @@ expensive.
 resets.
 
 **Framework Connection:** `PasswordService.hash_password` (real Argon2id) — the stored value starts with
-`$argon2id$` and encodes algorithm/salt/cost.
+`$argon2id$` and encodes algorithm/salt/cost. `PasswordService()` defaults to argon2-cffi's SECURE production cost
+(`time_cost=3`, `memory_cost=65536` KiB, `parallelism=4`), tuned per deployment hardware; tests inject a low-cost
+hasher explicitly, and `needs_rehash` upgrades any hash made under an older, weaker policy on the next login.
 
 ---
 
@@ -210,7 +212,9 @@ Confirmed K1 compromise: reject K1 immediately, accepting forced reauthenticatio
 refresh from a preconfigured trusted source; if still unknown, reject 401 and record a safe security event.
 
 **Framework Connection:** `KeyRing` (private held by Auth Service, public allowlist for verifiers), `revoke_key`
-(emergency), `drop_key` (post-overlap), and the `refresh_unknown_kid` trusted-source hook.
+(emergency — blocks BOTH verification and signing; if the revoked key was the current signer, issuance fails closed
+until a prepared K2 is promoted via `set_current_signing_kid`), `drop_key` (post-overlap), and the
+`refresh_unknown_kid` trusted-source hook.
 
 ---
 
@@ -244,13 +248,19 @@ expired, atomically storing the new hash and rotation metadata. A successful `UP
 winner; zero rows must not issue a token. All-or-nothing: new hash, old-token state, retry-grace state, recovery
 material, counter, and revoke state commit together or roll back together — if the DB fails after marking A used but
 before B/metadata persist, rolling back keeps A the only valid token and enables a safe retry. A short bounded retry
-grace recovers the SAME rotation result for a lost response (never branching A into a new C). A used token AFTER the
-grace window is `REPLAY_DETECTED`: reject, revoke and **retain** the `token_family_id` (audit evidence — do NOT
-delete it), clear recovery material, and require reauthentication.
+grace genuinely recovers a lost response: the client that retries the immediately-previous token in-window gets back
+the SAME usable replacement token B exactly once — held as short-TTL ENCRYPTED recovery material (never the raw token
+in the clear, never a new A->C branch) and consumed after that one recovery. Replay detection covers ANY previously
+used token in the family via a per-family used-token ledger (`token_family_id + token_hash`), so replaying the OLDEST
+token A after A->B->C is still caught, not only the latest token. A used token AFTER the grace window is
+`REPLAY_DETECTED`: reject, revoke and **retain** the `token_family_id` (audit evidence — do NOT delete it), clear
+recovery material, isolate the offending device family only (sibling devices keep working), and require
+reauthentication.
 
 **Framework Connection:** `rotate_refresh` (lock-guarded, models `UPDATE ... RETURNING`) -> `ROTATED` /
-`GRACE_RETRY` / `REPLAY_DETECTED` / `INVALID`; `fail_before_commit` proves rollback; `_revoke_family_locked` retains
-the record.
+`GRACE_RETRY` / `REPLAY_DETECTED` / `INVALID`; `recovery_ciphertext` (Fernet, ephemeral in-process key) returns the
+same usable B once; the `_used_hashes` per-family ledger detects replay of any earlier token; `fail_before_commit`
+proves rollback; `_revoke_family_locked` retains the record and ledger.
 
 ---
 
@@ -380,8 +390,9 @@ locked out.
 ### Exercise 6: Production replay (design judgment)
 
 Question: A rotates to B, the response is lost, A retries during grace vs outside grace.
-Expected Output: inside grace -> recover the same rotation (`GRACE_RETRY`); outside grace -> `REPLAY_DETECTED`,
-revoke and retain the family, require reauthentication.
+Expected Output: inside grace -> recover the SAME usable B once (`GRACE_RETRY`, from the short-TTL encrypted recovery
+slot, never a new C); outside grace, or replaying any earlier family token -> `REPLAY_DETECTED` (per-family used-hash
+ledger), revoke and retain the family, isolate other devices, require reauthentication.
 
 ### Exercise 7: Reject a cookie-only cross-site refresh
 
@@ -553,6 +564,6 @@ Engineering artifact + runbook:
 [`projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md`](../../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md).
 Runnable model: [`day51_authentication_jwt.py`](../../projects/ai-backend-data-layer/api/day51_authentication_jwt.py);
 tests: [`test_day51_authentication_jwt.py`](../../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py)
-(real Argon2id + real RS256 JWT with ephemeral keys; **27 passed**; Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0,
+(real Argon2id + real RS256 JWT with ephemeral keys; **34 passed**; Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0,
 cryptography 48.0.0, pytest 7.4.3). PostgreSQL / FastAPI / browser / JWKS / integration / production runtime: **NOT
 RUN**.
