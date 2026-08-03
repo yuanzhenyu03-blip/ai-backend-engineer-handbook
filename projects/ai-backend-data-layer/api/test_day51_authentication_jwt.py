@@ -453,6 +453,38 @@ def test_logout_current_vs_logout_all():
     assert s3.revoked_at is None  # a different user is unaffected
 
 
+def test_revoke_all_user_sessions_clears_recovery_material_immediately():
+    store = AuthSessionStore()
+    raw_a1, s1 = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))  # device 1
+    raw_a2, s2 = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))  # device 2, same user
+    raw_a3, s3 = store.create_session("user-2", now=NOW, ttl=timedelta(days=30))  # other user
+    # Give every session recoverable material via one rotation each.
+    store.rotate_refresh(raw_a1, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=30))
+    store.rotate_refresh(raw_a2, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=30))
+    store.rotate_refresh(raw_a3, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=30))
+    for s in (s1, s2, s3):
+        assert s.recovery_ciphertext is not None and s.grace_result_token_hash is not None
+    # logout-all / password change / account-security event for user-1.
+    n = store.revoke_all_user_sessions("user-1", now=NOW + timedelta(minutes=2))
+    assert n == 2
+    # Both affected sessions are revoked AND their recovery material is destroyed NOW,
+    # not deferred to the expiry sweep (their grace window is still open).
+    for s in (s1, s2):
+        assert s.revoked_at is not None
+        assert s.recovery_ciphertext is None
+        assert s.grace_result_token_hash is None
+    # A different user is untouched (still revocable, still holds its material).
+    assert s3.revoked_at is None
+    assert s3.recovery_ciphertext is not None and s3.grace_result_token_hash is not None
+    # Historical replay semantics are preserved: the retired token A1 is still in the
+    # ledger, so replaying it is REPLAY_DETECTED (family revoke retained), not a degraded
+    # INVALID — clearing recovery material did not touch the ledger.
+    assert digest_refresh_token(raw_a1) in store._used_hashes
+    replay = store.rotate_refresh(raw_a1, now=NOW + timedelta(minutes=3), ttl=timedelta(days=30))
+    assert replay.outcome is RefreshOutcome.REPLAY_DETECTED
+    assert s1.session_id in store.sessions  # audit record retained
+
+
 # ===========================================================================
 # Browser / CSRF contract
 # ===========================================================================

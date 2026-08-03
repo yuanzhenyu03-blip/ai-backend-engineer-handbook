@@ -27,7 +27,7 @@ application control flow — it is NOT database, HTTP/browser, or production run
 **Conceptual Artifact**, **Static / real-library control-flow Verification** (what ran), and **Real Runtime
 Verification** (NOT RUN). Day50 evidence is not inherited.
 
-Executed: `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed**
+Executed: `python3 -m pytest -q test_day51_authentication_jwt.py` -> **37 passed**
 (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3).
 
 SECURITY: no plaintext password, refresh token, JWT, Provider key, real/operational signing key, signed URL,
@@ -150,7 +150,9 @@ rotate_refresh(raw): one guarded critical section (models UPDATE ... WHERE curre
   clears them for every past-grace session, is **fail-closed on time** (no `retry_grace_expires_at` or an in-window
   session is left untouched), and RETAINS the used-token ledger + Session audit record. Clearing recovery material
   does NOT delete the retired-token ledger, so a post-grace replay of A stays `REPLAY_DETECTED`, never a degraded
-  `INVALID`. `revoke_session` / family revoke destroy recovery material immediately. **Real deployment**: run this as
+  `INVALID`. All revoke paths (`revoke_session`, family revoke, `revoke_all_user_sessions`) destroy recovery material
+  immediately through the shared `_clear_recovery_material` helper; the sweep is ONLY the expiry fallback for an
+  abandoned token that never returns. **Real deployment**: run this as
   a reliable scheduled job (periodic sweep / cron / `pg_cron`) bounded by `retry_grace_expires_at` — the in-memory
   method models that job; relying on "clear it when the old token is next seen" is unsafe because the client may never
   retry.
@@ -160,7 +162,12 @@ rotate_refresh(raw): one guarded critical section (models UPDATE ... WHERE curre
   token). Revocation isolates only that device family; a sibling device for the same user keeps working. **Do not
   delete the family record or ledger** — deletion destroys security evidence.
 - Revocation scopes: `revoke_session` (normal `/logout`, current device only); `revoke_family` /
-  `revoke_all_user_sessions` (logout-all / password change / key compromise / confirmed replay).
+  `revoke_all_user_sessions` (logout-all / password change / key compromise / confirmed replay). EVERY revoke path
+  (single, family, all-user) destroys the session's recovery material IMMEDIATELY via the shared
+  `_clear_recovery_material` helper — a revoked session never keeps a decryptable grace-window token waiting for the
+  sweep. The expiry `sweep_expired_recovery_material` is only the fallback for sessions whose grace window lapses
+  because the old token is never resubmitted. Both keep the used-token ledger + audit record (post-grace replay stays
+  `REPLAY_DETECTED`).
 
 ---
 

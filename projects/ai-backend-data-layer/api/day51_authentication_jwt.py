@@ -457,6 +457,16 @@ class AuthSessionStore:
             # (4) Truly unknown token -> INVALID (issue nothing).
             return RefreshResult(RefreshOutcome.INVALID, reason="unknown refresh token")
 
+    @staticmethod
+    def _clear_recovery_material(session: "AuthSession") -> None:
+        """Destroy ONLY the short-TTL recoverable secrets on a session — the encrypted
+        replacement token B and its hash. This NEVER deletes the used-token ledger or the
+        Session audit record, and it does not un-revoke or re-index the session. Reused by
+        every path that ends a session's recoverability (revoke_session, family revoke,
+        revoke_all_user_sessions) and by the expiry sweep, so no path forgets one field."""
+        session.recovery_ciphertext = None
+        session.grace_result_token_hash = None
+
     def revoke_session(self, session_id: uuid.UUID, *, now: datetime) -> bool:
         """Normal /logout: revoke ONLY the current per-device session."""
         with self._lock:
@@ -465,8 +475,7 @@ class AuthSessionStore:
                 return False
             session.revoked_at = now
             # A logged-out session must not retain recoverable B material.
-            session.recovery_ciphertext = None
-            session.grace_result_token_hash = None
+            self._clear_recovery_material(session)
             self._by_current_hash.pop(session.refresh_token_hash, None)
             return True
 
@@ -475,12 +484,15 @@ class AuthSessionStore:
             return self._revoke_family_locked(token_family_id, now)
 
     def revoke_all_user_sessions(self, user_id: str, *, now: datetime) -> int:
-        """logout-all / password change / key compromise: revoke every device family."""
+        """logout-all / password change / key compromise: revoke every device family AND
+        immediately destroy each revoked session's recoverable B material (do not wait for
+        the expiry sweep). The used-token ledger and audit records are retained."""
         with self._lock:
             count = 0
             for session in self.sessions.values():
                 if session.user_id == user_id and session.revoked_at is None:
                     session.revoked_at = now
+                    self._clear_recovery_material(session)
                     self._by_current_hash.pop(session.refresh_token_hash, None)
                     count += 1
             return count
@@ -511,8 +523,7 @@ class AuthSessionStore:
                     and (session.recovery_ciphertext is not None
                          or session.grace_result_token_hash is not None)
                 ):
-                    session.recovery_ciphertext = None
-                    session.grace_result_token_hash = None
+                    self._clear_recovery_material(session)
                     swept += 1
         return swept  # used-token ledger + Session audit records are retained
 
@@ -523,8 +534,7 @@ class AuthSessionStore:
                 session.revoked_at = now
                 # Destroy recovery material, but RETAIN the session record and the
                 # used-token ledger entries as audit evidence (never deleted).
-                session.grace_result_token_hash = None
-                session.recovery_ciphertext = None
+                self._clear_recovery_material(session)
                 self._by_current_hash.pop(session.refresh_token_hash, None)
                 count += 1
         return count  # family record + used-token ledger are retained, not deleted

@@ -9,6 +9,46 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.104 — Day51 review (Codex): destroy refresh recovery material on every revoke path
+
+Date: 2026-08-03
+
+Day: Day51 (review fix)
+
+Addresses a gap in the minimum-retention lifecycle: `revoke_all_user_sessions` (logout-all / password change /
+account-security event) set `revoked_at` and dropped the current-token index but did NOT clear `recovery_ciphertext`
+or `grace_result_token_hash`, so a revoked session kept a decryptable grace-window token until a future sweep. Scope:
+Day51 module, tests, and Day51 docs/status files only.
+
+### Fixed
+
+- Extracted a shared `AuthSessionStore._clear_recovery_material(session)` helper that nulls `recovery_ciphertext` +
+  `grace_result_token_hash` and nothing else. Reused on every path that ends recoverability so none can forget a
+  field: `revoke_session`, `_revoke_family_locked` (family revoke), `revoke_all_user_sessions` (the fix — now clears
+  immediately), and `sweep_expired_recovery_material`. Preserved semantics: the `_used_hashes` ledger and Session
+  audit records are never deleted, revoked sessions still reject refresh, and grace recovery / expiry sweep / replay
+  family-revoke behaviour is unchanged. Recovery material stays protected Fernet ciphertext under an ephemeral
+  in-process key — never a plaintext field, never logged.
+
+### Added tests
+
+- `test_revoke_all_user_sessions_clears_recovery_material_immediately` — two same-user sessions each rotated once (so
+  both hold `recovery_ciphertext` + `grace_result_token_hash`); `revoke_all_user_sessions` revokes both AND nulls both
+  recovery fields immediately (grace window still open, not deferred to the sweep); a different user's session is
+  untouched; and replaying a retired token is still `REPLAY_DETECTED` with the family revoked and the record retained
+  (clearing recovery material did not degrade replay to `INVALID`).
+
+### Validation
+
+- Executed: `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`;
+  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **37 passed** (was 36); full
+  `projects/ai-backend-data-layer/api/` suite -> **241 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
+  cryptography 48.0.0, pytest 7.4.3). Static / real-library control-flow evidence only. NOT RUN (no such claim): real
+  PostgreSQL, FastAPI/browser, JWKS endpoint, integration, production, or a real scheduler. No plaintext passwords,
+  refresh tokens, JWTs, private/KMS keys, or user data committed.
+
+---
+
 ## v0.1.103 — Day51 review (Codex): recovery-material minimum retention (scheduled sweep)
 
 Date: 2026-08-03
@@ -42,8 +82,8 @@ material. Scope limited to the Day51 module, tests, and Day51 docs/status files.
 ### Validation
 
 - Executed: `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`;
-  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed** (was 34); full
-  `projects/ai-backend-data-layer/api/` suite -> **240 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
+  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **37 passed** (was 34); full
+  `projects/ai-backend-data-layer/api/` suite -> **241 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
   cryptography 48.0.0, pytest 7.4.3). No regression: grace same-usable-B, one-time recovery, A->B->C replay, device
   isolation, rollback, K1 revoke fail-closed, and the secure-Argon2 default tests all still pass.
 - Still NOT RUN: real PostgreSQL, FastAPI/browser, JWKS endpoint, integration, production; and the real scheduled
@@ -87,8 +127,8 @@ JWKS / integration / production runtime is claimed.
 ### Validation
 
 - Executed: `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`;
-  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed** (was 27); full
-  `projects/ai-backend-data-layer/api/` suite -> **240 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
+  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **37 passed** (was 27); full
+  `projects/ai-backend-data-layer/api/` suite -> **241 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
   cryptography 48.0.0, pytest 7.4.3).
 - Still NOT RUN: real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real
   FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE out
@@ -124,7 +164,7 @@ Authenticate WHO the caller is before deciding what they may do (Day52). Store a
 
 ### Validation
 
-- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **240 passed**. REAL crypto primitives + application control flow.
+- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **37 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **241 passed**. REAL crypto primitives + application control flow.
 - Markdown: Day51 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
 - Secrets: no plaintext passwords, refresh tokens, JWTs, Provider keys, real/operational signing keys, signed URLs, database URLs, or user data committed; test signing keys are generated in-process; raw credentials/JWT payloads are never logged.
 - Three claims kept separate — Conceptual Artifact; Static/real-library control-flow Verification (what ran: real Argon2id + real RS256 + in-memory guarded rotation); Real Runtime Verification (NOT RUN): real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE is out of scope. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, no published Alembic revision rewritten. Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented.

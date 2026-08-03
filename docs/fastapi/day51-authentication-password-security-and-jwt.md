@@ -12,7 +12,7 @@ Prerequisite: Day50 — Idempotent AI Job API and Transactional Outbox Integrati
 Previous Lesson: Day50 — Idempotent AI Job API and Transactional Outbox Integration
 Next Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Engineering Artifact: projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md
-  + runnable day51_authentication_jwt.py + test_day51_authentication_jwt.py (real Argon2id + real RS256 JWT; 36 passed)
+  + runnable day51_authentication_jwt.py + test_day51_authentication_jwt.py (real Argon2id + real RS256 JWT; 37 passed)
 ```
 
 Main engineering artifact: a provider-neutral authentication control-flow model using **real** Argon2id and **real**
@@ -297,7 +297,10 @@ lacking a valid Origin and matching CSRF token, `ALLOW` when both are present (c
 **Tech Lead Review:** Only the verified `sub` -> `user_id` is trusted identity; tenant authority is Day52. A normal
 `/logout` revokes only the current per-device session; logout-all, password change, key compromise, or confirmed
 replay revoke all affected sessions/families. Distinguish an independent per-device family from all of a user's
-devices.
+devices. Every revoke path (`revoke_session`, family revoke, `revoke_all_user_sessions`) destroys the session's
+recovery material IMMEDIATELY via the shared `_clear_recovery_material` helper — logout-all / password change does not
+leave a decryptable grace-window token waiting for the sweep; the expiry sweep is only the fallback for an abandoned
+token that never returns. The used-token ledger and audit records are retained in every case.
 
 **Framework Connection:** `revoke_session` (current device) vs `revoke_all_user_sessions` / `revoke_family`.
 
@@ -569,6 +572,6 @@ Engineering artifact + runbook:
 [`projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md`](../../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md).
 Runnable model: [`day51_authentication_jwt.py`](../../projects/ai-backend-data-layer/api/day51_authentication_jwt.py);
 tests: [`test_day51_authentication_jwt.py`](../../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py)
-(real Argon2id + real RS256 JWT with ephemeral keys; **36 passed**; Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0,
+(real Argon2id + real RS256 JWT with ephemeral keys; **37 passed**; Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0,
 cryptography 48.0.0, pytest 7.4.3). PostgreSQL / FastAPI / browser / JWKS / integration / production runtime: **NOT
 RUN**.

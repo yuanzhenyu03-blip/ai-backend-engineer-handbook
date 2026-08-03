@@ -1058,7 +1058,9 @@ encrypted recovery material, never a new A->C branch); that grace accepts a smal
 one recovery is consumed the honest fallback is reauthentication. That recovery material is also minimum-retention: it
 lives only until the grace deadline, and a scheduled sweep destroys the ciphertext and grace hash once the window
 expires EVEN IF the client never retries — the used-token ledger and audit record are kept, so a later replay is still
-detected, never degraded to a plain invalid-token result."
+detected, never degraded to a plain invalid-token result. And every explicit revoke path — single logout, family
+revoke, and logout-all / password-change (`revoke_all_user_sessions`) — destroys that recovery material immediately
+through one shared helper, so a security event never waits for the sweep."
 
 ### Q5 (Senior) — key authority, rotation, and emergency compromise
 
@@ -1076,7 +1078,7 @@ state changes I combine SameSite with Origin validation and a CSRF token, and re
 lacking valid Origin/CSRF evidence."
 
 Validation: REAL Argon2id + REAL RS256 JWT with ephemeral in-process keys + an in-memory guarded-rotation store
-(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 36 passed). Proves crypto
+(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 37 passed). Proves crypto
 primitives + control flow only. NOT real PostgreSQL (UNIQUE/tx/isolation/`UPDATE ... RETURNING`), NOT FastAPI/browser
 (cookies/SameSite/Origin/CSRF at the wire) or a JWKS endpoint, NOT integration/production. JWE is out of scope. Day52
 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented. No plaintext passwords, refresh
