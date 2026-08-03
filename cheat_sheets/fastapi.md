@@ -735,3 +735,45 @@ Schema honesty: the published upload_sessions allowlist has NO `verifying`, no o
 Validation: FAKE in-memory Object Storage adapter — application CONTROL FLOW only, incl. a MODELED atomic UoW (Python 3.10.12, pytest 7.4.3 -> 44 passed; stdlib-only module). **NOT** real presigned/checksum/multipart/versioning semantics, **NOT** PostgreSQL runtime, **NOT** a real Object Storage integration, **NOT** production. Day50 Outbox / Day51 JWT / Day52 authorization / Day55 Celery / real Provider NOT implemented.
 
 Related: [Day49 lesson](../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md) · [Day49 design/runbook](../projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md) · [model](../projects/ai-backend-data-layer/api/day49_upload_verification.py) · [tests](../projects/ai-backend-data-layer/api/test_day49_upload_verification.py)
+
+---
+
+## Day50 Idempotent AI Job API and Transactional Outbox Integration
+
+```text
+Idempotency-Key = identity of ONE logical client command   fingerprint = evidence semantics didn't change (key NOT in fingerprint)
+UNIQUE(tenant_id, idempotency_key) = DB arbiter of concurrent acceptance (NOT app SELECT-then-INSERT)
+Job + exactly one job.dispatch_requested Outbox intent = ONE atomic short UoW (both or neither)
+Outbox = durable dispatch obligation   Relay = at-least-once delivery   published_at = checkpoint, NOT Job success
+```
+
+Acceptance (`POST /jobs`):
+- missing/blank Idempotency-Key -> reject BEFORE any DB write. Every referenced Document must be Day49-verified + tenant-owned else reject.
+- same key + same fingerprint -> return the original Job (no 2nd Job/intent). same key + changed semantics -> 409 CONFLICT (no durable facts).
+- fingerprint covers ALL behavior-changing fields (docs refs, prompt, model/profile, output contract, token/quality, api version). Doc order canonicalized ONLY for an explicitly unordered contract; else order preserved.
+- DB is the arbiter: `INSERT ... ON CONFLICT (tenant_id, idempotency_key) RETURNING`. SELECT-then-INSERT fails because BOTH see absence and create duplicates.
+- retention is an explicit retry-contract window; an expired record must NOT make a late retry look like a new command. Client rule: fresh never-reused key per command.
+
+Atomic UoW: validate -> create Job(queued) + one dispatch intent in the SAME tx -> commit both or roll back both. Never 202 for a Job with no dispatch intent. At-most-one dispatch intent per Job = logical UNIQUE(job_id, event_type).
+
+Relay: API UoW NEVER publishes inside the DB tx. After commit: claim DUE unpublished intents (FOR UPDATE SKIP LOCKED + lease/owner) -> publish OUTSIDE the lock via TransportAdapter.publish(envelope) -> fenced checkpoint sets published_at.
+- envelope small+stable: outbox_event_id, event_type, job_id, correlation id. Queue is NOT Job truth; Worker re-reads Job by job_id. No prompt/secret/mutable-doc in the message.
+- publish then crash before published_at -> unknown -> retain (published_at NULL) + republish later (at-least-once duplicate). Never delete/guess.
+- transient failure -> keep event, attempt_count++, REDACTED error, next_attempt_at = bounded exp backoff + jitter, release lease, retry when due.
+- exhausted/permanent -> QUARANTINE (retain + alert + controlled-replay). Do NOT delete, do NOT mark the Job failed.
+- multi-relay: short DB claim + lease; NO lock over transport I/O (long external I/O expands tx, blocks progress, lock waits/timeouts, and can't make a cross-system tx). Fencing token: a stale relay whose lease expired cannot write published_at after a new owner took over.
+
+Four idempotency layers: (tenant,key)=acceptance | UNIQUE(job_id,event_type)=dispatch intent | guarded queued->running RETURNING=worker execution | provider correlation/evidence=post-call recovery (Day53).
+Worker: duplicate delivery allowed; execution authority ONLY on guarded `UPDATE ... WHERE job_status='queued' RETURNING` (zero rows -> NO Provider call).
+
+NO exactly-once across PostgreSQL + broker + Worker + Provider. Use durable identity + guarded transitions + idempotent recovery + evidence retention.
+
+Schema honesty: published schema HAS UNIQUE(tenant_id, idempotency_key); it LACKS a request-fingerprint column, UNIQUE(job_id,event_type), and relay ops columns (attempt_count/last_error/next_attempt_at/dispatch-quarantine state/relay owner+lease+fencing token) — all MODELED in-memory. Real schema needs a Day48-safe FORWARD additive migration; not implemented here; no published Alembic revision rewritten.
+
+### Weak vs strong (Day50)
+Weak: "one idempotency key + at-least-once = exactly-once."
+Strong: "Client (tenant,key) makes acceptance idempotent; Job+Outbox commit atomically; a Relay delivers at-least-once after commit; duplicates are absorbed by a guarded Worker claim. I never claim exactly-once across the broker/Worker/Provider."
+
+Validation: FAKE in-memory store + transport — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 -> 23 passed; stdlib-only module). NOT PostgreSQL UNIQUE/tx/isolation/ON CONFLICT/SKIP LOCKED, NOT a real broker/Celery (ACK/redelivery/poison), NOT Worker/Provider runtime, NOT integration/production. Day51 auth / Day52 authz+quota / Day53 real Provider / Day55 real Celery not implemented.
+
+Related: [Day50 lesson](../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md) · [Day50 design/runbook](../projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md) · [model](../projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py) · [tests](../projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py)

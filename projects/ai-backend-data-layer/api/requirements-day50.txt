@@ -1,0 +1,20 @@
+# Day50 Idempotent AI Job API and Transactional Outbox Integration — pinned
+# dependency for the recorded repository FAKE-ADAPTER test evidence.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day50.txt
+#   python3 -m py_compile day50_job_acceptance_outbox.py test_day50_job_acceptance_outbox.py
+#   python3 -m pytest -q test_day50_job_acceptance_outbox.py
+#
+# Runtime scope: the pytest suite exercises APPLICATION CONTROL FLOW against an
+# IN-MEMORY store that MODELS guarded compare-and-set transitions and a FAKE/in-memory
+# TransportAdapter (acceptance idempotency + request fingerprint, atomic modeled
+# Job+Outbox UoW, one dispatch intent, at-least-once relay with retry/backoff/quarantine,
+# relay lease/fencing, and a duplicate-absorbing worker guarded claim). It is NOT proof
+# of real PostgreSQL UNIQUE/constraint/transaction/isolation or `INSERT ... ON CONFLICT`/
+# `FOR UPDATE SKIP LOCKED`, NOT a real broker/Celery (ACK/redelivery/poison), NOT a real
+# Worker/Provider, NOT integration, and NOT production. The module + tests use only the
+# Python standard library, so this file pins ONLY the test runner. No cloud SDK, no
+# broker, no real credentials, no network.
+pytest==7.4.3

@@ -4,20 +4,23 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day49 — Upload Sessions, Object Storage and Artifact verification** that turns large external
-bytes into deterministic, verified, recoverable database references without confusing Object Storage success,
-content safety, and durable business truth. A provider-neutral control-flow model (`day49_upload_verification.py`)
-with a fake in-memory Object Storage adapter covers server-owned key identity, expected-vs-observed verification
-(never rewrite the expectation; ETag != SHA-256), a fail-closed content/security gate, idempotent Document
-finalization, completion-vs-cleanup concurrency + the three expiry lifecycles, multipart unknown-completion
-recovery, and output ResultArtifact recovery without re-calling a paid Provider. **REAL fake-adapter tests were
-executed** (application control flow only; Python 3.10.12, pytest 7.4.3 -> 44 passed, hardened after Codex review rounds 1-2; the module + tests are
-Python-standard-library only; deps pinned in `api/requirements-day49.txt`). This is **not** storage/database proof:
-**PostgreSQL runtime, real Object Storage (presign/checksum/multipart/versioning), FastAPI/scanner integration, and
-production are NOT RUN**; Day50 Outbox, Day51 JWT, Day52 authorization, Day55 Celery, and a real Provider are not
-implemented. Schema honesty: the published `upload_sessions` status allowlist has no `verifying`, so Day49 keeps the
-hold **modeled** in-memory (`verifying` + `verification_hold_until`); the real schema needs a Day48-safe forward migration (not implemented here). (See the Day48 note below for the
-prior increment.)
+Current increment: **Day50 — Idempotent AI Job API and Transactional Outbox Integration** that accepts one logical
+asynchronous AI Job exactly once at the API boundary, persists its dispatch intent atomically with the Job, then
+relays that intent at-least-once without silently losing work. A provider-neutral control-flow model
+(`day50_job_acceptance_outbox.py`) with a fake in-memory store + `TransportAdapter` covers client
+`Idempotency-Key` + request-fingerprint acceptance (`UNIQUE(tenant_id, idempotency_key)` as the DB arbiter, 409 on a
+changed fingerprint), an atomic modeled Job + one `job.dispatch_requested` Outbox intent, an Outbox Relay
+(claim + lease + fencing, publish OUTSIDE the DB lock, `published_at` checkpoint), at-least-once redelivery on an
+unknown publish result, retry backoff+jitter and quarantine retention, and a Worker guarded `queued -> running`
+claim that absorbs duplicate delivery. **REAL fake-adapter tests were executed** (application control flow only;
+Python 3.10.12, pytest 7.4.3 -> 23 passed; the module + tests are Python-standard-library only; deps pinned in
+`api/requirements-day50.txt`). This is **not** database/broker proof: **PostgreSQL UNIQUE/tx/isolation/`ON
+CONFLICT`/`SKIP LOCKED`, a real broker/Celery (ACK/redelivery/poison), Worker/Provider runtime, integration, and
+production are NOT RUN**; Day51 auth, Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not
+implemented, and no exactly-once is claimed across PostgreSQL + broker + Worker + Provider. Schema honesty: the
+published schema HAS `UNIQUE(tenant_id, idempotency_key)` but LACKS a request-fingerprint column,
+`UNIQUE(job_id, event_type)`, and relay ops columns — all **modeled** in-memory; the real schema needs a Day48-safe
+forward additive migration (not implemented here). (See the Day49 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
 data-ownership/failure model as a precise multi-tenant AI Job HTTP API: the commit-before-`202` acceptance
@@ -76,6 +79,7 @@ Lessons:
 - Day47 (async sessions/tx/UoW): [`docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md`](../../docs/fastapi/day47-async-sessions-transactions-repository-and-unit-of-work.md)
 - Day48 (Alembic safe evolution): [`docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md`](../../docs/fastapi/day48-alembic-and-safe-ai-backend-schema-evolution.md)
 - Day49 (verified upload boundary): [`docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md`](../../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md)
+- Day50 (idempotent acceptance + outbox): [`docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md`](../../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md)
 
 ---
 
@@ -111,7 +115,11 @@ projects/ai-backend-data-layer/
 │   ├── day49-upload-object-storage-and-artifact-verification-design.md  # Day49: verified upload boundary design/runbook
 │   ├── day49_upload_verification.py                    # Day49: provider-neutral upload/verify control-flow model + fake in-memory adapter
 │   ├── test_day49_upload_verification.py               # Day49: fake-adapter tests (executed: 44 passed)
-│   └── requirements-day49.txt                          # Day49: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
+│   ├── requirements-day49.txt                          # Day49: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
+│   ├── day50-idempotent-job-acceptance-and-transactional-outbox-design.md  # Day50: idempotent acceptance + outbox design/runbook
+│   ├── day50_job_acceptance_outbox.py                  # Day50: provider-neutral acceptance/outbox control-flow model + fake store/transport
+│   ├── test_day50_job_acceptance_outbox.py             # Day50: fake-adapter tests (executed: 23 passed)
+│   └── requirements-day50.txt                          # Day50: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -173,6 +181,46 @@ Column intent:
 | `finished_at` | `timestamptz` NULL | NULL -> not terminal yet |
 | `error_message` | `text` NULL | NULL -> no recorded error |
 | `result_object_key` | `text` NULL | NULL -> no result artifact yet (Object Storage reference) |
+
+---
+
+## Day50 increment — idempotent Job acceptance + transactional Outbox
+
+`api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md` (with a runnable
+`day50_job_acceptance_outbox.py` and `test_day50_job_acceptance_outbox.py`) accepts one logical AI Job exactly once
+at the API boundary and persists its dispatch intent atomically with the Job. The tests are **real, executed**
+against a **fake in-memory store + TransportAdapter** — **application control flow only**: **Python 3.10.12,
+pytest 7.4.3 -> `23 passed`** (the module + tests are Python-standard-library only; deps pinned in
+`api/requirements-day50.txt`).
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Acceptance identity | `Idempotency-Key` = one logical command; `compute_request_fingerprint` = evidence semantics didn't change (key not included); missing key rejected before writes; every Document must be Day49-verified + tenant-owned. |
+| DB arbitration | `accept_job_atomic` models `INSERT ... ON CONFLICT (tenant_id, idempotency_key)`; same key+fingerprint -> `RETURNED_EXISTING`; changed fingerprint -> `CONFLICT` (no durable facts). |
+| Atomic UoW | Job(queued) + exactly one `job.dispatch_requested` Outbox intent commit together (mid-tx failure leaves neither); at-most-one dispatch intent (`DispatchIntentExists`). |
+| Outbox Relay | `run_relay_once`: claim (`FOR UPDATE SKIP LOCKED` + lease/owner) -> publish OUTSIDE the DB lock via `TransportAdapter.publish` -> fenced checkpoint (`published_at`). Envelope is small (`outbox_event_id`/`event_type`/`job_id`/correlation) — no prompt/secret. |
+| Failure/recovery | unknown publish (crash before checkpoint) -> retain + republish (at-least-once); transient -> attempt++/redacted error/`next_attempt_at` backoff+jitter; exhausted -> `QUARANTINED` (Job stays `queued`, never failed). |
+| Concurrency | `claim_outbox_batch` skip-locked; `checkpoint_published_if_owner` raises `FencingError` for a superseded relay; no DB lock over transport I/O; `worker_claim` = one guarded `queued -> running` winner. |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day50.txt   # pytest==7.4.3 (module + tests are stdlib-only)
+python3 -m py_compile day50_job_acceptance_outbox.py test_day50_job_acceptance_outbox.py
+python3 -m pytest -q test_day50_job_acceptance_outbox.py
+```
+
+> **What this increment deliberately does not do:** it uses a **fake in-memory** store + transport, so it proves
+> application control flow only. **NOT RUN:** real PostgreSQL UNIQUE/constraint/transaction/isolation or
+> `INSERT ... ON CONFLICT`/`FOR UPDATE SKIP LOCKED`, a real broker/Celery (ACK/redelivery/poison), Worker/Provider
+> runtime, integration, and production. It is not a Celery replacement and claims **no exactly-once** across
+> PostgreSQL + broker + Worker + Provider. Day51 auth, Day52 authorization/quota, Day53 real Provider, and Day55
+> real Celery are not implemented. Schema honesty: the published schema has `UNIQUE(tenant_id, idempotency_key)` but
+> lacks a request-fingerprint column, `UNIQUE(job_id, event_type)`, and relay ops columns — all modeled in-memory;
+> the real schema needs a Day48-safe forward additive migration (not implemented here).
 
 ---
 

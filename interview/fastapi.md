@@ -939,3 +939,70 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day49), the
 [Day49 design/runbook](../projects/ai-backend-data-layer/api/day49-upload-object-storage-and-artifact-verification-design.md),
 the [model](../projects/ai-backend-data-layer/api/day49_upload_verification.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day49_upload_verification.py).
+
+---
+
+## Day50 — Idempotent AI Job API and Transactional Outbox Integration
+
+Key vocabulary: idempotency key, request fingerprint, `UNIQUE(tenant_id, idempotency_key)`, `INSERT ... ON
+CONFLICT`, transactional outbox, dispatch intent, relay, at-least-once, `published_at` checkpoint, `FOR UPDATE SKIP
+LOCKED`, lease, fencing token, guarded claim, quarantine, exactly-once (not claimed).
+
+### Q1 (Beginner) — What is an idempotency key, and why is it useful for an async AI Job API?
+
+Weak answer: "it avoids calling the provider twice." (API acceptance comes first, and it is not only about the
+Provider.)
+
+Strong answer: "An idempotency key identifies one logical client request. If the client retries after a timeout, the
+API returns the original Job instead of creating a duplicate Job and dispatch intent. This helps prevent duplicate
+downstream processing."
+
+### Q2 (Intermediate) — How does the transactional outbox prevent a Job accepted-but-never-dispatched?
+
+Weak answer: "use at-least-once." (That is Relay/transport delivery, not the atomicity mechanism.)
+
+Strong answer: "The API creates the Job and its dispatch Outbox event in the same database transaction, so either
+both commit or neither does. After commit, a Relay reads the durable Outbox event and publishes it. Delivery is at
+least once, so duplicates are possible, but an accepted Job never silently loses its dispatch intent."
+
+Follow-up: "Why not `SELECT` then `INSERT`?" — "Two concurrent first-time requests both see absence and create
+duplicates; `UNIQUE(tenant_id, idempotency_key)` plus an atomic conflict path is the arbiter."
+
+### Q3 (Intermediate) — Same idempotency key, changed request body. What happens?
+
+Strong answer: "It is a 409 Conflict with no new durable facts. The key is the identity of a logical command; the
+fingerprint is server evidence that the key was not reused for a different command. Same key + same fingerprint
+returns the original Job; same key + changed behavior-changing fields conflicts."
+
+### Q4 (Senior) — A Relay publishes successfully but crashes before recording `published_at`. Recover without losing the Job or calling the Provider twice.
+
+Weak answer: "Don't re-send, to avoid duplicate work." (The publish result is unknown; not re-sending can silently
+lose an accepted Job.)
+
+Strong answer: "The Relay scans Outbox rows where `published_at` is null. If it crashed after publishing but before
+the checkpoint, it publishes again, because the result is unknown and the Job must not be lost — duplicate messages
+are acceptable. Both Workers attempt a guarded `queued` to `running` update, but only one returns a row, so only
+that Worker calls the Provider. A lease and fencing token also stop a stale Relay from writing a later checkpoint."
+
+### Q5 (Senior) — Dispatch keeps failing past the retry policy. Do you mark the Job failed?
+
+Strong answer: "No. I retain the original intent and evidence in a visible quarantined state, alert, and
+controlled-replay. Job failure is a guarded business-execution terminal state; a quarantined Outbox means an
+accepted Job still needs operational recovery. I never delete the intent silently and never fail the Job for a
+transport problem."
+
+Production scenario / trade-off prompt: "Do you hold the DB lock while publishing?" — "No. Publishing inside a lock
+expands the transaction over uncertain external I/O, blocks Relay progress, causes lock waits/timeouts, and cannot
+create a cross-system transaction. I use a short `FOR UPDATE SKIP LOCKED` claim with a lease, publish outside the
+lock, then a fenced checkpoint."
+
+Validation: FAKE in-memory store + transport tests — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 ->
+23 passed). NOT real PostgreSQL UNIQUE/tx/isolation/`ON CONFLICT`/`SKIP LOCKED`, NOT a real broker/Celery
+(ACK/redelivery/poison), NOT Worker/Provider runtime, NOT integration/production. No exactly-once is claimed. Day51
+auth, Day52 authz/quota, Day53 real Provider, and Day55 real Celery are not implemented.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day50), the
+[Day50 lesson](../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md), the
+[Day50 design/runbook](../projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md),
+the [model](../projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py).

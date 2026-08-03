@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.99 — Day50 Idempotent AI Job API and Transactional Outbox Integration
+
+Date: 2026-08-03
+
+Day: Day50
+
+Lesson title: Idempotent AI Job API and Transactional Outbox Integration
+
+### Added
+
+- `docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md` — the Day50 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving the verbatim Chinese/English student answers, uncertainty, corrections, the integrated failure exercise, and the English interview answers.
+- `projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md` — design/runbook (API idempotency contract, atomic Job+Outbox UoW, transport/relay boundary, failure/recovery, four concurrency layers, schema honesty, evidence matrix).
+- `projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py` — provider-neutral control-flow model with a fake in-memory store (models `UNIQUE(tenant_id, idempotency_key)` + guarded CAS transitions + atomic Job+Outbox) and a fake `TransportAdapter` (in-memory / failing / crash-after-publish), plus request fingerprint, Outbox Relay (claim/lease/fencing + backoff/quarantine), and a Worker guarded claim.
+- `projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py` — fake-adapter tests (23 cases).
+- `projects/ai-backend-data-layer/api/requirements-day50.txt` — pinned `pytest==7.4.3` (module + tests are Python-standard-library only).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day50 sections.
+- `projects/ai-backend-data-layer/README.md` — current increment set to Day50, file tree, doc links, and a Day50 increment section (Day49 section left intact).
+- `CURRICULUM.md` (Day50 Planned -> Completed), `ROADMAP.md` (Day50 -> Completed), `PROJECT_STATUS.md` (Day50 completed, Last Completed Lesson, Next = Day51; Day49 block archived), `TASKS.md` (Day50 complete, next = Day51).
+
+### Main learning outcome
+
+The `Idempotency-Key` is the identity of one logical client command; a request fingerprint is separate evidence the semantics did not change (the key is not fingerprint material). `UNIQUE(tenant_id, idempotency_key)` + an atomic `INSERT ... ON CONFLICT` is the concurrent arbiter, not `SELECT`-then-`INSERT`. One short PostgreSQL UoW persists the Job + exactly one `job.dispatch_requested` Outbox intent atomically; the API never publishes inside its DB transaction. A Relay delivers the durable intent at-least-once after commit (`published_at` is only a publication checkpoint, not Job success); an unknown publish result is retained and republished (duplicates OK), a transient failure backs off with jitter, and an exhausted dispatch is quarantined (never failing the Job). Relay concurrency uses a short `FOR UPDATE SKIP LOCKED` claim + lease + fencing token with no DB lock over transport I/O; a Worker guarded `queued -> running RETURNING` claim absorbs duplicate delivery into one Provider call. No exactly-once is claimed across PostgreSQL + broker + Worker + Provider.
+
+### Validation
+
+- Executed: `python3 -m pip install -r requirements-day50.txt`; `python3 -m py_compile day50_job_acceptance_outbox.py test_day50_job_acceptance_outbox.py`; `python3 -m pytest -q test_day50_job_acceptance_outbox.py` -> **23 passed** (Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **198 passed**. Application CONTROL FLOW against an in-memory FAKE store + transport only.
+- Markdown: Day50 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
+- Secrets: no real credentials, broker URLs, signed URLs, or connection strings; transport errors are stored redacted.
+- Three claims kept separate — Conceptual Artifact; Static/Fake-adapter Verification (what ran); Real Runtime Verification (NOT RUN): real PostgreSQL UNIQUE/constraint/transaction/isolation or `INSERT ... ON CONFLICT`/`FOR UPDATE SKIP LOCKED`, a real broker/Celery (ACK/redelivery/poison), Worker/Provider runtime, integration, and production. Schema honesty: the published schema has `UNIQUE(tenant_id, idempotency_key)` but lacks a request-fingerprint column, `UNIQUE(job_id, event_type)`, and relay ops columns — modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, and no published Alembic revision is rewritten. Day51/Day52/Day53/Day55 scope is not implemented.
+
+---
+
 ## v0.1.98 — Day49 review round 2 (Codex): fence verification and bind exact object versions
 
 Date: 2026-08-02

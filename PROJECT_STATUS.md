@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day49 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day50 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,13 +11,13 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4)
+Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4)
 
 Status:
 ✅ Completed
 
-(The Day49 lesson, design/runbook, runnable fake-adapter model + tests, and status files are coherent; see
-CURRICULUM.md and ROADMAP.md. Day50 is the next lesson.)
+(The Day50 lesson, design/runbook, runnable fake-adapter model + tests, and status files are coherent; see
+CURRICULUM.md and ROADMAP.md. Day51 is the next lesson.)
 
 ---
 
@@ -72,6 +72,7 @@ CURRICULUM.md and ROADMAP.md. Day50 is the next lesson.)
 - ✅ Day47 — Async Sessions, Transactions, Repository and Unit of Work
 - ✅ Day48 — Alembic and Safe AI Backend Schema Evolution
 - ✅ Day49 — Upload Sessions, Object Storage and Artifact Verification
+- ✅ Day50 — Idempotent AI Job API and Transactional Outbox Integration
 
 ---
 
@@ -82,6 +83,31 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day50 — Idempotent AI Job API and Transactional Outbox Integration
+
+Completed Time:
+2026-08-03
+
+Main Artifact:
+Day50 idempotent Job acceptance + transactional Outbox (projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md) with a runnable provider-neutral control-flow model (day50_job_acceptance_outbox.py) using a fake in-memory store + TransportAdapter, plus test_day50_job_acceptance_outbox.py: client Idempotency-Key = identity of one logical command and a request fingerprint = evidence the semantics did not change (the key is not fingerprint material; Document order preserved unless an explicitly unordered contract); UNIQUE(tenant_id, idempotency_key) as the concurrent DB arbiter modeled by accept_job_atomic (INSERT ... ON CONFLICT ... RETURNING) — same key+fingerprint returns the original Job, a changed fingerprint is 409 with no durable facts, a missing key is rejected before writes, and every referenced Document must be Day49-verified + tenant-owned; one short atomic UoW creates the Job + exactly one job.dispatch_requested Outbox intent (mid-transaction failure leaves neither; at-most-one dispatch intent = logical UNIQUE(job_id, event_type)); an Outbox Relay that never publishes inside the DB tx — claim (FOR UPDATE SKIP LOCKED + lease/owner) -> publish OUTSIDE the lock via a small TransportAdapter.publish(envelope) -> fenced checkpoint sets published_at (only a publication checkpoint, not Job success); at-least-once recovery (publish-then-crash-before-checkpoint retains + republishes as a duplicate; transient failure increments attempt_count, stores a redacted error, computes next_attempt_at with bounded exponential backoff + jitter; exhausted -> QUARANTINED retention that never marks the Job failed); relay concurrency via short claim + lease + fencing token (a stale relay cannot checkpoint after takeover) with no DB lock over transport I/O; and a Worker guarded UPDATE ... WHERE job_status='queued' RETURNING claim that absorbs duplicate delivery into a single Provider-eligible winner. No exactly-once is claimed across PostgreSQL + broker + Worker + Provider. Schema honesty: the published schema HAS UNIQUE(tenant_id, idempotency_key) but LACKS a request-fingerprint column, UNIQUE(job_id, event_type), and relay ops columns — all MODELED in-memory; the real schema needs a Day48-safe FORWARD additive migration, not implemented here, never a rewrite of published history.
+
+Validation Boundary:
+Day50 has REAL executed FAKE-ADAPTER evidence (application control flow only). Executed: python3 -m pip install -r requirements-day50.txt; python3 -m py_compile day50_job_acceptance_outbox.py test_day50_job_acceptance_outbox.py (passed); python3 -m pytest -q test_day50_job_acceptance_outbox.py -> 23 passed (Python 3.10.12, pytest 7.4.3; the module + tests are Python-standard-library only, pinned in projects/ai-backend-data-layer/api/requirements-day50.txt). These prove APPLICATION CONTROL FLOW against an in-memory fake store + transport only. NOT RUN: real PostgreSQL UNIQUE/constraint/transaction/isolation or INSERT ... ON CONFLICT/FOR UPDATE SKIP LOCKED; a real broker/Celery (ACK/redelivery/poison-task); Worker/Provider runtime; integration; production validation. Boundary preserved: acceptance is idempotent at the API via (tenant_id, idempotency_key); Job+Outbox atomicity is PostgreSQL-local; Relay delivery is at-least-once and published_at is only a checkpoint; duplicate delivery is absorbed by a guarded Worker claim; no exactly-once across PostgreSQL + broker + Worker + Provider. Day49 evidence is NOT inherited as Day50 evidence. Day51 authentication, Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented.
+
+Completed Work:
+
+- Day50 classroom learning
+- Day50 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved)
+- Day50 design/runbook + runnable provider-neutral fake-adapter model + tests (executed: 23 passed) and project README increment
+- Day50 idempotency-key-vs-fingerprint, DB-arbiter-vs-SELECT-then-INSERT, atomic Job+Outbox, at-least-once relay, unknown-publish recovery, backoff/quarantine, relay lease/fencing, and worker-guarded-claim exercises
+- Day50 FastAPI cheat sheet append
+- Day50 FastAPI interview notes append
+- Day50 repository status update
+
+---
+
+## Superseded — Day49 Last Completed Lesson (archived)
 
 Day49 — Upload Sessions, Object Storage and Artifact Verification
 
@@ -132,7 +158,7 @@ Completed Work:
 
 ## Next
 
-- Day50 — Idempotent AI Job API and Transactional Outbox Integration (Phase 4 — Production AI API Engineering)
+- Day51 — Authentication, Password Security and JWT (Phase 4 — Production AI API Engineering)
 
 Status:
 Planned / Not started
