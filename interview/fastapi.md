@@ -760,7 +760,7 @@ Student answer (verbatim):
 Assessment: correct — evidence must match the claim; only a fresh PostgreSQL Session read proves the rollback.
 
 Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4,
-pytest 7.4.3 -> 23 passed). PostgreSQL runtime NOT RUN (no server/driver; SQLite is not PostgreSQL evidence).
+pytest 7.4.3 -> 29 passed). PostgreSQL runtime NOT RUN (no server/driver; SQLite is not PostgreSQL evidence).
 FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN. Alembic = Day48; upload = Day49;
 acceptance/Outbox = Day50.
 
@@ -997,7 +997,7 @@ create a cross-system transaction. I use a short `FOR UPDATE SKIP LOCKED` claim 
 lock, then a fenced checkpoint."
 
 Validation: FAKE in-memory store + transport tests — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 ->
-23 passed). NOT real PostgreSQL UNIQUE/tx/isolation/`ON CONFLICT`/`SKIP LOCKED`, NOT a real broker/Celery
+29 passed). NOT real PostgreSQL UNIQUE/tx/isolation/`ON CONFLICT`/`SKIP LOCKED`, NOT a real broker/Celery
 (ACK/redelivery/poison), NOT Worker/Provider runtime, NOT integration/production. No exactly-once is claimed. Day51
 auth, Day52 authz/quota, Day53 real Provider, and Day55 real Celery are not implemented.
 

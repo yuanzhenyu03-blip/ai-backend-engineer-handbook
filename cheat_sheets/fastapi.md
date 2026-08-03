@@ -611,7 +611,7 @@ Day47 drives the Day46 mapping through two short guarded UoWs (explicit commit; 
 OUTSIDE the transaction; correlation evidence is committed first, and unknown outcomes are recovered via a new guarded UoW, never blindly replayed.
 ```
 
-Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 23 passed;
+Validation: REAL fake-session control-flow tests executed (Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> 29 passed;
 deps pinned in `projects/ai-backend-data-layer/api/requirements-day47.txt`). A mock is NOT database proof: PostgreSQL runtime NOT RUN
 (no server/driver; SQLite is not PostgreSQL evidence). FastAPI/Worker integration, real Provider, Object Storage, production NOT RUN.
 Alembic = Day48; upload workflow = Day49; idempotent acceptance/Outbox = Day50.
@@ -774,6 +774,7 @@ Schema honesty: published schema HAS UNIQUE(tenant_id, idempotency_key); it LACK
 Weak: "one idempotency key + at-least-once = exactly-once."
 Strong: "Client (tenant,key) makes acceptance idempotent; Job+Outbox commit atomically; a Relay delivers at-least-once after commit; duplicates are absorbed by a guarded Worker claim. I never claim exactly-once across the broker/Worker/Provider."
 
-Validation: FAKE in-memory store + transport — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 -> 23 passed; stdlib-only module). NOT PostgreSQL UNIQUE/tx/isolation/ON CONFLICT/SKIP LOCKED, NOT a real broker/Celery (ACK/redelivery/poison), NOT Worker/Provider runtime, NOT integration/production. Day51 auth / Day52 authz+quota / Day53 real Provider / Day55 real Celery not implemented.
+Review round 1 (P1): (1) acceptance conflict arbitration is ONE atomic op (`upsert_job_on_conflict` under a lock modeling `INSERT ... ON CONFLICT`) — a bare read-then-insert lets two concurrent requests both create; forced-interleaving thread test -> one CREATED + one RETURNED_EXISTING, 1 Job, 1 intent. (2) checkpoint/failure-recording require a LIVE lease (owner match AND now < relay_hold_until) — an EXPIRED relay is fenced even before takeover, published_at stays NULL. (3) idempotent-retry ordering: same key+fingerprint returns the original Job BEFORE the mutable Document admission check (an exact retry survives a Document later becoming unavailable); Documents are validated only for a NEW command.
+Validation: FAKE in-memory store + transport — application CONTROL FLOW only (Python 3.10.12, pytest 7.4.3 -> 29 passed; stdlib-only module). NOT PostgreSQL UNIQUE/tx/isolation/ON CONFLICT/SKIP LOCKED, NOT a real broker/Celery (ACK/redelivery/poison), NOT Worker/Provider runtime, NOT integration/production. Day51 auth / Day52 authz+quota / Day53 real Provider / Day55 real Celery not implemented.
 
 Related: [Day50 lesson](../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md) · [Day50 design/runbook](../projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md) · [model](../projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py) · [tests](../projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py)

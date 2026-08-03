@@ -9,6 +9,7 @@ isolation or `INSERT ... ON CONFLICT`/`FOR UPDATE SKIP LOCKED`, NOT a real broke
 real credentials/broker URLs/secrets appear.
 """
 
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -351,3 +352,95 @@ def test_evidence_label_is_fake_runtime_only():
     header = (m.__doc__ or "")
     assert "FAKE" in header and "REAL RUNTIME VERIFICATION: NOT RUN" in header
     assert "no exactly-once" in header.lower()
+
+
+# ===========================================================================
+# Review round 1 (P1) regression tests
+# ===========================================================================
+
+# P1-1: concurrent acceptance is arbitrated atomically (one CREATED, one existing).
+def test_concurrent_same_key_same_fingerprint_creates_single_job_forced_interleave():
+    store, docs = InMemoryJobStore(), _dir(DOC_A)
+    barrier = threading.Barrier(2)
+    results: list = []
+
+    def worker():
+        # Force both threads past the existence read (both see absence) BEFORE either
+        # reaches the atomic arbiter, so the atomic op is the only thing preventing a
+        # double create.
+        res = accept_job(store, docs, tenant_id=TENANT, idempotency_key=KEY, request=_request(),
+                         now=NOW, _after_read_hook=barrier.wait)
+        results.append(res.outcome)
+
+    t1, t2 = threading.Thread(target=worker), threading.Thread(target=worker)
+    t1.start(); t2.start(); t1.join(); t2.join()
+
+    assert sorted(o.value for o in results) == ["created", "returned_existing"]
+    assert len(store.jobs) == 1  # exactly one Job
+    assert len([r for r in store.outbox.values() if r.event_type == DISPATCH_EVENT_TYPE]) == 1  # one intent
+
+
+def test_sequential_two_creates_are_arbitrated_by_the_atomic_op():
+    # Even calling the atomic arbiter twice for the same key creates only one Job:
+    # the second call observes the conflict and returns the existing Job (created=False).
+    store = InMemoryJobStore()
+    j1, o1, created1 = store.upsert_job_on_conflict(
+        tenant_id=TENANT, idempotency_key=KEY, request_fingerprint="fp", document_ids=(), now=NOW)
+    j2, o2, created2 = store.upsert_job_on_conflict(
+        tenant_id=TENANT, idempotency_key=KEY, request_fingerprint="fp", document_ids=(), now=NOW)
+    assert created1 is True and created2 is False
+    assert j1.job_id == j2.job_id and o2.outbox_event_id == o1.outbox_event_id
+    assert len(store.jobs) == 1
+    assert len([r for r in store.outbox.values() if r.event_type == DISPATCH_EVENT_TYPE]) == 1
+
+
+# P1-2: an EXPIRED relay lease cannot checkpoint even before a new owner takes over.
+def test_expired_relay_lease_cannot_checkpoint_even_without_takeover():
+    store, docs = InMemoryJobStore(), _dir(DOC_A)
+    res = accept_job(store, docs, tenant_id=TENANT, idempotency_key=KEY, request=_request(), now=NOW)
+    oid = res.outbox.outbox_event_id
+    store.claim_outbox_batch(owner_token="relay-A", now=NOW, hold_ttl=timedelta(minutes=1))  # short lease
+    # No one takes over; A's lease simply expired.
+    with pytest.raises(FencingError):
+        store.checkpoint_published_if_owner(oid, owner_token="relay-A", now=NOW + timedelta(minutes=2))
+    assert store.outbox[oid].published_at is None  # never falsely marked published
+    assert store.outbox[oid].state is OutboxState.UNPUBLISHED
+
+
+def test_expired_relay_lease_cannot_record_failure():
+    store, docs = InMemoryJobStore(), _dir(DOC_A)
+    res = accept_job(store, docs, tenant_id=TENANT, idempotency_key=KEY, request=_request(), now=NOW)
+    oid = res.outbox.outbox_event_id
+    store.claim_outbox_batch(owner_token="relay-A", now=NOW, hold_ttl=timedelta(minutes=1))
+    with pytest.raises(FencingError):
+        store.record_transport_failure(
+            oid, owner_token="relay-A", exc=TransportError("boom"),
+            next_attempt_at=NOW + timedelta(minutes=5), max_attempts=5, now=NOW + timedelta(minutes=2))
+    assert store.outbox[oid].attempt_count == 0  # no state written by an expired lease
+
+
+# P1-3: an exact retry returns the original Job even if the Document later became unavailable.
+def test_exact_retry_returns_original_job_even_if_document_now_unavailable():
+    store, docs = InMemoryJobStore(), _dir(DOC_A)
+    first = accept_job(store, docs, tenant_id=TENANT, idempotency_key=KEY, request=_request(), now=NOW)
+    assert first.outcome is AcceptOutcome.CREATED
+    # The Document later becomes unavailable / no longer passes admission.
+    docs_gone = InMemoryDocumentDirectory()  # DOC_A is NOT verified anymore
+    retry = accept_job(store, docs_gone, tenant_id=TENANT, idempotency_key=KEY, request=_request(), now=NOW)
+    assert retry.outcome is AcceptOutcome.RETURNED_EXISTING
+    assert retry.job.job_id == first.job.job_id
+    # But a NEW command (new key) against the now-unavailable Document is still rejected.
+    new_cmd = accept_job(store, docs_gone, tenant_id=TENANT, idempotency_key="k-new", request=_request(), now=NOW)
+    assert new_cmd.outcome is AcceptOutcome.DOCUMENT_NOT_VERIFIED
+    assert len(store.jobs) == 1  # no second Job created
+
+
+def test_same_key_changed_fingerprint_still_conflicts_after_document_change():
+    # Ordering must not let a changed fingerprint slip through as a retry.
+    store, docs = InMemoryJobStore(), _dir(DOC_A)
+    accept_job(store, docs, tenant_id=TENANT, idempotency_key=KEY, request=_request(prompt="summarize"), now=NOW)
+    docs_gone = InMemoryDocumentDirectory()
+    res = accept_job(store, docs_gone, tenant_id=TENANT, idempotency_key=KEY,
+                     request=_request(prompt="translate"), now=NOW)
+    assert res.outcome is AcceptOutcome.CONFLICT  # changed semantics -> 409, not a retry
+    assert len(store.jobs) == 1

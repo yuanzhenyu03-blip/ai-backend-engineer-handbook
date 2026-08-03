@@ -13,7 +13,7 @@ changed fingerprint), an atomic modeled Job + one `job.dispatch_requested` Outbo
 (claim + lease + fencing, publish OUTSIDE the DB lock, `published_at` checkpoint), at-least-once redelivery on an
 unknown publish result, retry backoff+jitter and quarantine retention, and a Worker guarded `queued -> running`
 claim that absorbs duplicate delivery. **REAL fake-adapter tests were executed** (application control flow only;
-Python 3.10.12, pytest 7.4.3 -> 23 passed; the module + tests are Python-standard-library only; deps pinned in
+Python 3.10.12, pytest 7.4.3 -> 29 passed; the module + tests are Python-standard-library only; deps pinned in
 `api/requirements-day50.txt`). This is **not** database/broker proof: **PostgreSQL UNIQUE/tx/isolation/`ON
 CONFLICT`/`SKIP LOCKED`, a real broker/Celery (ACK/redelivery/poison), Worker/Provider runtime, integration, and
 production are NOT RUN**; Day51 auth, Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not
@@ -105,7 +105,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day46.txt                          # Day46: pinned deps (sqlalchemy==2.0.29, pytest==7.4.3)
 │   ├── day47-async-persistence-boundary-design.md      # Day47: async session/UoW design
 │   ├── day47_async_uow.py                              # Day47: async Engine/session-factory + repos + UnitOfWork
-│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 23 passed)
+│   ├── test_day47_async_uow.py                         # Day47: fake-session control-flow tests (executed: 29 passed)
 │   ├── requirements-day47.txt                          # Day47: pinned deps (sqlalchemy[asyncio]==2.0.29, pytest==7.4.3)
 │   ├── day48-alembic-safe-schema-evolution-design.md   # Day48: Alembic safe-evolution design/runbook
 │   ├── day48_alembic/                                  # Day48: Alembic control plane (env.py + gated Expand/Validate/Contract revisions)
@@ -118,7 +118,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day49.txt                          # Day49: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
 │   ├── day50-idempotent-job-acceptance-and-transactional-outbox-design.md  # Day50: idempotent acceptance + outbox design/runbook
 │   ├── day50_job_acceptance_outbox.py                  # Day50: provider-neutral acceptance/outbox control-flow model + fake store/transport
-│   ├── test_day50_job_acceptance_outbox.py             # Day50: fake-adapter tests (executed: 23 passed)
+│   ├── test_day50_job_acceptance_outbox.py             # Day50: fake-adapter tests (executed: 29 passed)
 │   └── requirements-day50.txt                          # Day50: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -190,7 +190,7 @@ Column intent:
 `day50_job_acceptance_outbox.py` and `test_day50_job_acceptance_outbox.py`) accepts one logical AI Job exactly once
 at the API boundary and persists its dispatch intent atomically with the Job. The tests are **real, executed**
 against a **fake in-memory store + TransportAdapter** — **application control flow only**: **Python 3.10.12,
-pytest 7.4.3 -> `23 passed`** (the module + tests are Python-standard-library only; deps pinned in
+pytest 7.4.3 -> `29 passed`** (the module + tests are Python-standard-library only; deps pinned in
 `api/requirements-day50.txt`).
 
 ### What the model contains
@@ -198,7 +198,7 @@ pytest 7.4.3 -> `23 passed`** (the module + tests are Python-standard-library on
 | Concern | Contents |
 | --- | --- |
 | Acceptance identity | `Idempotency-Key` = one logical command; `compute_request_fingerprint` = evidence semantics didn't change (key not included); missing key rejected before writes; every Document must be Day49-verified + tenant-owned. |
-| DB arbitration | `accept_job_atomic` models `INSERT ... ON CONFLICT (tenant_id, idempotency_key)`; same key+fingerprint -> `RETURNED_EXISTING`; changed fingerprint -> `CONFLICT` (no durable facts). |
+| DB arbitration | `upsert_job_on_conflict` models `INSERT ... ON CONFLICT (tenant_id, idempotency_key)`; same key+fingerprint -> `RETURNED_EXISTING`; changed fingerprint -> `CONFLICT` (no durable facts). |
 | Atomic UoW | Job(queued) + exactly one `job.dispatch_requested` Outbox intent commit together (mid-tx failure leaves neither); at-most-one dispatch intent (`DispatchIntentExists`). |
 | Outbox Relay | `run_relay_once`: claim (`FOR UPDATE SKIP LOCKED` + lease/owner) -> publish OUTSIDE the DB lock via `TransportAdapter.publish` -> fenced checkpoint (`published_at`). Envelope is small (`outbox_event_id`/`event_type`/`job_id`/correlation) — no prompt/secret. |
 | Failure/recovery | unknown publish (crash before checkpoint) -> retain + republish (at-least-once); transient -> attempt++/redacted error/`next_attempt_at` backoff+jitter; exhausted -> `QUARANTINED` (Job stays `queued`, never failed). |
@@ -329,7 +329,7 @@ scope      real Provider SDK/network (Day53), FastAPI/Worker drain integration, 
 
 `api/day47-async-persistence-boundary-design.md` (with runnable `day47_async_uow.py` + `test_day47_async_uow.py`)
 drives the faithful Day46 mapping through short, isolated async units of work. The code and its **fake-session**
-tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `23 passed`**
+tests are **real, executed**: **Python 3.10.12, SQLAlchemy 2.0.29, greenlet 3.5.4, pytest 7.4.3 -> `29 passed`**
 (deps pinned in `api/requirements-day47.txt`). These prove UoW/repository **control flow** only; a **mock is not
 database proof**, so **PostgreSQL runtime is NOT RUN**.
 

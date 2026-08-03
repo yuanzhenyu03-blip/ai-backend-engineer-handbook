@@ -12,7 +12,7 @@ Prerequisite: Day49 — Upload Sessions, Object Storage and Artifact Verificatio
 Previous Lesson: Day49 — Upload Sessions, Object Storage and Artifact Verification
 Next Lesson: Day51 — Authentication
 Engineering Artifact: projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md
-  + runnable day50_job_acceptance_outbox.py + test_day50_job_acceptance_outbox.py (fake in-memory store + transport; 23 passed)
+  + runnable day50_job_acceptance_outbox.py + test_day50_job_acceptance_outbox.py (fake in-memory store + transport; 29 passed)
 ```
 
 Main engineering artifact: a provider-neutral, deterministic idempotent-acceptance + transactional-outbox
@@ -214,8 +214,15 @@ arbiter.
 
 **Engineering Thinking:** Concurrency correctness belongs in a database constraint, not in application timing.
 
-**Framework Connection:** `store.accept_job_atomic(...)` models `INSERT ... ON CONFLICT (tenant_id,
-idempotency_key)`; the published `app.jobs` schema already has `UNIQUE(tenant_id, idempotency_key)`.
+**Hardened (review round 1, P1-1):** the conflict decision must live INSIDE the atomic op, not in a separate
+`find_by_idempotency` read followed by an unconditional insert. `upsert_job_on_conflict` re-checks and creates in one
+critical section (a lock in the fake store; the UNIQUE index in real PostgreSQL), so two concurrent requests that
+both read absence still produce exactly one `CREATED` and one `RETURNED_EXISTING` — one Job and one dispatch intent.
+A forced-interleaving thread test proves it; the outer existence read is only a fast path.
+
+**Framework Connection:** `store.upsert_job_on_conflict(...)` models `INSERT ... ON CONFLICT (tenant_id,
+idempotency_key) DO NOTHING RETURNING`; the published `app.jobs` schema already has `UNIQUE(tenant_id,
+idempotency_key)`.
 
 ---
 
@@ -233,7 +240,12 @@ and one `job.dispatch_requested` Outbox intent in the SAME transaction — commi
 
 **Engineering Thinking:** Atomicity turns "accepted" and "will be dispatched" into a single fact.
 
-**Framework Connection:** `accept_job_atomic(fail_before_commit=...)` proves neither commits on failure;
+**Hardened (review round 1, P1-3):** the mutable Document admission check runs ONLY for a NEW command. An exact
+retry of an already-accepted command (same key + same fingerprint) returns the original Job BEFORE re-validating
+Documents, so a Document that later becomes unavailable does not break the idempotent retry contract; a genuinely
+new command (new key) against that unavailable Document is still rejected.
+
+**Framework Connection:** `upsert_job_on_conflict(fail_before_commit=...)` proves neither commits on failure;
 `add_dispatch_intent` raises `DispatchIntentExists` for a second intent.
 
 ---
@@ -312,8 +324,15 @@ progress, causes lock waits/timeouts, harms availability — and cannot create a
 fencing token guards the checkpoint write: a stale Relay whose lease expired cannot write `published_at` after a new
 owner has taken over.
 
-**Framework Connection:** `claim_outbox_batch` (SKIP LOCKED + lease), `checkpoint_published_if_owner` raises
-`FencingError` for a superseded owner; publish happens between claim and checkpoint, never inside a lock.
+**Hardened (review round 1, P1-2):** a fencing check must require a LIVE lease, not just a matching owner. Both
+`checkpoint_published_if_owner` and `record_transport_failure` require owner match AND `now < relay_hold_until`, so
+a Relay whose lease merely EXPIRED — even before any new owner takes over — is rejected with `FencingError` and
+cannot write `published_at`. Otherwise a paused Relay could wake up after its lease lapsed and stamp a stale
+checkpoint.
+
+**Framework Connection:** `claim_outbox_batch` (SKIP LOCKED + lease), `checkpoint_published_if_owner` /
+`record_transport_failure` raise `FencingError` for a superseded OR expired lease; publish happens between claim and
+checkpoint, never inside a lock.
 
 ---
 
@@ -365,6 +384,21 @@ Key reuse
 ❌ Reusing a key causes a database overwrite.
 ✅ `UNIQUE` blocks overwrite while evidence is retained; the real risk is an expired record letting a late retry be
    treated as a new command — retention is an explicit API contract.
+
+"An existence read before the insert is enough for idempotent acceptance" (review round 1)
+❌ `find_by_idempotency` then an unconditional insert.
+✅ Two concurrent requests both read absence and both insert. The conflict decision must live INSIDE one atomic op
+   (`INSERT ... ON CONFLICT` / a lock); the read is only a fast path.
+
+"A matching owner token means the Relay may checkpoint" (review round 1)
+❌ Check only `relay_owner`.
+✅ Require a LIVE lease: owner match AND `now < relay_hold_until`. An expired lease is fenced even before a new owner
+   takes over, so `published_at` is never stamped by a stale Relay.
+
+"Re-validate Documents on every acceptance, including retries" (review round 1)
+❌ Validate Documents first, then check the idempotency key.
+✅ For an exact retry (same key + same fingerprint), return the original Job BEFORE the mutable Document admission
+   check; validate Documents only for a new command.
 
 "at-least-once" as the atomicity mechanism
 ❌ The outbox is atomic because delivery is at-least-once.
@@ -577,5 +611,5 @@ Engineering artifact + runbook:
 [`projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md`](../../projects/ai-backend-data-layer/api/day50-idempotent-job-acceptance-and-transactional-outbox-design.md).
 Runnable model: [`day50_job_acceptance_outbox.py`](../../projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py);
 tests: [`test_day50_job_acceptance_outbox.py`](../../projects/ai-backend-data-layer/api/test_day50_job_acceptance_outbox.py)
-(fake in-memory store + transport; **23 passed**; Python 3.10.12, pytest 7.4.3). PostgreSQL / broker / Celery /
+(fake in-memory store + transport; **29 passed**; Python 3.10.12, pytest 7.4.3). PostgreSQL / broker / Celery /
 Worker / Provider / integration / production runtime: **NOT RUN**.

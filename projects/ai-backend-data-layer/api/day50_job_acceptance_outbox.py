@@ -47,6 +47,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
@@ -227,6 +228,16 @@ def _redact(exc: Exception) -> str:
     return f"{type(exc).__name__}: transport error (redacted)"
 
 
+def _require_live_lease(row: "OutboxRow", *, owner_token: str, now: datetime) -> None:
+    """Fencing guard: the caller must still own the relay lease AND the lease must not
+    have expired. Either a superseded owner or an expired hold is rejected so a stale
+    Relay can never write `published_at` or retry state after its lease lapsed."""
+    if row.relay_owner != owner_token:
+        raise FencingError(f"stale relay {owner_token!r} != owner {row.relay_owner!r}")
+    if row.relay_hold_until is None or now >= row.relay_hold_until:
+        raise FencingError(f"relay lease for {owner_token!r} has expired")
+
+
 # ---------------------------------------------------------------------------
 # In-memory store — models UNIQUE(tenant,key), atomic Job+Outbox, guarded CAS
 # ---------------------------------------------------------------------------
@@ -243,12 +254,17 @@ class InMemoryJobStore:
         self.outbox: dict[uuid.UUID, OutboxRow] = {}
         # logical UNIQUE(job_id, event_type)
         self._dispatch_intents: set[tuple[uuid.UUID, str]] = set()
+        # Serializes the acceptance conflict-arbitration + create so a concurrent
+        # request cannot double-create. Models the atomic serialization PostgreSQL
+        # gives via the UNIQUE index / INSERT ... ON CONFLICT (this is control flow,
+        # not real DB isolation).
+        self._accept_lock = threading.Lock()
 
     def find_by_idempotency(self, tenant_id: uuid.UUID, key: str) -> Optional[JobRow]:
         jid = self._by_idem.get((tenant_id, key))
         return self.jobs.get(jid) if jid is not None else None
 
-    def accept_job_atomic(
+    def upsert_job_on_conflict(
         self,
         *,
         tenant_id: uuid.UUID,
@@ -257,34 +273,46 @@ class InMemoryJobStore:
         document_ids: tuple[str, ...],
         now: datetime,
         fail_before_commit: bool = False,
-    ) -> tuple[JobRow, OutboxRow]:
-        """ATOMIC (modeled) `INSERT ... ON CONFLICT (tenant_id, idempotency_key)`:
-        create the Job AND exactly one `job.dispatch_requested` Outbox intent together,
-        all-or-nothing. All objects are built BEFORE any mutation; the commit block
-        applies both with no intervening failure point, so a failure before commit
-        leaves NEITHER. Raises DispatchIntentExists if a dispatch intent for the job
-        somehow already exists (logical UNIQUE(job_id, event_type)). This models
-        transactional atomicity; it is NOT proof of real PostgreSQL behavior."""
-        job_id = uuid.uuid4()
-        job = JobRow(
-            job_id=job_id, tenant_id=tenant_id, idempotency_key=idempotency_key,
-            request_fingerprint=request_fingerprint, job_status=JobStatus.QUEUED,
-            document_ids=document_ids, created_at=now,
-        )
-        if (job_id, DISPATCH_EVENT_TYPE) in self._dispatch_intents:
-            raise DispatchIntentExists(str(job_id))
-        outbox = OutboxRow(
-            outbox_event_id=uuid.uuid4(), job_id=job_id, event_type=DISPATCH_EVENT_TYPE,
-            payload={"job_id": str(job_id)}, created_at=now, next_attempt_at=now,
-        )
-        if fail_before_commit:
-            raise SimulatedCommitFailure("injected failure before commit")
-        # --- single logical commit: both facts together ---
-        self.jobs[job_id] = job
-        self._by_idem[(tenant_id, idempotency_key)] = job_id
-        self.outbox[outbox.outbox_event_id] = outbox
-        self._dispatch_intents.add((job_id, DISPATCH_EVENT_TYPE))
-        return job, outbox
+    ) -> tuple[JobRow, Optional[OutboxRow], bool]:
+        """ATOMIC acceptance arbiter — models `INSERT ... ON CONFLICT (tenant_id,
+        idempotency_key) DO NOTHING RETURNING`. The conflict decision AND the create
+        happen INSIDE a single critical section (``self._accept_lock``), so two
+        concurrent requests that both read absence cannot both create: the first wins
+        and creates the Job + exactly one `job.dispatch_requested` Outbox intent
+        together (all-or-nothing; a failure before the commit block leaves NEITHER);
+        the second observes the conflict and RETURNS the existing Job WITHOUT creating
+        anything. Returns ``(job, outbox_or_existing_intent, created)``. Models the
+        atomic serialization PostgreSQL gives via the UNIQUE index — it is control
+        flow, NOT proof of real PostgreSQL isolation/transaction behavior."""
+        with self._accept_lock:
+            existing_id = self._by_idem.get((tenant_id, idempotency_key))
+            if existing_id is not None:
+                # ON CONFLICT: do not create; return the already-committed winner.
+                return self.jobs[existing_id], self._dispatch_intent_for(existing_id), False
+            job_id = uuid.uuid4()
+            job = JobRow(
+                job_id=job_id, tenant_id=tenant_id, idempotency_key=idempotency_key,
+                request_fingerprint=request_fingerprint, job_status=JobStatus.QUEUED,
+                document_ids=document_ids, created_at=now,
+            )
+            outbox = OutboxRow(
+                outbox_event_id=uuid.uuid4(), job_id=job_id, event_type=DISPATCH_EVENT_TYPE,
+                payload={"job_id": str(job_id)}, created_at=now, next_attempt_at=now,
+            )
+            if fail_before_commit:
+                raise SimulatedCommitFailure("injected failure before commit")
+            # --- single logical commit: both facts together ---
+            self.jobs[job_id] = job
+            self._by_idem[(tenant_id, idempotency_key)] = job_id
+            self.outbox[outbox.outbox_event_id] = outbox
+            self._dispatch_intents.add((job_id, DISPATCH_EVENT_TYPE))
+            return job, outbox, True
+
+    def _dispatch_intent_for(self, job_id: uuid.UUID) -> Optional[OutboxRow]:
+        for row in self.outbox.values():
+            if row.job_id == job_id and row.event_type == DISPATCH_EVENT_TYPE:
+                return row
+        return None
 
     def add_dispatch_intent(self, job_id: uuid.UUID, now: datetime) -> OutboxRow:
         """Guarded: at most one dispatch intent per Job (UNIQUE(job_id, event_type))."""
@@ -329,13 +357,13 @@ class InMemoryJobStore:
         self, outbox_event_id: uuid.UUID, *, owner_token: str, now: datetime
     ) -> None:
         """Guarded (fenced) checkpoint: record `published_at` ONLY if we still own the
-        lease. A stale Relay whose lease was superseded raises FencingError and cannot
-        overwrite a newer owner's checkpoint."""
+        lease AND the lease has not expired. A stale Relay whose lease was superseded
+        OR merely EXPIRED (even before a new owner takes over) raises FencingError and
+        cannot write `published_at`."""
         row = self.outbox[outbox_event_id]
         if row.state is OutboxState.PUBLISHED:
             return  # idempotent
-        if row.relay_owner != owner_token:
-            raise FencingError(f"stale relay {owner_token!r} != owner {row.relay_owner!r}")
+        _require_live_lease(row, owner_token=owner_token, now=now)
         row.published_at = now
         row.state = OutboxState.PUBLISHED
         row.relay_owner = None
@@ -343,15 +371,16 @@ class InMemoryJobStore:
 
     def record_transport_failure(
         self, outbox_event_id: uuid.UUID, *, owner_token: str, exc: Exception,
-        next_attempt_at: datetime, max_attempts: int,
+        next_attempt_at: datetime, max_attempts: int, now: datetime,
     ) -> OutboxState:
         """Guarded failure retention: keep the intent, increment attempt_count, store a
         REDACTED error, set the next retry time, and release the lease so a due retry
-        can re-claim. Exhausting the policy quarantines (retains) the intent; it does
-        NOT delete it and does NOT mark the Job failed."""
+        can re-claim. Requires a LIVE lease (owner match AND not expired) — a stale or
+        expired Relay cannot record failure/retry state. Exhausting the policy
+        quarantines (retains) the intent; it does NOT delete it and does NOT mark the
+        Job failed."""
         row = self.outbox[outbox_event_id]
-        if row.relay_owner != owner_token:
-            raise FencingError("stale relay cannot record failure")
+        _require_live_lease(row, owner_token=owner_token, now=now)
         row.attempt_count += 1
         row.last_error = _redact(exc)
         row.next_attempt_at = next_attempt_at
@@ -402,20 +431,43 @@ def accept_job(
     now: datetime,
     unordered_documents: bool = False,
     fail_commit: bool = False,
+    _after_read_hook: Optional[Callable[[], None]] = None,
 ) -> AcceptResult:
-    """Idempotent acceptance:
+    """Idempotent acceptance. ORDER matters (review round 1, P1-3):
       1. reject a missing/blank Idempotency-Key BEFORE any DB write;
-      2. validate every referenced Document is verified + tenant-owned;
-      3. compute the request fingerprint;
-      4. atomic `INSERT ... ON CONFLICT (tenant_id, idempotency_key)`:
-         - winner -> create Job + one dispatch Outbox intent -> CREATED;
-         - loser (same key) -> compare the stored fingerprint:
-             same -> RETURNED_EXISTING (the original Job; no new Job/intent),
-             different -> CONFLICT (409; no new durable facts).
-    The transport is never called here (that is the Relay, after commit)."""
+      2. compute the request fingerprint (the key is NOT fingerprint material);
+      3. if a Job already exists for (tenant_id, idempotency_key):
+           - same fingerprint -> RETURNED_EXISTING (the original Job) WITHOUT re-running
+             the mutable Document admission check (an exact retry must return the
+             original Job even if a Document later became unavailable);
+           - different fingerprint -> CONFLICT (409; no new durable facts);
+      4. only for a NEW command: validate every referenced Document is verified +
+         tenant-owned (`DOCUMENT_NOT_VERIFIED` otherwise);
+      5. atomic arbiter `upsert_job_on_conflict` (models `INSERT ... ON CONFLICT`): the
+         winner creates Job + one dispatch intent (CREATED); a concurrent loser that
+         inserted after our step-3 read is arbitrated INSIDE the atomic op and comes
+         back as the existing Job -> compare its fingerprint (same -> RETURNED_EXISTING,
+         different -> CONFLICT).
+    The transport is never called here (that is the Relay, after commit).
+
+    ``_after_read_hook`` is a TEST-ONLY seam to force an interleaving between the
+    step-3 existence read and the step-5 atomic arbiter; production callers never pass
+    it."""
     if not idempotency_key or not idempotency_key.strip():
         return AcceptResult(AcceptOutcome.MISSING_IDEMPOTENCY_KEY, reason="client must supply a key")
 
+    fingerprint = compute_request_fingerprint(request, unordered_documents=unordered_documents)
+
+    # Idempotent fast path: an existing Job for this key short-circuits BEFORE the
+    # mutable Document admission check, so an exact retry is not broken by later
+    # Document state changes.
+    existing = store.find_by_idempotency(tenant_id, idempotency_key)
+    if _after_read_hook is not None:  # test seam: force concurrent interleaving here
+        _after_read_hook()
+    if existing is not None:
+        return _existing_result(store, existing, fingerprint)
+
+    # New command only: validate the referenced Documents are verified + tenant-owned.
     document_ids = tuple(request.get("documents", ()))
     for doc_id in document_ids:
         if not documents.is_verified_and_owned(tenant_id, doc_id):
@@ -423,29 +475,26 @@ def accept_job(
                 AcceptOutcome.DOCUMENT_NOT_VERIFIED, reason=f"document {doc_id} not verified/owned"
             )
 
-    fingerprint = compute_request_fingerprint(request, unordered_documents=unordered_documents)
-
-    existing = store.find_by_idempotency(tenant_id, idempotency_key)
-    if existing is not None:
-        if existing.request_fingerprint == fingerprint:
-            return AcceptResult(
-                AcceptOutcome.RETURNED_EXISTING, job=existing,
-                outbox=_dispatch_intent_for(store, existing.job_id),
-            )
-        return AcceptResult(AcceptOutcome.CONFLICT, job=None, reason="idempotency key reused for a different command")
-
-    job, outbox = store.accept_job_atomic(
+    # Atomic arbiter: create or observe a concurrent winner.
+    job, outbox_or_intent, created = store.upsert_job_on_conflict(
         tenant_id=tenant_id, idempotency_key=idempotency_key, request_fingerprint=fingerprint,
         document_ids=document_ids, now=now, fail_before_commit=fail_commit,
     )
-    return AcceptResult(AcceptOutcome.CREATED, job=job, outbox=outbox)
+    if created:
+        return AcceptResult(AcceptOutcome.CREATED, job=job, outbox=outbox_or_intent)
+    # We lost a concurrent race: a winner inserted between our read and the arbiter.
+    return _existing_result(store, job, fingerprint)
 
 
-def _dispatch_intent_for(store: InMemoryJobStore, job_id: uuid.UUID) -> Optional[OutboxRow]:
-    for row in store.outbox.values():
-        if row.job_id == job_id and row.event_type == DISPATCH_EVENT_TYPE:
-            return row
-    return None
+def _existing_result(store: InMemoryJobStore, existing: JobRow, fingerprint: str) -> AcceptResult:
+    if existing.request_fingerprint == fingerprint:
+        return AcceptResult(
+            AcceptOutcome.RETURNED_EXISTING, job=existing,
+            outbox=store._dispatch_intent_for(existing.job_id),
+        )
+    return AcceptResult(
+        AcceptOutcome.CONFLICT, job=None, reason="idempotency key reused for a different command"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -514,7 +563,7 @@ def run_relay_once(
                     row.attempt_count + 1, now=now, base_seconds=base_seconds,
                     cap_seconds=cap_seconds, jitter=jitter,
                 ),
-                max_attempts=max_attempts,
+                max_attempts=max_attempts, now=now,
             )
             report.failed += 1
             if state is OutboxState.QUARANTINED:

@@ -27,7 +27,7 @@ The fake store + transport prove APPLICATION CONTROL FLOW only. Three distinct c
 **Conceptual Artifact**, **Static/Fake-adapter Verification** (what ran), and **Real Runtime Verification** (NOT
 RUN). Day49 evidence is not inherited as Day50 evidence.
 
-Executed: `python3 -m pytest -q test_day50_job_acceptance_outbox.py` -> **23 passed**
+Executed: `python3 -m pytest -q test_day50_job_acceptance_outbox.py` -> **29 passed**
 (Python 3.10.12, pytest 7.4.3; the module + tests are Python-standard-library only).
 
 ---
@@ -76,24 +76,35 @@ idempotent recovery, and evidence retention instead.
   per logical command.
 
 The database is the concurrent arbiter: `UNIQUE(tenant_id, idempotency_key)` (already in the published schema) plus
-an atomic insert/conflict path (`INSERT ... ON CONFLICT ... RETURNING`, modeled by `accept_job_atomic`). The winner
-creates the Job + dispatch intent; a loser re-reads the existing Job and compares the stored fingerprint. `SELECT`
-then `INSERT` is wrong: the primary failure is that BOTH concurrent requests see absence and create duplicates.
+an atomic insert/conflict path (`INSERT ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING`, modeled
+by `upsert_job_on_conflict`). The conflict decision AND the create happen INSIDE one critical section
+(`self._accept_lock` in the fake store), so two concurrent requests that both read absence cannot both create: the
+first wins and creates the Job + dispatch intent, the second observes the conflict inside the atomic op and returns
+the existing Job WITHOUT creating anything. A plain existence read outside that op is only a fast path (it does not
+decide creation). `SELECT`-then-`INSERT` is wrong because BOTH concurrent requests see absence and create
+duplicates; the arbitration must live in the single atomic op (proven by the forced-interleaving concurrency test).
 
 ---
 
 ## 3. Acceptance UoW (atomic Job + one dispatch intent)
 
 ```text
-validate Documents verified + tenant-owned
--> accept_job_atomic (modeled INSERT ... ON CONFLICT (tenant_id, idempotency_key)):
+validate Idempotency-Key format -> compute request fingerprint
+-> if a Job already exists for (tenant_id, idempotency_key):        # idempotent fast path
+     same fingerprint  -> RETURNED_EXISTING (original Job; DO NOT re-run Document admission)
+     different         -> 409 CONFLICT (no durable facts)
+-> only for a NEW command: validate Documents verified + tenant-owned  # mutable admission check
+-> upsert_job_on_conflict (modeled INSERT ... ON CONFLICT (tenant_id, idempotency_key)):
      build Job(queued) + one job.dispatch_requested OutboxRow  (BEFORE any mutation)
      commit BOTH together  (fail_before_commit -> raise -> NEITHER persists)
+     if a concurrent winner already inserted -> return the existing Job (created=False) -> arbitrate by fingerprint
 -> at-most-one dispatch intent per Job: logical UNIQUE(job_id, event_type='job.dispatch_requested')
 ```
 
-Never return 202 for a Job with no durable dispatch intent. The API UoW NEVER calls the broker/transport inside its
-DB transaction.
+ORDER matters (P1-3): the same-key fast path runs BEFORE the mutable Document admission check, so an exact retry of
+an already-accepted command returns the original Job even if a referenced Document later became unavailable; the
+verified + tenant-owned Document check runs only for a NEW command. Never return 202 for a Job with no durable
+dispatch intent. The API UoW NEVER calls the broker/transport inside its DB transaction.
 
 ---
 
@@ -144,8 +155,25 @@ provider    : stable provider correlation/idempotency + evidence reconciliation 
 ```
 
 `worker_claim` returns True for exactly one winner; duplicate deliveries get False (zero rows) and MUST NOT call the
-Provider. A fencing token guards Relay checkpoint writes (`checkpoint_published_if_owner` raises `FencingError` for a
-superseded owner).
+Provider. A fencing token guards Relay checkpoint AND failure-recording writes: both
+`checkpoint_published_if_owner` and `record_transport_failure` require a LIVE lease — the owner token must match AND
+`now < relay_hold_until` — so a Relay whose lease merely EXPIRED (even before a new owner takes over) is rejected
+with `FencingError` and can never write `published_at` or retry state (P1-2).
+
+---
+
+## 6b. Review round 1 fixes (P1)
+
+- **P1-1 (atomic acceptance arbitration):** the conflict decision + create are one atomic op
+  (`upsert_job_on_conflict` under `self._accept_lock`); a plain existence read is only a fast path. Two concurrent
+  same-key requests yield exactly one `CREATED` and one `RETURNED_EXISTING` (1 Job, 1 dispatch intent) — proven by a
+  forced-interleaving thread test.
+- **P1-2 (relay lease expiry):** `checkpoint_published_if_owner` and `record_transport_failure` require a LIVE lease
+  (owner match AND not expired); an expired Relay is fenced even before a new owner takes over, so `published_at`
+  stays NULL.
+- **P1-3 (idempotent retry ordering):** the same-key fast path (return the original Job on a matching fingerprint,
+  409 on a changed one) runs BEFORE the mutable Document admission check; the verified + tenant-owned Document check
+  runs only for a NEW command.
 
 ---
 
@@ -167,11 +195,13 @@ Alembic revision is rewritten. This artifact makes no real PostgreSQL/broker/Wor
 |---|---|---|
 | Conceptual design | COMPLETED | this runbook + lesson |
 | Static file checks | RUN | `py_compile` module + tests |
-| Fake store + transport runtime | RUN | in-memory adapter, 23 pytest cases (control flow only) |
+| Fake store + transport runtime | RUN | in-memory adapter, 29 pytest cases (control flow only) |
 | Acceptance idempotency + fingerprint conflict | MODELED (RUN) | `UNIQUE(tenant,key)` dict + fingerprint compare; lost-202, 409, key!=fingerprint tests |
-| Atomic Job + one dispatch intent | MODELED (RUN) | `accept_job_atomic` all-or-nothing + mid-tx failure test; `UNIQUE(job_id,event_type)` |
+| Atomic concurrent acceptance arbitration (P1-1) | MODELED (RUN) | `upsert_job_on_conflict` under a lock; forced-interleaving THREAD test -> one CREATED + one RETURNED_EXISTING, 1 Job, 1 intent |
+| Atomic Job + one dispatch intent | MODELED (RUN) | `upsert_job_on_conflict` all-or-nothing + mid-tx failure test; `UNIQUE(job_id,event_type)` |
+| Idempotent retry vs mutable Document admission (P1-3) | MODELED (RUN) | exact retry returns the original Job after a Document becomes unavailable; a new key is still rejected |
 | At-least-once relay + retention/backoff/quarantine | MODELED (RUN) | timeout retains + attempt/error/next_attempt; crash-before-checkpoint redelivers; quarantine keeps Job queued |
-| Relay claim/lease/fencing (SKIP LOCKED) | MODELED (RUN) | `claim_outbox_batch` skip-locked; stale-relay `FencingError`; no publish inside claim |
+| Relay claim/lease/fencing (SKIP LOCKED) (P1-2) | MODELED (RUN) | `claim_outbox_batch` skip-locked; EXPIRED-lease checkpoint/failure -> `FencingError`, `published_at` stays NULL; takeover fencing; no publish inside claim |
 | Worker guarded claim (duplicate absorption) | MODELED (RUN) | one `RETURNING` winner, others zero rows |
 | Real PostgreSQL UNIQUE/tx/isolation/ON CONFLICT/SKIP LOCKED | NOT RUN | needs a server + async driver + Day42 raw SQL + a Day48-safe additive migration |
 | Real broker/Celery (ACK/redelivery/poison) + Worker/Provider runtime | NOT RUN | Day55 / Day53 scope |

@@ -9,6 +9,59 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.100 — Day50 review round 1 (Codex): atomic acceptance, live-lease fencing, retry-safe ordering
+
+Date: 2026-08-03
+
+Day: Day50 (review fix, round 1)
+
+Addresses three P1 findings in the Day50 idempotent-acceptance + outbox artifact. Only the Day50 module, its tests,
+and the affected Day50 documentation were changed. The artifact remains a FAKE in-memory store + transport
+(application control-flow evidence); no real PostgreSQL/broker/Celery/Worker/Provider runtime is claimed, and no
+exactly-once is claimed.
+
+### Fixed
+
+- **P1-1 — atomic acceptance conflict arbitration.** `accept_job` previously did `find_by_idempotency` then an
+  unconditional `accept_job_atomic`, so two concurrent same-key requests could both read absence and each create a
+  Job + Outbox intent. The conflict decision now lives inside one atomic op, `InMemoryJobStore.upsert_job_on_conflict`
+  (guarded by `self._accept_lock`, modeling `INSERT ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
+  RETURNING`): the first request creates, the second observes the conflict and returns the existing Job without
+  creating anything. The outer existence read is only a fast path.
+- **P1-2 — relay lease expiry in checkpoint/failure.** `checkpoint_published_if_owner` and `record_transport_failure`
+  now require a LIVE lease — owner token match AND `now < relay_hold_until` (a `now` parameter was added to the
+  failure path). An expired Relay is fenced with `FencingError` even before a new owner takes over, so a stale
+  `published_at` can never be written.
+- **P1-3 — idempotent-retry ordering vs mutable Document admission.** `accept_job` now validates the key format,
+  computes the fingerprint, and short-circuits an existing same-key command (same fingerprint -> `RETURNED_EXISTING`
+  the original Job; different -> 409 `CONFLICT`) BEFORE the verified + tenant-owned Document admission check, which
+  now runs only for a NEW command. An exact retry no longer returns `DOCUMENT_NOT_VERIFIED` if a referenced Document
+  later became unavailable.
+
+### Validation
+
+- Executed: `python3 -m py_compile day50_job_acceptance_outbox.py test_day50_job_acceptance_outbox.py`;
+  `python3 -m pytest -q test_day50_job_acceptance_outbox.py` -> **29 passed** (was 23; Python 3.10.12, pytest 7.4.3;
+  stdlib-only module). Full `projects/ai-backend-data-layer/api/` suite -> **204 passed**.
+- New tests: a forced-interleaving thread test (`test_concurrent_same_key_same_fingerprint_creates_single_job_forced_interleave`)
+  and a sequential arbiter test (P1-1); expired-lease checkpoint + failure fencing tests (P1-2); an exact-retry-after-
+  Document-unavailable test and a changed-fingerprint-still-409 test (P1-3). All prior Day50 tests are retained.
+- Validation boundary unchanged: Fake/in-memory application-control-flow runtime ONLY. NOT RUN: real PostgreSQL
+  UNIQUE/constraint/transaction/isolation or `INSERT ... ON CONFLICT`/`FOR UPDATE SKIP LOCKED`; a real broker/Celery
+  (ACK/redelivery/poison); Worker/Provider runtime; integration; production. No exactly-once claim. Day55 still owns
+  real Celery transport/ACK/redelivery/poison-task/runtime recovery. Schema honesty unchanged: the fingerprint /
+  `UNIQUE(job_id, event_type)` / relay-ops (incl. lease/fencing) columns are modeled in-memory and would need a
+  Day48-safe forward additive migration; not implemented here, no published Alembic revision rewritten.
+
+### Updated
+
+- `projects/ai-backend-data-layer/api/day50_job_acceptance_outbox.py`, `test_day50_job_acceptance_outbox.py`,
+  `day50-idempotent-job-acceptance-and-transactional-outbox-design.md`;
+  `docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md`; `cheat_sheets/fastapi.md`;
+  `interview/fastapi.md`; `projects/ai-backend-data-layer/README.md`; `CURRICULUM.md`; `PROJECT_STATUS.md`; `TASKS.md`.
+
+---
+
 ## v0.1.99 — Day50 Idempotent AI Job API and Transactional Outbox Integration
 
 Date: 2026-08-03
