@@ -12,7 +12,7 @@ Prerequisite: Day50 — Idempotent AI Job API and Transactional Outbox Integrati
 Previous Lesson: Day50 — Idempotent AI Job API and Transactional Outbox Integration
 Next Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Engineering Artifact: projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md
-  + runnable day51_authentication_jwt.py + test_day51_authentication_jwt.py (real Argon2id + real RS256 JWT; 34 passed)
+  + runnable day51_authentication_jwt.py + test_day51_authentication_jwt.py (real Argon2id + real RS256 JWT; 36 passed)
 ```
 
 Main engineering artifact: a provider-neutral authentication control-flow model using **real** Argon2id and **real**
@@ -255,12 +255,17 @@ used token in the family via a per-family used-token ledger (`token_family_id + 
 token A after A->B->C is still caught, not only the latest token. A used token AFTER the grace window is
 `REPLAY_DETECTED`: reject, revoke and **retain** the `token_family_id` (audit evidence — do NOT delete it), clear
 recovery material, isolate the offending device family only (sibling devices keep working), and require
-reauthentication.
+reauthentication. Recovery material is also **minimum-retention**: it lives only until `retry_grace_expires_at`, so a
+scheduled sweep destroys `recovery_ciphertext` + `grace_result_token_hash` once the window expires EVEN IF the old
+token is never resubmitted (fail-closed on time); the used-token ledger and Session audit record are kept, so a
+post-grace replay stays `REPLAY_DETECTED`, never a degraded `INVALID`.
 
 **Framework Connection:** `rotate_refresh` (lock-guarded, models `UPDATE ... RETURNING`) -> `ROTATED` /
 `GRACE_RETRY` / `REPLAY_DETECTED` / `INVALID`; `recovery_ciphertext` (Fernet, ephemeral in-process key) returns the
-same usable B once; the `_used_hashes` per-family ledger detects replay of any earlier token; `fail_before_commit`
-proves rollback; `_revoke_family_locked` retains the record and ledger.
+same usable B once; `sweep_expired_recovery_material(now)` destroys recovery material past the grace deadline even if
+the old token never returns (fail-closed on time; ledger + audit retained; models a real scheduled cleanup job); the
+`_used_hashes` per-family ledger detects replay of any earlier token; `fail_before_commit` proves rollback;
+`_revoke_family_locked` retains the record and ledger.
 
 ---
 
@@ -564,6 +569,6 @@ Engineering artifact + runbook:
 [`projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md`](../../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md).
 Runnable model: [`day51_authentication_jwt.py`](../../projects/ai-backend-data-layer/api/day51_authentication_jwt.py);
 tests: [`test_day51_authentication_jwt.py`](../../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py)
-(real Argon2id + real RS256 JWT with ephemeral keys; **34 passed**; Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0,
+(real Argon2id + real RS256 JWT with ephemeral keys; **36 passed**; Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0,
 cryptography 48.0.0, pytest 7.4.3). PostgreSQL / FastAPI / browser / JWKS / integration / production runtime: **NOT
 RUN**.

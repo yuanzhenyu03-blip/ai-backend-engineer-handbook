@@ -323,7 +323,11 @@ class AuthSession:
     grace_result_token_hash: Optional[str] = None  # hash of the SAME B produced by the winning rotation
     # Short-TTL, PROTECTED recovery of the raw replacement token B for a lost response.
     # Holds Fernet CIPHERTEXT (never the raw token), is bounded by retry_grace_expires_at,
-    # is consumed after ONE recovery, and is cleared on grace expiry / replay / revoke.
+    # is consumed after ONE in-window recovery, and MUST be destroyed once the grace
+    # window expires even if the old token is never resubmitted — see
+    # AuthSessionStore.sweep_expired_recovery_material (models a scheduled cleanup job).
+    # It is also cleared on replay / revoke. The used-token ledger + audit record are
+    # retained separately under the security/audit retention policy.
     recovery_ciphertext: Optional[bytes] = None
 
 
@@ -460,6 +464,9 @@ class AuthSessionStore:
             if session is None or session.revoked_at is not None:
                 return False
             session.revoked_at = now
+            # A logged-out session must not retain recoverable B material.
+            session.recovery_ciphertext = None
+            session.grace_result_token_hash = None
             self._by_current_hash.pop(session.refresh_token_hash, None)
             return True
 
@@ -477,6 +484,37 @@ class AuthSessionStore:
                     self._by_current_hash.pop(session.refresh_token_hash, None)
                     count += 1
             return count
+
+    def sweep_expired_recovery_material(self, *, now: datetime) -> int:
+        """Minimum-retention cleanup for sensitive recovery material, INDEPENDENT of any
+        client re-submission. Once a session's retry grace has expired, its short-TTL
+        recovery secrets (``recovery_ciphertext`` + ``grace_result_token_hash``) MUST be
+        destroyed even if the old token is never presented again — a client that abandons
+        the flow must not leave recoverable B material sitting in the record.
+
+        What is RETAINED (never touched here): the used-token ledger and the Session audit
+        record. Replay of a retired family token after grace stays ``REPLAY_DETECTED`` via
+        the ledger — it must never degrade to a plain ``INVALID``.
+
+        Fail-closed on time: a session with no ``retry_grace_expires_at`` or a window that
+        has not yet expired is left untouched (in-window one-time recovery still works).
+
+        A real PostgreSQL deployment MUST run this as a reliable scheduled job (periodic
+        sweep / cron / pg_cron) bounded by ``retry_grace_expires_at``; this in-memory
+        method models that job and is explicitly callable + testable."""
+        swept = 0
+        with self._lock:
+            for session in self.sessions.values():
+                if (
+                    session.retry_grace_expires_at is not None
+                    and now >= session.retry_grace_expires_at
+                    and (session.recovery_ciphertext is not None
+                         or session.grace_result_token_hash is not None)
+                ):
+                    session.recovery_ciphertext = None
+                    session.grace_result_token_hash = None
+                    swept += 1
+        return swept  # used-token ledger + Session audit records are retained
 
     def _revoke_family_locked(self, token_family_id: uuid.UUID, now: datetime) -> int:
         count = 0

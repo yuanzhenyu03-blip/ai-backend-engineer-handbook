@@ -27,7 +27,7 @@ application control flow — it is NOT database, HTTP/browser, or production run
 **Conceptual Artifact**, **Static / real-library control-flow Verification** (what ran), and **Real Runtime
 Verification** (NOT RUN). Day50 evidence is not inherited.
 
-Executed: `python3 -m pytest -q test_day51_authentication_jwt.py` -> **34 passed**
+Executed: `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed**
 (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3).
 
 SECURITY: no plaintext password, refresh token, JWT, Provider key, real/operational signing key, signed URL,
@@ -123,6 +123,9 @@ rotate_refresh(raw): one guarded critical section (models UPDATE ... WHERE curre
   (2) immediately-previous hash within grace window   -> decrypt recovery_ciphertext, return the SAME usable B ONCE
        (consume the recovery slot; never an A->C branch)                                          -> GRACE_RETRY(B)
        (already consumed within the window            -> GRACE_RETRY(None): documented safe failure, re-authenticate)
+  sweep_expired_recovery_material(now): for every session past retry_grace_expires_at, DESTROY recovery_ciphertext +
+       grace_result_token_hash even if A never returned (fail-closed on time); RETAIN the used-token ledger + audit.
+       Models a reliable scheduled cleanup job; a real PostgreSQL deployment MUST run it (cron / pg_cron).
   (3) ANY used family token via the used-hash ledger  -> REPLAY_DETECTED: revoke the family + RETAIN records/ledger
        (audit), clear recovery material, isolate other device families, issue nothing
   (4) unknown / expired / revoked                     -> INVALID (zero rows), issue nothing
@@ -140,6 +143,17 @@ rotate_refresh(raw): one guarded critical section (models UPDATE ... WHERE curre
   expiry / replay / revoke — the raw token is never persisted in the clear, never logged, and never a plain durable
   field. The grace does NOT distinguish every network retry from theft — a documented residual replay risk — and once
   the single recovery is consumed the honest fallback is reauthentication.
+- **Minimum-retention lifecycle (do not depend on the client retrying)**: recovery material lives ONLY until
+  `retry_grace_expires_at`. `A -> B` arms `recovery_ciphertext` + `grace_result_token_hash`; once the window expires,
+  both MUST be destroyed EVEN IF the old A is never resubmitted — a client that abandons the flow must not leave
+  recoverable B material in the record. `sweep_expired_recovery_material(now)` is an explicit, testable cleanup that
+  clears them for every past-grace session, is **fail-closed on time** (no `retry_grace_expires_at` or an in-window
+  session is left untouched), and RETAINS the used-token ledger + Session audit record. Clearing recovery material
+  does NOT delete the retired-token ledger, so a post-grace replay of A stays `REPLAY_DETECTED`, never a degraded
+  `INVALID`. `revoke_session` / family revoke destroy recovery material immediately. **Real deployment**: run this as
+  a reliable scheduled job (periodic sweep / cron / `pg_cron`) bounded by `retry_grace_expires_at` — the in-memory
+  method models that job; relying on "clear it when the old token is next seen" is unsafe because the client may never
+  retry.
 - **Replay of ANY used family token after grace** -> reject, revoke/retain the `token_family_id` (per-device family,
   distinct from other user devices), clear recovery material, audit + alert, require reauthentication. Detection uses
   the per-family **used-token ledger**, so replaying the OLDEST token A after A->B->C is caught (not only the latest
@@ -184,6 +198,8 @@ used as proof here (NOT RUN).
 | kid allowlist + unknown-kid refresh + emergency revoke + K1->K2 overlap | RUN (real crypto) | trusted-set lookup; refresh-then-reject; revoke blocks verify AND sign; revoking current signer fails closed then promote K2; drop_key |
 | Per-device Refresh: hash-only, guarded rotation, rollback | MODELED (RUN) | in-memory store + lock; UPDATE-RETURNING single winner; mid-tx rollback keeps A |
 | Bounded grace recovers the SAME usable B (once, encrypted, never A->C) | MODELED (RUN) | lost-response retry returns the same usable B; one-time consume; raw never plain-persisted |
+| Recovery-material minimum retention: swept at grace expiry even if A never returns | MODELED (RUN) | `sweep_expired_recovery_material` clears ciphertext + grace hash past grace; fail-closed on time; ledger/audit retained; replay still `REPLAY_DETECTED` |
+| Reliable scheduled cleanup of recovery material | NOT RUN | needs a real periodic job (cron / `pg_cron` / worker) bound to `retry_grace_expires_at` |
 | Replay of ANY used family token -> family revoke (retained), devices isolated | MODELED (RUN) | per-family used-hash ledger; replay of oldest token after A->B->C revokes+retains; sibling device unaffected |
 | CSRF/browser decision | MODELED (RUN) | `evaluate_state_change_request` cookie/Origin/CSRF logic |
 | Real PostgreSQL UNIQUE/tx/isolation/`UPDATE ... RETURNING` | NOT RUN | needs a server + async driver + Day42 raw SQL + a Day48-safe additive AuthSession migration |

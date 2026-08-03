@@ -1055,7 +1055,10 @@ A->B->C is still caught. Revocation isolates only that device family — a diffe
 unaffected. A short bounded grace window earlier does genuinely recover the lost response: the client that retries the
 immediately-previous token in-window gets back the SAME usable replacement token B exactly once (held as short-TTL
 encrypted recovery material, never a new A->C branch); that grace accepts a small bounded replay risk, and once the
-one recovery is consumed the honest fallback is reauthentication."
+one recovery is consumed the honest fallback is reauthentication. That recovery material is also minimum-retention: it
+lives only until the grace deadline, and a scheduled sweep destroys the ciphertext and grace hash once the window
+expires EVEN IF the client never retries — the used-token ledger and audit record are kept, so a later replay is still
+detected, never degraded to a plain invalid-token result."
 
 ### Q5 (Senior) — key authority, rotation, and emergency compromise
 
@@ -1073,7 +1076,7 @@ state changes I combine SameSite with Origin validation and a CSRF token, and re
 lacking valid Origin/CSRF evidence."
 
 Validation: REAL Argon2id + REAL RS256 JWT with ephemeral in-process keys + an in-memory guarded-rotation store
-(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 34 passed). Proves crypto
+(Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 36 passed). Proves crypto
 primitives + control flow only. NOT real PostgreSQL (UNIQUE/tx/isolation/`UPDATE ... RETURNING`), NOT FastAPI/browser
 (cookies/SameSite/Origin/CSRF at the wire) or a JWKS endpoint, NOT integration/production. JWE is out of scope. Day52
 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented. No plaintext passwords, refresh

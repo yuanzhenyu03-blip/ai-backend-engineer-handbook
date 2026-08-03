@@ -340,6 +340,40 @@ def test_grace_recovery_is_one_time_then_documented_safe_failure():
     assert r2.outcome is RefreshOutcome.GRACE_RETRY and r2.raw_refresh_token is None
 
 
+def test_sweep_clears_expired_recovery_material_even_if_old_token_never_returns():
+    store = AuthSessionStore()
+    raw_a, session = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))
+    b = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30),
+                             grace=timedelta(seconds=10))
+    assert b.outcome is RefreshOutcome.ROTATED
+    assert session.recovery_ciphertext is not None and session.grace_result_token_hash is not None
+    # The old A is NEVER resubmitted; time passes beyond the grace window; the sweep runs.
+    after = NOW + timedelta(minutes=1, seconds=30)  # > retry_grace_expires_at
+    assert store.sweep_expired_recovery_material(now=after) == 1
+    assert session.recovery_ciphertext is None  # sensitive material destroyed
+    assert session.grace_result_token_hash is None
+    # Retired-token ledger + audit record RETAINED.
+    assert digest_refresh_token(raw_a) in store._used_hashes
+    assert session.session_id in store.sessions
+    # Replaying A after the sweep is STILL a family replay, never a degraded INVALID.
+    replay = store.rotate_refresh(raw_a, now=after + timedelta(seconds=1), ttl=timedelta(days=30))
+    assert replay.outcome is RefreshOutcome.REPLAY_DETECTED
+    assert session.revoked_at is not None
+    assert session.session_id in store.sessions  # record retained after revoke
+
+
+def test_sweep_is_fail_closed_on_time_and_preserves_in_window_recovery():
+    store = AuthSessionStore()
+    raw_a, session = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))
+    store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1), ttl=timedelta(days=30), grace=timedelta(seconds=30))
+    # A sweep DURING the grace window must not clear recoverable material (fail-closed on time).
+    assert store.sweep_expired_recovery_material(now=NOW + timedelta(minutes=1, seconds=5)) == 0
+    assert session.recovery_ciphertext is not None
+    # In-window recovery still returns the same usable B after the no-op sweep.
+    retry = store.rotate_refresh(raw_a, now=NOW + timedelta(minutes=1, seconds=6), ttl=timedelta(days=30))
+    assert retry.outcome is RefreshOutcome.GRACE_RETRY and retry.raw_refresh_token
+
+
 def test_raw_refresh_token_is_never_persisted_in_the_clear():
     store = AuthSessionStore()
     raw_a, session = store.create_session("user-1", now=NOW, ttl=timedelta(days=30))

@@ -14,7 +14,7 @@ confusion/tamper); `kid` allowlist + unknown-kid trusted-source refresh + emerge
 overlap; a per-device Refresh Session storing only the token hash with a guarded `UPDATE ... RETURNING` rotation,
 all-or-nothing rollback, a bounded grace/replay state machine, and family-revocation-with-retained-evidence; and a
 browser cookie/Origin/CSRF decision contract. **REAL crypto + control-flow tests were executed** (Python 3.10.12;
-argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 34 passed; deps pinned in
+argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 36 passed; deps pinned in
 `api/requirements-day51.txt`). This proves crypto primitives + control flow only: **PostgreSQL
 (UNIQUE/tx/isolation/`UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a
 JWKS endpoint, integration, and production are NOT RUN**; JWE is out of scope, and Day52 authorization/quota, Day53
@@ -125,7 +125,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day50.txt                          # Day50: pinned deps (pytest==7.4.3; module + tests are stdlib-only)
 │   ├── day51-authentication-password-security-and-jwt-design.md  # Day51: auth (password/JWT/refresh) design/runbook
 │   ├── day51_authentication_jwt.py                     # Day51: real Argon2id + real RS256 JWT + guarded refresh model
-│   ├── test_day51_authentication_jwt.py                # Day51: real-crypto tests (executed: 34 passed)
+│   ├── test_day51_authentication_jwt.py                # Day51: real-crypto tests (executed: 36 passed)
 │   └── requirements-day51.txt                          # Day51: pinned deps (argon2-cffi, PyJWT[crypto], cryptography, pytest)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
@@ -196,7 +196,7 @@ Column intent:
 `api/day51-authentication-password-security-and-jwt-design.md` (with a runnable `day51_authentication_jwt.py` and
 `test_day51_authentication_jwt.py`) establishes a trusted caller identity. The tests are **real, executed** using
 **real crypto** (Argon2id + RS256 JWT) with ephemeral in-process keys: **Python 3.10.12; argon2-cffi 23.1.0,
-PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> `34 passed`** (deps pinned in `api/requirements-day51.txt`).
+PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> `36 passed`** (deps pinned in `api/requirements-day51.txt`).
 
 ### What the model contains
 
@@ -205,7 +205,7 @@ PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> `34 passed`** (deps pinned in 
 | Passwords | real Argon2id `PasswordService` (hash starts `$argon2id$`); library `verify`; one generic `authenticate` failure + decoy verify; `needs_rehash`; a fast digest is used ONLY for a high-entropy refresh secret. |
 | JWT verification | `verify_access_token` full contract: `ALLOWED_ALGS=("RS256",)`, trusted key by allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub` -> `AuthenticatedIdentity(user_id=sub)`; rejects `alg=none`/HS256-confusion/wrong-iss/aud/expired/nbf/missing-sub/tamper. |
 | Keys | `KeyRing`: private held by the Auth Service, public allowlist for verifiers; `revoke_key` (emergency — blocks BOTH verify and signing; revoking the current signer fails closed until `set_current_signing_kid(K2)`), `drop_key` (post-overlap), `refresh_unknown_kid` (trusted-source, else reject); K1->K2 overlap. |
-| Refresh sessions | per-device `AuthSession` storing only `refresh_token_hash`; guarded `rotate_refresh` models `UPDATE ... RETURNING` single winner + all-or-nothing rollback; bounded one-time grace (`GRACE_RETRY` recovers the SAME usable B once from a short-TTL ENCRYPTED recovery slot, never A->C) vs `REPLAY_DETECTED` on ANY used family token via a per-family used-hash ledger -> revoke + RETAIN family + isolate other devices; `revoke_session` vs `revoke_all_user_sessions`. |
+| Refresh sessions | per-device `AuthSession` storing only `refresh_token_hash`; guarded `rotate_refresh` models `UPDATE ... RETURNING` single winner + all-or-nothing rollback; bounded one-time grace (`GRACE_RETRY` recovers the SAME usable B once from a short-TTL ENCRYPTED recovery slot, never A->C) vs `REPLAY_DETECTED` on ANY used family token via a per-family used-hash ledger -> revoke + RETAIN family + isolate other devices; `sweep_expired_recovery_material` enforces minimum-retention (destroys recovery ciphertext + grace hash once past grace even if the old token never returns; fail-closed on time; ledger/audit retained; a real deployment runs it as a scheduled job); `revoke_session` vs `revoke_all_user_sessions`. |
 | Browser/CSRF | `evaluate_state_change_request`: cookie-only cross-site without valid Origin + CSRF -> reject (HttpOnly is not CSRF defense). |
 
 ### Run the tests

@@ -9,6 +9,49 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.103 — Day51 review (Codex): recovery-material minimum retention (scheduled sweep)
+
+Date: 2026-08-03
+
+Day: Day51 (review fix)
+
+Addresses the final P1 finding: `AuthSession.recovery_ciphertext` (short-TTL encrypted recovery of the replacement
+token B) was only cleared on an in-grace retry or family revoke, so a client that rotated A->B and never resubmitted
+A left the ciphertext in the Session record indefinitely — violating minimum-retention for sensitive recovery
+material. Scope limited to the Day51 module, tests, and Day51 docs/status files.
+
+### Fixed
+
+- **Minimum-retention lifecycle + explicit sweep.** Added `AuthSessionStore.sweep_expired_recovery_material(now)`: for
+  every session past `retry_grace_expires_at` it destroys `recovery_ciphertext` + `grace_result_token_hash` EVEN IF
+  the old token is never resubmitted. It is **fail-closed on time** (a session with no window, or an in-window
+  session, is left untouched) and RETAINS the used-token ledger + Session audit record, so a post-grace replay of a
+  retired family token stays `REPLAY_DETECTED`, never a degraded `INVALID`. `revoke_session` now also clears recovery
+  material immediately. A real PostgreSQL deployment MUST run this as a reliable scheduled job (periodic sweep / cron
+  / `pg_cron`) bounded by `retry_grace_expires_at`; the in-memory method models that job. The recovery material stays
+  protected Fernet ciphertext under an ephemeral in-process key — never a plaintext column, never logged.
+
+### Added tests
+
+- `test_sweep_clears_expired_recovery_material_even_if_old_token_never_returns` — A->B, A never returns, time passes
+  the window, sweep runs -> `recovery_ciphertext is None`, `grace_result_token_hash is None`, ledger + audit retained,
+  and a later replay of A is `REPLAY_DETECTED` with the family revoked and the record retained.
+- `test_sweep_is_fail_closed_on_time_and_preserves_in_window_recovery` — an in-window sweep is a no-op and one-time
+  recovery of the same usable B still works.
+
+### Validation
+
+- Executed: `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`;
+  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed** (was 34); full
+  `projects/ai-backend-data-layer/api/` suite -> **240 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
+  cryptography 48.0.0, pytest 7.4.3). No regression: grace same-usable-B, one-time recovery, A->B->C replay, device
+  isolation, rollback, K1 revoke fail-closed, and the secure-Argon2 default tests all still pass.
+- Still NOT RUN: real PostgreSQL, FastAPI/browser, JWKS endpoint, integration, production; and the real scheduled
+  cleanup job itself (the sweep is exercised by direct call, not by a running scheduler). JWE out of scope. No
+  plaintext passwords, refresh tokens, JWTs, private/KMS keys, or user data committed.
+
+---
+
 ## v0.1.102 — Day51 review (Codex): grace recovery, full-family replay, signing revoke, Argon2 defaults
 
 Date: 2026-08-03
@@ -44,8 +87,8 @@ JWKS / integration / production runtime is claimed.
 ### Validation
 
 - Executed: `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`;
-  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **34 passed** (was 27); full
-  `projects/ai-backend-data-layer/api/` suite -> **238 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
+  `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed** (was 27); full
+  `projects/ai-backend-data-layer/api/` suite -> **240 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0,
   cryptography 48.0.0, pytest 7.4.3).
 - Still NOT RUN: real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real
   FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE out
@@ -81,7 +124,7 @@ Authenticate WHO the caller is before deciding what they may do (Day52). Store a
 
 ### Validation
 
-- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **34 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **238 passed**. REAL crypto primitives + application control flow.
+- Executed: `python3 -m pip install -r requirements-day51.txt`; `python3 -m py_compile day51_authentication_jwt.py test_day51_authentication_jwt.py`; `python3 -m pytest -q test_day51_authentication_jwt.py` -> **36 passed** (Python 3.10.12; argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **240 passed**. REAL crypto primitives + application control flow.
 - Markdown: Day51 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
 - Secrets: no plaintext passwords, refresh tokens, JWTs, Provider keys, real/operational signing keys, signed URLs, database URLs, or user data committed; test signing keys are generated in-process; raw credentials/JWT payloads are never logged.
 - Three claims kept separate — Conceptual Artifact; Static/real-library control-flow Verification (what ran: real Argon2id + real RS256 + in-memory guarded rotation); Real Runtime Verification (NOT RUN): real PostgreSQL (UNIQUE/constraint/transaction/isolation or `UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a real JWKS endpoint, integration, production. JWE is out of scope. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, no published Alembic revision rewritten. Day52 authorization/quota, Day53 real Provider, and Day55 real Celery are not implemented.
