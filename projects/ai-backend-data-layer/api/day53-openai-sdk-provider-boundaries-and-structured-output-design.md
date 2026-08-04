@@ -21,7 +21,7 @@ Real FastAPI wire / integration / production          : NOT RUN
 Day54 streaming/disconnect/cancellation, Day55 Celery, Day56 retry/backoff/degradation : NOT IMPLEMENTED
 ```
 
-Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **36 passed**
+Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **41 passed**
 (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). The suite proves the REAL Pydantic v2 validation gate + application
 control flow (Adapter -> Validator -> CompletionService) with an injected fake transport. It does NOT prove the real
 `openai` SDK, network, Provider, PostgreSQL, Redis, Celery, FastAPI wire, integration, or production. The classroom
@@ -113,17 +113,21 @@ guarded completion.**
 ```text
 PATH A — start a NEW authorized Provider call: execute_job(request)
   provider_config.disabled                 -> BLOCKED_CONFIG_DISABLED (no call)
-  pre-call gate: is_claimable_for_new_call -> only a RUNNING Job may start a call
-    SUCCEEDED / FAILED                      -> PRECALL_BLOCKED (terminal); transport calls == 0
-    PENDING_RECONCILIATION                  -> PRECALL_BLOCKED (awaiting a late result, NOT a retriable new call); calls == 0
-  bind_request_to_contract mismatch         -> CONTRACT_MISMATCH; transport calls == 0
-  -> adapter.generate(bound)  (reached ONLY after the gate + binding)  -> _dispatch_outcome -> guarded completion
+  ATOMIC claim: claim_for_new_call         -> exactly ONE caller acquires execution rights + creates an IN_FLIGHT Attempt
+    not RUNNING (SUCCEEDED/FAILED/PENDING)  -> PRECALL_BLOCKED; transport calls == 0
+    an Attempt already open (concurrent)    -> PRECALL_BLOCKED (reason=claim_conflict); transport calls == 0
+  bind_request_to_contract mismatch         -> release the claim; CONTRACT_MISMATCH; transport calls == 0
+  -> adapter.generate(bound) (ONLY the claim winner) -> bind outcome to the Attempt (record provider_request_id)
+     -> _dispatch_outcome -> guarded completion ; timeout keeps the Attempt AWAITING_LATE_OUTCOME, else CLOSED
 
-PATH B — ingest an ALREADY-ISSUED late outcome: ingest_late_outcome(outcome, job_id, correlation_id, ...)
+PATH B — ingest an ALREADY-ISSUED late outcome: ingest_late_outcome(outcome, job_id, attempt_id, correlation_id, ...)
   NO adapter/transport call is made (no new paid Provider call).
-  validate job_id + correlation_id (and provider_request_id when supplied) against the PERSISTED contract:
-    mismatch -> LATE_OUTCOME_REJECTED (no completion, no overwrite, no transport)
-    match    -> _dispatch_outcome -> guarded completion (a terminal Job -> COMPLETION_NOOP, no fact overwrite)
+  a TERMINAL Job (SUCCEEDED/FAILED) -> guarded COMPLETION_NOOP (ANY late outcome; no Event/cost/result/status change)
+  else locate the PERSISTED Attempt and verify association BEFORE touching any fact:
+    attempt_id not found / CLOSED           -> LATE_OUTCOME_REJECTED
+    correlation_id != attempt/contract      -> LATE_OUTCOME_REJECTED
+    provider_request_id != recorded id       -> LATE_OUTCOME_REJECTED (or first-record it if none yet)
+    match    -> _dispatch_outcome -> guarded completion ; close the Attempt when the Job resolves
 ```
 
 The correct handling of a result that arrives after a timeout is PATH B (a callback-like ingestion of the outcome
@@ -220,9 +224,9 @@ of durable business facts.**
 |---|---|---|
 | Conceptual design | COMPLETED | this runbook + lesson |
 | SDK types stay inside the Adapter; typed ProviderOutcome union | RUN (in-memory) | `OpenAICompatibleAdapter.generate`; each fake SDK error -> a union case |
-| Pre-call execution gate before any paid call | RUN (in-memory) | terminal/pending Job re-execute -> PRECALL_BLOCKED, transport calls == 0 (no second paid call) |
+| ATOMIC pre-call claim before any paid call | RUN (in-memory) | terminal/pending Job re-execute AND two concurrent execute_job -> at most ONE claim wins; loser PRECALL_BLOCKED, transport calls == 0 |
 | Provider call bound to the persisted contract (no trusted caller input) | RUN (in-memory) | `bind_request_to_contract`; tampered model/schema/version -> CONTRACT_MISMATCH, 0 transport calls; max tightened never enlarged |
-| Late-outcome ingestion (no adapter call): matching completes, mismatch rejected, terminal no-op | RUN (in-memory) | `ingest_late_outcome`; correlation-matched success completes; wrong correlation -> LATE_OUTCOME_REJECTED; terminal -> COMPLETION_NOOP; 0 transport calls |
+| Late-outcome ingestion validates the PERSISTED Attempt (not just correlation) | RUN (in-memory) | `ingest_late_outcome` checks attempt_id + correlation + provider_request_id; wrong attempt/correlation/request-id -> LATE_OUTCOME_REJECTED; terminal Job -> COMPLETION_NOOP (any outcome, no overwrite); 0 transport calls |
 | One lifespan-owned client reused; Job cap wins (5000 vs 8000) | RUN (in-memory) | transport call count + `last_max_tokens` |
 | REAL strict structured validation before side effects | RUN (real Pydantic v2) | missing `citations` / forbidden `debug_prompt` -> CONTRACT_VIOLATION |
 | Invalid output never calls completion | RUN (in-memory) | no success transition / Artifact / Event on invalid |

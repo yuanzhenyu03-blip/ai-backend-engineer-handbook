@@ -9,6 +9,54 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.112 — Day53 review (Codex): atomic pre-call claim + Attempt, Attempt-validated ingestion, terminal-job late-outcome no-op
+
+Date: 2026-08-04
+
+Day: Day53 (review fix)
+
+Addresses three P1s in the Day53 model. Scope limited to the Day53 module + tests (plus the Day53 status/doc
+descriptions and this changelog). Still an in-memory model with real Pydantic v2 validation + an injected FAKE
+transport.
+
+### Fixed
+
+- **P1-1 — atomic pre-call claim + persistent Attempt.** `is_claimable_for_new_call` (a plain RUNNING read that two
+  Workers could both pass) is replaced by `JobExecutionStore.claim_for_new_call`, a lock-guarded atomic claim (models
+  `UPDATE ... WHERE status='running' AND open_attempt IS NULL RETURNING`). Exactly one caller acquires execution rights
+  and creates one IN_FLIGHT `Attempt` (attempt_id + correlation_id, provider_request_id when known); only the winner
+  calls the Adapter. A concurrent/re-entrant caller (or a terminal/pending Job) gets `PRECALL_BLOCKED` (reason
+  `claim_conflict`) with transport calls == 0. The Provider outcome is bound back to the Attempt; a timeout keeps it
+  AWAITING_LATE_OUTCOME (never a retriable new call), every other outcome CLOSES it.
+- **P1-2 — Path B validates the persisted Attempt, not just correlation.** `ingest_late_outcome` now takes an
+  `attempt_id`, locates the persisted Attempt, and verifies attempt_id + correlation_id + provider_request_id (a
+  request id absent at send time is first-recorded on arrival; a different Attempt's result is never accepted). Any
+  mismatch is `LATE_OUTCOME_REJECTED` with no completion/overwrite/transport. The Adapter now passes safe correlation
+  metadata to the transport, and a timeout preserves the sent request id.
+- **P1-3 — terminal-job late outcomes never rewrite business/cost facts.** Any Path B late outcome on a SUCCEEDED/FAILED
+  Job is a guarded `COMPLETION_NOOP` BEFORE dispatch — an invalid late success, `ProviderRefusal`, or `ProviderIncomplete`
+  no longer calls `record_non_success`/`record_cost`, so no Event is added and `result_artifact`/`status`/`settled_tokens`/
+  `cost_state` are unchanged. Unknown usage is still never written as 0 and the Day52 reservation is never auto-released.
+  (A post-terminal cost settlement would need a separate idempotent reconciliation ledger — not modeled here.)
+
+### Added / adjusted tests (36 -> 41)
+
+Two concurrent `execute_job` -> at most one calls transport, loser PRECALL_BLOCKED; timeout then Attempt-matching late
+success completes with 0 new transport calls; same correlation but wrong attempt_id -> rejected; provider_request_id
+mismatch -> rejected; FAILED job late invalid success / late refusal (known usage) -> COMPLETION_NOOP with no
+Event/cost/result change; SUCCEEDED job late non-success -> no fact change. The earlier ingestion tests were updated to
+pass `attempt_id`.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **41 passed** (was 36); full
+  `projects/ai-backend-data-layer/api/` suite -> **314 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). REAL
+  Pydantic v2 validation + application control flow with an injected FAKE transport; SDK types remain confined to the
+  Adapter. NOT RUN: the real `openai` SDK / network / Provider, real PostgreSQL / Redis / Celery Worker, FastAPI wire,
+  integration, production. No real api_key, prompt, Document content, or Provider response used.
+
+---
+
 ## v0.1.111 — Day53 review (Codex): pre-call execution gate + late-outcome ingestion (no paid side effect before eligibility)
 
 Date: 2026-08-04

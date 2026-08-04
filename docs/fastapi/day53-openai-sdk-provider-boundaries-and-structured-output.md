@@ -12,7 +12,7 @@ Prerequisite: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Previous Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Next Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Engineering Artifact: projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md
-  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 36 passed)
+  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 41 passed)
 ```
 
 Main engineering artifact: a provider-neutral Provider boundary (fake injected transport) with a REAL Pydantic v2
@@ -172,9 +172,9 @@ updates zero rows?
 Correct on both. Only the Completion Service may run the guarded `running -> succeeded`, persist the validated Result
 Artifact/usage/Event, and commit a short UoW. A zero-row result means STOP — it can mean duplicate, stale execution,
 cancellation, retry, or changed facts. Inspect durable state and reconcile; never overwrite. And because the Provider
-call is a PAID side effect, eligibility is claimed BEFORE it: `execute_job` gates on execution eligibility (only a
-RUNNING Job may start a new call; a SUCCEEDED/FAILED/`PENDING_RECONCILIATION` Job is `PRECALL_BLOCKED` with zero
-transport calls) so a terminal/pending Job never re-triggers a paid call just to be blocked at the DB write.
+call is a PAID side effect, eligibility is claimed BEFORE it: `execute_job` ATOMICALLY claims execution rights (creating one IN_FLIGHT `Attempt`) before any call — only a RUNNING
+Job with no open Attempt wins; a terminal/pending Job or a concurrent caller is `PRECALL_BLOCKED` with zero transport
+calls, so neither a terminal Job nor two concurrent Workers can issue a duplicate paid call.
 
 ### Engineering Thinking
 
@@ -336,8 +336,9 @@ All correct, with one correction: a single unsupported-output request cannot BOT
 valid result belongs to a distinct pre-rollout / old-worker call. A timeout is NOT written as a terminal `FAILED`: whether the Provider ran and what it cost are unknown, so the Job
 moves to a non-terminal `PENDING_RECONCILIATION` lifecycle (reservation retained, no auto-retry) and a later
 contract-matching legitimate result is accepted via the LATE-OUTCOME INGESTION path (`ingest_late_outcome`, which
-validates job_id + correlation against the persisted contract then runs guarded completion WITHOUT calling the
-Adapter) — NOT by calling `execute_job` again (that would issue a second paid Provider call). 401/403 stops new calls with
+locates the persisted `Attempt` and validates attempt_id + correlation + provider request id against it, then runs
+guarded completion WITHOUT calling the Adapter) — NOT by calling `execute_job` again (that would issue a second paid
+Provider call). Any late outcome on a terminal Job is a guarded no-op that never rewrites facts. 401/403 stops new calls with
 that config and preserves evidence (not a user-input error). A 400 that means the current model/profile cannot honor
 the controlled schema is CONFIG-WIDE and fails the config closed (a single-request 400 does not). 429 after a durable
 202 is a downstream Job/Attempt event, not a retroactive client 429 (keep safe `Retry-After`; Day56 owns retry). The core rule: **configuration rollback is not a
@@ -404,7 +405,7 @@ Run the model:
 ```bash
 cd projects/ai-backend-data-layer/api
 python3 -m pip install -r requirements-day53.txt   # pydantic==2.5.0, pytest==7.4.3
-python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 36 passed
+python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 41 passed
 ```
 
 ---

@@ -30,7 +30,9 @@ never copied into durable facts.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import threading
+import uuid
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Optional, Protocol
 
@@ -103,6 +105,7 @@ class ProviderIncomplete(ProviderOutcome):
 @dataclass(frozen=True)
 class ProviderTimeout(ProviderOutcome):
     usage: Usage = field(default_factory=Usage.unknown)  # unknown, NOT zero
+    provider_request_id: Optional[str] = None  # the SDK may know the sent request id even on timeout
 
 
 @dataclass(frozen=True)
@@ -157,7 +160,8 @@ class FakeBadRequestError(_FakeSDKError):
 
 
 class FakeAPITimeoutError(_FakeSDKError):
-    pass
+    def __init__(self, request_id: Optional[str] = None) -> None:
+        self.request_id = request_id  # the sent request may already have an id even on timeout
 
 
 class FakeAPIConnectionError(_FakeSDKError):
@@ -187,11 +191,14 @@ class FakeOpenAITransport:
         self._error = error
         self.calls = 0
         self.last_max_tokens: Optional[int] = None
+        self.last_correlation_id: Optional[str] = None
         self.closed = False
 
-    def create(self, *, model: str, max_tokens: int, prompt: str) -> FakeSDKResponse:
+    def create(self, *, model: str, max_tokens: int, prompt: str,
+               correlation_id: Optional[str] = None) -> FakeSDKResponse:
         self.calls += 1
         self.last_max_tokens = max_tokens
+        self.last_correlation_id = correlation_id
         if self._error is not None:
             raise self._error
         assert self._response is not None
@@ -224,7 +231,8 @@ class OpenAICompatibleAdapter:
         effective_max = min(request.max_output_tokens, self._default_max_output_tokens)
         try:
             resp = self._client.create(
-                model=request.approved_model, max_tokens=effective_max, prompt=request.prompt
+                model=request.approved_model, max_tokens=effective_max, prompt=request.prompt,
+                correlation_id=request.correlation_id,  # safe correlation metadata sent to the Provider
             )
         except FakeAuthError as e:
             return ProviderAuthenticationError(status_code=e.status_code)
@@ -234,8 +242,8 @@ class OpenAICompatibleAdapter:
             return ProviderCapabilityError(status_code=e.status_code, detail=e.detail,
                                            config_scope=e.config_scope,
                                            provider_request_id=e.request_id)
-        except FakeAPITimeoutError:
-            return ProviderTimeout()  # unknown usage
+        except FakeAPITimeoutError as e:
+            return ProviderTimeout(provider_request_id=e.request_id)  # unknown usage; id preserved if any
         except FakeAPIConnectionError as e:
             return ProviderTransportError(detail=str(e) or "connection error")
         # Successful SDK response -> classify into the application union.
@@ -344,6 +352,25 @@ class CostState(str, Enum):
     RECONCILIATION_PENDING = "reconciliation_pending"  # unknown usage: reservation retained
 
 
+class AttemptStatus(str, Enum):
+    IN_FLIGHT = "in_flight"                    # claimed; Provider call issued; awaiting the outcome
+    AWAITING_LATE_OUTCOME = "awaiting_late_outcome"  # timed out; the sent request may still return a late result
+    CLOSED = "closed"                          # a terminal outcome was bound; no further outcome accepted
+
+
+@dataclass
+class Attempt:
+    """A persisted, per-execution Attempt fact. A new Provider call is issued only after an
+    ATOMIC claim creates exactly one IN_FLIGHT Attempt; the Provider outcome is then bound back
+    to THIS Attempt (attempt_id + correlation_id, and provider_request_id when available)."""
+
+    attempt_id: str
+    job_id: str
+    correlation_id: str
+    status: AttemptStatus = AttemptStatus.IN_FLIGHT
+    provider_request_id: Optional[str] = None
+
+
 @dataclass(frozen=True)
 class ExecutionContract:
     """Non-secret execution-contract facts persisted at acceptance. Governs in-flight result
@@ -369,6 +396,8 @@ class ExecutionJob:
     settled_tokens: Optional[int] = None
     result_artifact: Optional[dict] = None
     events: list[dict] = field(default_factory=list)
+    attempts: dict[str, Attempt] = field(default_factory=dict)
+    open_attempt_id: Optional[str] = None  # the single IN_FLIGHT/AWAITING attempt, if any
 
 
 class CompletionOutcome(str, Enum):
@@ -383,6 +412,7 @@ class JobExecutionStore:
 
     def __init__(self) -> None:
         self.jobs: dict[str, ExecutionJob] = {}
+        self._lock = threading.Lock()  # models the atomic pre-call claim (a guarded UPDATE)
 
     def start_running(self, job_id: str, *, tenant_id: str, contract: ExecutionContract,
                       reserved_tokens: int) -> ExecutionJob:
@@ -391,14 +421,53 @@ class JobExecutionStore:
         self.jobs[job_id] = job
         return job
 
-    def is_claimable_for_new_call(self, job_id: str) -> bool:
-        """Pre-call EXECUTION GATE: only a RUNNING Job may START a new (paid) Provider call.
-        A SUCCEEDED/FAILED Job is terminal; a PENDING_RECONCILIATION Job is awaiting a LATE
-        outcome for an ALREADY-issued request and must NOT be treated as a retriable new call.
-        Models a guarded pre-call claim; a real system would flip RUNNING -> a claimed attempt
-        atomically. This gate runs BEFORE any transport so no wasted paid side effect occurs."""
+    def claim_for_new_call(self, job_id: str, *, correlation_id: str) -> Optional[Attempt]:
+        """ATOMIC pre-call claim: exactly ONE caller may acquire execution rights to START a
+        new (paid) Provider call. Under the lock, a claim succeeds ONLY if the Job is RUNNING
+        and there is no already-open Attempt; it then creates and persists exactly one
+        IN_FLIGHT Attempt (attempt_id + correlation_id). Concurrent/re-entrant callers get
+        `None` (a claim conflict) and must NOT call the Adapter/transport. Models a guarded
+        `UPDATE ... WHERE status='running' AND open_attempt IS NULL RETURNING` so two Workers
+        cannot both issue a paid call."""
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if job is None or job.status is not JobStatus.RUNNING:
+                return None
+            if job.open_attempt_id is not None:
+                return None  # an Attempt is already IN_FLIGHT/AWAITING -> claim conflict
+            attempt = Attempt(attempt_id=str(uuid.uuid4()), job_id=job_id, correlation_id=correlation_id)
+            job.attempts[attempt.attempt_id] = attempt
+            job.open_attempt_id = attempt.attempt_id
+            return attempt
+
+    def get_attempt(self, job_id: str, attempt_id: str) -> Optional[Attempt]:
         job = self.jobs.get(job_id)
-        return job is not None and job.status is JobStatus.RUNNING
+        return None if job is None else job.attempts.get(attempt_id)
+
+    def attach_provider_request_id(self, job_id: str, attempt_id: str, provider_request_id: str) -> None:
+        """Record the Provider request id on the Attempt the FIRST time it is known (at send
+        time or when a late outcome arrives). Never overwrites an already-recorded id."""
+        attempt = self.get_attempt(job_id, attempt_id)
+        if attempt is not None and attempt.provider_request_id is None:
+            attempt.provider_request_id = provider_request_id
+
+    def mark_attempt_awaiting_late(self, job_id: str, attempt_id: str) -> None:
+        """Timeout: the sent request may still return a LATE result -> keep the Attempt OPEN
+        (AWAITING_LATE_OUTCOME). It is NOT a retriable new call."""
+        attempt = self.get_attempt(job_id, attempt_id)
+        if attempt is not None:
+            attempt.status = AttemptStatus.AWAITING_LATE_OUTCOME
+
+    def close_attempt(self, job_id: str, attempt_id: str) -> None:
+        """A terminal outcome was bound to the Attempt -> CLOSED; it accepts no further outcome."""
+        job = self.jobs.get(job_id)
+        if job is None:
+            return
+        attempt = job.attempts.get(attempt_id)
+        if attempt is not None:
+            attempt.status = AttemptStatus.CLOSED
+        if job.open_attempt_id == attempt_id:
+            job.open_attempt_id = None
 
 
 class CompletionService:
@@ -452,7 +521,7 @@ class CompletionService:
         job = self._store.jobs.get(job_id)
         if job is None:
             return
-        if mark_failed and job.status is JobStatus.RUNNING:
+        if mark_failed and job.status in (JobStatus.RUNNING, JobStatus.PENDING_RECONCILIATION):
             job.status = JobStatus.FAILED
         event = {"type": "job.attempt_failed", "job_id": job_id,
                  "classification": classification,
@@ -553,6 +622,7 @@ class ExecutionResult:
     completion: Optional[CompletionOutcome] = None
     validation: Optional[ValidationResult] = None
     reason: str = ""
+    attempt_id: Optional[str] = None
 
 
 # ===========================================================================
@@ -692,12 +762,13 @@ def execute_job(
     completion: CompletionService,
     provider_config: ProviderConfig,
 ) -> ExecutionResult:
-    """PATH A — START a new authorized Provider call. Order: claim execution eligibility ->
-    (only then) make the external Provider call -> process the result -> guarded completion.
-    The pre-call gate runs BEFORE `adapter.generate`, so a terminal (SUCCEEDED/FAILED) or a
-    PENDING_RECONCILIATION Job never re-triggers a paid Provider call (transport calls == 0).
-    A late result for an already-issued request must use `ingest_late_outcome` (PATH B), which
-    does NOT call the Adapter."""
+    """PATH A — START a new authorized Provider call. Order: ATOMICALLY claim execution rights
+    (create the IN_FLIGHT Attempt) -> (only then) make the external Provider call -> bind the
+    outcome to that Attempt -> guarded completion. The atomic claim runs BEFORE `adapter.generate`,
+    so (a) a terminal (SUCCEEDED/FAILED) or PENDING_RECONCILIATION Job never re-triggers a paid
+    call, and (b) two concurrent/re-entrant callers cannot both issue a paid call — the loser gets
+    PRECALL_BLOCKED with transport calls == 0. A late result for an already-issued request must use
+    `ingest_late_outcome` (PATH B), which does NOT call the Adapter."""
     if provider_config.disabled:
         # Current Settings govern NEW calls: refuse to start one with a disabled config.
         return ExecutionResult(ExecutionDecision.BLOCKED_CONFIG_DISABLED)
@@ -705,31 +776,48 @@ def execute_job(
     job = store.jobs.get(request.job_id)
     if job is None:
         return ExecutionResult(ExecutionDecision.PRECALL_BLOCKED, reason="unknown_job")
-    # PRE-CALL EXECUTION GATE — BEFORE any transport/Provider call.
-    if not store.is_claimable_for_new_call(request.job_id):
-        # SUCCEEDED/FAILED (terminal) or PENDING_RECONCILIATION (awaiting a late result) ->
-        # do NOT start a new paid call. No transport, no new cost, no fact rewrite.
-        return ExecutionResult(ExecutionDecision.PRECALL_BLOCKED, reason=job.status.value)
+
+    # ATOMIC PRE-CALL CLAIM — BEFORE any transport/Provider call. Exactly one caller wins.
+    attempt = store.claim_for_new_call(request.job_id, correlation_id=job.contract.correlation_id)
+    if attempt is None:
+        # Not RUNNING (terminal/pending) OR another Attempt is already in flight -> claim conflict.
+        reason = "claim_conflict" if job.status is JobStatus.RUNNING else job.status.value
+        return ExecutionResult(ExecutionDecision.PRECALL_BLOCKED, reason=reason)
 
     contract = job.contract
     bound, mismatch = bind_request_to_contract(
         request, contract, model_hard_cap=provider_config.model_max_output_tokens
     )
     if bound is None:
-        # Inconsistent request -> safe rejection BEFORE any transport/network call.
+        # Inconsistent request -> release the claim; no transport/network call was made.
+        store.close_attempt(request.job_id, attempt.attempt_id)
         completion.record_non_success(request.job_id, classification=mismatch or "contract_mismatch",
                                       mark_failed=False)
-        return ExecutionResult(ExecutionDecision.CONTRACT_MISMATCH, reason=mismatch or "contract_mismatch")
+        return ExecutionResult(ExecutionDecision.CONTRACT_MISMATCH, reason=mismatch or "contract_mismatch",
+                               attempt_id=attempt.attempt_id)
 
-    outcome = adapter.generate(bound)  # only reached AFTER the pre-call gate + contract binding
-    return _dispatch_outcome(outcome, job_id=request.job_id, contract=contract,
-                             validator=validator, completion=completion, provider_config=provider_config)
+    outcome = adapter.generate(bound)  # reached ONLY by the claim winner, after contract binding
+    outcome_request_id = getattr(outcome, "provider_request_id", None)
+    if outcome_request_id is not None:
+        store.attach_provider_request_id(request.job_id, attempt.attempt_id, outcome_request_id)
+
+    result = _dispatch_outcome(outcome, job_id=request.job_id, contract=contract,
+                               validator=validator, completion=completion, provider_config=provider_config)
+
+    # Bind the outcome to the Attempt: a timeout keeps it OPEN (awaiting a late result); every
+    # other outcome CLOSES it (a terminal fact was bound).
+    if isinstance(outcome, ProviderTimeout):
+        store.mark_attempt_awaiting_late(request.job_id, attempt.attempt_id)
+    else:
+        store.close_attempt(request.job_id, attempt.attempt_id)
+    return replace(result, attempt_id=attempt.attempt_id)
 
 
 def ingest_late_outcome(
     outcome: ProviderOutcome,
     *,
     job_id: str,
+    attempt_id: str,
     correlation_id: str,
     store: JobExecutionStore,
     validator: StructuredOutputValidator,
@@ -738,24 +826,56 @@ def ingest_late_outcome(
     provider_request_id: Optional[str] = None,
 ) -> ExecutionResult:
     """PATH B — ingest an ALREADY-ISSUED Provider outcome (a callback-like late result) for a
-    prior request. This does NOT call the Adapter or any transport: no new paid Provider call
-    is made. It validates that the outcome is genuinely associated with this Job — job_id +
-    correlation_id (and, when supplied, the provider_request_id) must match the PERSISTED
-    execution contract — and then routes through the same guarded completion path. A mismatch
-    is rejected without completing or overwriting anything; a terminal Job yields a guarded
-    no-op (no fact overwrite). This is the correct 'late result after a timeout' flow — NOT a
-    second `execute_job` (which would issue a second paid Provider call). Day54 owns the real
-    callback/streaming/cancellation protocol; this is the minimal in-memory boundary."""
+    prior request. This does NOT call the Adapter or any transport. It locates the PERSISTED
+    Attempt the outcome claims to belong to and verifies the association before touching any
+    fact:
+
+      * a TERMINAL Job (SUCCEEDED/FAILED) -> guarded no-op (COMPLETION_NOOP): no Event, cost,
+        Result Artifact, status, or reservation change (a separate idempotent reconciliation
+        ledger would be required for post-terminal cost settlement — not modeled here);
+      * the Attempt must exist, be OPEN (IN_FLIGHT/AWAITING_LATE_OUTCOME), and match this Job;
+      * `attempt_id` + `correlation_id` must match the persisted Attempt (and the contract);
+      * `provider_request_id`: if the Attempt already recorded one, the incoming id must match;
+        if none was recorded yet (e.g. after a timeout), the incoming id is recorded ONCE
+        (controlled first-record) — a DIFFERENT Attempt's result is never accepted;
+      * only then does it route through the SAME guarded completion path.
+
+    A mismatch is `LATE_OUTCOME_REJECTED` with no completion/overwrite/transport. This is the
+    correct 'late result after a timeout' flow — NOT a second `execute_job` (which would issue a
+    second paid Provider call). Day54 owns the real callback/streaming/cancellation protocol."""
     job = store.jobs.get(job_id)
     if job is None:
         return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="unknown_job")
+
+    # P1-3: ANY late outcome on a TERMINAL Job is a guarded no-op — never rewrite durable facts.
+    if job.status in (JobStatus.SUCCEEDED, JobStatus.FAILED):
+        return ExecutionResult(ExecutionDecision.COMPLETION_NOOP, reason="terminal_job", attempt_id=attempt_id)
+
     contract = job.contract
-    if correlation_id != contract.correlation_id:
-        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="correlation_mismatch")
-    outcome_request_id = getattr(outcome, "provider_request_id", None)
-    if provider_request_id is not None and outcome_request_id is not None \
-            and provider_request_id != outcome_request_id:
-        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="provider_request_id_mismatch")
-    # Associated + contract-known -> process via the SAME guarded completion path (no Adapter call).
-    return _dispatch_outcome(outcome, job_id=job_id, contract=contract, validator=validator,
-                             completion=completion, provider_config=provider_config)
+    attempt = job.attempts.get(attempt_id)
+    if attempt is None:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="attempt_not_found",
+                               attempt_id=attempt_id)
+    if attempt.status is AttemptStatus.CLOSED:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="attempt_closed",
+                               attempt_id=attempt_id)
+    if attempt.correlation_id != correlation_id or correlation_id != contract.correlation_id:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="correlation_mismatch",
+                               attempt_id=attempt_id)
+
+    incoming_prid = provider_request_id if provider_request_id is not None \
+        else getattr(outcome, "provider_request_id", None)
+    if attempt.provider_request_id is not None:
+        if incoming_prid is not None and incoming_prid != attempt.provider_request_id:
+            return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED,
+                                   reason="provider_request_id_mismatch", attempt_id=attempt_id)
+    elif incoming_prid is not None:
+        attempt.provider_request_id = incoming_prid  # controlled first-record of the request id
+
+    # Associated + contract-known -> guarded completion (no Adapter/transport call).
+    result = _dispatch_outcome(outcome, job_id=job_id, contract=contract, validator=validator,
+                               completion=completion, provider_config=provider_config)
+    # If the Job resolved to a terminal state, CLOSE the Attempt (no further outcome accepted).
+    if store.jobs[job_id].status in (JobStatus.SUCCEEDED, JobStatus.FAILED):
+        store.close_attempt(job_id, attempt_id)
+    return replace(result, attempt_id=attempt_id)
