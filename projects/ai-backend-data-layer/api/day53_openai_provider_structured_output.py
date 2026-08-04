@@ -30,6 +30,7 @@ never copied into durable facts.
 
 from __future__ import annotations
 
+import copy
 import threading
 import uuid
 from dataclasses import dataclass, field, replace
@@ -509,10 +510,19 @@ class JobExecutionStore:
             if attempt.correlation_id != correlation_id or correlation_id != job.contract.correlation_id:
                 return LateClaimStatus.REJECTED, "correlation_mismatch"
             if attempt.provider_request_id is not None:
-                if incoming_provider_request_id is not None \
-                        and incoming_provider_request_id != attempt.provider_request_id:
+                # A persisted Provider request id MUST be matched exactly by the incoming id:
+                # a MISSING incoming id is as invalid as a DIFFERENT one (job/attempt/correlation
+                # alone are not a strong enough Provider association).
+                if incoming_provider_request_id is None \
+                        or incoming_provider_request_id != attempt.provider_request_id:
                     return LateClaimStatus.REJECTED, "provider_request_id_mismatch"
-            elif incoming_provider_request_id is not None:
+            else:
+                # No Provider request id was recorded yet. Require a non-empty incoming id so a
+                # real Provider association can be established; a missing id is rejected (we do
+                # NOT accept a late outcome we cannot associate). If accepted here it is only a
+                # controlled FIRST-record — never a claim of a verified Provider request id.
+                if incoming_provider_request_id is None:
+                    return LateClaimStatus.REJECTED, "provider_request_id_missing"
                 attempt.provider_request_id = incoming_provider_request_id  # controlled first-record
             attempt.status = AttemptStatus.PROCESSING_LATE_OUTCOME  # EXCLUSIVE claim (atomic)
             return LateClaimStatus.CLAIMED, ""
@@ -530,10 +540,42 @@ class JobExecutionStore:
             if job.open_attempt_id == attempt_id:
                 job.open_attempt_id = None
 
+    def snapshot_job_facts(self, job_id: str) -> dict:
+        """Snapshot the Job's MUTABLE business/cost/audit facts (the ones `_dispatch_outcome`
+        may write) so a failed dispatch can be rolled back to a consistent pre-dispatch state.
+        Models capturing the pre-transaction row image; in a real system the Attempt claim,
+        Job status, Result Artifact, cost, Event(s), and Attempt consume commit in ONE UoW/DB
+        transaction so a partial write cannot survive."""
+        with self._lock:
+            job = self.jobs[job_id]
+            return {
+                "status": job.status,
+                "cost_state": job.cost_state,
+                "settled_tokens": job.settled_tokens,
+                "result_artifact": copy.deepcopy(job.result_artifact),
+                "events": [dict(e) for e in job.events],
+            }
+
+    def restore_job_facts(self, job_id: str, snapshot: dict) -> None:
+        """Roll the Job's mutable facts back to a pre-dispatch snapshot — undo ANY partial
+        writes (a half-written Event, a status flip, a cost change) from a dispatch that raised
+        before committing."""
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                return
+            job.status = snapshot["status"]
+            job.cost_state = snapshot["cost_state"]
+            job.settled_tokens = snapshot["settled_tokens"]
+            job.result_artifact = copy.deepcopy(snapshot["result_artifact"])
+            job.events = [dict(e) for e in snapshot["events"]]
+
     def release_late_outcome_claim(self, job_id: str, attempt_id: str) -> None:
-        """Safe recovery if dispatch raised unexpectedly: return the Attempt from PROCESSING back
-        to AWAITING_LATE_OUTCOME so it is not stuck forever. This NEVER re-calls the Provider (a
-        real persistent implementation expresses this with a transaction/lease/reconciliation)."""
+        """Safe recovery if dispatch raised unexpectedly: AFTER the Job facts are rolled back to
+        the pre-dispatch snapshot, return the Attempt from PROCESSING back to
+        AWAITING_LATE_OUTCOME so a later legitimate redelivery produces EXACTLY ONE complete
+        result. This NEVER re-calls the Provider (a real persistent implementation expresses the
+        whole thing as one transaction/lease/reconciliation)."""
         with self._lock:
             attempt = self.get_attempt(job_id, attempt_id)
             if attempt is not None and attempt.status is AttemptStatus.PROCESSING_LATE_OUTCOME:
@@ -921,13 +963,18 @@ def ingest_late_outcome(
     if status is LateClaimStatus.REJECTED:
         return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason=reason, attempt_id=attempt_id)
 
-    # CLAIMED -> EXCLUSIVE consumer. Dispatch outside the lock; consume (or release on error).
+    # CLAIMED -> EXCLUSIVE consumer. The dispatch writes (Job status, Result Artifact, cost,
+    # Event) + the Attempt consume are ONE logical UoW: snapshot the pre-dispatch facts, dispatch,
+    # then EITHER consume on success OR roll ALL partial writes back and reopen the Attempt on
+    # failure. This makes at-least-once redelivery idempotent even if dispatch fails mid-write.
     contract = store.jobs[job_id].contract
+    snapshot = store.snapshot_job_facts(job_id)
     try:
         result = _dispatch_outcome(outcome, job_id=job_id, contract=contract, validator=validator,
                                    completion=completion, provider_config=provider_config)
     except Exception:
-        store.release_late_outcome_claim(job_id, attempt_id)  # safe recovery; no Provider re-call
+        store.restore_job_facts(job_id, snapshot)             # undo ANY partial dispatch writes
+        store.release_late_outcome_claim(job_id, attempt_id)  # only THEN reopen to AWAITING; no Provider re-call
         raise
-    store.consume_late_outcome(job_id, attempt_id)  # CONSUMED regardless of the outcome kind
+    store.consume_late_outcome(job_id, attempt_id)  # commit: CONSUMED regardless of the outcome kind
     return replace(result, attempt_id=attempt_id)

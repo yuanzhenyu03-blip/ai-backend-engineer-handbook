@@ -9,6 +9,55 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.114 — Day53 review (Codex): strict provider_request_id match + transactional late-outcome dispatch
+
+Date: 2026-08-04
+
+Day: Day53 (review fix)
+
+Two P1s in Path B (`ingest_late_outcome` / `claim_late_outcome`). Scope limited to the Day53 module + tests (plus Day53
+status/doc descriptions). Still an in-memory model with real Pydantic v2 validation + an injected FAKE transport.
+
+### Fixed
+
+- **Strict provider_request_id association.** Previously a recorded Attempt id accepted a late outcome that had NO
+  provider_request_id (it only rejected a DIFFERENT one), so job/attempt/correlation alone could pass. Now: a RECORDED
+  Attempt `provider_request_id` REQUIRES a present + strictly-equal incoming id (a missing id is rejected exactly like a
+  different one -> `LATE_OUTCOME_REJECTED`, no dispatch, no Event/cost/Result Artifact/Job status/Attempt change); and
+  when no id is recorded yet, a non-empty incoming id is required for a controlled FIRST-record (a missing id ->
+  `provider_request_id_missing` reject). correlation/attempt_id/execution-contract checks unchanged.
+- **Transactional late-outcome dispatch (no partial facts on failure).** The winner's `_dispatch_outcome` writes (Job
+  status, Result Artifact, cost, Event) + the Attempt consume are now ONE logical UoW. `ingest_late_outcome` snapshots
+  the pre-dispatch Job facts, dispatches, and EITHER marks the Attempt `CONSUMED` on success OR — if dispatch raises
+  (e.g. an Event was written but the cost write failed) — rolls ALL partial writes back to the snapshot
+  (`snapshot_job_facts`/`restore_job_facts`) and only THEN reopens the Attempt to `AWAITING_LATE_OUTCOME`. A later
+  legitimate redelivery therefore produces EXACTLY ONE complete result. The model never re-calls the Provider (a real
+  persistent implementation commits the whole claim+facts+consume in one DB transaction / lease / reconciliation).
+- Preserved: atomic pre-call claim for new calls; atomic exclusive late claim (at-least-once consumed at most once);
+  timeout keeps the Job `PENDING_RECONCILIATION`; unknown usage never written as 0; the Day52 reservation never
+  auto-released; terminal-Job late outcomes still a side-effect-free no-op; Path B never calls the Adapter/transport; no
+  Day56 retry/backoff.
+
+### Added tests (45 -> 48)
+
+A recorded `rq-1` Attempt + a late outcome with NO provider_request_id -> `LATE_OUTCOME_REJECTED`, Job still
+`PENDING_RECONCILIATION`, Attempt still `AWAITING_LATE_OUTCOME`, no Event/cost/result/transport (then the correct
+`rq-1` completes once); a no-recorded-id + missing-incoming-id -> rejected (then a non-empty id first-records +
+completes); an injected cost-write failure during dispatch leaves NO partial facts (no `attempt_failed` Event, status
+unchanged, cost unchanged), reopens the Attempt, and a second legitimate delivery yields exactly one complete result
+(one `attempt_failed` + one `job.cost_recorded`, settled once, Attempt `CONSUMED`).
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **48 passed** (was 45; the
+  concurrency + rollback tests are deterministic across reruns); full `projects/ai-backend-data-layer/api/` suite ->
+  **321 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). REAL Pydantic v2 validation + application control flow
+  with an injected FAKE transport; SDK types confined to the Adapter. NOT RUN: the real `openai` SDK / network /
+  Provider, real PostgreSQL / Redis / Celery Worker, FastAPI wire, integration, production. No real api_key, prompt,
+  Document content, or Provider response used.
+
+---
+
 ## v0.1.113 — Day53 review (Codex): concurrency-safe + idempotent late-outcome consumption
 
 Date: 2026-08-04

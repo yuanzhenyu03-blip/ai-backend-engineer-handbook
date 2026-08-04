@@ -12,7 +12,7 @@ Prerequisite: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Previous Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Next Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Engineering Artifact: projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md
-  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 45 passed)
+  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 48 passed)
 ```
 
 Main engineering artifact: a provider-neutral Provider boundary (fake injected transport) with a REAL Pydantic v2
@@ -342,7 +342,9 @@ Provider call). Any late outcome on a terminal Job is a guarded no-op that never
 at-least-once, ingestion is also CONCURRENCY-SAFE + IDEMPOTENT: an atomic `claim_late_outcome` flips the Attempt
 `AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME` under a lock, so of two concurrent or duplicate deliveries exactly
 one dispatches (one Event, one cost record, settled once) and the other is a `COMPLETION_NOOP`; the Attempt ends
-`CONSUMED`. 401/403 stops new calls with
+`CONSUMED`. A recorded `provider_request_id` must be matched exactly (a MISSING incoming id is rejected, not just a
+different one), and the winner's dispatch is wrapped in a UoW: a snapshot rolls back ANY partial write if dispatch
+raises, then reopens the Attempt so a later legitimate redelivery still yields exactly one complete result. 401/403 stops new calls with
 that config and preserves evidence (not a user-input error). A 400 that means the current model/profile cannot honor
 the controlled schema is CONFIG-WIDE and fails the config closed (a single-request 400 does not). 429 after a durable
 202 is a downstream Job/Attempt event, not a retroactive client 429 (keep safe `Retry-After`; Day56 owns retry). The core rule: **configuration rollback is not a
@@ -409,7 +411,7 @@ Run the model:
 ```bash
 cd projects/ai-backend-data-layer/api
 python3 -m pip install -r requirements-day53.txt   # pydantic==2.5.0, pytest==7.4.3
-python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 45 passed
+python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 48 passed
 ```
 
 ---

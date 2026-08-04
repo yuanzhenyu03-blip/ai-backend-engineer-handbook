@@ -623,7 +623,8 @@ def test_single_request_400_does_not_close_the_whole_config():
 # Path B concurrency safety + idempotency (at-least-once late delivery)
 # ===========================================================================
 def _timeout_awaiting_job(request_id="rq-1"):
-    """Run a Job to a timeout so its Attempt is AWAITING_LATE_OUTCOME with a recorded id."""
+    """Run a Job to a timeout so its Attempt is AWAITING_LATE_OUTCOME (with a recorded id when
+    `request_id` is given, else with no recorded provider_request_id)."""
     t = FakeOpenAITransport(error=FakeAPITimeoutError(request_id=request_id))
     store, adapter, validator, completion, cfg = _wire(t)
     r0 = _exec(_request(), store, adapter, validator, completion, cfg)
@@ -710,6 +711,93 @@ def test_terminal_job_duplicate_late_outcome_is_still_full_noop():
         assert res.decision is ExecutionDecision.COMPLETION_NOOP
     after = ([e["type"] for e in job.events], job.cost_state, job.settled_tokens, job.result_artifact)
     assert after == before and t.calls == 1
+
+
+# ===========================================================================
+# P1-1: a recorded Provider request id requires a present + equal incoming id
+# ===========================================================================
+def test_recorded_request_id_rejects_late_outcome_missing_request_id():
+    store, validator, completion, cfg, t, aid = _timeout_awaiting_job(request_id="rq-1")
+    # Attempt already recorded "rq-1"; a late outcome WITHOUT a provider_request_id is not a
+    # strong enough association -> reject, without touching any fact.
+    late = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=1500))  # no provider_request_id
+    job = store.jobs["job-1"]
+    before = (job.status, job.cost_state, job.settled_tokens, [e["type"] for e in job.events], job.result_artifact)
+    res = ingest_late_outcome(late, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                              store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert res.decision is ExecutionDecision.LATE_OUTCOME_REJECTED and res.reason == "provider_request_id_mismatch"
+    after = (job.status, job.cost_state, job.settled_tokens, [e["type"] for e in job.events], job.result_artifact)
+    assert after == before                                    # no Event/cost/result change
+    assert job.status is JobStatus.PENDING_RECONCILIATION
+    assert job.attempts[aid].status is AttemptStatus.AWAITING_LATE_OUTCOME  # still safely waiting
+    assert t.calls == 1                                       # no new transport call
+    # The CORRECT id still completes exactly once afterward.
+    good = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=1500), provider_request_id="rq-1")
+    r2 = ingest_late_outcome(good, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert r2.decision is ExecutionDecision.SUCCEEDED and job.settled_tokens == 1500
+    assert job.attempts[aid].status is AttemptStatus.CONSUMED
+
+
+def test_no_recorded_request_id_and_missing_incoming_is_rejected():
+    # Timeout with NO request id -> Attempt has no provider_request_id. A late outcome that also
+    # lacks one cannot be associated -> reject (we do not accept an unassociable late outcome).
+    store, validator, completion, cfg, t, aid = _timeout_awaiting_job(request_id=None)
+    assert store.jobs["job-1"].attempts[aid].provider_request_id is None
+    late = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=10))  # no provider_request_id
+    res = ingest_late_outcome(late, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                              store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert res.decision is ExecutionDecision.LATE_OUTCOME_REJECTED and res.reason == "provider_request_id_missing"
+    assert store.jobs["job-1"].status is JobStatus.PENDING_RECONCILIATION and t.calls == 1
+    # A first controlled record of a non-empty incoming id then completes once.
+    good = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=10), provider_request_id="rq-late")
+    r2 = ingest_late_outcome(good, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert r2.decision is ExecutionDecision.SUCCEEDED
+    assert store.jobs["job-1"].attempts[aid].provider_request_id == "rq-late"  # controlled first-record
+
+
+# ===========================================================================
+# P1-2: a dispatch failure leaves NO partial facts (transactional rollback)
+# ===========================================================================
+class _FailingCostCompletion(CompletionService):
+    """Injects a controlled failure in record_cost to model a partial-commit (Event written,
+    cost write fails). record_non_success runs first (Event + status), then record_cost raises."""
+
+    def __init__(self, store, *, fail_times: int = 1) -> None:
+        super().__init__(store)
+        self._fail_times = fail_times
+
+    def record_cost(self, job_id, usage):
+        if self._fail_times > 0:
+            self._fail_times -= 1
+            raise RuntimeError("injected cost-write failure")
+        return super().record_cost(job_id, usage)
+
+
+def test_dispatch_failure_rolls_back_partial_facts_and_reopens_attempt():
+    store, validator, completion, cfg, t, aid = _timeout_awaiting_job(request_id="rq-1")
+    job = store.jobs["job-1"]
+    before = (job.status, job.cost_state, job.settled_tokens, [e["type"] for e in job.events], job.result_artifact)
+    late = ProviderRefusal(reason_code="policy", usage=Usage(total_tokens=4242), provider_request_id="rq-1")
+    failing = _FailingCostCompletion(store, fail_times=1)
+    with pytest.raises(RuntimeError):
+        ingest_late_outcome(late, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                            store=store, validator=validator, completion=failing, provider_config=cfg)
+    after = (job.status, job.cost_state, job.settled_tokens, [e["type"] for e in job.events], job.result_artifact)
+    assert after == before                                    # NO partial fact survives the failed dispatch
+    assert job.status is JobStatus.PENDING_RECONCILIATION and job.settled_tokens is None
+    assert "job.attempt_failed" not in [e["type"] for e in job.events]
+    assert job.attempts[aid].status is AttemptStatus.AWAITING_LATE_OUTCOME  # reopened after rollback
+    assert t.calls == 1                                       # no Provider re-call
+    # A second LEGITIMATE delivery now produces EXACTLY ONE complete result.
+    r2 = ingest_late_outcome(late, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert r2.decision is ExecutionDecision.REFUSED
+    assert [e["type"] for e in job.events].count("job.attempt_failed") == 1
+    assert [e["type"] for e in job.events].count("job.cost_recorded") == 1
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 4242
+    assert job.attempts[aid].status is AttemptStatus.CONSUMED
 
 
 # ===========================================================================

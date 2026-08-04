@@ -21,7 +21,7 @@ Real FastAPI wire / integration / production          : NOT RUN
 Day54 streaming/disconnect/cancellation, Day55 Celery, Day56 retry/backoff/degradation : NOT IMPLEMENTED
 ```
 
-Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **45 passed**
+Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **48 passed**
 (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). The suite proves the REAL Pydantic v2 validation gate + application
 control flow (Adapter -> Validator -> CompletionService) with an injected fake transport. It does NOT prove the real
 `openai` SDK, network, Provider, PostgreSQL, Redis, Celery, FastAPI wire, integration, or production. The classroom
@@ -126,10 +126,14 @@ PATH B — ingest an ALREADY-ISSUED late outcome: ingest_late_outcome(outcome, j
     AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME:
       Job terminal (SUCCEEDED/FAILED)        -> TERMINAL_NOOP  -> COMPLETION_NOOP (no dispatch, no writes)
       Attempt already PROCESSING (dup/concurrent) -> ALREADY_PROCESSING -> COMPLETION_NOOP (no dispatch, no writes)
-      attempt_id/correlation/provider_request_id mismatch, or Attempt CLOSED/CONSUMED/not-awaiting -> LATE_OUTCOME_REJECTED
+      attempt_id/correlation mismatch, or Attempt CLOSED/CONSUMED/not-awaiting -> LATE_OUTCOME_REJECTED
+      provider_request_id: a RECORDED id requires a present + EQUAL incoming id (missing == different -> reject);
+        no recorded id yet requires a non-empty incoming id (controlled first-record; a missing id -> reject)
       match -> CLAIMED (the single winner)
-  ONLY the winner runs _dispatch_outcome -> guarded completion; then the Attempt is CONSUMED (any outcome).
-  If dispatch raises, the claim is released back to AWAITING_LATE_OUTCOME (safe recovery; NEVER a Provider re-call).
+  ONLY the winner runs _dispatch_outcome, wrapped in one UoW: snapshot pre-dispatch Job facts -> dispatch ->
+    success -> Attempt CONSUMED (commit) ; dispatch RAISES -> roll ALL partial writes back to the snapshot, THEN
+    reopen the Attempt to AWAITING_LATE_OUTCOME (a later legitimate redelivery yields EXACTLY ONE complete result;
+    NEVER a Provider re-call).
 ```
 
 The correct handling of a result that arrives after a timeout is PATH B (a callback-like ingestion of the outcome
@@ -230,6 +234,8 @@ of durable business facts.**
 | Provider call bound to the persisted contract (no trusted caller input) | RUN (in-memory) | `bind_request_to_contract`; tampered model/schema/version -> CONTRACT_MISMATCH, 0 transport calls; max tightened never enlarged |
 | Late-outcome ingestion validates the PERSISTED Attempt (not just correlation) | RUN (in-memory) | `ingest_late_outcome` checks attempt_id + correlation + provider_request_id; wrong attempt/correlation/request-id -> LATE_OUTCOME_REJECTED; terminal Job -> COMPLETION_NOOP (any outcome, no overwrite); 0 transport calls |
 | Late-outcome consumption is concurrency-safe + idempotent (at-least-once) | RUN (in-memory) | atomic `claim_late_outcome` (AWAITING -> PROCESSING under a lock); two concurrent/duplicate late refusals -> exactly ONE dispatch (one attempt_failed + one cost_recorded, settled once), the other COMPLETION_NOOP; Attempt ends CONSUMED; 0 transport calls |
+| Recorded provider_request_id must be matched exactly | RUN (in-memory) | a recorded id + a MISSING incoming id -> LATE_OUTCOME_REJECTED (no fact change); a different id -> rejected; no recorded id + missing incoming -> rejected |
+| Dispatch failure leaves NO partial facts (transactional rollback) | RUN (in-memory) | injected cost-write failure -> Job status/cost/settled_tokens/Result Artifact/Event rolled back to the pre-dispatch snapshot, Attempt reopened; a later legitimate redelivery completes exactly once |
 | One lifespan-owned client reused; Job cap wins (5000 vs 8000) | RUN (in-memory) | transport call count + `last_max_tokens` |
 | REAL strict structured validation before side effects | RUN (real Pydantic v2) | missing `citations` / forbidden `debug_prompt` -> CONTRACT_VIOLATION |
 | Invalid output never calls completion | RUN (in-memory) | no success transition / Artifact / Event on invalid |
