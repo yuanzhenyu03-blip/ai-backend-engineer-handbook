@@ -10,13 +10,13 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day52 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day53 completed)
 
 ---
 
 ## Current Lesson
 
-Day53 — OpenAI SDK, Provider Boundaries and Structured Output (Phase 4)
+Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation (Phase 4)
 
 Status:
 Planned / Not started
@@ -24,8 +24,8 @@ Planned / Not started
 Target lesson:
 Not created yet — see CURRICULUM.md and ROADMAP.md.
 
-(Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up (Day53);
-Day52 is finished and recorded as PROJECT_STATUS.md's "Last Completed Lesson".)
+(Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up (Day54);
+Day53 is finished and recorded as PROJECT_STATUS.md's "Last Completed Lesson".)
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up (Day52);
 Day51 is finished and recorded as PROJECT_STATUS.md's "Last Completed Lesson".)
@@ -48,6 +48,7 @@ Day51 is finished and recorded as PROJECT_STATUS.md's "Last Completed Lesson".)
 - [x] Day51 review (Codex) P1 fix — recovery-material minimum retention: added `sweep_expired_recovery_material(now)` that destroys `recovery_ciphertext` + `grace_result_token_hash` once past `retry_grace_expires_at` even if the abandoned token never returns (fail-closed on time), while RETAINING the used-token ledger + Session audit so post-grace replay stays `REPLAY_DETECTED` (not `INVALID`); `revoke_session` now also clears recovery material. Real deployment needs a reliable scheduled cleanup job (cron / pg_cron). Tests 34 -> 36 passed; full api suite 240 passed. Real PostgreSQL/FastAPI/browser/JWKS/integration/production still NOT RUN.
 - [x] Day51 review (Codex) fix — destroy refresh recovery material on EVERY revoke path: extracted a shared `_clear_recovery_material` helper reused by `revoke_session`, family revoke, `revoke_all_user_sessions` (the fix — logout-all / password change now clears `recovery_ciphertext` + `grace_result_token_hash` immediately, not deferred to the sweep), and the sweep; ledger + audit retained, replay semantics preserved. Tests 36 -> 37 passed; full api suite 241 passed. Real PostgreSQL/FastAPI/browser/JWKS/integration/production still NOT RUN.
 - [x] Complete Day52 Authorization, Tenant Isolation, Quotas and API Security (Phase 4) — lesson (16-section v2, verbatim CN/EN student answers + four correction trajectories + labeled assistant-assisted synthesis), authz/tenant/quota design/runbook + runnable provider-neutral standard-library-only in-memory model/tests (executed: 32 passed; real PostgreSQL/Redis/FastAPI/proxy/browser/Provider/Worker/integration/production NOT RUN; no exactly-once claim; a client tenant_id is a selector not authority; schema honesty: tenant_memberships/tenant_budgets/max_tokens/cancel-intent ledger modeled, real schema needs a Day48-safe additive migration), FastAPI cheat-sheet/interview appends, README increment, and status updates.
+- [x] Complete Day53 OpenAI SDK, Provider Boundaries and Structured Output (Phase 4) — lesson (16-section v2, verbatim CN/EN student answers + four correction trajectories + labeled assistant-assisted final Chinese Mental Model), provider-boundary/structured-output design/runbook + runnable provider-neutral model/tests using REAL Pydantic v2 + an injected FAKE transport (executed: 20 passed; the real openai SDK/network/Provider, real PostgreSQL/Redis/Celery Worker, FastAPI wire, integration, production NOT RUN; Day54 streaming/cancellation, Day55 Celery, Day56 retry/backoff not implemented; SDK types stop at the Adapter; config rollback != business-fact rollback; schema honesty: execution-contract facts/Result Artifact/cost-reconciliation state modeled in-memory, real schema needs a Day48-safe additive migration), FastAPI cheat-sheet/interview appends, requirements-day53.txt, README increment, and status updates.
 - [ ] Prepare for Day52 — Authorization, Tenant Isolation, Quotas and API Security (Phase 4).
 - [x] Future Curriculum Planning (Day43–Day100) completed — planned the AI Backend product thread across Phases 4–8 in `CURRICULUM.md`, `ROADMAP.md`, and `DECISIONS.md` (Decision 006). No future lessons generated, no future projects created, nothing marked started/completed.
 

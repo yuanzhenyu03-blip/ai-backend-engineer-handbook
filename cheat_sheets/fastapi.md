@@ -870,3 +870,35 @@ Schema honesty: `tenant_memberships`, `tenant_budgets(token_limit/used/reserved)
 Validation: in-memory control-flow model, standard-library only (Python 3.10.12, pytest 7.4.3 -> 32 passed). Proves APPLICATION CONTROL FLOW ONLY. NOT real PostgreSQL (constraint/tx/isolation/UPDATE...RETURNING/RLS), NOT real Redis (distributed atomics/TTL/failover), NOT FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), NOT Provider/Worker/integration/production. Day53 real Provider, Day54 streaming/cancellation, Day55 Workers not implemented. No real JWT/Provider key/password/prompt/user data used.
 
 Related: [Day52 lesson](../docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md) · [Day52 design/runbook](../projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md) · [model](../projects/ai-backend-data-layer/api/day52_authorization_tenant_quota_security.py) · [tests](../projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py)
+
+---
+
+## Day53 — OpenAI SDK, Provider Boundaries and Structured Output
+
+Mental model: the Provider is untrusted at three levels — its SDK types, its output, its configuration. An application-owned boundary sits in front of all three. `Provider boundary` = an application-owned interface (`AIProvider.generate(request) -> ProviderOutcome`), NOT "the data business logic needs from the response".
+
+Layering (SDK types stop at the Adapter): Router/Dependency -> Application Service -> `AIProvider.generate` -> `OpenAICompatibleAdapter` (owns ALL SDK objects + vendor exceptions) -> Day44 structured validation -> `CompletionService` (guarded running->succeeded, short UoW) -> Repository -> PostgreSQL. Student first said "数据库层"; corrected: the Repository is the data layer but SDK types stop EARLIER, inside the Adapter. The Adapter translates; it never completes Jobs or writes DBs.
+
+ProviderOutcome union (application-owned): `ProviderSuccess(raw_payload UNTRUSTED, usage)`, `ProviderRefusal`, `ProviderIncomplete`, `ProviderTimeout`, `ProviderAuthenticationError`, `ProviderRateLimited`, `ProviderCapabilityError`, `ProviderTransportError`. No raw SDK type/prompt/debug field/secret escapes inward.
+
+Validation gate (Day44, before ANY side effect): strict Pydantic model (`extra="forbid"`) — valid JSON with a forbidden `debug_prompt` or a missing required `citations` FAILS. Invalid output NEVER calls completion (no success transition / Result Artifact / Event / success write); the failure classification carries field LOCATIONS only, never values or the raw payload. Parsing != validation; citation shape != grounding (not taught).
+
+Server-owned versioned schema: `task_type` -> a server-owned `SchemaRegistry` `(name, version)`; a Job binds name+version at acceptance; a v2 output must NOT silently satisfy a v1 Job (no implicit truncation/downgrade/guess; unknown version -> `SCHEMA_NOT_FOUND`). Day44 `output_schema` must NOT forward arbitrary client JSON Schema — constrain to server-approved families/versions.
+
+Completion + guard: only `CompletionService` runs guarded `running -> succeeded`, persists the validated Result Artifact/usage/Event, commits a short UoW. Zero rows -> STOP (duplicate/stale/cancelled/retry/changed facts); inspect + reconcile, never overwrite.
+
+Two separate axes: business execution success (valid output) vs cost settlement (usage known/unknown). A VALID output can succeed even when usage is UNKNOWN -> retain the Day52 reservation, hold `reconciliation_pending`; NEVER record unknown usage as zero. Overage stays controlled reconciliation (Day52 `settle_overage`), never `min()`-truncated.
+
+Settings/credentials/bounds (Day45): validated Settings + Adapter own `api_key`/`base_url`/model policy (clients can modify inputs). Keys/base URLs/full Settings/arbitrary model IDs never enter Job requests/persistence/Outbox/logs; client model choice is only a constrained selector -> allowlisted model. Persist NON-secret execution-contract facts (provider profile/policy version, approved model, schema name/version, task type, max-output bound, correlation IDs). Job-controlled 5000 cap wins over an 8000 adapter default: `effective = min(Job cap, ceiling)` — never enlarge; the Adapter REPORTS usage, no second reservation. Reuse one lifespan-owned client per process (drain before close); no cross-process singleton claim.
+
+Error semantics: refusal = classified non-success (not empty success). 401/403 = config/auth failure -> STOP new calls with that config (`ProviderConfig.disable`) + keep safe evidence (not user input error). 429 after a durable 202 = downstream Job/Attempt event, NOT a retroactive client 429 (keep safe Retry-After; Day56 owns retry). 400 unsupported model/schema = capability/config failure. Raw minimization: do NOT default-persist raw Provider responses; a forensic raw store needs explicit minimization/redaction/access-control/retention/audit.
+
+Rollout/rollback exercise: a rollout to a model lacking `research_summary.v1` -> new calls 400; an OLD in-flight valid v1 result (a DISTINCT call) still validates against its PERSISTED execution contract and is accepted via guarded completion. Core rule: **configuration rollback != business-fact rollback** — current Settings governs NEW calls; the persisted contract governs result acceptance.
+
+### Weak vs strong (Day53)
+Weak: "The SDK already parsed the JSON and returned a response object, so I pass it to completion."
+Strong: "The Adapter translates the SDK response/exceptions into my ProviderOutcome union; the payload is untrusted until my strict Day44 model validates it against the Job's bound server-owned schema. Only then does the Completion Service run the guarded running->succeeded UoW. A valid result can succeed with unknown usage while I hold cost reconciliation-pending; a config rollback never rolls back that fact."
+
+Validation: REAL Pydantic v2 strict validation + an in-memory Adapter->Validator->Completion model with an INJECTED FAKE transport (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 20 passed). Proves the validation gate + application control flow ONLY. NOT the real `openai` SDK/network/Provider, NOT PostgreSQL/Redis/Celery Worker, NOT FastAPI wire/integration/production. Day54 streaming/disconnect/cancellation, Day55 Celery, Day56 retry/backoff not implemented. No real api_key/prompt/Document content/Provider response persisted or logged.
+
+Related: [Day53 lesson](../docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md) · [Day53 design/runbook](../projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md) · [model](../projects/ai-backend-data-layer/api/day53_openai_provider_structured_output.py) · [tests](../projects/ai-backend-data-layer/api/test_day53_openai_provider_structured_output.py)

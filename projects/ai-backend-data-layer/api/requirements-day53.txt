@@ -1,0 +1,20 @@
+# Day53 OpenAI SDK, Provider Boundaries and Structured Output — pinned dependencies
+# for the recorded repository test evidence. These are the versions used to run
+# day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day53.txt
+#   python3 -m py_compile day53_openai_provider_structured_output.py test_day53_openai_provider_structured_output.py
+#   python3 -m pytest -q test_day53_openai_provider_structured_output.py
+#
+# Runtime scope: the suite exercises REAL Pydantic v2 strict structured-output
+# validation plus an IN-MEMORY model of Adapter -> Validator -> CompletionService
+# control flow with an INJECTED FAKE transport (modeled vendor SDK exceptions). The
+# real `openai` SDK is intentionally NOT a dependency: all SDK objects/exceptions are
+# modeled inside OpenAICompatibleAdapter and the transport is injected, so no real key
+# or paid network call is ever made. A real Provider SDK/network, PostgreSQL,
+# Redis/Celery Worker, FastAPI wire, integration, and production are NOT part of Day53
+# and are not (and cannot be) proven by these tests.
+pydantic==2.5.0
+pytest==7.4.3

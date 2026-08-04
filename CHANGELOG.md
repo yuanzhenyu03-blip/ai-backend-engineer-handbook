@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.109 — Day53 OpenAI SDK, Provider Boundaries and Structured Output
+
+Date: 2026-08-04
+
+Day: Day53
+
+Lesson title: OpenAI SDK, Provider Boundaries and Structured Output
+
+### Added
+
+- `docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md` — the Day53 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving verbatim Chinese/English student answers, the four correction trajectories, and labeling the final Chinese Mental Model assistant-assisted (explicitly requested by the student).
+- `projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md` — design/runbook (SDK boundary, ProviderOutcome union, Day44 validation gate, server-owned versioned schema, guarded completion, success-vs-cost axes, error semantics, raw minimization, rollout/rollback exercise, evidence matrix, schema honesty).
+- `projects/ai-backend-data-layer/api/day53_openai_provider_structured_output.py` — provider-neutral model: `OpenAICompatibleAdapter` (owns all SDK objects/exceptions; one lifespan-owned client; Job-cap enforcement; usage reporting) -> typed `ProviderOutcome` union -> `StructuredOutputValidator` + server-owned `SchemaRegistry` (real Pydantic v2, `extra="forbid"`) -> guarded `CompletionService` (`running -> succeeded`, zero-row stop, raw-minimized Result Artifact); separate business/cost axes; `ProviderConfig` disable on 401/403; config-rollback-vs-business-fact exercise.
+- `projects/ai-backend-data-layer/api/test_day53_openai_provider_structured_output.py` — real-Pydantic + fake-transport tests (20 cases).
+- `projects/ai-backend-data-layer/api/requirements-day53.txt` — pinned `pydantic==2.5.0`, `pytest==7.4.3` (fake transport; the real `openai` SDK is intentionally not a dependency).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day53 sections.
+- `projects/ai-backend-data-layer/README.md` — current increment set to Day53, file tree, doc links, and a Day53 increment section (Day52 section left intact).
+- `CURRICULUM.md` (Day53 -> ✅ Completed), `ROADMAP.md` (Day53 -> ✅ Completed), `PROJECT_STATUS.md` (Day53 completed; Current Lesson -> Day54; Last Completed Lesson -> Day53; Day52 archived; Next -> Day54), `TASKS.md` (Day53 complete; Current/Next -> Day54).
+
+### Main learning outcome
+
+The Provider is untrusted at three levels — its SDK types, its output, and its configuration — so Day53 puts an application-owned boundary in front of all three. The Adapter translates SDK responses/vendor exceptions into a typed `ProviderOutcome` union and never completes Jobs or writes DBs; a strict Day44 gate validates the untrusted payload against the Job's bound server-owned versioned schema before any side effect; only the Completion Service runs the guarded `running -> succeeded` (zero rows -> stop); business execution success and cost settlement are separate axes (a valid result can succeed with unknown usage while the reservation is held as reconciliation-pending, never zero); refusal/incomplete/timeout/401-403/429/400 are classified without fabricating success or cost; raw responses are not persisted; and a configuration rollback never rolls back a durable business fact.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **20 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **293 passed**. REAL Pydantic v2 validation + application control flow with an injected FAKE transport.
+- Markdown: Day53 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
+- Secrets: no real `api_key`, `base_url` secret, raw prompt, Document content, or Provider response is persisted or logged.
+- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL CONTROL-FLOW + REAL PYDANTIC VALIDATION (run: 20 passed); NOT RUN: the real `openai` SDK / network / Provider, real PostgreSQL / Redis / Celery Worker, FastAPI wire, integration, production. Day54 streaming/disconnect/cancellation, Day55 Celery, and Day56 retry/backoff/degradation are not implemented. Schema honesty: execution-contract facts / Result Artifact / cost-reconciliation state are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten.
+
+---
+
 ## v0.1.108 — Day52 review (Codex): settle_overage() must not bypass the hard quota
 
 Date: 2026-08-04

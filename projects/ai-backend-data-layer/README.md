@@ -4,7 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day52 — Authorization, Tenant Isolation, Quotas and API Security** that turns Day51's trusted `user_id` into current, tenant-scoped, action-specific, cost-aware authority over the Day43-Day51 AI Job API. A provider-neutral, **standard-library-only** in-memory model (`day52_authorization_tenant_quota_security.py`) covers: Membership/role authorization where a client `tenant_id` is only a selector and authority is the server-built `AuthorizedTenantContext`; tenant + owner scoped reads returning a public 404 (no existence oracle); a guarded `UPDATE tenant_budgets ... WHERE available >= amount RETURNING` token reservation committed atomically with the Job + Outbox (all-or-nothing rollback; actual-usage reconciliation; unknown-cost retention); a shared, fail-closed token-bucket rate limiter (503 on outage, 429 on a healthy breach) distinct from durable quota; idempotent recovery that adds no cost and is not an authz bypass; and a guarded cancel-policy repair. **The in-memory tests were executed** (Python 3.10.12, pytest 7.4.3 -> 32 passed; standard-library only). This proves application control flow only: **real PostgreSQL (constraint/tx/isolation/`UPDATE ... RETURNING`/RLS), real Redis (distributed limiter atomics/TTL/failover), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker, integration, and production are NOT RUN**. Authority is the server-built `AuthorizedTenantContext`; a client `tenant_id` is never authority. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are new facts modeled in-memory; a real schema adds them via a Day48-safe forward additive migration (not implemented here). No real JWT, Provider key, password, prompt, Document content, or user data is used.
+Current increment: **Day53 — OpenAI SDK, Provider Boundaries and Structured Output** that puts an OpenAI-compatible Provider behind an application-owned boundary so SDK behavior, untrusted outputs, cost evidence, and configuration changes cannot corrupt durable AI Job facts. A provider-neutral model (`day53_openai_provider_structured_output.py`) keeps ALL SDK objects/exceptions inside `OpenAICompatibleAdapter` (which translates them into a typed `ProviderOutcome` union and never completes Jobs or writes DBs), validates the UNTRUSTED payload with a **real Pydantic v2** strict gate against a server-owned versioned schema before any side effect, and lets only a `CompletionService` run the guarded `running -> succeeded` UoW (zero rows -> stop). Business execution success and cost settlement are separate axes: a valid output can succeed with UNKNOWN usage while the Day52 reservation is retained as `reconciliation_pending` (never zero); refusal/incomplete/timeout/401-403/429/400 are classified without fabricating success or cost; the Job-controlled 5000 output cap wins over an 8000 adapter default; raw responses are not persisted; and a configuration rollback never rolls back a durable business fact. **The tests were executed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 20 passed) proving the REAL Pydantic validation gate + application control flow with an INJECTED FAKE transport. This proves control flow + validation only: the **real `openai` SDK / network / Provider, real PostgreSQL, Redis, Celery Worker, FastAPI wire, integration, and production are NOT RUN**; Day54 streaming/cancellation, Day55 Celery, and Day56 retry/backoff are not implemented. No real api_key, base_url secret, raw prompt, Document content, or Provider response is persisted or logged.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -67,6 +67,7 @@ Lessons:
 - Day50 (idempotent acceptance + outbox): [`docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md`](../../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md)
 - Day51 (authentication + JWT): [`docs/fastapi/day51-authentication-password-security-and-jwt.md`](../../docs/fastapi/day51-authentication-password-security-and-jwt.md)
 - Day52 (authorization + tenant isolation + quotas): [`docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md`](../../docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md)
+- Day53 (OpenAI SDK provider boundary + structured output): [`docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md`](../../docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md)
 
 ---
 
@@ -113,7 +114,11 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day51.txt                          # Day51: pinned deps (argon2-cffi, PyJWT[crypto], cryptography, pytest)
 │   ├── day52-authorization-tenant-isolation-quotas-and-api-security-design.md  # Day52: authz/tenant/quota design/runbook
 │   ├── day52_authorization_tenant_quota_security.py    # Day52: authz + tenant isolation + guarded quota reservation model (stdlib-only)
-│   └── test_day52_authorization_tenant_quota_security.py  # Day52: in-memory tests (executed: 32 passed)
+│   ├── test_day52_authorization_tenant_quota_security.py  # Day52: in-memory tests (executed: 32 passed)
+│   ├── day53-openai-sdk-provider-boundaries-and-structured-output-design.md  # Day53: provider boundary + structured output design/runbook
+│   ├── day53_openai_provider_structured_output.py      # Day53: OpenAI-compatible adapter boundary + Pydantic v2 validation model
+│   ├── test_day53_openai_provider_structured_output.py # Day53: real-Pydantic + fake-transport tests (executed: 20 passed)
+│   └── requirements-day53.txt                          # Day53: pinned deps (pydantic==2.5.0, pytest==7.4.3; fake transport, no openai dep)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -212,6 +217,38 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 > Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
 > new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
 > No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+---
+
+## Day53 increment — OpenAI SDK, provider boundaries and structured output
+
+`api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md` (with a runnable
+`day53_openai_provider_structured_output.py` and `test_day53_openai_provider_structured_output.py`) puts an
+OpenAI-compatible Provider behind an application-owned boundary. The tests are **executed** using **real Pydantic v2**
+validation + an **injected fake transport**: **Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> `20 passed`**.
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Adapter boundary | `OpenAICompatibleAdapter.generate(request) -> ProviderOutcome` owns ALL SDK objects/exceptions, reuses one lifespan-owned client, enforces `effective_max = min(Job cap, ceiling)` (5000 wins over 8000), reports usage (no second reservation), and never completes Jobs / writes DBs. |
+| Outcome union | `ProviderSuccess` (untrusted payload) / `ProviderRefusal` / `ProviderIncomplete` / `ProviderTimeout` / `ProviderAuthenticationError` / `ProviderRateLimited` / `ProviderCapabilityError` / `ProviderTransportError`. |
+| Validation gate | `StructuredOutputValidator` + a server-owned `SchemaRegistry` (`research_summary.v1/v2`); real Pydantic v2 `extra="forbid"`; missing `citations` / forbidden `debug_prompt` -> CONTRACT_VIOLATION; unknown version -> SCHEMA_NOT_FOUND; no cross-version satisfaction. |
+| Completion | `CompletionService` runs the ONLY guarded `running -> succeeded` + short UoW; zero rows -> NOOP (stop, no overwrite); Result Artifact = validated domain result + safe metadata only (raw minimization). |
+| Cost axes | business success vs cost settlement separate; valid output with unknown usage -> SUCCEEDED + `reconciliation_pending` (reservation retained, never zero). |
+| Errors + rollback | 401/403 disables the Provider config (stop new calls, keep evidence); 429 = downstream Job event with safe Retry-After (not a client 429); config rollback != business-fact rollback (a valid old in-flight v1 result is still accepted against its persisted contract). |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day53.txt   # pydantic==2.5.0, pytest==7.4.3 (fake transport; no openai dependency)
+python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 20 passed
+```
+
+Not run (and not claimed): the real `openai` SDK / network / Provider, real PostgreSQL / Redis / Celery Worker,
+FastAPI wire, integration, production. Day54 streaming/disconnect/cancellation, Day55 Celery, and Day56
+retry/backoff/degradation consume this boundary rather than being implemented here.
 
 ---
 

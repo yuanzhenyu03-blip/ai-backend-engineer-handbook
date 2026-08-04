@@ -1141,3 +1141,43 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day52), the
 [Day52 design/runbook](../projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md),
 the [model](../projects/ai-backend-data-layer/api/day52_authorization_tenant_quota_security.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py).
+
+---
+
+## Day53 — OpenAI SDK, Provider Boundaries and Structured Output
+
+Key vocabulary: Provider boundary, Adapter, application-owned interface, ProviderOutcome union, structured output, strict validation, `extra="forbid"`, server-owned schema registry, schema version binding, guarded completion, zero-row stop, execution contract, business success vs cost settlement, unknown usage, reconciliation-pending, refusal/incomplete/timeout classification, Provider 429 vs API 429, raw-data minimization, configuration rollback vs business-fact rollback.
+
+### Q1 (Beginner) — what is a Provider boundary?
+
+Strong answer: "A Provider boundary is an application-owned interface — for example `AIProvider.generate(request) -> ProviderOutcome` — that hides the vendor SDK. The Adapter behind it owns all SDK response and exception types and translates them into my own outcome types, so the rest of the system never depends on a specific Provider. It is not merely 'the data business logic needs from the response'."
+
+### Q2 (Beginner) — where does the SDK boundary live?
+
+Strong answer: "Inside the Adapter, not the Repository or database. The database must not depend on the SDK, but the boundary is even earlier: SDK request/response/exception types stop at OpenAICompatibleAdapter, which translates them into a provider-neutral outcome. Everything inward is vendor-neutral and testable with a fake transport."
+
+### Q3 (Intermediate) — the Provider returns valid JSON missing a required field
+
+Strong answer: "It parses but must fail validation. I validate the untrusted payload against the Job's bound server-owned schema with a strict model that forbids extra fields and requires the mandatory ones — a missing `citations` or a forbidden `debug_prompt` fails. On failure I never call the Completion Service: no success transition, Result Artifact, or Event, and I record a classified validation failure with field locations only, never the raw payload. Parsing support does not replace my validation gate."
+
+### Q4 (Intermediate) — can a v2 output satisfy a Job contracted as v1?
+
+Strong answer: "No. The Job binds a schema name and version at acceptance from a server-owned registry, and the persisted execution contract governs acceptance. A v2 payload validated against v1 fails — its extra field is forbidden — and there is no implicit truncation, downgrade, or guessed mapping. An unknown version is classified as schema-not-found, not silently downgraded. A real cross-version change needs an explicit, versioned, tested, audited migration."
+
+### Q5 (Senior) — a Provider times out with unknown usage; can the Job succeed, and how is cost handled?
+
+Strong answer: "Business execution success and cost settlement are separate axes. A timeout with no result is a non-success outcome, but the important case is a valid result with unknown usage: the Job can succeed on the business axis while I keep the Day52 reservation and hold a cost reconciliation-pending state — I never record unknown usage as zero. Only the guarded `running -> succeeded` transition, owned by the Completion Service, writes the validated Result Artifact and commits a short UoW; if it updates zero rows I stop and reconcile rather than overwrite."
+
+### Q6 (Senior) — error classification and a bad model rollout
+
+Strong answer: "A refusal is a classified non-success, not an empty success. A 401/403 is a configuration/authentication failure, so I stop new calls with that Provider configuration and preserve safe evidence — it is not a user-input error. A 429 that happens after a durable 202 is a downstream Job/Attempt event, not a retroactive client 429; I keep a safe Retry-After and let Day56 own retry policy. For a rollout that switches to a model lacking research_summary.v1, new calls get a 400 capability failure, but a legitimate old in-flight v1 result is a distinct call that still validates against its persisted contract and is accepted through guarded completion. The core rule is that configuration rollback governs future calls and is not a rollback of durable business facts."
+
+Production scenario / trade-off prompt: "Should you persist the raw Provider response in the Result Artifact?" — "No, not by default. I persist the validated domain result, schema name/version, safe Provider metadata, a safe failure classification, correlation IDs, and the actual-usage/reconciliation state. Raw responses can carry prompts or secrets and bloat artifacts; any forensic raw-evidence store is a separate system with explicit minimization, redaction, access control, retention, and audit."
+
+Validation: REAL Pydantic v2 strict validation + an in-memory Adapter->Validator->Completion model with an injected fake transport (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 20 passed). Proves the validation gate + application control flow only. NOT the real `openai` SDK/network/Provider, NOT PostgreSQL/Redis/Celery Worker, NOT FastAPI wire/integration/production. Day54 streaming/disconnect/cancellation, Day55 Celery, and Day56 retry/backoff are not implemented. No real api_key, prompt, Document content, or Provider response is used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day53), the
+[Day53 lesson](../docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md), the
+[Day53 design/runbook](../projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md),
+the [model](../projects/ai-backend-data-layer/api/day53_openai_provider_structured_output.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day53_openai_provider_structured_output.py).

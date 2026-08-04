@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day52 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day53 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day53 — OpenAI SDK, Provider Boundaries and Structured Output (Phase 4)
+Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation (Phase 4)
 
 Status:
 Planned / Not started
 
-(Day52 is complete and recorded under "Last Completed Lesson" below; Day53 is the current focus.
+(Day53 is complete and recorded under "Last Completed Lesson" below; Day54 is the current focus.
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -76,6 +76,7 @@ Planned / Not started
 - ✅ Day50 — Idempotent AI Job API and Transactional Outbox Integration
 - ✅ Day51 — Authentication, Password Security and JWT
 - ✅ Day52 — Authorization, Tenant Isolation, Quotas and API Security
+- ✅ Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 
 ---
 
@@ -86,6 +87,32 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day53 — OpenAI SDK, Provider Boundaries and Structured Output
+
+Completed Time:
+2026-08-04
+
+Main Artifact:
+Day53 OpenAI SDK provider boundary + structured output (projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md) with a runnable provider-neutral model (day53_openai_provider_structured_output.py) + test_day53_openai_provider_structured_output.py using REAL Pydantic v2 validation + an INJECTED FAKE transport (the real openai SDK is intentionally not a dependency; all SDK objects/exceptions are modeled inside the Adapter): puts an OpenAI-compatible Provider behind an application-owned boundary so SDK behavior, untrusted output, cost evidence, and configuration changes cannot corrupt durable Job facts. OpenAICompatibleAdapter owns ALL SDK objects/exceptions and translates them into a typed ProviderOutcome union (ProviderSuccess/ProviderRefusal/ProviderIncomplete/ProviderTimeout/ProviderAuthenticationError/ProviderRateLimited/ProviderCapabilityError/ProviderTransportError), reuses one lifespan-owned client, enforces effective_max = min(Job cap, ceiling) (5000 wins over 8000; usage reported, no second reservation), and never completes Jobs or writes DBs. A ProviderSuccess payload is UNTRUSTED until a strict Day44 StructuredOutputValidator (extra=forbid) validates it against the Job's bound server-owned versioned SchemaRegistry schema (research_summary.v1/v2; missing citations/forbidden debug_prompt -> CONTRACT_VIOLATION; unknown version -> SCHEMA_NOT_FOUND; a v2 output never silently satisfies a v1 Job), and only then does CompletionService run the ONLY guarded running -> succeeded short UoW (zero rows -> stop, never overwrite) persisting a Result Artifact of the validated domain result + safe metadata ONLY (raw minimization). Business execution success and cost settlement are SEPARATE axes: a valid output can succeed even when usage is UNKNOWN, retaining the Day52 reservation as reconciliation_pending (never zero); refusal/incomplete/timeout/401-403 (disable the Provider config + keep evidence)/429 (downstream Job event + safe Retry-After, not a client 429)/400 (capability/config failure) are classified without fabricating success or cost. Integrated exercise: a rollout to a model lacking research_summary.v1 gives NEW calls a 400, but a legitimate OLD in-flight v1 result (a distinct call) still validates against its PERSISTED execution contract and is accepted via guarded completion — configuration rollback governs NEW calls and is NOT a rollback of durable business facts.
+
+Validation Boundary:
+Day53 has REAL Pydantic v2 validation + control-flow evidence. Executed: python3 -m pytest -q test_day53_openai_provider_structured_output.py -> 20 passed (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). This proves the REAL structured-output validation gate + application control flow (Adapter -> Validator -> CompletionService) with an INJECTED FAKE transport ONLY. NOT RUN: the real openai SDK / network / Provider; real PostgreSQL / Redis / Celery Worker; FastAPI wire; integration; production. Day52 evidence is NOT inherited as Day53 evidence. Boundary preserved: SDK types stop at the Adapter; the persisted execution contract governs result acceptance while current Settings governs new calls; Day54 streaming/disconnect/cancellation, Day55 Celery, and Day56 retry/backoff/degradation are not implemented. Schema honesty: the persisted execution-contract facts, Result Artifact shape, and per-Job cost-reconciliation state are modeled in-memory; a real deployment adds any new columns via a Day48-safe forward additive migration, never a rewrite of published history. No real api_key, base_url secret, raw prompt, Document content, or Provider response is persisted or logged.
+
+Completed Work:
+
+- Day53 classroom learning
+- Day53 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved; four correction trajectories; assistant-assisted final Chinese Mental Model labeled as such)
+- Day53 design/runbook + runnable provider-neutral model + tests (executed: 20 passed) and project README increment
+- Day53 SDK-boundary, ProviderOutcome union, Day44 validation gate, server-owned versioned schema, guarded completion, success-vs-cost axes, error classification, and rollout/rollback exercises
+- Day53 FastAPI cheat sheet append
+- Day53 FastAPI interview notes append
+- Day53 requirements-day53.txt (pydantic + pytest; fake transport, no openai dependency)
+- Day53 repository status update
+
+---
+
+## Superseded — Day52 Last Completed Lesson (archived)
 
 Day52 — Authorization, Tenant Isolation, Quotas and API Security
 
@@ -211,7 +238,7 @@ Completed Work:
 
 ## Next
 
-- Day53 — OpenAI SDK, Provider Boundaries and Structured Output (Phase 4 — Production AI API Engineering)
+- Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation (Phase 4 — Production AI API Engineering)
 
 Status:
 Planned / Not started
