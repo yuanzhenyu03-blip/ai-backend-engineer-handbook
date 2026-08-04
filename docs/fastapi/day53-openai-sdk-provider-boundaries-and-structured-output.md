@@ -12,7 +12,7 @@ Prerequisite: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Previous Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Next Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Engineering Artifact: projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md
-  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 33 passed)
+  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 36 passed)
 ```
 
 Main engineering artifact: a provider-neutral Provider boundary (fake injected transport) with a REAL Pydantic v2
@@ -171,7 +171,10 @@ updates zero rows?
 
 Correct on both. Only the Completion Service may run the guarded `running -> succeeded`, persist the validated Result
 Artifact/usage/Event, and commit a short UoW. A zero-row result means STOP — it can mean duplicate, stale execution,
-cancellation, retry, or changed facts. Inspect durable state and reconcile; never overwrite.
+cancellation, retry, or changed facts. Inspect durable state and reconcile; never overwrite. And because the Provider
+call is a PAID side effect, eligibility is claimed BEFORE it: `execute_job` gates on execution eligibility (only a
+RUNNING Job may start a new call; a SUCCEEDED/FAILED/`PENDING_RECONCILIATION` Job is `PRECALL_BLOCKED` with zero
+transport calls) so a terminal/pending Job never re-triggers a paid call just to be blocked at the DB write.
 
 ### Engineering Thinking
 
@@ -332,7 +335,9 @@ timed-out Job.
 All correct, with one correction: a single unsupported-output request cannot BOTH 400 and return a valid result — the
 valid result belongs to a distinct pre-rollout / old-worker call. A timeout is NOT written as a terminal `FAILED`: whether the Provider ran and what it cost are unknown, so the Job
 moves to a non-terminal `PENDING_RECONCILIATION` lifecycle (reservation retained, no auto-retry) and a later
-contract-matching legitimate result may still be accepted through guarded completion. 401/403 stops new calls with
+contract-matching legitimate result is accepted via the LATE-OUTCOME INGESTION path (`ingest_late_outcome`, which
+validates job_id + correlation against the persisted contract then runs guarded completion WITHOUT calling the
+Adapter) — NOT by calling `execute_job` again (that would issue a second paid Provider call). 401/403 stops new calls with
 that config and preserves evidence (not a user-input error). A 400 that means the current model/profile cannot honor
 the controlled schema is CONFIG-WIDE and fails the config closed (a single-request 400 does not). 429 after a durable
 202 is a downstream Job/Attempt event, not a retroactive client 429 (keep safe `Retry-After`; Day56 owns retry). The core rule: **configuration rollback is not a
@@ -399,7 +404,7 @@ Run the model:
 ```bash
 cd projects/ai-backend-data-layer/api
 python3 -m pip install -r requirements-day53.txt   # pydantic==2.5.0, pytest==7.4.3
-python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 33 passed
+python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 36 passed
 ```
 
 ---
@@ -475,7 +480,9 @@ ProviderSuccess.payload (UNTRUSTED) --Day44 strict gate against the Job's bound 
         v
 Result Artifact = validated domain result + safe metadata only (no prompt/secret/raw payload)
 Cost axis: usage known -> SETTLED (success OR known-usage failure) ; usage unknown -> RECONCILIATION_PENDING (retain reservation, never zero)
-Timeout: PENDING_RECONCILIATION (non-terminal; a matching late result may still complete) ; call is bound to the persisted contract
+Pre-call gate: only a RUNNING Job may START a paid call (terminal/pending -> PRECALL_BLOCKED, 0 transport calls)
+Timeout: PENDING_RECONCILIATION (non-terminal) ; a matching late result completes via ingest_late_outcome (NO new call), never a 2nd execute_job
+Call is bound to the persisted contract (model/schema/version/task/profile/max)
 Config rollback governs NEW calls; the persisted execution contract governs result acceptance (facts are not rolled back)
 ```
 

@@ -43,6 +43,7 @@ from day53_openai_provider_structured_output import (
     Usage,
     ValidationOutcome,
     execute_job,
+    ingest_late_outcome,
 )
 
 PROMPT = "SENSITIVE-PROMPT-do-not-persist-42"
@@ -139,17 +140,19 @@ def test_valid_result_completes_once_with_settled_cost():
     assert [e["type"] for e in job.events] == ["job.succeeded"]  # exactly one success event
 
 
-def test_guarded_completion_zero_rows_stops_no_double_write():
+def test_succeeded_job_reexecute_is_precall_blocked_no_second_provider_call():
     t = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=1200))
     store, adapter, validator, completion, cfg = _wire(t)
     _exec(_request(), store, adapter, validator, completion, cfg)  # succeeds -> now not RUNNING
+    assert t.calls == 1
     artifact_before = store.jobs["job-1"].result_artifact
-    # A duplicate/stale completion attempt sees a non-running job -> zero rows -> stop.
+    # A re-execute must be blocked BEFORE any transport call (no second paid Provider call).
     res2 = _exec(_request(), store, adapter, validator, completion, cfg)
-    assert res2.decision is ExecutionDecision.COMPLETION_NOOP and res2.completion is CompletionOutcome.NOOP_ZERO_ROWS
+    assert res2.decision is ExecutionDecision.PRECALL_BLOCKED and res2.reason == "succeeded"
+    assert t.calls == 1                                          # transport NOT called again
     job = store.jobs["job-1"]
-    assert job.result_artifact is artifact_before                # not overwritten
-    assert [e["type"] for e in job.events] == ["job.succeeded"]  # no second success event
+    assert job.result_artifact is artifact_before                # Artifact/Event/usage unchanged
+    assert [e["type"] for e in job.events] == ["job.succeeded"]
 
 
 def test_valid_output_with_unknown_usage_succeeds_but_holds_cost_reconciliation():
@@ -374,37 +377,80 @@ def test_contract_matching_request_still_executes():
 # ===========================================================================
 # Fix 2: timeout -> reconciliation lifecycle; a matching late result is accepted
 # ===========================================================================
-def test_timeout_then_matching_late_result_is_accepted_via_guarded_completion():
-    # First attempt times out (unknown execution/usage) -> PENDING_RECONCILIATION, not FAILED.
+def test_pending_reconciliation_reexecute_is_precall_blocked_not_auto_retried():
+    t = FakeOpenAITransport(error=FakeAPITimeoutError())
+    store, adapter, validator, completion, cfg = _wire(t)
+    _exec(_request(), store, adapter, validator, completion, cfg)
+    assert store.jobs["job-1"].status is JobStatus.PENDING_RECONCILIATION and t.calls == 1
+    # A re-execute must NOT auto-retry a new paid Provider call for a pending-reconciliation Job.
+    res2 = _exec(_request(), store, adapter, validator, completion, cfg)
+    assert res2.decision is ExecutionDecision.PRECALL_BLOCKED and res2.reason == "pending_reconciliation"
+    assert t.calls == 1                                          # transport NOT called again
+
+
+def test_timeout_then_ingested_matching_late_outcome_completes_no_transport():
+    # First attempt times out -> PENDING_RECONCILIATION.
     t_timeout = FakeOpenAITransport(error=FakeAPITimeoutError())
-    store, adapter, validator, completion, cfg = _wire(t_timeout)
+    store, adapter, validator, completion, cfg = _wire(t_timeout)  # contract correlation_id == "corr-1"
     _exec(_request(), store, adapter, validator, completion, cfg)
     assert store.jobs["job-1"].status is JobStatus.PENDING_RECONCILIATION
-    # A controlled, contract-matching late result (a distinct call) completes through the guard.
-    t_late = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=1500))
-    adapter_late = OpenAICompatibleAdapter(t_late)
-    res = execute_job(_request(), adapter=adapter_late, validator=validator, store=store,
-                      completion=completion, provider_config=ProviderConfig(
-                          approved_model="gpt-approved", provider_profile_version="pp-1"))
+    # PATH B: ingest an already-issued, contract-matching late ProviderSuccess. NO adapter/transport.
+    late = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=1500), provider_request_id="rq-late")
+    res = ingest_late_outcome(late, job_id="job-1", correlation_id="corr-1", store=store,
+                              validator=validator, completion=completion, provider_config=cfg)
     job = store.jobs["job-1"]
     assert res.decision is ExecutionDecision.SUCCEEDED and job.status is JobStatus.SUCCEEDED
     assert job.cost_state is CostState.SETTLED and job.settled_tokens == 1500
+    assert t_timeout.calls == 1                                  # only the original attempt; no new call
 
 
-def test_terminal_failed_job_does_not_accept_a_late_result():
-    # A validation failure is a DEFINITE terminal failure (unlike a timeout).
+def test_timeout_then_mismatched_late_outcome_is_rejected_no_overwrite():
+    t_timeout = FakeOpenAITransport(error=FakeAPITimeoutError())
+    store, adapter, validator, completion, cfg = _wire(t_timeout)
+    _exec(_request(), store, adapter, validator, completion, cfg)
+    late = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=1500))
+    # Wrong correlation -> rejected; nothing completed, no fact overwritten, no transport.
+    res = ingest_late_outcome(late, job_id="job-1", correlation_id="WRONG-corr", store=store,
+                              validator=validator, completion=completion, provider_config=cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.LATE_OUTCOME_REJECTED and res.reason == "correlation_mismatch"
+    assert job.status is JobStatus.PENDING_RECONCILIATION and job.result_artifact is None
+    assert t_timeout.calls == 1
+
+
+def test_terminal_job_late_outcome_is_guarded_noop_no_overwrite():
+    # A validation failure is a DEFINITE terminal failure.
     bad = {"summary": "x", "confidence": 0.5}  # missing citations
     t = FakeOpenAITransport(response=FakeSDKResponse(payload=bad, total_tokens=100))
     store, adapter, validator, completion, cfg = _wire(t)
     _exec(_request(), store, adapter, validator, completion, cfg)
     assert store.jobs["job-1"].status is JobStatus.FAILED
+    events_before = list(store.jobs["job-1"].events)
+    # A late (contract-matching) success for a TERMINAL job -> guarded no-op; no fact overwrite.
+    late = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=99))
+    res = ingest_late_outcome(late, job_id="job-1", correlation_id="corr-1", store=store,
+                              validator=validator, completion=completion, provider_config=cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.COMPLETION_NOOP
+    assert job.status is JobStatus.FAILED and job.result_artifact is None   # existing facts intact
+    assert [e["type"] for e in job.events][:len(events_before)] == [e["type"] for e in events_before]
+
+
+def test_failed_job_reexecute_is_precall_blocked_no_cost_or_event():
+    bad = {"summary": "x", "confidence": 0.5}
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=bad, total_tokens=100))
+    store, adapter, validator, completion, cfg = _wire(t)
+    _exec(_request(), store, adapter, validator, completion, cfg)
+    assert store.jobs["job-1"].status is JobStatus.FAILED
+    events_before = len(store.jobs["job-1"].events)
     t2 = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=10))
     res2 = execute_job(_request(), adapter=OpenAICompatibleAdapter(t2), validator=validator,
                        store=store, completion=completion,
                        provider_config=ProviderConfig(approved_model="gpt-approved",
                                                       provider_profile_version="pp-1"))
-    assert res2.decision is ExecutionDecision.COMPLETION_NOOP  # guard rejects a terminal job
-    assert store.jobs["job-1"].result_artifact is None
+    assert res2.decision is ExecutionDecision.PRECALL_BLOCKED and res2.reason == "failed"
+    assert t2.calls == 0                                         # no new paid Provider call
+    assert len(store.jobs["job-1"].events) == events_before     # no new Event/cost
 
 
 # ===========================================================================

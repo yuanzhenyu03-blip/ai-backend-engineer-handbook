@@ -391,6 +391,15 @@ class JobExecutionStore:
         self.jobs[job_id] = job
         return job
 
+    def is_claimable_for_new_call(self, job_id: str) -> bool:
+        """Pre-call EXECUTION GATE: only a RUNNING Job may START a new (paid) Provider call.
+        A SUCCEEDED/FAILED Job is terminal; a PENDING_RECONCILIATION Job is awaiting a LATE
+        outcome for an ALREADY-issued request and must NOT be treated as a retriable new call.
+        Models a guarded pre-call claim; a real system would flip RUNNING -> a claimed attempt
+        atomically. This gate runs BEFORE any transport so no wasted paid side effect occurs."""
+        job = self.jobs.get(job_id)
+        return job is not None and job.status is JobStatus.RUNNING
+
 
 class CompletionService:
     """Owns the guarded `running -> succeeded` transition + short UoW. Business execution
@@ -533,6 +542,8 @@ class ExecutionDecision(str, Enum):
     TRANSPORT_ERROR = "transport_error"
     BLOCKED_CONFIG_DISABLED = "blocked_config_disabled"
     CONTRACT_MISMATCH = "contract_mismatch"  # request inconsistent with the persisted contract; no call made
+    PRECALL_BLOCKED = "precall_blocked"      # Job not eligible to START a new Provider call; transport NOT called
+    LATE_OUTCOME_REJECTED = "late_outcome_rejected"  # ingested late outcome failed job/correlation/contract checks
     COMPLETION_NOOP = "completion_noop"
 
 
@@ -541,6 +552,7 @@ class ExecutionResult:
     decision: ExecutionDecision
     completion: Optional[CompletionOutcome] = None
     validation: Optional[ValidationResult] = None
+    reason: str = ""
 
 
 # ===========================================================================
@@ -578,37 +590,18 @@ def bind_request_to_contract(
     return bound, None
 
 
-def execute_job(
-    request: ProviderRequest,
+def _dispatch_outcome(
+    outcome: ProviderOutcome,
     *,
-    adapter: AIProvider,
+    job_id: str,
+    contract: ExecutionContract,
     validator: StructuredOutputValidator,
-    store: JobExecutionStore,
     completion: CompletionService,
     provider_config: ProviderConfig,
 ) -> ExecutionResult:
-    """Execute an already-authorized, budget-reserved, RUNNING Job. The PERSISTED Job
-    execution contract governs BOTH the outgoing Provider call (model/schema/version/task/
-    profile/max are derived from or strictly compared to the contract — never trusted from the
-    caller) and result acceptance. Configuration rollback affects only NEW calls, never a
-    durable fact."""
-    if provider_config.disabled:
-        # Current Settings govern NEW calls: refuse to start one with a disabled config.
-        return ExecutionResult(ExecutionDecision.BLOCKED_CONFIG_DISABLED)
-
-    # Load the Job + its persisted contract FIRST; bind the call to it (no trusted caller input).
-    job = store.jobs[request.job_id]
-    contract = job.contract
-    bound, mismatch = bind_request_to_contract(
-        request, contract, model_hard_cap=provider_config.model_max_output_tokens
-    )
-    if bound is None:
-        # Inconsistent request -> safe rejection BEFORE any transport/network call.
-        completion.record_non_success(request.job_id, classification=mismatch or "contract_mismatch",
-                                      mark_failed=False)
-        return ExecutionResult(ExecutionDecision.CONTRACT_MISMATCH)
-
-    outcome = adapter.generate(bound)  # only the contract-bound request ever reaches the Provider
+    """Process a ProviderOutcome (from a fresh call OR an ingested late result). Validates the
+    payload against the PERSISTED contract and routes to guarded completion / classification.
+    Never calls the Adapter or any transport itself."""
 
     def _evidence(request_id: Optional[str]) -> dict:
         ev = {"schema_name": contract.schema_name, "schema_version": contract.schema_version,
@@ -623,7 +616,7 @@ def execute_job(
         if result.outcome is ValidationOutcome.VALID:
             assert result.domain_result is not None
             co = completion.complete_success(
-                request.job_id, domain_result=result.domain_result, usage=outcome.usage,
+                job_id, domain_result=result.domain_result, usage=outcome.usage,
                 provider_request_id=outcome.provider_request_id,
             )
             decision = (ExecutionDecision.SUCCEEDED if co is CompletionOutcome.COMPLETED
@@ -631,39 +624,39 @@ def execute_job(
             return ExecutionResult(decision, completion=co, validation=result)
         # Invalid output NEVER calls completion success — but the Provider still CHARGED, so the
         # exact (known) usage is settled/reconciled, never dropped, never fabricated as zero.
-        completion.record_non_success(request.job_id, classification=f"validation:{result.outcome.value}",
+        completion.record_non_success(job_id, classification=f"validation:{result.outcome.value}",
                                       provider_request_id=outcome.provider_request_id)
-        completion.record_cost(request.job_id, outcome.usage)
+        completion.record_cost(job_id, outcome.usage)
         return ExecutionResult(ExecutionDecision.VALIDATION_FAILED, validation=result)
 
     if isinstance(outcome, ProviderRefusal):
-        completion.record_non_success(request.job_id, classification=f"provider_refusal:{outcome.reason_code}",
+        completion.record_non_success(job_id, classification=f"provider_refusal:{outcome.reason_code}",
                                       provider_request_id=outcome.provider_request_id)
-        completion.record_cost(request.job_id, outcome.usage)  # refusal usage is never dropped
+        completion.record_cost(job_id, outcome.usage)  # refusal usage is never dropped
         return ExecutionResult(ExecutionDecision.REFUSED)
 
     if isinstance(outcome, ProviderIncomplete):
-        completion.record_non_success(request.job_id, classification=f"provider_incomplete:{outcome.reason}",
+        completion.record_non_success(job_id, classification=f"provider_incomplete:{outcome.reason}",
                                       provider_request_id=outcome.provider_request_id)
-        completion.record_cost(request.job_id, outcome.usage)  # known -> settle; unknown -> reconciliation_pending
+        completion.record_cost(job_id, outcome.usage)  # known -> settle; unknown -> reconciliation_pending
         return ExecutionResult(ExecutionDecision.INCOMPLETE)
 
     if isinstance(outcome, ProviderTimeout):
         # NOT a terminal FAILED: whether the Provider ran, its result, and usage are unknown.
-        completion.record_timeout_pending(request.job_id)
+        completion.record_timeout_pending(job_id)
         return ExecutionResult(ExecutionDecision.TIMEOUT_UNKNOWN_USAGE)
 
     if isinstance(outcome, ProviderAuthenticationError):
         # Configuration/authentication failure: STOP new calls with this config; keep evidence.
         provider_config.disable(f"provider_auth_{outcome.status_code}")
-        completion.record_non_success(request.job_id,
+        completion.record_non_success(job_id,
                                       classification=f"provider_auth_config_failure:{outcome.status_code}",
                                       evidence=_evidence(None))
         return ExecutionResult(ExecutionDecision.AUTH_CONFIG_FAILURE)
 
     if isinstance(outcome, ProviderRateLimited):
         # A downstream Provider 429 for this Job/Attempt — NOT a retroactive client 429.
-        completion.record_non_success(request.job_id, classification="provider_rate_limited",
+        completion.record_non_success(job_id, classification="provider_rate_limited",
                                       provider_request_id=outcome.provider_request_id,
                                       retry_after=outcome.retry_after)
         return ExecutionResult(ExecutionDecision.RATE_LIMITED)
@@ -678,13 +671,91 @@ def execute_job(
             classification = f"provider_capability_config_failure:{outcome.status_code}"
         else:
             classification = f"provider_capability_request_failure:{outcome.status_code}"
-        completion.record_non_success(request.job_id, classification=classification,
+        completion.record_non_success(job_id, classification=classification,
                                       provider_request_id=outcome.provider_request_id,
                                       evidence=_evidence(outcome.provider_request_id))
         return ExecutionResult(ExecutionDecision.CAPABILITY_FAILURE)
 
     if isinstance(outcome, ProviderTransportError):
-        completion.record_non_success(request.job_id, classification="provider_transport_error")
+        completion.record_non_success(job_id, classification="provider_transport_error")
         return ExecutionResult(ExecutionDecision.TRANSPORT_ERROR)
 
     raise AssertionError(f"unhandled ProviderOutcome: {type(outcome).__name__}")
+
+
+def execute_job(
+    request: ProviderRequest,
+    *,
+    adapter: AIProvider,
+    validator: StructuredOutputValidator,
+    store: JobExecutionStore,
+    completion: CompletionService,
+    provider_config: ProviderConfig,
+) -> ExecutionResult:
+    """PATH A — START a new authorized Provider call. Order: claim execution eligibility ->
+    (only then) make the external Provider call -> process the result -> guarded completion.
+    The pre-call gate runs BEFORE `adapter.generate`, so a terminal (SUCCEEDED/FAILED) or a
+    PENDING_RECONCILIATION Job never re-triggers a paid Provider call (transport calls == 0).
+    A late result for an already-issued request must use `ingest_late_outcome` (PATH B), which
+    does NOT call the Adapter."""
+    if provider_config.disabled:
+        # Current Settings govern NEW calls: refuse to start one with a disabled config.
+        return ExecutionResult(ExecutionDecision.BLOCKED_CONFIG_DISABLED)
+
+    job = store.jobs.get(request.job_id)
+    if job is None:
+        return ExecutionResult(ExecutionDecision.PRECALL_BLOCKED, reason="unknown_job")
+    # PRE-CALL EXECUTION GATE — BEFORE any transport/Provider call.
+    if not store.is_claimable_for_new_call(request.job_id):
+        # SUCCEEDED/FAILED (terminal) or PENDING_RECONCILIATION (awaiting a late result) ->
+        # do NOT start a new paid call. No transport, no new cost, no fact rewrite.
+        return ExecutionResult(ExecutionDecision.PRECALL_BLOCKED, reason=job.status.value)
+
+    contract = job.contract
+    bound, mismatch = bind_request_to_contract(
+        request, contract, model_hard_cap=provider_config.model_max_output_tokens
+    )
+    if bound is None:
+        # Inconsistent request -> safe rejection BEFORE any transport/network call.
+        completion.record_non_success(request.job_id, classification=mismatch or "contract_mismatch",
+                                      mark_failed=False)
+        return ExecutionResult(ExecutionDecision.CONTRACT_MISMATCH, reason=mismatch or "contract_mismatch")
+
+    outcome = adapter.generate(bound)  # only reached AFTER the pre-call gate + contract binding
+    return _dispatch_outcome(outcome, job_id=request.job_id, contract=contract,
+                             validator=validator, completion=completion, provider_config=provider_config)
+
+
+def ingest_late_outcome(
+    outcome: ProviderOutcome,
+    *,
+    job_id: str,
+    correlation_id: str,
+    store: JobExecutionStore,
+    validator: StructuredOutputValidator,
+    completion: CompletionService,
+    provider_config: ProviderConfig,
+    provider_request_id: Optional[str] = None,
+) -> ExecutionResult:
+    """PATH B — ingest an ALREADY-ISSUED Provider outcome (a callback-like late result) for a
+    prior request. This does NOT call the Adapter or any transport: no new paid Provider call
+    is made. It validates that the outcome is genuinely associated with this Job — job_id +
+    correlation_id (and, when supplied, the provider_request_id) must match the PERSISTED
+    execution contract — and then routes through the same guarded completion path. A mismatch
+    is rejected without completing or overwriting anything; a terminal Job yields a guarded
+    no-op (no fact overwrite). This is the correct 'late result after a timeout' flow — NOT a
+    second `execute_job` (which would issue a second paid Provider call). Day54 owns the real
+    callback/streaming/cancellation protocol; this is the minimal in-memory boundary."""
+    job = store.jobs.get(job_id)
+    if job is None:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="unknown_job")
+    contract = job.contract
+    if correlation_id != contract.correlation_id:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="correlation_mismatch")
+    outcome_request_id = getattr(outcome, "provider_request_id", None)
+    if provider_request_id is not None and outcome_request_id is not None \
+            and provider_request_id != outcome_request_id:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="provider_request_id_mismatch")
+    # Associated + contract-known -> process via the SAME guarded completion path (no Adapter call).
+    return _dispatch_outcome(outcome, job_id=job_id, contract=contract, validator=validator,
+                             completion=completion, provider_config=provider_config)

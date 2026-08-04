@@ -21,7 +21,7 @@ Real FastAPI wire / integration / production          : NOT RUN
 Day54 streaming/disconnect/cancellation, Day55 Celery, Day56 retry/backoff/degradation : NOT IMPLEMENTED
 ```
 
-Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **33 passed**
+Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **36 passed**
 (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). The suite proves the REAL Pydantic v2 validation gate + application
 control flow (Adapter -> Validator -> CompletionService) with an injected fake transport. It does NOT prove the real
 `openai` SDK, network, Provider, PostgreSQL, Redis, Celery, FastAPI wire, integration, or production. The classroom
@@ -104,6 +104,35 @@ Adapter translates SDK responses and vendor exceptions; it does NOT complete Job
 
 ---
 
+## 5A. Two paths: pre-call execution gate vs late-outcome ingestion
+
+The external Provider call is a paid side effect, so eligibility is claimed BEFORE it — not after. `execute_job`
+follows the order: **claim execution eligibility -> (only then) make the Provider call -> process the result ->
+guarded completion.**
+
+```text
+PATH A — start a NEW authorized Provider call: execute_job(request)
+  provider_config.disabled                 -> BLOCKED_CONFIG_DISABLED (no call)
+  pre-call gate: is_claimable_for_new_call -> only a RUNNING Job may start a call
+    SUCCEEDED / FAILED                      -> PRECALL_BLOCKED (terminal); transport calls == 0
+    PENDING_RECONCILIATION                  -> PRECALL_BLOCKED (awaiting a late result, NOT a retriable new call); calls == 0
+  bind_request_to_contract mismatch         -> CONTRACT_MISMATCH; transport calls == 0
+  -> adapter.generate(bound)  (reached ONLY after the gate + binding)  -> _dispatch_outcome -> guarded completion
+
+PATH B — ingest an ALREADY-ISSUED late outcome: ingest_late_outcome(outcome, job_id, correlation_id, ...)
+  NO adapter/transport call is made (no new paid Provider call).
+  validate job_id + correlation_id (and provider_request_id when supplied) against the PERSISTED contract:
+    mismatch -> LATE_OUTCOME_REJECTED (no completion, no overwrite, no transport)
+    match    -> _dispatch_outcome -> guarded completion (a terminal Job -> COMPLETION_NOOP, no fact overwrite)
+```
+
+The correct handling of a result that arrives after a timeout is PATH B (a callback-like ingestion of the outcome
+that the earlier request eventually produced), never a second `execute_job` (which would call the Provider again and
+incur a second charge). Day54 owns the real callback/streaming/cancellation protocol; `ingest_late_outcome` is the
+minimal, explicit in-memory boundary for Day53.
+
+---
+
 ## 6. Cost and outcome truth (two separate axes)
 
 - Day52 reserves budget before Job + Outbox acceptance. Day53's Adapter reports actual usage OR explicit unknown.
@@ -122,7 +151,9 @@ Adapter translates SDK responses and vendor exceptions; it does NOT complete Job
 CostState: RESERVED -> SETTLED (usage known, success OR known-usage failure)  |  RECONCILIATION_PENDING (usage unknown; reservation retained)
 JobStatus: RUNNING -> SUCCEEDED (valid output, guarded)  |  FAILED (definite non-success: validation/refusal/incomplete)
                     -> PENDING_RECONCILIATION (timeout: unknown execution/usage; NOT terminal; a matching late result may still complete)
-Pre-call:  execute_job binds the request to the persisted contract; a mismatch is CONTRACT_MISMATCH (no Provider call)
+Pre-call:  execute_job GATES on eligibility (only RUNNING may start a paid call; SUCCEEDED/FAILED/PENDING_RECONCILIATION
+           -> PRECALL_BLOCKED, 0 transport calls) then binds to the contract (mismatch -> CONTRACT_MISMATCH, no call)
+Late result: ingest_late_outcome(outcome, correlation) accepts an already-issued outcome WITHOUT any Adapter/transport call
 ```
 
 ---
@@ -133,8 +164,9 @@ Pre-call:  execute_job binds the request to the persisted contract; a mismatch i
   definite terminal `FAILED` (that would block a legitimate late result and invite an unprotected re-run). It moves the
   Job to a non-terminal `PENDING_RECONCILIATION` lifecycle, retains the reservation (`reconciliation_pending`, never
   zero, never auto-released), records safe correlation evidence, and triggers NO Day56 retry. A later contract-matching
-  legitimate result may still be accepted through guarded completion (which now completes from `RUNNING` OR
-  `PENDING_RECONCILIATION`); a terminal `SUCCEEDED`/`FAILED` job still yields zero rows.
+  legitimate result is accepted via the LATE-OUTCOME INGESTION path (`ingest_late_outcome`, section 5A) — NOT by calling
+  `execute_job` again (that would issue a second paid Provider call). Guarded completion accepts a `RUNNING` OR
+  `PENDING_RECONCILIATION` job; a terminal `SUCCEEDED`/`FAILED` job still yields zero rows.
 - Provider REFUSAL is a classified non-success outcome, not an empty success.
 - Provider 401/403 is a configuration/authentication failure: STOP new calls using the affected Provider
   configuration (`ProviderConfig.disable`) and preserve safe operational evidence. It is NOT a user-input error.
@@ -188,14 +220,16 @@ of durable business facts.**
 |---|---|---|
 | Conceptual design | COMPLETED | this runbook + lesson |
 | SDK types stay inside the Adapter; typed ProviderOutcome union | RUN (in-memory) | `OpenAICompatibleAdapter.generate`; each fake SDK error -> a union case |
+| Pre-call execution gate before any paid call | RUN (in-memory) | terminal/pending Job re-execute -> PRECALL_BLOCKED, transport calls == 0 (no second paid call) |
 | Provider call bound to the persisted contract (no trusted caller input) | RUN (in-memory) | `bind_request_to_contract`; tampered model/schema/version -> CONTRACT_MISMATCH, 0 transport calls; max tightened never enlarged |
+| Late-outcome ingestion (no adapter call): matching completes, mismatch rejected, terminal no-op | RUN (in-memory) | `ingest_late_outcome`; correlation-matched success completes; wrong correlation -> LATE_OUTCOME_REJECTED; terminal -> COMPLETION_NOOP; 0 transport calls |
 | One lifespan-owned client reused; Job cap wins (5000 vs 8000) | RUN (in-memory) | transport call count + `last_max_tokens` |
 | REAL strict structured validation before side effects | RUN (real Pydantic v2) | missing `citations` / forbidden `debug_prompt` -> CONTRACT_VIOLATION |
 | Invalid output never calls completion | RUN (in-memory) | no success transition / Artifact / Event on invalid |
 | Valid output completes once; guarded zero-row stops | RUN (in-memory) | one `job.succeeded`; second attempt -> NOOP_ZERO_ROWS, no overwrite |
 | Success with unknown usage: succeed + reconciliation_pending | RUN (in-memory) | separate business/cost axes; usage None retained, not zero |
 | Known-usage non-success settles exact usage; refusal usage not dropped | RUN (in-memory) | `record_cost` on validation-fail/incomplete/refusal; known -> SETTLED, unknown -> reconciliation_pending |
-| Timeout is non-terminal; a matching late result still completes | RUN (in-memory) | PENDING_RECONCILIATION (not FAILED); reservation retained; no auto second call; guarded completion accepts the late result |
+| Timeout is non-terminal; a matching late result completes via INGESTION | RUN (in-memory) | PENDING_RECONCILIATION (not FAILED); reservation retained; late result accepted by `ingest_late_outcome` with 0 new transport calls |
 | Config-wide capability 400 fails the config closed; single 400 does not | RUN (in-memory) | `config_scope` disables ProviderConfig + blocks next call before transport; single-request 400 keeps it enabled |
 | Refusal / incomplete / timeout / auth / 429 / capability classification | RUN (in-memory) | ExecutionDecision per outcome; auth disables config; 429 keeps Retry-After |
 | Server-owned versioned schema binding (no cross-version satisfaction) | RUN (real Pydantic v2) | v2 payload fails v1 Job; unknown version -> SCHEMA_NOT_FOUND |

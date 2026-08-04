@@ -9,6 +9,55 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.111 — Day53 review (Codex): pre-call execution gate + late-outcome ingestion (no paid side effect before eligibility)
+
+Date: 2026-08-04
+
+Day: Day53 (review fix)
+
+`execute_job()` called `adapter.generate()` BEFORE `CompletionService.complete_success()` checked completability, so a
+SUCCEEDED / FAILED / PENDING_RECONCILIATION Job could re-trigger a paid Provider call and only then get
+`COMPLETION_NOOP` — the DB write was blocked but the external paid side effect had already happened. The prior
+timeout "late result" test also issued a SECOND `execute_job` (a second transport/Provider call), which is not late-
+result handling. Scope limited to the Day53 model, tests, and Day53 docs/status descriptions.
+
+### Fixed
+
+- **Pre-call execution gate.** `execute_job` now claims execution eligibility BEFORE any `adapter.generate()` /
+  transport call. Only a RUNNING Job may START a new (paid) Provider call; a SUCCEEDED/FAILED (terminal) or a
+  PENDING_RECONCILIATION (awaiting a late result) Job returns `PRECALL_BLOCKED` with **transport calls == 0** — no
+  wasted paid call, no new cost/event, no fact rewrite. Order is now: claim eligibility -> Provider call -> process ->
+  guarded completion. Added `JobExecutionStore.is_claimable_for_new_call` and `ExecutionResult.reason`.
+- **Late-outcome ingestion (Path B).** New `ingest_late_outcome(outcome, *, job_id, correlation_id, ...)` handles a
+  result that arrives after a timeout WITHOUT calling the Adapter/transport: it validates job_id + correlation (and
+  provider_request_id when supplied) against the PERSISTED execution contract, then routes through the same guarded
+  completion (`_dispatch_outcome`, extracted and shared). A mismatch -> `LATE_OUTCOME_REJECTED` (no completion, no
+  overwrite, no transport); a terminal Job -> `COMPLETION_NOOP` (no fact overwrite); a contract-matching outcome on a
+  RUNNING/PENDING_RECONCILIATION Job completes. This is the correct "late result after a timeout" flow — never a second
+  `execute_job`. Day54 owns the real callback/streaming/cancellation protocol; this is the minimal in-memory boundary.
+- Preserved semantics: `PENDING_RECONCILIATION` is not terminal; unknown usage is never recorded as 0 and the
+  reservation is retained; a legitimate, correlated, contract-matching late result completes the Job; a terminal Job's
+  result never overwrites durable facts; SDK types remain confined to the Adapter; no auto retry/backoff (Day56); no
+  real Provider/key/network.
+
+### Added / adjusted tests (33 -> 36)
+
+Re-execute of a SUCCEEDED / FAILED / PENDING_RECONCILIATION Job -> `PRECALL_BLOCKED` with transport calls == 0 and no
+new cost/event/fact rewrite; timeout then INGEST a correlation-matching late `ProviderSuccess` -> completes via guarded
+completion with zero new transport calls; timeout then a mismatched-correlation late outcome -> `LATE_OUTCOME_REJECTED`
+(no overwrite/complete/transport); a terminal Job's late outcome -> `COMPLETION_NOOP` (no overwrite). The prior tests
+that re-called `execute_job` as a "late result" were corrected to the ingestion path.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **36 passed** (was 33); full
+  `projects/ai-backend-data-layer/api/` suite -> **309 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). REAL
+  Pydantic v2 validation + application control flow with an injected FAKE transport. NOT RUN: the real `openai` SDK /
+  network / Provider, real PostgreSQL / Redis / Celery Worker, FastAPI wire, integration, production. No real api_key,
+  base_url secret, raw prompt, Document content, or Provider response used.
+
+---
+
 ## v0.1.110 — Day53 review (Codex): contract-bound calls, non-terminal timeout, known-usage cost, config-wide 400 containment
 
 Date: 2026-08-04
