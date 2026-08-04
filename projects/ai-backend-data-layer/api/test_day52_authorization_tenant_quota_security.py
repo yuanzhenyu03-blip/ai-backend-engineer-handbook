@@ -30,6 +30,8 @@ from day52_authorization_tenant_quota_security import (
     NotFoundError,
     PolicyStore,
     ReconcileState,
+    OverageRecord,
+    compute_request_fingerprint,
     RepairOutcome,
     ReservationRollback,
     TenantBudget,
@@ -92,7 +94,7 @@ def test_cross_tenant_read_returns_not_found_no_oracle():
     ms = _memberships()
     created = admit_job(
         AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key="k1",
-        request_fingerprint="fp1", max_tokens=1000, now=NOW,
+        max_tokens=1000, now=NOW,
         memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter(),
     )
     job_id = created.job.job_id
@@ -110,7 +112,7 @@ def test_read_own_requires_ownership_not_just_same_tenant():
     ms = _memberships()
     created = admit_job(
         AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key="k1",
-        request_fingerprint="fp1", max_tokens=1000, now=NOW,
+        max_tokens=1000, now=NOW,
         memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter(),
     )
     repo = JobRepository(store.jobs)
@@ -139,7 +141,7 @@ def test_two_concurrent_requests_only_one_reserves_when_budget_is_tight():
         barrier.wait()
         results.append(admit_job(
             AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key=key,
-            request_fingerprint="fp", max_tokens=5000, now=NOW,
+            max_tokens=5000, now=NOW,
             memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter(),
         ))
 
@@ -159,7 +161,7 @@ def test_rollback_after_reservation_leaves_no_ghost_reservation_or_job():
     with pytest.raises(ReservationRollback):
         admit_job(
             AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key="k1",
-            request_fingerprint="fp1", max_tokens=5000, now=NOW,
+            max_tokens=5000, now=NOW,
             memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter(),
             fail_after_reserve=True,
         )
@@ -168,23 +170,60 @@ def test_rollback_after_reservation_leaves_no_ghost_reservation_or_job():
     assert store.jobs == {} and store.outbox == []                  # no unfunded Job/Outbox
 
 
-def test_reconcile_settles_actual_usage_and_holds_on_unknown():
-    store = AdmissionStore()
-    store.set_budget(TenantBudget("tenant-a", token_limit=10000))
-    ms = _memberships()
-    created = admit_job(
+def _admit_5000(store, ms):
+    return admit_job(
         AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key="k1",
-        request_fingerprint="fp1", max_tokens=5000, now=NOW,
+        max_tokens=5000, now=NOW,
         memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter(),
     )
-    jid = created.job.job_id
-    # Unknown Provider outcome (timeout) -> keep the reservation, preserve evidence.
+
+
+def test_reconcile_unknown_holds_reservation_pending():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
     assert store.reconcile(jid, actual_tokens=None) is ReconcileState.RECONCILIATION_PENDING
-    assert store.budgets["tenant-a"].reserved_tokens == 5000
-    # Known usage (3,000 of the 5,000 reserved) -> settle used, release the rest.
+    assert store.budgets["tenant-a"].reserved_tokens == 5000  # reservation retained
+    assert jid not in store.overages
+
+
+def test_reconcile_negative_actual_is_rejected_without_budget_change():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    with pytest.raises(ValueError):
+        store.reconcile(jid, actual_tokens=-1)
+    b = store.budgets["tenant-a"]
+    assert b.reserved_tokens == 5000 and b.used_tokens == 0  # no budget fact changed
+
+
+def test_reconcile_actual_below_reserved_settles_and_releases_remainder():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
     assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.SETTLED
     b = store.budgets["tenant-a"]
     assert b.used_tokens == 3000 and b.reserved_tokens == 0 and b.available == 7000
+    assert jid not in store.overages
+
+
+def test_reconcile_actual_equals_reserved_settles_exactly():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    assert store.reconcile(jid, actual_tokens=5000) is ReconcileState.SETTLED
+    b = store.budgets["tenant-a"]
+    assert b.used_tokens == 5000 and b.reserved_tokens == 0 and b.available == 5000
+    assert jid not in store.overages
+
+
+def test_reconcile_actual_above_reserved_requires_overage_no_truncation_no_release():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    # Provider reported 6,000 actual against a 5,000 reservation.
+    assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+    b = store.budgets["tenant-a"]
+    assert b.reserved_tokens == 5000  # reservation NOT released as if settled
+    assert b.used_tokens == 0         # no silently-truncated settle to used_tokens
+    rec = store.overages[jid]         # exact observed usage preserved for controlled settlement
+    assert rec.reserved_tokens == 5000 and rec.observed_actual_tokens == 6000
+    assert store._observed_usage[jid] == 6000 and rec.reason
 
 
 # ===========================================================================
@@ -198,7 +237,7 @@ def test_limiter_outage_on_paid_path_fails_closed():
     with pytest.raises(LimiterUnavailable):  # fail-closed -> 503, never a 429
         admit_job(
             AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key="k1",
-            request_fingerprint="fp1", max_tokens=1000, now=NOW,
+            max_tokens=1000, now=NOW,
             memberships=ms, policy=PolicyStore(), store=store, limiter=down,
         )
     assert store.jobs == {}  # nothing admitted
@@ -213,7 +252,7 @@ def test_healthy_limiter_exhaustion_returns_rate_limited():
     for i in range(4):
         r = admit_job(
             AuthenticatedIdentity("user-alice"), "tenant-a", idempotency_key=f"k{i}",
-            request_fingerprint="fp", max_tokens=10, now=NOW,
+            max_tokens=10, now=NOW,
             memberships=ms, policy=PolicyStore(), store=store, limiter=limiter,
         )
         outcomes.append(r.outcome)
@@ -228,7 +267,7 @@ def test_same_command_replay_returns_original_job_without_second_reservation():
     store = AdmissionStore()
     store.set_budget(TenantBudget("tenant-a", token_limit=10000))
     ms = _memberships()
-    kwargs = dict(idempotency_key="k1", request_fingerprint="fp1", max_tokens=5000, now=NOW,
+    kwargs = dict(idempotency_key="k1", max_tokens=5000, now=NOW,
                   memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter())
     first = admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", **kwargs)
     second = admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", **kwargs)
@@ -238,23 +277,58 @@ def test_same_command_replay_returns_original_job_without_second_reservation():
     assert store.budgets["tenant-a"].reserved_tokens == 5000  # NOT 10000 — no double reserve
 
 
-def test_same_key_changed_fingerprint_is_conflict_with_no_new_facts():
+def test_same_key_changed_max_tokens_is_server_detected_conflict_with_no_new_facts():
     store = AdmissionStore()
     store.set_budget(TenantBudget("tenant-a", token_limit=10000))
     ms = _memberships()
-    base = dict(idempotency_key="k1", max_tokens=5000, now=NOW,
-                memberships=ms, policy=PolicyStore(), store=store, limiter=_limiter())
-    admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", request_fingerprint="fp1", **base)
-    conflict = admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", request_fingerprint="fp2", **base)
+    common = dict(idempotency_key="k1", now=NOW, memberships=ms, policy=PolicyStore(),
+                  store=store, limiter=_limiter())
+    admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", max_tokens=5000, **common)
+    # Same key, changed behavior-relevant field -> the SERVER-computed fingerprint differs.
+    conflict = admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", max_tokens=1000, **common)
     assert conflict.outcome is AdmissionOutcome.FINGERPRINT_CONFLICT
+    assert len(store.jobs) == 1 and store.budgets["tenant-a"].reserved_tokens == 5000  # no new facts
+
+
+def test_server_computed_fingerprint_replay_and_conflict_matrix():
+    store = AdmissionStore()
+    store.set_budget(TenantBudget("tenant-a", token_limit=1_000_000))
+    ms = _memberships()
+    common = dict(idempotency_key="K", now=NOW, memberships=ms, policy=PolicyStore(),
+                  store=store, limiter=TokenBucketRateLimiter(capacity=50, refill_per_minute=0))
+    a = AuthenticatedIdentity("user-alice")
+    # First: key=K, max_tokens=5000 -> CREATED
+    r1 = admit_job(a, "tenant-a", max_tokens=5000, document_id="doc-1", task_type="summarize", **common)
+    assert r1.outcome is AdmissionOutcome.CREATED
+    # Retry: identical canonical command -> IDEMPOTENT_REPLAY (no new reservation)
+    r2 = admit_job(a, "tenant-a", max_tokens=5000, document_id="doc-1", task_type="summarize", **common)
+    assert r2.outcome is AdmissionOutcome.IDEMPOTENT_REPLAY and r2.job.job_id == r1.job.job_id
+    # Conflict: same key, changed max_tokens -> FINGERPRINT_CONFLICT
+    assert admit_job(a, "tenant-a", max_tokens=1000, document_id="doc-1", task_type="summarize",
+                     **common).outcome is AdmissionOutcome.FINGERPRINT_CONFLICT
+    # Conflict: same key, changed document_id -> FINGERPRINT_CONFLICT
+    assert admit_job(a, "tenant-a", max_tokens=5000, document_id="doc-2", task_type="summarize",
+                     **common).outcome is AdmissionOutcome.FINGERPRINT_CONFLICT
+    # Conflict: same key, changed task_type -> FINGERPRINT_CONFLICT
+    assert admit_job(a, "tenant-a", max_tokens=5000, document_id="doc-1", task_type="translate",
+                     **common).outcome is AdmissionOutcome.FINGERPRINT_CONFLICT
+    # Only the original Job/reservation exists.
     assert len(store.jobs) == 1 and store.budgets["tenant-a"].reserved_tokens == 5000
+
+
+def test_fingerprint_is_stable_sha256_not_client_supplied():
+    fp1 = compute_request_fingerprint(max_tokens=5000, document_id="doc-1", task_type="summarize")
+    fp2 = compute_request_fingerprint(max_tokens=5000, document_id="doc-1", task_type="summarize")
+    fp3 = compute_request_fingerprint(max_tokens=5001, document_id="doc-1", task_type="summarize")
+    assert fp1 == fp2 and fp1 != fp3
+    assert len(fp1) == 64 and all(c in "0123456789abcdef" for c in fp1)  # SHA-256 hex
 
 
 def test_idempotent_recovery_is_not_an_authz_bypass():
     store = AdmissionStore()
     store.set_budget(TenantBudget("tenant-a", token_limit=10000))
     ms = _memberships()
-    kwargs = dict(idempotency_key="k1", request_fingerprint="fp1", max_tokens=5000, now=NOW,
+    kwargs = dict(idempotency_key="k1", max_tokens=5000, now=NOW,
                   policy=PolicyStore(), store=store, limiter=_limiter())
     admit_job(AuthenticatedIdentity("user-alice"), "tenant-a", memberships=ms, **kwargs)
     ms.remove_membership("user-alice", "tenant-a")  # membership removed after the original create

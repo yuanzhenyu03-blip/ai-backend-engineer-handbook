@@ -22,7 +22,7 @@ REAL FastAPI / proxy / browser (Dependency / CORS / cookie / CSRF / Header / rou
 Provider / Worker / Outbox transport / integration / production                               : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **16 passed**
+Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **22 passed**
 (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). The suite proves APPLICATION CONTROL
 FLOW over an in-memory model; it does not prove PostgreSQL constraints/transactions/isolation, real Redis limiter
 atomics, FastAPI/CORS/route behavior, or production. Day50 evidence is not inherited.
@@ -132,19 +132,28 @@ RETURNING tenant_id;
   One returned row -> reservation succeeds; zero rows -> no reservation and no new command acceptance.
 - Reservation + Job + Outbox dispatch intent commit in ONE short transaction. Failure rolls all three back; otherwise
   ghost reservations or unfunded Jobs appear (`test_rollback_after_reservation_leaves_no_ghost_reservation_or_job`).
-- Reconcile actual Provider usage: move actual cost to `used_tokens` and release the unused reservation. On unknown
-  Provider timeout/usage, do NOT release the reservation — preserve evidence and hold `reconciliation_pending`.
+- Reconcile actual Provider usage safely — never lose a budget fact:
+  - `actual_tokens` is `None` (unknown/timeout): keep the reservation, hold `RECONCILIATION_PENDING`.
+  - `actual_tokens < 0`: reject (`ValueError`); an invalid usage must not mutate any budget.
+  - `actual_tokens <= reserved`: `SETTLED` — record the EXACT actual usage in `used_tokens`, release the remainder.
+  - `actual_tokens > reserved` (**overage**): `OVERAGE_RECONCILIATION_REQUIRED` — do NOT `min()`-truncate and do NOT
+    release the reservation as if settled. Keep the reservation, persist the exact observed actual + a reason
+    (`OverageRecord`), and await a controlled settlement / manual handling. Silently truncating with `min(actual,
+    reserved)` would under-record real cost.
   Day53/54/55 own the concrete Provider/streaming/Worker protocols.
 
 ```text
-reserve_and_create(ctx, key, fingerprint, max_tokens): one guarded critical section
-  same (tenant, key), same fingerprint   -> IDEMPOTENT_REPLAY: original Job, NO second reservation
-  same (tenant, key), changed fingerprint-> FINGERPRINT_CONFLICT (409): no new facts
+reserve_and_create(ctx, key, max_tokens, document_id, task_type): one guarded critical section
+  (the request fingerprint is COMPUTED SERVER-SIDE from the behavior-relevant fields; the caller cannot supply it)
+  same (tenant, key), same SERVER fingerprint    -> IDEMPOTENT_REPLAY: original Job, NO second reservation
+  same (tenant, key), any behavior field changed -> FINGERPRINT_CONFLICT (409): no new facts
   new command, available >= amount       -> reserve + Job + Outbox in ONE tx (fail -> roll all back) -> CREATED
   new command, available <  amount       -> QUOTA_EXCEEDED (zero rows), issue nothing
 reconcile(job_id, actual_tokens):
-  actual known   -> SETTLED (used += actual, release the rest)
-  actual unknown -> RECONCILIATION_PENDING (keep reservation, preserve evidence)
+  actual is None      -> RECONCILIATION_PENDING (keep reservation, preserve evidence)
+  actual < 0          -> ValueError (reject; no budget fact changes)
+  actual <= reserved  -> SETTLED (used += exact actual, release the remainder)
+  actual >  reserved  -> OVERAGE_RECONCILIATION_REQUIRED (keep reservation; record exact observed + reason; NO truncation)
 ```
 
 ---
@@ -155,8 +164,11 @@ The `admit_job` order: **authorize job.create** -> **same-command recovery FIRST
 rate-limit charge; a removed Membership already blocked it at authorization) -> **rate-limit NEW commands only**
 (fail-closed if the limiter is down) -> **guarded reservation + Job + Outbox**.
 
-- Same Tenant + same key + same fingerprint returns the original Job without a second reservation, Job, or Outbox.
-- Same key with changed meaning is 409 and creates no new facts.
+- The request fingerprint is COMPUTED SERVER-SIDE (`compute_request_fingerprint`: canonical JSON of the
+  behavior-relevant fields `max_tokens`/`document_id`/`task_type` -> SHA-256, never Python `hash()`, never a
+  client-asserted value). A caller cannot reuse a key with changed behavior and be handed the old Job.
+- Same Tenant + same key + same SERVER fingerprint returns the original Job without a second reservation, Job, or Outbox.
+- Same key with any changed behavior-relevant field yields a different fingerprint -> 409, no new facts.
 - A separate low read limit can protect recovery lookups.
 - Idempotency is NOT an authz bypass: removed Membership blocks old-Key recovery/read
   (`test_idempotent_recovery_is_not_an_authz_bypass`).
@@ -190,7 +202,8 @@ new commands; optionally rate-limit recovery reads separately.
 | Tenant + owner scoped reads; cross-tenant 404 (no oracle) | RUN (in-memory) | `JobRepository.read_job` predicates |
 | Guarded quota reservation; concurrency single winner | RUN (in-memory) | lock-modeled `UPDATE ... WHERE available >= amt RETURNING` |
 | Atomic Reservation + Job + Outbox; rollback | RUN (in-memory) | injected post-reserve failure leaves no facts |
-| Actual-usage reconcile; unknown-cost retention | RUN (in-memory) | `reconcile` SETTLED vs RECONCILIATION_PENDING |
+| Actual-usage reconcile: settle (<=), overage (>), unknown hold, negative reject | RUN (in-memory) | `reconcile` SETTLED / OVERAGE_RECONCILIATION_REQUIRED / RECONCILIATION_PENDING / ValueError; overage keeps reservation + records exact observed, no truncation |
+| Server-computed request fingerprint (not client-asserted) | RUN (in-memory) | `compute_request_fingerprint` SHA-256 of canonical command; changed max_tokens/document_id/task_type -> 409 |
 | Fail-closed limiter outage (503, not 429); healthy 429 | RUN (in-memory) | `LimiterUnavailable`; token-bucket exhaustion |
 | Idempotent recovery, no second reservation; 409; not an authz bypass | RUN (in-memory) | `admit_job` ordering; removed Membership blocks recovery |
 | Guarded cancel-policy repair; zero rows -> reconcile | RUN (in-memory) | `repair_bad_intent`; retained audit |

@@ -12,7 +12,7 @@ Prerequisite: Day51 — Authentication, Password Security and JWT
 Previous Lesson: Day51 — Authentication, Password Security and JWT
 Next Lesson: Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 Engineering Artifact: projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md
-  + runnable day52_authorization_tenant_quota_security.py + test_day52_authorization_tenant_quota_security.py (in-memory control flow; 16 passed)
+  + runnable day52_authorization_tenant_quota_security.py + test_day52_authorization_tenant_quota_security.py (in-memory control flow; 22 passed)
 ```
 
 Main engineering artifact: a provider-neutral, standard-library-only in-memory model of the Day52 admission boundary,
@@ -325,9 +325,13 @@ secure evidence, and fix (refined below).
 Correct core. Use a guarded `UPDATE tenant_budgets SET reserved_tokens = reserved_tokens + :amount WHERE token_limit -
 used_tokens - reserved_tokens >= :amount RETURNING ...`. One returned row = reservation succeeded (not a credit limit
 "obtained"); zero rows = insufficient budget, so no Job and no Outbox. The Reservation + Job + Outbox intent commit in
-ONE transaction; a failure rolls all three back (no ghost reservation, no unfunded Job). Reconcile actual usage into
-`used_tokens` and release the remainder; on an unknown Provider outcome, do NOT release — hold `reconciliation_pending`
-and preserve evidence.
+ONE transaction; a failure rolls all three back (no ghost reservation, no unfunded Job). Reconcile actual usage
+safely: `actual <= reserved` settles the EXACT actual into `used_tokens` and releases the remainder; an unknown
+Provider outcome holds `reconciliation_pending` (keep the reservation); a negative actual is rejected; and an
+`actual > reserved` **overage** must NOT be `min()`-truncated or released as if settled — it keeps the reservation,
+records the exact observed usage + reason, and returns `OVERAGE_RECONCILIATION_REQUIRED` for controlled settlement, so
+a real cost fact is never lost. (A real system reserves the total billable cost, not only `max_tokens`; Day53's
+Provider adapter owns the estimate/headroom and overage policy.)
 
 ### Engineering Thinking
 
@@ -353,12 +357,16 @@ Membership was removed in between?
 
 ### Student Answer
 
-"返回原job" (same key + same fingerprint returns the original Job); "重试等待时间与指数退避" for 429 recovery.
+"返回原job" (same key + same command returns the original Job); "重试等待时间与指数退避" for 429 recovery. (In the
+model the fingerprint proving "same command" is server-computed, not a value the client sends.)
 
 ### Tech Lead Review
 
 Correct. After current identity + Membership + action authorization: same Tenant + same key + same fingerprint returns
-the original Job with NO second reservation, Job, or Outbox; a changed fingerprint is 409 with no new facts. Crucially,
+the original Job with NO second reservation, Job, or Outbox; a changed behavior-relevant field is 409 with no new
+facts. The fingerprint is COMPUTED SERVER-SIDE (`compute_request_fingerprint`: canonical JSON of the
+behavior-relevant fields `max_tokens`/`document_id`/`task_type` -> SHA-256, never Python `hash()`, never a
+client-asserted value), so a caller cannot reuse a key with a changed `max_tokens` and be handed the old Job. Crucially,
 idempotency is not an authz bypass — a removed Membership blocks old-Key recovery (checked at authorization, before
 recovery). Recommended order: authorize -> same-command tenant-scoped recovery (no new cost, no rate-limit charge) ->
 rate-limit new commands -> reserve + create; optionally rate-limit recovery reads separately (see Misconception 4).
@@ -474,7 +482,7 @@ Run the model:
 
 ```bash
 cd projects/ai-backend-data-layer/api
-python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 16 passed
+python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 22 passed
 ```
 
 ---

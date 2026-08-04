@@ -9,6 +9,50 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.106 — Day52 review (Codex): no silent usage truncation; server-computed request fingerprint
+
+Date: 2026-08-04
+
+Day: Day52 (review fix)
+
+Addresses two Day52 review findings. Scope limited to the Day52 model, tests, and Day52 docs/status descriptions.
+Still an in-memory, standard-library-only control-flow model; no real PostgreSQL / Redis / FastAPI / Provider / Worker
+/ RLS / integration / production runtime is claimed.
+
+### Fixed
+
+- **Fix 1 — reconcile() must not silently truncate real Provider usage.** `AdmissionStore.reconcile` no longer does
+  `settle = min(actual_tokens, reserved)`. It now validates and branches: `actual_tokens < 0` -> `ValueError` (no
+  budget change); `None` -> `RECONCILIATION_PENDING` (keep reservation); `actual <= reserved` -> `SETTLED` (record the
+  EXACT actual in `used_tokens`, release the remainder); `actual > reserved` -> a new
+  `ReconcileState.OVERAGE_RECONCILIATION_REQUIRED` that keeps the reservation and persists an `OverageRecord` (exact
+  observed actual + reason) for controlled settlement — never truncating or releasing as if settled. The design doc
+  adds the Day53 note that a real system reserves the total billable cost (not only `max_tokens`) and the Provider
+  adapter owns the estimate/headroom + overage policy.
+- **Fix 2 — request fingerprint is computed server-side.** `admit_job` / `reserve_and_create` no longer accept a
+  caller-supplied `request_fingerprint`. A new `compute_request_fingerprint` derives it from the behavior-relevant
+  command fields (`max_tokens`, `document_id`, `task_type`) via canonical JSON (sorted keys, fixed separators) + SHA-256
+  (never Python `hash()`). Reusing the same Idempotency-Key with any changed behavior-relevant field now yields a
+  different fingerprint -> `FINGERPRINT_CONFLICT` (409), instead of wrongly returning the old Job.
+
+### Added tests
+
+- Reconcile matrix: `actual < 0` rejected without budget change; `actual < reserved` settles + releases; `actual ==
+  reserved` settles exactly; `actual > reserved` -> overage (reservation kept, exact observed recorded, no truncation);
+  `actual is None` -> reconciliation pending.
+- Server fingerprint: first `CREATED`; identical canonical command -> `IDEMPOTENT_REPLAY`; changed `max_tokens` -> 409;
+  changed `document_id` -> 409; changed `task_type` -> 409; plus a stable-SHA-256 unit check.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **22 passed** (was 16); full
+  `projects/ai-backend-data-layer/api/` suite -> **263 passed** (Python 3.10.12, pytest 7.4.3; standard-library only).
+  Application control flow only. NOT RUN: real PostgreSQL, Redis, FastAPI/proxy/browser, Provider/Worker, RLS,
+  integration, production. Evidence tiers and schema honesty preserved. No real JWT, Provider key, password, prompt,
+  Document content, or user data used or committed.
+
+---
+
 ## v0.1.105 — Day52 Authorization, Tenant Isolation, Quotas and API Security
 
 Date: 2026-08-04
@@ -22,7 +66,7 @@ Lesson title: Authorization, Tenant Isolation, Quotas and API Security
 - `docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md` — the Day52 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving verbatim Chinese/English student answers, the four correction trajectories, and labeling the final Chinese synthesis assistant-assisted (the student asked "你帮我总结吧").
 - `projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md` — design/runbook (authn vs authz, Membership/role/action, AuthorizedTenantContext + tenant/owner scope, safe API boundary, rate limit vs quota vs concurrency, guarded reservation + atomic Reservation+Job+Outbox + reconcile, idempotency ordering, erroneous-cancel-grant repair, evidence matrix, schema honesty).
 - `projects/ai-backend-data-layer/api/day52_authorization_tenant_quota_security.py` — provider-neutral, standard-library-only in-memory model: `authorize` -> `AuthorizedTenantContext`; `JobRepository` tenant/owner-scoped reads (public 404); `TokenBucketRateLimiter` (shared, fail-closed); `AdmissionStore` guarded `UPDATE ... RETURNING` reservation + atomic Reservation+Job+Outbox + rollback + `reconcile`; `admit_job` ordering (authz -> recovery -> rate-limit -> reserve); `CancelIntentLedger` guarded repair.
-- `projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py` — in-memory control-flow tests (16 cases).
+- `projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py` — in-memory control-flow tests (22 cases).
 
 ### Updated
 
@@ -36,10 +80,10 @@ Identity is not authority. A trusted `user_id` (Day51) becomes an `AuthorizedTen
 
 ### Validation
 
-- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **16 passed** (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **257 passed**. Application control flow only.
+- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **22 passed** (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **257 passed**. Application control flow only.
 - Markdown: Day52 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
 - Secrets: no real JWT, Provider key, password, raw prompt, Document content, database URL, or user data used or committed.
-- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL PYTHON IN-MEMORY CONTROL-FLOW RUNTIME (run: 16 passed); NOT RUN: real PostgreSQL (constraint/transaction/isolation/`UPDATE ... RETURNING`/RLS/SQLAlchemy/migration), real Redis (distributed limiter atomics/TTL/failover/multi-process), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker/Outbox transport, integration, production. No separate `py_compile` claim beyond the pytest import. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten. Day53 real Provider, Day54 streaming/cancellation, and Day55 real Celery are not implemented.
+- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL PYTHON IN-MEMORY CONTROL-FLOW RUNTIME (run: 22 passed); NOT RUN: real PostgreSQL (constraint/transaction/isolation/`UPDATE ... RETURNING`/RLS/SQLAlchemy/migration), real Redis (distributed limiter atomics/TTL/failover/multi-process), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker/Outbox transport, integration, production. No separate `py_compile` claim beyond the pytest import. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten. Day53 real Provider, Day54 streaming/cancellation, and Day55 real Celery are not implemented.
 
 ---
 
@@ -465,7 +509,7 @@ Date: 2026-07-31
 
 - **Finding 1 — Backfill could loop forever on unknown ownership.** An unknown-ownership running Job stayed `lease_owner IS NULL`, so it re-matched the candidate query every batch and the default `max_batches=None` never terminated. Fix: the Expand revision (`0002_expand_lease`) now also adds a **nullable `lease_backfill_state` reconciliation marker** (no fabricated default, plus a `CHECK ... NOT VALID` restricting it to `'reconcile'`), the backfill candidate query excludes routed rows (`AND lease_backfill_state IS NULL`), and `day48_lease_backfill.py` gains `route_to_reconciliation()` — a guarded, idempotent `UPDATE ... SET lease_backfill_state='reconcile' WHERE running AND lease_owner IS NULL AND lease_backfill_state IS NULL RETURNING` that **persists** the unknown state **without fabricating any Lease owner/token/expiry**. Because a proved Job gets `lease_owner` and an unknown Job gets the marker, every selected Job leaves the candidate set, so the loop **terminates** and a **restart** never re-selects it (the database state is the durable checkpoint). The report field was renamed `skipped_unknown` -> `routed_to_reconciliation`.
 - **Finding 2 — DB URL override claim now matches the implementation.** `alembic.ini` claimed a `-x db_url=` / env-var override but `env.py` only read `sqlalchemy.url`. Fix: `env.py` now resolves the URL by explicit priority — **`alembic -x db_url=<url>` > env `DAY48_ALEMBIC_DATABASE_URL` > `alembic.ini` `sqlalchemy.url`** (a non-credential offline-render placeholder, documented as such and never a production connection). `env.py` is now import-safe (its migration block is skipped outside an Alembic run) so the pure `resolve_database_url()` is unit-testable, and the offline `--sql` render still works and still never connects.
-- These fixes grew the static/offline suite from 10 to **16** (`pytest -q test_day48_alembic.py` -> 16 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3) and the offline `alembic upgrade --sql` still renders the Expand/Validate/Contract DDL. New tests cover: backfill termination when all candidates are unknown; unknown Jobs persisted to reconciliation without fabrication; restart does not re-select a routed Job; known-evidence Jobs still backfill; `route_to_reconciliation` idempotency; and the `-x db_url` > env > ini resolution priority with the placeholder documented offline-only. **PostgreSQL runtime remains NOT RUN** (static/offline + fake-session control flow are not PostgreSQL evidence).
+- These fixes grew the static/offline suite from 10 to **16** (`pytest -q test_day48_alembic.py` -> 22 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3) and the offline `alembic upgrade --sql` still renders the Expand/Validate/Contract DDL. New tests cover: backfill termination when all candidates are unknown; unknown Jobs persisted to reconciliation without fabrication; restart does not re-select a routed Job; known-evidence Jobs still backfill; `route_to_reconciliation` idempotency; and the `-x db_url` > env > ini resolution priority with the placeholder documented offline-only. **PostgreSQL runtime remains NOT RUN** (static/offline + fake-session control flow are not PostgreSQL evidence).
 
 ### Review fix — round 2 (2026-07-31)
 

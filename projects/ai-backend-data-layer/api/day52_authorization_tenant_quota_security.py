@@ -27,6 +27,8 @@ Standard library only (no external dependencies).
 
 from __future__ import annotations
 
+import hashlib
+import json
 import threading
 import uuid
 from dataclasses import dataclass, field
@@ -180,9 +182,25 @@ class Job:
     tenant_id: str
     created_by_user_id: str
     idempotency_key: str
-    request_fingerprint: str
+    request_fingerprint: str  # SERVER-computed evidence (never a client-asserted value)
     max_tokens: int
+    document_id: Optional[str] = None
+    task_type: str = "default"
     status: JobStatus = JobStatus.QUEUED
+
+
+def compute_request_fingerprint(*, max_tokens: int, document_id: Optional[str], task_type: str) -> str:
+    """SERVER-side fingerprint = evidence that the behavior-relevant command did not change.
+    The client supplies the Idempotency-Key (the command's identity); it may NOT supply the
+    fingerprint. We canonicalize the behavior-relevant fields (stable JSON: sorted keys,
+    fixed separators) and hash with SHA-256 — never Python's non-stable ``hash()``. If a
+    caller reuses the same key but changes any behavior-relevant field (e.g. ``max_tokens``,
+    ``document_id``, ``task_type``), the fingerprint differs and admission is a 409."""
+    canonical = json.dumps(
+        {"max_tokens": max_tokens, "document_id": document_id, "task_type": task_type},
+        sort_keys=True, separators=(",", ":"), ensure_ascii=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class JobRepository:
@@ -249,7 +267,7 @@ class TokenBucketRateLimiter:
 # ===========================================================================
 class AdmissionOutcome(str, Enum):
     CREATED = "created"                    # new command admitted: reserved + Job + Outbox
-    IDEMPOTENT_REPLAY = "idempotent_replay"  # same tenant+key+fingerprint -> original Job, no new cost
+    IDEMPOTENT_REPLAY = "idempotent_replay"  # same tenant+key+SERVER fingerprint -> original Job, no new cost
     FINGERPRINT_CONFLICT = "conflict"     # same key, changed meaning -> 409, no new facts
     QUOTA_EXCEEDED = "quota_exceeded"     # guarded reservation returned zero rows
     RATE_LIMITED = "rate_limited"         # healthy limiter said no -> 429
@@ -279,8 +297,23 @@ class AdmissionResult:
 
 
 class ReconcileState(str, Enum):
-    SETTLED = "settled"                       # actual usage known: moved to used, remainder released
+    SETTLED = "settled"                       # actual <= reserved: moved to used, remainder released
     RECONCILIATION_PENDING = "reconciliation_pending"  # unknown Provider outcome: reservation retained
+    OVERAGE_RECONCILIATION_REQUIRED = "overage_reconciliation_required"  # actual > reserved: keep reservation, record observed, await controlled settlement
+
+
+@dataclass(frozen=True)
+class OverageRecord:
+    """Audit-safe record of a reconciliation where the Provider reported MORE usage than was
+    reserved. The exact observed actual is preserved (never truncated) and the reservation is
+    retained until a controlled settlement decides how to fund the overage — the budget fact
+    is never silently lost."""
+
+    job_id: str
+    tenant_id: str
+    reserved_tokens: int
+    observed_actual_tokens: int
+    reason: str
 
 
 class AdmissionStore:
@@ -294,6 +327,8 @@ class AdmissionStore:
         self._by_idem: dict[tuple[str, str], str] = {}  # (tenant_id, key) -> job_id
         self.outbox: list[dict] = []
         self._reservations: dict[str, int] = {}  # job_id -> reserved amount (for reconcile)
+        self._observed_usage: dict[str, int] = {}  # job_id -> observed actual tokens (audit)
+        self.overages: dict[str, OverageRecord] = {}  # job_id -> overage awaiting controlled settlement
         self._lock = threading.Lock()
 
     def set_budget(self, budget: TenantBudget) -> None:
@@ -304,19 +339,27 @@ class AdmissionStore:
         ctx: AuthorizedTenantContext,
         *,
         idempotency_key: str,
-        request_fingerprint: str,
         max_tokens: int,
         now: datetime,
+        document_id: Optional[str] = None,
+        task_type: str = "default",
         fail_after_reserve: bool = False,
     ) -> AdmissionResult:
-        """Idempotency runs AFTER authorization (the caller authorized job.create). Then:
-          * same (tenant, key): matching fingerprint -> original Job, NO second reservation;
-            changed fingerprint -> 409, no new facts (not an authz bypass).
+        """Idempotency runs AFTER authorization (the caller authorized job.create). The
+        request fingerprint is COMPUTED SERVER-SIDE from the behavior-relevant command
+        fields (never accepted from the caller). Then:
+          * same (tenant, key): matching SERVER fingerprint -> original Job, NO second
+            reservation; a changed behavior-relevant field (max_tokens/document_id/task_type)
+            yields a different fingerprint -> 409, no new facts (not an authz bypass).
           * new command: guarded reservation; one returned row -> reserve + Job + Outbox in
             ONE transaction (a failure rolls ALL back — no ghost reservation, no unfunded
             Job); zero rows -> QUOTA_EXCEEDED, nothing created."""
         if max_tokens <= 0:
             raise ValueError("max_tokens must be positive")  # validate per-Job cost bound
+        # SERVER-computed evidence; a client cannot assert a fingerprint to force a replay.
+        request_fingerprint = compute_request_fingerprint(
+            max_tokens=max_tokens, document_id=document_id, task_type=task_type
+        )
         with self._lock:
             existing_id = self._by_idem.get((ctx.tenant_id, idempotency_key))
             if existing_id is not None:
@@ -325,7 +368,7 @@ class AdmissionStore:
                     return AdmissionResult(AdmissionOutcome.IDEMPOTENT_REPLAY, job=job,
                                            reason="same command replay; no second reservation")
                 return AdmissionResult(AdmissionOutcome.FINGERPRINT_CONFLICT,
-                                       reason="same key, changed fingerprint")
+                                       reason="same key, changed behavior-relevant command")
 
             budget = self.budgets.get(ctx.tenant_id)
             # Guarded reservation: the WHERE predicate is the single-winner arbiter.
@@ -341,7 +384,7 @@ class AdmissionStore:
             job = Job(
                 job_id=str(uuid.uuid4()), tenant_id=ctx.tenant_id, created_by_user_id=ctx.user_id,
                 idempotency_key=idempotency_key, request_fingerprint=request_fingerprint,
-                max_tokens=max_tokens,
+                max_tokens=max_tokens, document_id=document_id, task_type=task_type,
             )
             self.jobs[job.job_id] = job
             self._by_idem[(ctx.tenant_id, idempotency_key)] = job.job_id
@@ -353,16 +396,36 @@ class AdmissionStore:
             return AdmissionResult(AdmissionOutcome.CREATED, job=job, reason="reserved + Job + Outbox committed")
 
     def reconcile(self, job_id: str, *, actual_tokens: Optional[int]) -> ReconcileState:
-        """Settle a reservation against real Provider usage. Unknown outcome (timeout) does
-        NOT release the reservation — preserve evidence and hold reconciliation_pending."""
+        """Settle a reservation against real Provider usage. Cases:
+          * actual_tokens is None (unknown/timeout) -> keep the reservation, hold
+            RECONCILIATION_PENDING (preserve evidence).
+          * actual_tokens < 0 -> reject (ValueError); a negative usage is not a valid fact and
+            must not mutate any budget.
+          * actual_tokens <= reserved -> SETTLED: record the exact actual usage in used_tokens
+            and release the unused remainder.
+          * actual_tokens > reserved -> OVERAGE_RECONCILIATION_REQUIRED: the Provider spent
+            MORE than was reserved. NEVER min()-truncate and NEVER release the reservation as
+            if settled. Keep the reservation, persist the exact observed actual + a reason, and
+            wait for a controlled settlement / manual handling — the budget fact is never lost."""
+        if actual_tokens is not None and actual_tokens < 0:
+            raise ValueError("actual_tokens must not be negative")  # invalid fact; no budget change
         with self._lock:
             reserved = self._reservations.get(job_id, 0)
             budget = self.budgets[self.jobs[job_id].tenant_id]
             if actual_tokens is None:
                 return ReconcileState.RECONCILIATION_PENDING  # keep reservation; evidence retained
-            settle = min(actual_tokens, reserved)
-            budget.reserved_tokens -= reserved       # release the whole reservation hold...
-            budget.used_tokens += settle             # ...and record only the actual usage
+            self._observed_usage[job_id] = actual_tokens  # record exact observed usage (audit)
+            if actual_tokens > reserved:
+                # Overage: do NOT truncate, do NOT release. Retain reservation + record evidence.
+                self.overages[job_id] = OverageRecord(
+                    job_id=job_id, tenant_id=budget.tenant_id, reserved_tokens=reserved,
+                    observed_actual_tokens=actual_tokens,
+                    reason="provider actual usage exceeded the reserved amount",
+                )
+                return ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+            # actual_tokens <= reserved: settle the exact actual, release the remainder.
+            budget.reserved_tokens -= reserved
+            budget.used_tokens += actual_tokens
             self._reservations[job_id] = 0
             return ReconcileState.SETTLED
 
@@ -372,13 +435,14 @@ def admit_job(
     requested_tenant_id: str,
     *,
     idempotency_key: str,
-    request_fingerprint: str,
     max_tokens: int,
     now: datetime,
     memberships: MembershipDirectory,
     policy: PolicyStore,
     store: AdmissionStore,
     limiter: TokenBucketRateLimiter,
+    document_id: Optional[str] = None,
+    task_type: str = "default",
     fail_after_reserve: bool = False,
 ) -> AdmissionResult:
     """The Day52 admission boundary in order:
@@ -387,6 +451,9 @@ def admit_job(
          — protects a lost-202 retry; removed Membership already blocked it at step 1;
       3. only a NEW command is rate-limited (fail-closed if the limiter is down);
       4. guarded quota reservation + Job + Outbox committed atomically.
+    The request fingerprint is COMPUTED SERVER-SIDE from the behavior-relevant command
+    fields (max_tokens/document_id/task_type); the caller never supplies it, so it cannot
+    reuse a key with changed behavior and be handed the old Job.
     """
     ctx = authorize(identity, requested_tenant_id, "job.create", memberships=memberships, policy=policy)
 
@@ -394,8 +461,8 @@ def admit_job(
     existing_id = store._by_idem.get((ctx.tenant_id, idempotency_key))
     if existing_id is not None:
         return store.reserve_and_create(
-            ctx, idempotency_key=idempotency_key, request_fingerprint=request_fingerprint,
-            max_tokens=max_tokens, now=now,
+            ctx, idempotency_key=idempotency_key, max_tokens=max_tokens, now=now,
+            document_id=document_id, task_type=task_type,
         )
 
     # Step 3: rate-limit new commands only. Limiter outage on a paid path -> fail closed.
@@ -404,8 +471,8 @@ def admit_job(
 
     # Step 4: guarded reservation + Job + Outbox.
     return store.reserve_and_create(
-        ctx, idempotency_key=idempotency_key, request_fingerprint=request_fingerprint,
-        max_tokens=max_tokens, now=now, fail_after_reserve=fail_after_reserve,
+        ctx, idempotency_key=idempotency_key, max_tokens=max_tokens, now=now,
+        document_id=document_id, task_type=task_type, fail_after_reserve=fail_after_reserve,
     )
 
 
