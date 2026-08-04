@@ -22,7 +22,7 @@ REAL FastAPI / proxy / browser (Dependency / CORS / cookie / CSRF / Header / rou
 Provider / Worker / Outbox transport / integration / production                               : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **27 passed**
+Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **32 passed**
 (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). The suite proves APPLICATION CONTROL
 FLOW over an in-memory model; it does not prove PostgreSQL constraints/transactions/isolation, real Redis limiter
 atomics, FastAPI/CORS/route behavior, or production. Day50 evidence is not inherited.
@@ -147,9 +147,15 @@ RETURNING tenant_id;
     `RECONCILIATION_CONFLICT` — it does NOT re-settle or fabricate an overage, and the existing facts + audit are
     preserved.
   - Already `OVERAGE_RECONCILIATION_REQUIRED` (terminal for a plain reconcile): any plain reconcile (repeat, larger, or
-    smaller) is a no-op that stays in overage. Only the explicit, controlled `settle_overage(job_id)` flow may fund the
-    overage (move the exact observed usage to `used_tokens`, release the original reservation, mark `SETTLED`); the
-    `OverageRecord` is retained as audit evidence.
+    smaller) is a no-op that stays in overage. Only the explicit, controlled `settle_overage(job_id, *,
+    granted_extra_tokens=0)` flow may change the final budget fact — and it NEVER bypasses the hard quota. It charges
+    the full observed usage to `used_tokens` ONLY when the settlement keeps `available >= 0` (i.e. the tenant still has
+    headroom, or a trusted `granted_extra_tokens` credit covers the shortfall in the SAME atomic step); otherwise it
+    makes no budget change and stays `OVERAGE_RECONCILIATION_REQUIRED`, awaiting external top-up / manual
+    reconciliation. `granted_extra_tokens` is a TRUSTED accounting/operations-approved budget top-up (from a
+    billing/ops boundary), NOT a client-supplied field; it is applied to `token_limit` exactly once and the settlement
+    is idempotent (no double credit / double charge / double release). The `OverageRecord`, the exact Provider usage,
+    and the granted credit are all retained as audit evidence — the real cost is never disguised as un-spent.
   Day53/54/55 own the concrete Provider/streaming/Worker protocols.
 
 ```text
@@ -170,8 +176,11 @@ reconcile(job_id, actual_tokens): IDEMPOTENT via per-job lifecycle status
     different actual     -> RECONCILIATION_CONFLICT (no re-settle, no fake overage; facts + audit preserved)
   status OVERAGE_RECONCILIATION_REQUIRED (terminal for plain reconcile):
     any plain reconcile -> OVERAGE_RECONCILIATION_REQUIRED (no-op)
-settle_overage(job_id): the ONLY controlled path that funds an overage
-  -> used += exact observed usage, release original reservation, mark SETTLED (OverageRecord retained)
+settle_overage(job_id, granted_extra_tokens=0): the ONLY controlled path that changes an overage's budget fact
+  -> NEVER bypasses the hard quota: settles the FULL observed usage to SETTLED only if available stays >= 0
+     (existing headroom, or a TRUSTED ops/accounting credit covers the shortfall in the same atomic step)
+  -> unfunded -> no budget change, stay OVERAGE_RECONCILIATION_REQUIRED (never negative available)
+  -> idempotent (no double credit / charge / release); OverageRecord + exact usage + granted credit retained
 ```
 
 ---
@@ -222,6 +231,7 @@ new commands; optionally rate-limit recovery reads separately.
 | Atomic Reservation + Job + Outbox; rollback | RUN (in-memory) | injected post-reserve failure leaves no facts |
 | Actual-usage reconcile: settle (<=), overage (>), unknown hold, negative reject | RUN (in-memory) | `reconcile` SETTLED / OVERAGE_RECONCILIATION_REQUIRED / RECONCILIATION_PENDING / ValueError; overage keeps reservation + records exact observed, no truncation |
 | Idempotent reconcile (at-least-once callbacks): repeat-same no-op, different-actual conflict, no overage bypass | RUN (in-memory) | per-job lifecycle status; repeat same -> SETTLED no-op; different after settle -> RECONCILIATION_CONFLICT; post-overage plain reconcile stays overage; `settle_overage` is the only funding path |
+| Overage settlement never bypasses the hard quota | RUN (in-memory) | `settle_overage` settles the full actual only when `available >= 0` (headroom or trusted `granted_extra_tokens` credit); unfunded stays OVERAGE with no negative `available`; funded is idempotent; credit is a trusted ops field, not client input |
 | Server-computed request fingerprint (not client-asserted) | RUN (in-memory) | `compute_request_fingerprint` SHA-256 of canonical command; changed max_tokens/document_id/task_type -> 409 |
 | Fail-closed limiter outage (503, not 429); healthy 429 | RUN (in-memory) | `LimiterUnavailable`; token-bucket exhaustion |
 | Idempotent recovery, no second reservation; 409; not an authz bypass | RUN (in-memory) | `admit_job` ordering; removed Membership blocks recovery |

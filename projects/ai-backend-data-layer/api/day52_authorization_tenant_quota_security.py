@@ -338,6 +338,7 @@ class AdmissionStore:
         # redeliver, so a repeat callback must not change a completed settlement fact.
         self._reconcile_status: dict[str, ReconcileState] = {}
         self._settled_actual: dict[str, int] = {}  # job_id -> the actual recorded at SETTLED
+        self._overage_credits: dict[str, int] = {}  # job_id -> trusted extra credit that funded an overage (audit)
         self._lock = threading.Lock()
 
     def set_budget(self, budget: TenantBudget) -> None:
@@ -466,25 +467,51 @@ class AdmissionStore:
             self._reconcile_status[job_id] = ReconcileState.SETTLED
             return ReconcileState.SETTLED
 
-    def settle_overage(self, job_id: str) -> ReconcileState:
+    def settle_overage(self, job_id: str, *, granted_extra_tokens: int = 0) -> ReconcileState:
         """The EXPLICIT, controlled overage-settlement flow — the ONLY path that may fund an
-        overage and change the final budget fact. Moves the exact observed usage into
-        used_tokens, releases the original reservation, and marks the job SETTLED. The
-        OverageRecord is RETAINED as audit evidence. A no-op (returns the current status) if
-        the job is not awaiting an overage settlement. A real system would gate this on an
-        explicit approval / funding decision; the in-memory model funds the full observed
-        usage."""
+        overage and change the final budget fact. It NEVER bypasses the hard quota: the full
+        observed usage is charged to used_tokens ONLY when confirmed extra budget/credit covers
+        the shortfall in the SAME atomic step, so ``available`` can never go negative.
+
+        ``granted_extra_tokens`` is a TRUSTED accounting/operations-approved credit (a budget
+        top-up), NOT a client-supplied field — it must originate from a billing/ops approval
+        boundary, never from request input. It is applied to ``token_limit`` exactly once.
+
+        Behaviour:
+          * job not awaiting an overage -> no-op, returns the current status (idempotent: a job
+            already SETTLED by a prior funded call is not re-charged / re-credited / re-released).
+          * ``granted_extra_tokens < 0`` -> ValueError; no budget change.
+          * FUNDED (prospective ``available`` >= 0) -> apply the credit, charge the FULL observed
+            usage to ``used_tokens``, release the original reservation, mark SETTLED. The
+            OverageRecord + the granted credit are RETAINED as audit evidence.
+          * UNFUNDED (prospective ``available`` < 0) -> NO budget mutation; stay
+            OVERAGE_RECONCILIATION_REQUIRED awaiting external top-up / manual reconciliation. The
+            exact Provider usage stays a preserved audit fact; ``available`` never goes negative."""
+        if granted_extra_tokens < 0:
+            raise ValueError("granted_extra_tokens must not be negative")  # invalid credit; no change
         with self._lock:
             if self._reconcile_status.get(job_id) is not ReconcileState.OVERAGE_RECONCILIATION_REQUIRED:
-                return self._reconcile_status.get(job_id, ReconcileState.RESERVED)  # nothing to settle
+                return self._reconcile_status.get(job_id, ReconcileState.RESERVED)  # nothing to settle (idempotent)
             rec = self.overages[job_id]
             budget = self.budgets[rec.tenant_id]
-            budget.reserved_tokens -= rec.reserved_tokens          # release the original hold
-            budget.used_tokens += rec.observed_actual_tokens       # fund the FULL observed usage
+            # Prospective available if we apply the credit, charge the full actual, and release this hold.
+            prospective_available = (
+                (budget.token_limit + granted_extra_tokens)
+                - (budget.used_tokens + rec.observed_actual_tokens)
+                - (budget.reserved_tokens - rec.reserved_tokens)
+            )
+            if prospective_available < 0:
+                # Unfunded: do NOT bypass the hard quota. No mutation; keep the overage state.
+                return ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+            # Funded: apply the trusted top-up + settle the full observed usage, atomically, ONCE.
+            budget.token_limit += granted_extra_tokens        # trusted approved credit
+            budget.reserved_tokens -= rec.reserved_tokens     # release the original hold
+            budget.used_tokens += rec.observed_actual_tokens  # charge the FULL observed usage (no truncation)
             self._reservations[job_id] = 0
             self._settled_actual[job_id] = rec.observed_actual_tokens
+            self._overage_credits[job_id] = granted_extra_tokens  # audit: credit that funded the overage
             self._reconcile_status[job_id] = ReconcileState.SETTLED
-            return ReconcileState.SETTLED  # OverageRecord retained for audit
+            return ReconcileState.SETTLED  # OverageRecord + granted credit retained for audit
 
 
 def admit_job(

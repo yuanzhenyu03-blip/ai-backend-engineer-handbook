@@ -12,7 +12,7 @@ Prerequisite: Day51 — Authentication, Password Security and JWT
 Previous Lesson: Day51 — Authentication, Password Security and JWT
 Next Lesson: Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 Engineering Artifact: projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md
-  + runnable day52_authorization_tenant_quota_security.py + test_day52_authorization_tenant_quota_security.py (in-memory control flow; 27 passed)
+  + runnable day52_authorization_tenant_quota_security.py + test_day52_authorization_tenant_quota_security.py (in-memory control flow; 32 passed)
 ```
 
 Main engineering artifact: a provider-neutral, standard-library-only in-memory model of the Day52 admission boundary,
@@ -333,9 +333,14 @@ records the exact observed usage + reason, and returns `OVERAGE_RECONCILIATION_R
 a real cost fact is never lost. Reconciliation is also **idempotent**: Provider callbacks/polling/recovery are
 at-least-once, so a per-job lifecycle status (`RESERVED -> {PENDING} -> SETTLED | OVERAGE_RECONCILIATION_REQUIRED`)
 makes a repeat callback with the same actual a no-op, a different actual after settlement a `RECONCILIATION_CONFLICT`
-(never a re-settle or a fake overage), and a post-overage plain reconcile a no-op — only the explicit
-`settle_overage` flow funds an overage. (A real system reserves the total billable cost, not only `max_tokens`;
-Day53's Provider adapter owns the estimate/headroom and overage policy.)
+(never a re-settle or a fake overage), and a post-overage plain reconcile a no-op. Only the explicit
+`settle_overage(job_id, granted_extra_tokens=0)` flow may change an overage's budget fact, and it **never bypasses the
+hard quota**: it charges the full observed usage to `used_tokens` only when `available` stays `>= 0` — i.e. the tenant
+has headroom, or a TRUSTED accounting/ops-approved credit (`granted_extra_tokens`, from a billing/ops boundary, never a
+client field) covers the shortfall in the same atomic step — otherwise it makes no change and stays
+`OVERAGE_RECONCILIATION_REQUIRED` awaiting a top-up. The exact Provider usage stays a preserved audit fact; it is never
+disguised as un-spent, and `available` is never driven negative. (A real system reserves the total billable cost, not
+only `max_tokens`; Day53's Provider adapter owns the estimate/headroom and overage policy.)
 
 ### Engineering Thinking
 
@@ -486,7 +491,7 @@ Run the model:
 
 ```bash
 cd projects/ai-backend-data-layer/api
-python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 27 passed
+python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 32 passed
 ```
 
 ---

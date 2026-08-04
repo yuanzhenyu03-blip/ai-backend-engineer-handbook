@@ -262,20 +262,86 @@ def test_reconcile_after_overage_does_not_bypass_to_settled():
     assert store.overages[jid].observed_actual_tokens == 6000  # original evidence intact
 
 
-def test_settle_overage_is_the_only_controlled_path_and_is_idempotent():
+def test_settle_overage_with_existing_headroom_settles_and_is_idempotent():
+    # token_limit 10000 with a single 5000 reservation -> the 6000 actual fits within the
+    # tenant's remaining budget headroom, so no extra credit is needed and available stays >= 0.
     store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
     jid = _admit_5000(store, _memberships()).job.job_id
     store.reconcile(jid, actual_tokens=6000)  # -> OVERAGE_RECONCILIATION_REQUIRED
-    # Explicit controlled settlement funds the FULL observed usage and releases the reservation.
     assert store.settle_overage(jid) is ReconcileState.SETTLED
     b = store.budgets["tenant-a"]
-    assert b.used_tokens == 6000 and b.reserved_tokens == 0   # overage funded from budget
+    assert b.used_tokens == 6000 and b.reserved_tokens == 0 and b.available == 4000  # never negative
     assert jid in store.overages                              # audit evidence retained
     # After controlled settlement, a plain reconcile is idempotent for the settled actual...
     assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.SETTLED
     # ...and a different actual is a conflict, not a re-settle.
     assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.RECONCILIATION_CONFLICT
     assert b.used_tokens == 6000 and b.reserved_tokens == 0   # unchanged
+
+
+def _admit_overage_at_hard_limit():
+    # token_limit == the single reservation (5000) -> a 6000 actual is a true overage with
+    # NO remaining budget headroom to absorb it.
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=5000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+    return store, jid
+
+
+def test_settle_overage_unfunded_does_not_bypass_hard_quota():
+    store, jid = _admit_overage_at_hard_limit()
+    # No approved extra credit -> settlement must NOT charge the overage and must NOT report SETTLED.
+    assert store.settle_overage(jid) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+    b = store.budgets["tenant-a"]
+    assert b.available == 0 and b.available >= 0     # hard quota not bypassed; never negative
+    assert b.used_tokens == 0 and b.reserved_tokens == 5000  # no charge, reservation retained
+    assert store.overages[jid].observed_actual_tokens == 6000  # exact Provider usage preserved as audit fact
+    assert jid not in store._overage_credits
+
+
+def test_settle_overage_with_trusted_credit_settles_full_actual_and_keeps_audit():
+    store, jid = _admit_overage_at_hard_limit()
+    # A trusted accounting/ops-approved top-up (NOT a client field) covers the 1000 shortfall.
+    assert store.settle_overage(jid, granted_extra_tokens=1000) is ReconcileState.SETTLED
+    b = store.budgets["tenant-a"]
+    assert b.token_limit == 6000 and b.used_tokens == 6000 and b.reserved_tokens == 0
+    assert b.available == 0 and b.available >= 0     # full actual funded; never negative
+    assert store.overages[jid].observed_actual_tokens == 6000  # overage audit retained
+    assert store._overage_credits[jid] == 1000                 # granted credit retained (audit)
+
+
+def test_settle_overage_partial_credit_stays_unfunded_until_enough():
+    store, jid = _admit_overage_at_hard_limit()
+    # 500 < the 1000 shortfall -> still unfunded, no mutation, no negative available.
+    assert store.settle_overage(jid, granted_extra_tokens=500) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+    b = store.budgets["tenant-a"]
+    assert b.token_limit == 5000 and b.used_tokens == 0 and b.reserved_tokens == 5000 and b.available == 0
+    # A sufficient credit then settles exactly once.
+    assert store.settle_overage(jid, granted_extra_tokens=1000) is ReconcileState.SETTLED
+    assert b.token_limit == 6000 and b.used_tokens == 6000 and b.available == 0
+
+
+def test_settle_overage_funded_is_idempotent_no_double_charge_or_credit():
+    store, jid = _admit_overage_at_hard_limit()
+    assert store.settle_overage(jid, granted_extra_tokens=1000) is ReconcileState.SETTLED
+    b = store.budgets["tenant-a"]
+    snapshot = (b.token_limit, b.used_tokens, b.reserved_tokens, store._overage_credits[jid])
+    # A repeat controlled settlement is a no-op: no double credit, no double charge, no double release.
+    assert store.settle_overage(jid, granted_extra_tokens=1000) is ReconcileState.SETTLED
+    assert (b.token_limit, b.used_tokens, b.reserved_tokens, store._overage_credits[jid]) == snapshot
+    # Plain reconcile stays idempotent for the settled actual; a different actual is a conflict.
+    assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.SETTLED
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.RECONCILIATION_CONFLICT
+    assert (b.token_limit, b.used_tokens, b.reserved_tokens) == (6000, 6000, 0)
+
+
+def test_settle_overage_negative_credit_is_rejected():
+    store, jid = _admit_overage_at_hard_limit()
+    with pytest.raises(ValueError):
+        store.settle_overage(jid, granted_extra_tokens=-1)
+    b = store.budgets["tenant-a"]
+    assert b.token_limit == 5000 and b.used_tokens == 0 and b.reserved_tokens == 5000  # no change
+    assert store._reconcile_status[jid] is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
 
 
 def test_repeat_unknown_pending_callbacks_do_not_break_reservation():
