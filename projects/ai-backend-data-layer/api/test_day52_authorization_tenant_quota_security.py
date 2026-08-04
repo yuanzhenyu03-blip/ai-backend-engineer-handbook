@@ -226,6 +226,71 @@ def test_reconcile_actual_above_reserved_requires_overage_no_truncation_no_relea
     assert store._observed_usage[jid] == 6000 and rec.reason
 
 
+def test_reconcile_is_idempotent_for_repeat_same_actual_after_settled():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.SETTLED  # (a) first
+    b = store.budgets["tenant-a"]
+    before = (b.used_tokens, b.reserved_tokens, dict(store.overages))
+    # (b) at-least-once redelivery of the SAME actual -> idempotent no-op, no budget change.
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.SETTLED
+    assert (b.used_tokens, b.reserved_tokens, dict(store.overages)) == before
+    assert b.used_tokens == 3000 and b.reserved_tokens == 0 and jid not in store.overages
+
+
+def test_reconcile_different_actual_after_settled_is_conflict_not_resettle_or_overage():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.SETTLED
+    # (c) a DIFFERENT actual after settlement -> conflict; no re-settle, no fake overage.
+    assert store.reconcile(jid, actual_tokens=4000) is ReconcileState.RECONCILIATION_CONFLICT
+    b = store.budgets["tenant-a"]
+    assert b.used_tokens == 3000 and b.reserved_tokens == 0  # existing settlement fact preserved
+    assert jid not in store.overages                          # no fabricated overage
+    assert store._settled_actual[jid] == 3000                 # audit of the original settlement
+
+
+def test_reconcile_after_overage_does_not_bypass_to_settled():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED  # (d)
+    # (e) further plain reconciles (repeat 6000, or a smaller 3000) never bypass overage to settle.
+    assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
+    b = store.budgets["tenant-a"]
+    assert b.reserved_tokens == 5000 and b.used_tokens == 0   # no plain reconcile changed the facts
+    assert store.overages[jid].observed_actual_tokens == 6000  # original evidence intact
+
+
+def test_settle_overage_is_the_only_controlled_path_and_is_idempotent():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    store.reconcile(jid, actual_tokens=6000)  # -> OVERAGE_RECONCILIATION_REQUIRED
+    # Explicit controlled settlement funds the FULL observed usage and releases the reservation.
+    assert store.settle_overage(jid) is ReconcileState.SETTLED
+    b = store.budgets["tenant-a"]
+    assert b.used_tokens == 6000 and b.reserved_tokens == 0   # overage funded from budget
+    assert jid in store.overages                              # audit evidence retained
+    # After controlled settlement, a plain reconcile is idempotent for the settled actual...
+    assert store.reconcile(jid, actual_tokens=6000) is ReconcileState.SETTLED
+    # ...and a different actual is a conflict, not a re-settle.
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.RECONCILIATION_CONFLICT
+    assert b.used_tokens == 6000 and b.reserved_tokens == 0   # unchanged
+
+
+def test_repeat_unknown_pending_callbacks_do_not_break_reservation():
+    store = AdmissionStore(); store.set_budget(TenantBudget("tenant-a", token_limit=10000))
+    jid = _admit_5000(store, _memberships()).job.job_id
+    # (f) repeated unknown/pending callbacks keep the reservation intact and stay pending.
+    assert store.reconcile(jid, actual_tokens=None) is ReconcileState.RECONCILIATION_PENDING
+    assert store.reconcile(jid, actual_tokens=None) is ReconcileState.RECONCILIATION_PENDING
+    assert store.budgets["tenant-a"].reserved_tokens == 5000 and jid not in store.overages
+    # A later known actual still settles correctly after pending redeliveries.
+    assert store.reconcile(jid, actual_tokens=3000) is ReconcileState.SETTLED
+    b = store.budgets["tenant-a"]
+    assert b.used_tokens == 3000 and b.reserved_tokens == 0
+
+
 # ===========================================================================
 # 4. Rate limiting: fail-closed outage; healthy-limiter 429
 # ===========================================================================

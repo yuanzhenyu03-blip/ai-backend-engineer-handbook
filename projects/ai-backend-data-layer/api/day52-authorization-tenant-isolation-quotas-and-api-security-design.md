@@ -22,7 +22,7 @@ REAL FastAPI / proxy / browser (Dependency / CORS / cookie / CSRF / Header / rou
 Provider / Worker / Outbox transport / integration / production                               : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **22 passed**
+Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **27 passed**
 (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). The suite proves APPLICATION CONTROL
 FLOW over an in-memory model; it does not prove PostgreSQL constraints/transactions/isolation, real Redis limiter
 atomics, FastAPI/CORS/route behavior, or production. Day50 evidence is not inherited.
@@ -132,14 +132,24 @@ RETURNING tenant_id;
   One returned row -> reservation succeeds; zero rows -> no reservation and no new command acceptance.
 - Reservation + Job + Outbox dispatch intent commit in ONE short transaction. Failure rolls all three back; otherwise
   ghost reservations or unfunded Jobs appear (`test_rollback_after_reservation_leaves_no_ghost_reservation_or_job`).
-- Reconcile actual Provider usage safely — never lose a budget fact:
-  - `actual_tokens` is `None` (unknown/timeout): keep the reservation, hold `RECONCILIATION_PENDING`.
-  - `actual_tokens < 0`: reject (`ValueError`); an invalid usage must not mutate any budget.
-  - `actual_tokens <= reserved`: `SETTLED` — record the EXACT actual usage in `used_tokens`, release the remainder.
-  - `actual_tokens > reserved` (**overage**): `OVERAGE_RECONCILIATION_REQUIRED` — do NOT `min()`-truncate and do NOT
-    release the reservation as if settled. Keep the reservation, persist the exact observed actual + a reason
-    (`OverageRecord`), and await a controlled settlement / manual handling. Silently truncating with `min(actual,
-    reserved)` would under-record real cost.
+- Reconcile actual Provider usage safely AND idempotently — Provider callbacks, polling and recovery deliver
+  at-least-once, so a repeat callback must never change a completed settlement fact. A per-job lifecycle status drives
+  it: `RESERVED -> {RECONCILIATION_PENDING} -> SETTLED | OVERAGE_RECONCILIATION_REQUIRED`.
+  - Not yet settled (`RESERVED`/`RECONCILIATION_PENDING`) — decide once:
+    - `actual_tokens is None` (unknown/timeout): keep the reservation, hold `RECONCILIATION_PENDING`.
+    - `actual_tokens < 0`: reject (`ValueError`); an invalid usage must not mutate any budget.
+    - `actual_tokens <= reserved`: `SETTLED` — record the EXACT actual in `used_tokens`, release the remainder.
+    - `actual_tokens > reserved` (**overage**): `OVERAGE_RECONCILIATION_REQUIRED` — do NOT `min()`-truncate and do NOT
+      release the reservation as if settled. Keep the reservation, persist the exact observed actual + a reason
+      (`OverageRecord`), and await controlled settlement.
+  - Already `SETTLED` (terminal for a plain reconcile): a repeat callback with the SAME actual (or `None`) is an
+    idempotent no-op that returns `SETTLED` and changes no budget fact; a DIFFERENT actual returns
+    `RECONCILIATION_CONFLICT` — it does NOT re-settle or fabricate an overage, and the existing facts + audit are
+    preserved.
+  - Already `OVERAGE_RECONCILIATION_REQUIRED` (terminal for a plain reconcile): any plain reconcile (repeat, larger, or
+    smaller) is a no-op that stays in overage. Only the explicit, controlled `settle_overage(job_id)` flow may fund the
+    overage (move the exact observed usage to `used_tokens`, release the original reservation, mark `SETTLED`); the
+    `OverageRecord` is retained as audit evidence.
   Day53/54/55 own the concrete Provider/streaming/Worker protocols.
 
 ```text
@@ -149,11 +159,19 @@ reserve_and_create(ctx, key, max_tokens, document_id, task_type): one guarded cr
   same (tenant, key), any behavior field changed -> FINGERPRINT_CONFLICT (409): no new facts
   new command, available >= amount       -> reserve + Job + Outbox in ONE tx (fail -> roll all back) -> CREATED
   new command, available <  amount       -> QUOTA_EXCEEDED (zero rows), issue nothing
-reconcile(job_id, actual_tokens):
-  actual is None      -> RECONCILIATION_PENDING (keep reservation, preserve evidence)
-  actual < 0          -> ValueError (reject; no budget fact changes)
-  actual <= reserved  -> SETTLED (used += exact actual, release the remainder)
-  actual >  reserved  -> OVERAGE_RECONCILIATION_REQUIRED (keep reservation; record exact observed + reason; NO truncation)
+reconcile(job_id, actual_tokens): IDEMPOTENT via per-job lifecycle status
+  status RESERVED / RECONCILIATION_PENDING (not yet settled) — decide once:
+    actual is None      -> RECONCILIATION_PENDING (keep reservation, preserve evidence)
+    actual < 0          -> ValueError (reject; no budget fact changes)
+    actual <= reserved  -> SETTLED (used += exact actual, release the remainder)
+    actual >  reserved  -> OVERAGE_RECONCILIATION_REQUIRED (keep reservation; record exact observed + reason; NO truncation)
+  status SETTLED (terminal for plain reconcile):
+    same actual / None  -> SETTLED (idempotent no-op; no budget change)
+    different actual     -> RECONCILIATION_CONFLICT (no re-settle, no fake overage; facts + audit preserved)
+  status OVERAGE_RECONCILIATION_REQUIRED (terminal for plain reconcile):
+    any plain reconcile -> OVERAGE_RECONCILIATION_REQUIRED (no-op)
+settle_overage(job_id): the ONLY controlled path that funds an overage
+  -> used += exact observed usage, release original reservation, mark SETTLED (OverageRecord retained)
 ```
 
 ---
@@ -203,6 +221,7 @@ new commands; optionally rate-limit recovery reads separately.
 | Guarded quota reservation; concurrency single winner | RUN (in-memory) | lock-modeled `UPDATE ... WHERE available >= amt RETURNING` |
 | Atomic Reservation + Job + Outbox; rollback | RUN (in-memory) | injected post-reserve failure leaves no facts |
 | Actual-usage reconcile: settle (<=), overage (>), unknown hold, negative reject | RUN (in-memory) | `reconcile` SETTLED / OVERAGE_RECONCILIATION_REQUIRED / RECONCILIATION_PENDING / ValueError; overage keeps reservation + records exact observed, no truncation |
+| Idempotent reconcile (at-least-once callbacks): repeat-same no-op, different-actual conflict, no overage bypass | RUN (in-memory) | per-job lifecycle status; repeat same -> SETTLED no-op; different after settle -> RECONCILIATION_CONFLICT; post-overage plain reconcile stays overage; `settle_overage` is the only funding path |
 | Server-computed request fingerprint (not client-asserted) | RUN (in-memory) | `compute_request_fingerprint` SHA-256 of canonical command; changed max_tokens/document_id/task_type -> 409 |
 | Fail-closed limiter outage (503, not 429); healthy 429 | RUN (in-memory) | `LimiterUnavailable`; token-bucket exhaustion |
 | Idempotent recovery, no second reservation; 409; not an authz bypass | RUN (in-memory) | `admit_job` ordering; removed Membership blocks recovery |

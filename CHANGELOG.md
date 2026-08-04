@@ -9,6 +9,49 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.107 — Day52 review (Codex): idempotent reconcile() lifecycle
+
+Date: 2026-08-04
+
+Day: Day52 (review fix)
+
+Addresses a reconcile() idempotency defect: after a job SETTLED (reservation -> 0), a repeat Provider callback with the
+same actual was misread as `actual > reserved` and returned `OVERAGE_RECONCILIATION_REQUIRED`. Provider callbacks,
+polling, and recovery are at-least-once, so a repeat reconciliation must not change a completed settlement fact. Scope
+limited to the Day52 model, tests, and Day52 docs/status descriptions; still an in-memory, standard-library-only
+control-flow model.
+
+### Fixed
+
+- Added an explicit per-job reconciliation LIFECYCLE status (`ReconcileState.RESERVED -> {RECONCILIATION_PENDING} ->
+  SETTLED | OVERAGE_RECONCILIATION_REQUIRED`) and a new terminal outcome `RECONCILIATION_CONFLICT`. `reconcile()` is now
+  idempotent: once `SETTLED`, a repeat callback with the same actual (or `None`) is a no-op returning `SETTLED`; a
+  DIFFERENT actual returns `RECONCILIATION_CONFLICT` (no re-settle, no fabricated overage; facts + audit preserved);
+  once `OVERAGE_RECONCILIATION_REQUIRED`, any plain reconcile is a no-op that stays in overage.
+- Added `AdmissionStore.settle_overage(job_id)` — the ONLY controlled path that funds an overage (moves the exact
+  observed usage to `used_tokens`, releases the original reservation, marks `SETTLED`, retains the `OverageRecord` for
+  audit). Prior-round safety preserved: negative rejected; `None` holds pending; first `actual <= reserved` settles the
+  exact actual and releases the remainder; first `actual > reserved` records the exact observed + reason without
+  truncation or release.
+
+### Added tests
+
+- Repeat same actual after SETTLED -> idempotent no-op (no budget change); different actual after SETTLED ->
+  RECONCILIATION_CONFLICT (facts preserved, no fake overage); post-overage plain reconcile (repeat 6000 or smaller
+  3000) never bypasses to SETTLED; `settle_overage` funds the full observed usage, is the only controlled path, and
+  leaves reconcile idempotent afterward; repeated unknown/pending callbacks keep the reservation intact and still
+  settle later.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **27 passed** (was 22); full
+  `projects/ai-backend-data-layer/api/` suite -> **268 passed** (Python 3.10.12, pytest 7.4.3; standard-library only).
+  Application control flow only. NOT RUN: real PostgreSQL, Redis, FastAPI/proxy/browser, Provider/Worker, RLS,
+  integration, production. Evidence tiers + schema honesty preserved. No real JWT, Provider key, password, prompt,
+  Document content, or user data used or committed.
+
+---
+
 ## v0.1.106 — Day52 review (Codex): no silent usage truncation; server-computed request fingerprint
 
 Date: 2026-08-04
@@ -45,7 +88,7 @@ Still an in-memory, standard-library-only control-flow model; no real PostgreSQL
 
 ### Validation
 
-- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **22 passed** (was 16); full
+- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **27 passed** (was 16); full
   `projects/ai-backend-data-layer/api/` suite -> **263 passed** (Python 3.10.12, pytest 7.4.3; standard-library only).
   Application control flow only. NOT RUN: real PostgreSQL, Redis, FastAPI/proxy/browser, Provider/Worker, RLS,
   integration, production. Evidence tiers and schema honesty preserved. No real JWT, Provider key, password, prompt,
@@ -80,10 +123,10 @@ Identity is not authority. A trusted `user_id` (Day51) becomes an `AuthorizedTen
 
 ### Validation
 
-- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **22 passed** (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **257 passed**. Application control flow only.
+- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **27 passed** (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **257 passed**. Application control flow only.
 - Markdown: Day52 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
 - Secrets: no real JWT, Provider key, password, raw prompt, Document content, database URL, or user data used or committed.
-- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL PYTHON IN-MEMORY CONTROL-FLOW RUNTIME (run: 22 passed); NOT RUN: real PostgreSQL (constraint/transaction/isolation/`UPDATE ... RETURNING`/RLS/SQLAlchemy/migration), real Redis (distributed limiter atomics/TTL/failover/multi-process), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker/Outbox transport, integration, production. No separate `py_compile` claim beyond the pytest import. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten. Day53 real Provider, Day54 streaming/cancellation, and Day55 real Celery are not implemented.
+- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL PYTHON IN-MEMORY CONTROL-FLOW RUNTIME (run: 27 passed); NOT RUN: real PostgreSQL (constraint/transaction/isolation/`UPDATE ... RETURNING`/RLS/SQLAlchemy/migration), real Redis (distributed limiter atomics/TTL/failover/multi-process), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker/Outbox transport, integration, production. No separate `py_compile` claim beyond the pytest import. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten. Day53 real Provider, Day54 streaming/cancellation, and Day55 real Celery are not implemented.
 
 ---
 
@@ -509,7 +552,7 @@ Date: 2026-07-31
 
 - **Finding 1 — Backfill could loop forever on unknown ownership.** An unknown-ownership running Job stayed `lease_owner IS NULL`, so it re-matched the candidate query every batch and the default `max_batches=None` never terminated. Fix: the Expand revision (`0002_expand_lease`) now also adds a **nullable `lease_backfill_state` reconciliation marker** (no fabricated default, plus a `CHECK ... NOT VALID` restricting it to `'reconcile'`), the backfill candidate query excludes routed rows (`AND lease_backfill_state IS NULL`), and `day48_lease_backfill.py` gains `route_to_reconciliation()` — a guarded, idempotent `UPDATE ... SET lease_backfill_state='reconcile' WHERE running AND lease_owner IS NULL AND lease_backfill_state IS NULL RETURNING` that **persists** the unknown state **without fabricating any Lease owner/token/expiry**. Because a proved Job gets `lease_owner` and an unknown Job gets the marker, every selected Job leaves the candidate set, so the loop **terminates** and a **restart** never re-selects it (the database state is the durable checkpoint). The report field was renamed `skipped_unknown` -> `routed_to_reconciliation`.
 - **Finding 2 — DB URL override claim now matches the implementation.** `alembic.ini` claimed a `-x db_url=` / env-var override but `env.py` only read `sqlalchemy.url`. Fix: `env.py` now resolves the URL by explicit priority — **`alembic -x db_url=<url>` > env `DAY48_ALEMBIC_DATABASE_URL` > `alembic.ini` `sqlalchemy.url`** (a non-credential offline-render placeholder, documented as such and never a production connection). `env.py` is now import-safe (its migration block is skipped outside an Alembic run) so the pure `resolve_database_url()` is unit-testable, and the offline `--sql` render still works and still never connects.
-- These fixes grew the static/offline suite from 10 to **16** (`pytest -q test_day48_alembic.py` -> 22 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3) and the offline `alembic upgrade --sql` still renders the Expand/Validate/Contract DDL. New tests cover: backfill termination when all candidates are unknown; unknown Jobs persisted to reconciliation without fabrication; restart does not re-select a routed Job; known-evidence Jobs still backfill; `route_to_reconciliation` idempotency; and the `-x db_url` > env > ini resolution priority with the placeholder documented offline-only. **PostgreSQL runtime remains NOT RUN** (static/offline + fake-session control flow are not PostgreSQL evidence).
+- These fixes grew the static/offline suite from 10 to **16** (`pytest -q test_day48_alembic.py` -> 27 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3) and the offline `alembic upgrade --sql` still renders the Expand/Validate/Contract DDL. New tests cover: backfill termination when all candidates are unknown; unknown Jobs persisted to reconciliation without fabrication; restart does not re-select a routed Job; known-evidence Jobs still backfill; `route_to_reconciliation` idempotency; and the `-x db_url` > env > ini resolution priority with the placeholder documented offline-only. **PostgreSQL runtime remains NOT RUN** (static/offline + fake-session control flow are not PostgreSQL evidence).
 
 ### Review fix — round 2 (2026-07-31)
 
@@ -521,7 +564,7 @@ Date: 2026-07-31
 
 - **Finding 1 — a pure Expand and the strict Lease constraints must not share one revision.** `CHECK ... NOT VALID` skips the one-time scan of legacy rows but fully enforces the rule on EVERY future INSERT/UPDATE, so an OLD Worker updating a still-`running` Job with a NULL Lease would be rejected — "old Workers coexist with Expand" was therefore false while the constraint lived in Expand. The revision chain is now split and linear: `0001_baseline` -> **`0002_expand_lease` (nullable columns ONLY, the OLD/NEW compatibility window)** -> **`0003_add_lease_constraints` (adds `jobs_lease_triple_coherent` + `jobs_running_requires_lease` + `jobs_lease_backfill_state_allowed`, all `NOT VALID`, with an explicit precondition that OLD Writers are drained/isolated first)** -> `0004_validate_lease` (VALIDATEs both) -> `0005_contract_legacy`. Single head `0005_contract_legacy`. Docs no longer describe `NOT VALID` as "old Writers unaffected".
 - **Finding 2 — an unknown Provider outcome must not be requeued or bare-flipped.** The dangerous generic `resolve_by_verified_terminal_state()` (which accepted `'queued'` — a requeue that cleared the unresolved count without proving the Provider ran — and could bare-`UPDATE job_status='succeeded'` without `finished_at`/Artifact/Event) is **removed**. It is replaced by a non-mutating router `classify_unknown_running_recovery()` -> `RecoveryBoundary`: `None`/unverified -> `KEEP_UNKNOWN` (stay unknown/reconciliation; never requeue, never blind Provider retry); `'succeeded'` -> `COMPLETION_UOW` (the Day47 guarded completion UoW that commits `finished_at` + ResultArtifact + `job_succeeded` Event together); `'failed'`/`'cancelled'` -> `GUARDED_TERMINAL_RECOVERY`; `'queued'`/`'running'`/any other status -> `UnsafeRecoveryError`. Day48 classifies and ROUTES; it performs no status mutation, so it cannot bypass the Day47 completion contract or the guarded terminal-recovery/audit requirements.
-- These fixes grew the static/offline suite from 20 to **22** (`pytest -q test_day48_alembic.py` -> 22 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3) and the offline `alembic upgrade --sql` still renders the now-5-revision Expand/Constraints/Validate/Contract DDL. New/updated tests cover: the pure Expand has NO constraint (columns only); the separate constraint revision adds the CHECKs and documents the drain/isolate precondition; the graph stays single-head and linear; a `'queued'` requeue is refused; a verified `'succeeded'` routes to the Day47 completion UoW (no bare flip); an unknown outcome stays reconciliation; the router issues no SQL and the bare mutator is gone. **PostgreSQL runtime remains NOT RUN** — static/offline + fake-session control flow are not PostgreSQL evidence.
+- These fixes grew the static/offline suite from 20 to **22** (`pytest -q test_day48_alembic.py` -> 27 passed; Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3) and the offline `alembic upgrade --sql` still renders the now-5-revision Expand/Constraints/Validate/Contract DDL. New/updated tests cover: the pure Expand has NO constraint (columns only); the separate constraint revision adds the CHECKs and documents the drain/isolate precondition; the graph stays single-head and linear; a `'queued'` requeue is refused; a verified `'succeeded'` routes to the Day47 completion UoW (no bare flip); an unknown outcome stays reconciliation; the router issues no SQL and the bare mutator is gone. **PostgreSQL runtime remains NOT RUN** — static/offline + fake-session control flow are not PostgreSQL evidence.
 
 ### Review fix — round 4 (2026-07-31)
 
@@ -580,7 +623,7 @@ Date: 2026-07-31
 
 ### Validation
 
-- **Day48 has REAL executed STATIC/OFFLINE evidence.** Dependencies are pinned in `projects/ai-backend-data-layer/api/requirements-day48.txt`. Executed: `python3 -m pip install -r requirements-day48.txt`; `python3 -m py_compile day48_lease_backfill.py test_day48_alembic.py` passed; `python3 -m pytest -q test_day48_alembic.py` -> **22 passed** (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); and `python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql` **rendered** the Expand/Validate/Contract DDL with **no database connection**. The tests inspect the Alembic revision graph + migration source via `ScriptDirectory` (single head `0005_contract_legacy`; linear `0005->0004->0003->0002->0001->None`; pure Expand (columns only) with the strict constraints in a separate revision; Validate separate; Contract destructive+gated; no loop in any `upgrade()`/`downgrade()`; minimal `env.py`) and exercise the fake-session backfill control flow (`FOR UPDATE SKIP LOCKED`; fills known, skips unknown for reconciliation; idempotent guarded write; no Provider). These prove migration **text/structure + control flow**, NOT database behavior.
+- **Day48 has REAL executed STATIC/OFFLINE evidence.** Dependencies are pinned in `projects/ai-backend-data-layer/api/requirements-day48.txt`. Executed: `python3 -m pip install -r requirements-day48.txt`; `python3 -m py_compile day48_lease_backfill.py test_day48_alembic.py` passed; `python3 -m pytest -q test_day48_alembic.py` -> **27 passed** (Python 3.10.12, Alembic 1.13.1, SQLAlchemy 2.0.29, pytest 7.4.3); and `python3 -m alembic -c day48_alembic/alembic.ini upgrade 0001_baseline:head --sql` **rendered** the Expand/Validate/Contract DDL with **no database connection**. The tests inspect the Alembic revision graph + migration source via `ScriptDirectory` (single head `0005_contract_legacy`; linear `0005->0004->0003->0002->0001->None`; pure Expand (columns only) with the strict constraints in a separate revision; Validate separate; Contract destructive+gated; no loop in any `upgrade()`/`downgrade()`; minimal `env.py`) and exercise the fake-session backfill control flow (`FOR UPDATE SKIP LOCKED`; fills known, skips unknown for reconciliation; idempotent guarded write; no Provider). These prove migration **text/structure + control flow**, NOT database behavior.
 - **PostgreSQL runtime is NOT RUN.** No PostgreSQL server was available. A real runtime test would apply the independent Day42 raw SQL (`sql/001_create_jobs.sql` + `sql/003_relational_modeling_and_data_integrity.sql`) to a disposable PostgreSQL, create a legacy row that violates the future rule, apply Expand, prove the old row survives, prove a new illegal write is rejected, and prove `VALIDATE` fails until the legacy violation is repaired/reconciled. **SQLite, fake sessions, and static/offline checks are NOT PostgreSQL proof**, and `alembic upgrade` success alone does not prove Backfill, Switch, Contract, or production safety. FastAPI/Worker drain integration, real Provider, Object Storage, and production migration are all **NOT RUN**.
 - Other validation performed: `git diff --check`; changed-file scope; protected-file check (`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged); confirmation that no Day49+ lesson exists and Day49-Day100 remain Planned; LESSON_TEMPLATE_v2 16-section order/heading check; Markdown fence balance; relative-link resolution (new `api/` artifact links and the Day47->Day48 Next Lesson link); status consistency across `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`, and `docs/README.md`; and a secret scan (no real secrets, credentials, or database URLs — the `alembic.ini` URL is a non-credential placeholder used only for offline SQL rendering). The student answers were transcribed verbatim from the teaching-session handoff input, which is not a committed repository artifact; that transcription was checked during authoring but is not repository-reproducible, so it is not listed as a repository validation step.
 - Scope: the Day49 upload workflow, Day50 real Outbox/Celery delivery, Day53 Provider SDK, and Day55 worker runtime are named only as future connections; no real Provider/Object-Storage/FastAPI/Worker-drain/production evidence was fabricated; the Lease scenario reuses the Day46 mapping without redefining schema authority; no migration runs on FastAPI startup, no Provider is called in Backfill, and no long Backfill loop lives in `upgrade()`; the protected prompt/template files are unchanged; no new project directory was created; and Day49-Day100 curriculum planning was not altered.

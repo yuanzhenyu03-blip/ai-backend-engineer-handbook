@@ -4,7 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day52 — Authorization, Tenant Isolation, Quotas and API Security** that turns Day51's trusted `user_id` into current, tenant-scoped, action-specific, cost-aware authority over the Day43-Day51 AI Job API. A provider-neutral, **standard-library-only** in-memory model (`day52_authorization_tenant_quota_security.py`) covers: Membership/role authorization where a client `tenant_id` is only a selector and authority is the server-built `AuthorizedTenantContext`; tenant + owner scoped reads returning a public 404 (no existence oracle); a guarded `UPDATE tenant_budgets ... WHERE available >= amount RETURNING` token reservation committed atomically with the Job + Outbox (all-or-nothing rollback; actual-usage reconciliation; unknown-cost retention); a shared, fail-closed token-bucket rate limiter (503 on outage, 429 on a healthy breach) distinct from durable quota; idempotent recovery that adds no cost and is not an authz bypass; and a guarded cancel-policy repair. **The in-memory tests were executed** (Python 3.10.12, pytest 7.4.3 -> 22 passed; standard-library only). This proves application control flow only: **real PostgreSQL (constraint/tx/isolation/`UPDATE ... RETURNING`/RLS), real Redis (distributed limiter atomics/TTL/failover), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker, integration, and production are NOT RUN**. Authority is the server-built `AuthorizedTenantContext`; a client `tenant_id` is never authority. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are new facts modeled in-memory; a real schema adds them via a Day48-safe forward additive migration (not implemented here). No real JWT, Provider key, password, prompt, Document content, or user data is used.
+Current increment: **Day52 — Authorization, Tenant Isolation, Quotas and API Security** that turns Day51's trusted `user_id` into current, tenant-scoped, action-specific, cost-aware authority over the Day43-Day51 AI Job API. A provider-neutral, **standard-library-only** in-memory model (`day52_authorization_tenant_quota_security.py`) covers: Membership/role authorization where a client `tenant_id` is only a selector and authority is the server-built `AuthorizedTenantContext`; tenant + owner scoped reads returning a public 404 (no existence oracle); a guarded `UPDATE tenant_budgets ... WHERE available >= amount RETURNING` token reservation committed atomically with the Job + Outbox (all-or-nothing rollback; actual-usage reconciliation; unknown-cost retention); a shared, fail-closed token-bucket rate limiter (503 on outage, 429 on a healthy breach) distinct from durable quota; idempotent recovery that adds no cost and is not an authz bypass; and a guarded cancel-policy repair. **The in-memory tests were executed** (Python 3.10.12, pytest 7.4.3 -> 27 passed; standard-library only). This proves application control flow only: **real PostgreSQL (constraint/tx/isolation/`UPDATE ... RETURNING`/RLS), real Redis (distributed limiter atomics/TTL/failover), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker, integration, and production are NOT RUN**. Authority is the server-built `AuthorizedTenantContext`; a client `tenant_id` is never authority. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are new facts modeled in-memory; a real schema adds them via a Day48-safe forward additive migration (not implemented here). No real JWT, Provider key, password, prompt, Document content, or user data is used.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -113,7 +113,7 @@ projects/ai-backend-data-layer/
 │   ├── requirements-day51.txt                          # Day51: pinned deps (argon2-cffi, PyJWT[crypto], cryptography, pytest)
 │   ├── day52-authorization-tenant-isolation-quotas-and-api-security-design.md  # Day52: authz/tenant/quota design/runbook
 │   ├── day52_authorization_tenant_quota_security.py    # Day52: authz + tenant isolation + guarded quota reservation model (stdlib-only)
-│   └── test_day52_authorization_tenant_quota_security.py  # Day52: in-memory tests (executed: 22 passed)
+│   └── test_day52_authorization_tenant_quota_security.py  # Day52: in-memory tests (executed: 27 passed)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -220,7 +220,7 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 `api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md` (with a runnable
 `day52_authorization_tenant_quota_security.py` and `test_day52_authorization_tenant_quota_security.py`) turns Day51's
 trusted `user_id` into current, tenant-scoped, action-specific, cost-aware authority. The tests are **executed**,
-**standard-library only**: **Python 3.10.12, pytest 7.4.3 -> `22 passed`**.
+**standard-library only**: **Python 3.10.12, pytest 7.4.3 -> `27 passed`**.
 
 ### What the model contains
 
@@ -237,7 +237,7 @@ trusted `user_id` into current, tenant-scoped, action-specific, cost-aware autho
 
 ```text
 cd projects/ai-backend-data-layer/api
-python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 22 passed (standard-library only)
+python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 27 passed (standard-library only)
 ```
 
 Not run (and not claimed): real PostgreSQL (constraint/tx/isolation/`UPDATE ... RETURNING`/RLS), real Redis

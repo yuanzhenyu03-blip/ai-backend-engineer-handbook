@@ -12,7 +12,7 @@ Prerequisite: Day51 — Authentication, Password Security and JWT
 Previous Lesson: Day51 — Authentication, Password Security and JWT
 Next Lesson: Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 Engineering Artifact: projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md
-  + runnable day52_authorization_tenant_quota_security.py + test_day52_authorization_tenant_quota_security.py (in-memory control flow; 22 passed)
+  + runnable day52_authorization_tenant_quota_security.py + test_day52_authorization_tenant_quota_security.py (in-memory control flow; 27 passed)
 ```
 
 Main engineering artifact: a provider-neutral, standard-library-only in-memory model of the Day52 admission boundary,
@@ -330,8 +330,12 @@ safely: `actual <= reserved` settles the EXACT actual into `used_tokens` and rel
 Provider outcome holds `reconciliation_pending` (keep the reservation); a negative actual is rejected; and an
 `actual > reserved` **overage** must NOT be `min()`-truncated or released as if settled — it keeps the reservation,
 records the exact observed usage + reason, and returns `OVERAGE_RECONCILIATION_REQUIRED` for controlled settlement, so
-a real cost fact is never lost. (A real system reserves the total billable cost, not only `max_tokens`; Day53's
-Provider adapter owns the estimate/headroom and overage policy.)
+a real cost fact is never lost. Reconciliation is also **idempotent**: Provider callbacks/polling/recovery are
+at-least-once, so a per-job lifecycle status (`RESERVED -> {PENDING} -> SETTLED | OVERAGE_RECONCILIATION_REQUIRED`)
+makes a repeat callback with the same actual a no-op, a different actual after settlement a `RECONCILIATION_CONFLICT`
+(never a re-settle or a fake overage), and a post-overage plain reconcile a no-op — only the explicit
+`settle_overage` flow funds an overage. (A real system reserves the total billable cost, not only `max_tokens`;
+Day53's Provider adapter owns the estimate/headroom and overage policy.)
 
 ### Engineering Thinking
 
@@ -482,7 +486,7 @@ Run the model:
 
 ```bash
 cd projects/ai-backend-data-layer/api
-python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 22 passed
+python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 27 passed
 ```
 
 ---

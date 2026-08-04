@@ -297,9 +297,11 @@ class AdmissionResult:
 
 
 class ReconcileState(str, Enum):
-    SETTLED = "settled"                       # actual <= reserved: moved to used, remainder released
+    RESERVED = "reserved"                     # initial: budget reserved, no reconcile callback yet
+    SETTLED = "settled"                       # first actual <= reserved: moved to used, remainder released (terminal for plain reconcile)
     RECONCILIATION_PENDING = "reconciliation_pending"  # unknown Provider outcome: reservation retained
     OVERAGE_RECONCILIATION_REQUIRED = "overage_reconciliation_required"  # actual > reserved: keep reservation, record observed, await controlled settlement
+    RECONCILIATION_CONFLICT = "reconciliation_conflict"  # a DIFFERENT actual reported after a terminal settlement: no re-settle, existing facts + audit preserved
 
 
 @dataclass(frozen=True)
@@ -329,6 +331,13 @@ class AdmissionStore:
         self._reservations: dict[str, int] = {}  # job_id -> reserved amount (for reconcile)
         self._observed_usage: dict[str, int] = {}  # job_id -> observed actual tokens (audit)
         self.overages: dict[str, OverageRecord] = {}  # job_id -> overage awaiting controlled settlement
+        # Per-job reconciliation LIFECYCLE status. reconcile() is idempotent w.r.t. this
+        # status: RESERVED -> {RECONCILIATION_PENDING} -> SETTLED | OVERAGE_RECONCILIATION_REQUIRED.
+        # SETTLED / OVERAGE are terminal for a PLAIN reconcile (only settle_overage may change
+        # an overage's budget facts). At-least-once Provider callbacks/polling/recovery may
+        # redeliver, so a repeat callback must not change a completed settlement fact.
+        self._reconcile_status: dict[str, ReconcileState] = {}
+        self._settled_actual: dict[str, int] = {}  # job_id -> the actual recorded at SETTLED
         self._lock = threading.Lock()
 
     def set_budget(self, budget: TenantBudget) -> None:
@@ -389,6 +398,7 @@ class AdmissionStore:
             self.jobs[job.job_id] = job
             self._by_idem[(ctx.tenant_id, idempotency_key)] = job.job_id
             self._reservations[job.job_id] = max_tokens
+            self._reconcile_status[job.job_id] = ReconcileState.RESERVED
             self.outbox.append({
                 "event_type": "job.dispatch_requested", "job_id": job.job_id,
                 "tenant_id": ctx.tenant_id, "correlation_id": str(uuid.uuid4()),
@@ -396,23 +406,47 @@ class AdmissionStore:
             return AdmissionResult(AdmissionOutcome.CREATED, job=job, reason="reserved + Job + Outbox committed")
 
     def reconcile(self, job_id: str, *, actual_tokens: Optional[int]) -> ReconcileState:
-        """Settle a reservation against real Provider usage. Cases:
-          * actual_tokens is None (unknown/timeout) -> keep the reservation, hold
-            RECONCILIATION_PENDING (preserve evidence).
-          * actual_tokens < 0 -> reject (ValueError); a negative usage is not a valid fact and
-            must not mutate any budget.
-          * actual_tokens <= reserved -> SETTLED: record the exact actual usage in used_tokens
-            and release the unused remainder.
-          * actual_tokens > reserved -> OVERAGE_RECONCILIATION_REQUIRED: the Provider spent
-            MORE than was reserved. NEVER min()-truncate and NEVER release the reservation as
-            if settled. Keep the reservation, persist the exact observed actual + a reason, and
-            wait for a controlled settlement / manual handling — the budget fact is never lost."""
+        """IDEMPOTENT reconciliation against real Provider usage. Provider callbacks, polling
+        and recovery flows may deliver at-least-once, so a repeat callback must NOT change a
+        completed settlement fact. Lifecycle (self._reconcile_status):
+
+          RESERVED / RECONCILIATION_PENDING (not yet settled) — decide once:
+            * actual_tokens < 0                -> ValueError; no budget change.
+            * actual_tokens is None            -> RECONCILIATION_PENDING (keep reservation).
+            * actual_tokens <= reserved        -> SETTLED: record the EXACT actual in
+                                                  used_tokens, release the remainder.
+            * actual_tokens > reserved         -> OVERAGE_RECONCILIATION_REQUIRED: keep the
+                                                  reservation, persist the exact observed
+                                                  actual + reason; never truncate or release.
+          SETTLED (terminal for a plain reconcile):
+            * actual_tokens is None            -> SETTLED (already settled; no-op).
+            * same actual as the settlement    -> SETTLED (idempotent no-op; no budget change).
+            * a DIFFERENT actual               -> RECONCILIATION_CONFLICT: do NOT re-settle and
+                                                  do NOT fabricate an overage; existing facts +
+                                                  audit are preserved.
+          OVERAGE_RECONCILIATION_REQUIRED (terminal for a plain reconcile):
+            * any plain reconcile              -> OVERAGE_RECONCILIATION_REQUIRED (no-op). Only
+                                                  the explicit settle_overage() flow may change
+                                                  the final budget fact.
+        """
         if actual_tokens is not None and actual_tokens < 0:
             raise ValueError("actual_tokens must not be negative")  # invalid fact; no budget change
         with self._lock:
-            reserved = self._reservations.get(job_id, 0)
+            status = self._reconcile_status.get(job_id, ReconcileState.RESERVED)
             budget = self.budgets[self.jobs[job_id].tenant_id]
+
+            # --- terminal states: plain reconcile is a no-op that cannot rewrite facts ---
+            if status is ReconcileState.SETTLED:
+                if actual_tokens is None or actual_tokens == self._settled_actual.get(job_id):
+                    return ReconcileState.SETTLED  # idempotent replay of the same settlement
+                return ReconcileState.RECONCILIATION_CONFLICT  # different actual -> conflict; keep facts
+            if status is ReconcileState.OVERAGE_RECONCILIATION_REQUIRED:
+                return ReconcileState.OVERAGE_RECONCILIATION_REQUIRED  # only settle_overage() may change facts
+
+            # --- not yet settled (RESERVED or RECONCILIATION_PENDING): decide once ---
+            reserved = self._reservations.get(job_id, 0)  # still the original reservation here
             if actual_tokens is None:
+                self._reconcile_status[job_id] = ReconcileState.RECONCILIATION_PENDING
                 return ReconcileState.RECONCILIATION_PENDING  # keep reservation; evidence retained
             self._observed_usage[job_id] = actual_tokens  # record exact observed usage (audit)
             if actual_tokens > reserved:
@@ -422,12 +456,35 @@ class AdmissionStore:
                     observed_actual_tokens=actual_tokens,
                     reason="provider actual usage exceeded the reserved amount",
                 )
+                self._reconcile_status[job_id] = ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
                 return ReconcileState.OVERAGE_RECONCILIATION_REQUIRED
             # actual_tokens <= reserved: settle the exact actual, release the remainder.
             budget.reserved_tokens -= reserved
             budget.used_tokens += actual_tokens
             self._reservations[job_id] = 0
+            self._settled_actual[job_id] = actual_tokens
+            self._reconcile_status[job_id] = ReconcileState.SETTLED
             return ReconcileState.SETTLED
+
+    def settle_overage(self, job_id: str) -> ReconcileState:
+        """The EXPLICIT, controlled overage-settlement flow — the ONLY path that may fund an
+        overage and change the final budget fact. Moves the exact observed usage into
+        used_tokens, releases the original reservation, and marks the job SETTLED. The
+        OverageRecord is RETAINED as audit evidence. A no-op (returns the current status) if
+        the job is not awaiting an overage settlement. A real system would gate this on an
+        explicit approval / funding decision; the in-memory model funds the full observed
+        usage."""
+        with self._lock:
+            if self._reconcile_status.get(job_id) is not ReconcileState.OVERAGE_RECONCILIATION_REQUIRED:
+                return self._reconcile_status.get(job_id, ReconcileState.RESERVED)  # nothing to settle
+            rec = self.overages[job_id]
+            budget = self.budgets[rec.tenant_id]
+            budget.reserved_tokens -= rec.reserved_tokens          # release the original hold
+            budget.used_tokens += rec.observed_actual_tokens       # fund the FULL observed usage
+            self._reservations[job_id] = 0
+            self._settled_actual[job_id] = rec.observed_actual_tokens
+            self._reconcile_status[job_id] = ReconcileState.SETTLED
+            return ReconcileState.SETTLED  # OverageRecord retained for audit
 
 
 def admit_job(
