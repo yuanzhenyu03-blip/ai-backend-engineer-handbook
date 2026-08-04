@@ -211,14 +211,18 @@ def test_provider_incomplete_is_classified_non_success():
     assert store.jobs["job-1"].result_artifact is None
 
 
-def test_provider_timeout_retains_reservation_as_reconciliation_pending():
+def test_provider_timeout_is_not_terminal_failed_and_retains_reservation():
     t = FakeOpenAITransport(error=FakeAPITimeoutError())
     store, adapter, validator, completion, cfg = _wire(t)
     res = _exec(_request(), store, adapter, validator, completion, cfg)
     job = store.jobs["job-1"]
     assert res.decision is ExecutionDecision.TIMEOUT_UNKNOWN_USAGE
-    assert job.cost_state is CostState.RECONCILIATION_PENDING   # unknown usage retained, not zeroed
+    assert job.status is JobStatus.PENDING_RECONCILIATION      # NOT a definite terminal FAILED
+    assert job.status is not JobStatus.FAILED
+    assert job.cost_state is CostState.RECONCILIATION_PENDING  # unknown usage retained, not zeroed
+    assert job.settled_tokens is None                          # budget not auto-released, not fabricated as 0
     assert job.result_artifact is None
+    assert t.calls == 1                                        # no automatic second Provider call
 
 
 def test_provider_auth_failure_disables_new_calls_and_keeps_evidence():
@@ -301,13 +305,16 @@ def test_no_raw_prompt_secret_or_debug_fields_in_persistence():
 # Integrated rollout/rollback exercise: config rollback != business-fact rollback
 # ===========================================================================
 def test_config_rollback_does_not_invalidate_a_valid_inflight_result():
-    # New calls on the bad model get a 400 capability failure...
-    bad_new = FakeOpenAITransport(error=FakeBadRequestError(detail="model lacks research_summary.v1", status_code=400))
+    # New calls on the bad model get a CONFIG-WIDE 400 capability failure -> the config is
+    # disabled (fail closed) so no further new call uses it.
+    bad_new = FakeOpenAITransport(error=FakeBadRequestError(
+        detail="model lacks research_summary.v1", status_code=400, config_scope=True, request_id="rq-400"))
     store, adapter, validator, completion, cfg = _wire(bad_new, model="bad-model")
     store.start_running("job-new", tenant_id="tenant-a", contract=_contract(correlation_id="c-new"),
                         reserved_tokens=5000)
     r_new = _exec(_request(job_id="job-new"), store, adapter, validator, completion, cfg)
     assert r_new.decision is ExecutionDecision.CAPABILITY_FAILURE
+    assert cfg.disabled is True                       # config-wide containment
     assert store.jobs["job-new"].result_artifact is None
     # ...but a legitimate OLD in-flight v1 result (distinct call) still validates against its
     # persisted contract and is accepted through guarded completion. Config rollback affects
@@ -322,6 +329,159 @@ def test_config_rollback_does_not_invalidate_a_valid_inflight_result():
                                                        provider_profile_version="pp-1"))
     assert r_old.decision is ExecutionDecision.SUCCEEDED
     assert store.jobs["job-old"].status is JobStatus.SUCCEEDED
+
+
+# ===========================================================================
+# Fix 1: the Provider call is constrained by the persisted execution contract
+# ===========================================================================
+def test_tampered_model_is_rejected_before_any_provider_call():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=10))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(approved_model="evil-model"), store, adapter, validator, completion, cfg)
+    assert res.decision is ExecutionDecision.CONTRACT_MISMATCH and t.calls == 0  # no transport call
+    assert store.jobs["job-1"].status is JobStatus.RUNNING     # not marked failed by a mismatch
+
+
+def test_tampered_schema_version_is_rejected_before_any_provider_call():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=10))
+    store, adapter, validator, completion, cfg = _wire(t)  # contract is v1
+    res = _exec(_request(schema_version="v2"), store, adapter, validator, completion, cfg)
+    assert res.decision is ExecutionDecision.CONTRACT_MISMATCH and t.calls == 0
+
+
+def test_tampered_max_tokens_is_tightened_never_enlarged():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=100))
+    store, adapter, validator, completion, cfg = _wire(t)  # contract max_output_bound == 5000
+    res = _exec(_request(max_output_tokens=9999), store, adapter, validator, completion, cfg)
+    assert res.decision is ExecutionDecision.SUCCEEDED
+    assert t.last_max_tokens == 5000        # tightened to the Job bound; never the tampered 9999
+    # A model/server hard cap tightens further and is never exceeded.
+    t2 = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=100))
+    store2, adapter2, validator2, completion2, _ = _wire(t2)
+    cfg2 = ProviderConfig(approved_model="gpt-approved", provider_profile_version="pp-1",
+                          model_max_output_tokens=4000)
+    _exec(_request(max_output_tokens=5000), store2, adapter2, validator2, completion2, cfg2)
+    assert t2.last_max_tokens == 4000       # min(5000 request, 5000 bound, 4000 model cap)
+
+
+def test_contract_matching_request_still_executes():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=1200))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    assert res.decision is ExecutionDecision.SUCCEEDED and t.calls == 1
+
+
+# ===========================================================================
+# Fix 2: timeout -> reconciliation lifecycle; a matching late result is accepted
+# ===========================================================================
+def test_timeout_then_matching_late_result_is_accepted_via_guarded_completion():
+    # First attempt times out (unknown execution/usage) -> PENDING_RECONCILIATION, not FAILED.
+    t_timeout = FakeOpenAITransport(error=FakeAPITimeoutError())
+    store, adapter, validator, completion, cfg = _wire(t_timeout)
+    _exec(_request(), store, adapter, validator, completion, cfg)
+    assert store.jobs["job-1"].status is JobStatus.PENDING_RECONCILIATION
+    # A controlled, contract-matching late result (a distinct call) completes through the guard.
+    t_late = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=1500))
+    adapter_late = OpenAICompatibleAdapter(t_late)
+    res = execute_job(_request(), adapter=adapter_late, validator=validator, store=store,
+                      completion=completion, provider_config=ProviderConfig(
+                          approved_model="gpt-approved", provider_profile_version="pp-1"))
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.SUCCEEDED and job.status is JobStatus.SUCCEEDED
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 1500
+
+
+def test_terminal_failed_job_does_not_accept_a_late_result():
+    # A validation failure is a DEFINITE terminal failure (unlike a timeout).
+    bad = {"summary": "x", "confidence": 0.5}  # missing citations
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=bad, total_tokens=100))
+    store, adapter, validator, completion, cfg = _wire(t)
+    _exec(_request(), store, adapter, validator, completion, cfg)
+    assert store.jobs["job-1"].status is JobStatus.FAILED
+    t2 = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=10))
+    res2 = execute_job(_request(), adapter=OpenAICompatibleAdapter(t2), validator=validator,
+                       store=store, completion=completion,
+                       provider_config=ProviderConfig(approved_model="gpt-approved",
+                                                      provider_profile_version="pp-1"))
+    assert res2.decision is ExecutionDecision.COMPLETION_NOOP  # guard rejects a terminal job
+    assert store.jobs["job-1"].result_artifact is None
+
+
+# ===========================================================================
+# Fix 3: known-usage non-success paths retain + settle the exact usage
+# ===========================================================================
+def test_validation_failed_with_known_usage_is_settled_no_artifact():
+    bad = {"summary": "x", "confidence": 0.5}  # missing citations
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=bad, total_tokens=1200))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.VALIDATION_FAILED and job.result_artifact is None
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 1200   # Provider charged
+    assert any(e["type"] == "job.cost_recorded" and e["usage_total_tokens"] == 1200 for e in job.events)
+
+
+def test_forbidden_extra_with_known_usage_is_settled_no_artifact():
+    bad = dict(VALID_V1, debug_prompt="leak")
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=bad, total_tokens=777))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.VALIDATION_FAILED and job.result_artifact is None
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 777
+
+
+def test_incomplete_with_known_usage_is_settled():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, finish_reason="length", total_tokens=640))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.INCOMPLETE and job.result_artifact is None
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 640
+
+
+def test_refusal_with_known_usage_is_not_dropped():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload={}, refusal="policy", total_tokens=55))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.REFUSED
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 55   # refusal usage retained
+
+
+def test_failure_with_unknown_usage_holds_reconciliation_pending():
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload={}, refusal="policy", total_tokens=None))
+    store, adapter, validator, completion, cfg = _wire(t)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    job = store.jobs["job-1"]
+    assert res.decision is ExecutionDecision.REFUSED
+    assert job.cost_state is CostState.RECONCILIATION_PENDING and job.settled_tokens is None  # unknown != 0
+
+
+# ===========================================================================
+# Fix 4: config-wide capability 400 fails the config closed; single 400 does not
+# ===========================================================================
+def test_config_wide_capability_400_disables_config_and_blocks_next_call():
+    bad = FakeOpenAITransport(error=FakeBadRequestError(status_code=400, config_scope=True, request_id="rq-1"))
+    store, adapter, validator, completion, cfg = _wire(bad)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    assert res.decision is ExecutionDecision.CAPABILITY_FAILURE and cfg.disabled is True
+    ev = [e for e in store.jobs["job-1"].events if e["classification"].startswith("provider_capability_config")][0]
+    assert ev["evidence"]["approved_model"] == "gpt-approved" and ev["provider_request_id"] == "rq-1"
+    # The next execution using the disabled config is blocked BEFORE any transport call.
+    t2 = FakeOpenAITransport(response=FakeSDKResponse(payload=VALID_V1, total_tokens=1))
+    store.start_running("job-2", tenant_id="tenant-a", contract=_contract(correlation_id="c-2"), reserved_tokens=5000)
+    res2 = execute_job(_request(job_id="job-2"), adapter=OpenAICompatibleAdapter(t2), validator=validator,
+                       store=store, completion=completion, provider_config=cfg)
+    assert res2.decision is ExecutionDecision.BLOCKED_CONFIG_DISABLED and t2.calls == 0
+
+
+def test_single_request_400_does_not_close_the_whole_config():
+    bad = FakeOpenAITransport(error=FakeBadRequestError(status_code=400, config_scope=False))
+    store, adapter, validator, completion, cfg = _wire(bad)
+    res = _exec(_request(), store, adapter, validator, completion, cfg)
+    assert res.decision is ExecutionDecision.CAPABILITY_FAILURE
+    assert cfg.disabled is False   # a single non-config-scope 400 must not disable the Provider config
 
 
 # ===========================================================================

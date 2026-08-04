@@ -21,7 +21,7 @@ Real FastAPI wire / integration / production          : NOT RUN
 Day54 streaming/disconnect/cancellation, Day55 Celery, Day56 retry/backoff/degradation : NOT IMPLEMENTED
 ```
 
-Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **20 passed**
+Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **33 passed**
 (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). The suite proves the REAL Pydantic v2 validation gate + application
 control flow (Adapter -> Validator -> CompletionService) with an injected fake transport. It does NOT prove the real
 `openai` SDK, network, Provider, PostgreSQL, Redis, Celery, FastAPI wire, integration, or production. The classroom
@@ -96,6 +96,11 @@ Adapter translates SDK responses and vendor exceptions; it does NOT complete Job
 - The Job-controlled 5,000 output cap wins over an 8,000 Adapter default: `effective_max = min(Job cap, adapter/model
   ceiling)`. The Adapter NEVER enlarges the per-Job limit and only REPORTS usage — it does not create a second
   reservation (Day52 already reserved).
+- **The outgoing Provider call is bound to the PERSISTED execution contract, not the caller.** `execute_job` loads the
+  Job + its `ExecutionContract` FIRST and `bind_request_to_contract` derives the model, schema, schema version, task
+  type, and provider profile from the contract (a caller cannot pick them). Any inconsistency on an authoritative
+  field is a pre-call SAFE REJECTION (`CONTRACT_MISMATCH`) — no transport/network call is made. The token budget is
+  SAFELY TIGHTENED to `min(request, contract bound, model/server hard cap)`, never enlarged.
 
 ---
 
@@ -105,24 +110,42 @@ Adapter translates SDK responses and vendor exceptions; it does NOT complete Job
 - **Business execution success and cost settlement are SEPARATE state axes.** A valid structured output can make the
   Job business status `succeeded` even when usage is UNKNOWN — retain the reservation and hold a cost
   `reconciliation_pending` state (never represent unknown usage as zero).
+- **Invalid/refused/incomplete output does NOT mean the Provider did not charge.** Every non-success Outcome that
+  carries KNOWN usage retains the EXACT usage and is settled/reconciled through a Day52-compatible path
+  (`record_cost`): known usage -> `SETTLED` (exact `settled_tokens`), unknown usage -> `RECONCILIATION_PENDING`
+  (reservation retained, never released, never fabricated as zero). `ProviderRefusal` carries usage and never drops
+  it. There is still NO success Result Artifact on these paths.
 - Overages remain controlled reconciliation (Day52's `settle_overage`, never a `min()` truncation). Day53 never
   fabricates zero cost.
 
 ```text
-CostState: RESERVED -> SETTLED (usage known)  |  RECONCILIATION_PENDING (usage unknown; reservation retained)
-JobStatus: RUNNING  -> SUCCEEDED (valid output, guarded)  |  FAILED (classified non-success / validation failure)
+CostState: RESERVED -> SETTLED (usage known, success OR known-usage failure)  |  RECONCILIATION_PENDING (usage unknown; reservation retained)
+JobStatus: RUNNING -> SUCCEEDED (valid output, guarded)  |  FAILED (definite non-success: validation/refusal/incomplete)
+                    -> PENDING_RECONCILIATION (timeout: unknown execution/usage; NOT terminal; a matching late result may still complete)
+Pre-call:  execute_job binds the request to the persisted contract; a mismatch is CONTRACT_MISMATCH (no Provider call)
 ```
 
 ---
 
 ## 7. Error semantics
 
+- A Provider TIMEOUT means whether the Provider ran, its result, and its usage are all UNKNOWN. It does NOT write a
+  definite terminal `FAILED` (that would block a legitimate late result and invite an unprotected re-run). It moves the
+  Job to a non-terminal `PENDING_RECONCILIATION` lifecycle, retains the reservation (`reconciliation_pending`, never
+  zero, never auto-released), records safe correlation evidence, and triggers NO Day56 retry. A later contract-matching
+  legitimate result may still be accepted through guarded completion (which now completes from `RUNNING` OR
+  `PENDING_RECONCILIATION`); a terminal `SUCCEEDED`/`FAILED` job still yields zero rows.
 - Provider REFUSAL is a classified non-success outcome, not an empty success.
 - Provider 401/403 is a configuration/authentication failure: STOP new calls using the affected Provider
   configuration (`ProviderConfig.disable`) and preserve safe operational evidence. It is NOT a user-input error.
 - Provider 429 after a durable 202 is a downstream Job/Attempt event, NOT a retroactive HTTP 429 for the original
   client. Preserve safe `Retry-After`/request metadata if supplied; Day56 owns retry/backoff policy.
-- A 400 unsupported model/schema is a capability/configuration failure, not user input error.
+- A 400 unsupported model/schema is a capability/configuration failure, not user input error. Distinguish a
+  CONFIG-WIDE capability failure (`ProviderCapabilityError.config_scope=True` — this model/profile cannot honor the
+  controlled schema) from a single-request 400: a config-wide failure fails the `ProviderConfig` CLOSED
+  (`disable`) so no further NEW call uses it, while a single-request 400 does NOT close the config. Both keep safe
+  schema/model/profile/correlation + request-id evidence; neither invalidates an already-issued in-flight result that
+  satisfies its persisted contract.
 - Reuse a lifespan-owned SDK client per process; do not create a client per `generate()` call. Drain before close. No
   cross-process singleton behavior is claimed.
 
@@ -165,11 +188,15 @@ of durable business facts.**
 |---|---|---|
 | Conceptual design | COMPLETED | this runbook + lesson |
 | SDK types stay inside the Adapter; typed ProviderOutcome union | RUN (in-memory) | `OpenAICompatibleAdapter.generate`; each fake SDK error -> a union case |
+| Provider call bound to the persisted contract (no trusted caller input) | RUN (in-memory) | `bind_request_to_contract`; tampered model/schema/version -> CONTRACT_MISMATCH, 0 transport calls; max tightened never enlarged |
 | One lifespan-owned client reused; Job cap wins (5000 vs 8000) | RUN (in-memory) | transport call count + `last_max_tokens` |
 | REAL strict structured validation before side effects | RUN (real Pydantic v2) | missing `citations` / forbidden `debug_prompt` -> CONTRACT_VIOLATION |
 | Invalid output never calls completion | RUN (in-memory) | no success transition / Artifact / Event on invalid |
 | Valid output completes once; guarded zero-row stops | RUN (in-memory) | one `job.succeeded`; second attempt -> NOOP_ZERO_ROWS, no overwrite |
 | Success with unknown usage: succeed + reconciliation_pending | RUN (in-memory) | separate business/cost axes; usage None retained, not zero |
+| Known-usage non-success settles exact usage; refusal usage not dropped | RUN (in-memory) | `record_cost` on validation-fail/incomplete/refusal; known -> SETTLED, unknown -> reconciliation_pending |
+| Timeout is non-terminal; a matching late result still completes | RUN (in-memory) | PENDING_RECONCILIATION (not FAILED); reservation retained; no auto second call; guarded completion accepts the late result |
+| Config-wide capability 400 fails the config closed; single 400 does not | RUN (in-memory) | `config_scope` disables ProviderConfig + blocks next call before transport; single-request 400 keeps it enabled |
 | Refusal / incomplete / timeout / auth / 429 / capability classification | RUN (in-memory) | ExecutionDecision per outcome; auth disables config; 429 keeps Retry-After |
 | Server-owned versioned schema binding (no cross-version satisfaction) | RUN (real Pydantic v2) | v2 payload fails v1 Job; unknown version -> SCHEMA_NOT_FOUND |
 | Raw minimization: no prompt/secret/raw fields persisted or logged | RUN (in-memory) | serialized artifact+events exclude prompt/api_key/debug_prompt |

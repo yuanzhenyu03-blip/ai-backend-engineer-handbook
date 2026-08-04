@@ -9,6 +9,57 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.110 — Day53 review (Codex): contract-bound calls, non-terminal timeout, known-usage cost, config-wide 400 containment
+
+Date: 2026-08-04
+
+Day: Day53 (review fix)
+
+Addresses four Day53 review findings. Scope limited to the Day53 model, tests, and Day53 docs/status descriptions;
+still an in-memory model with real Pydantic v2 validation + an injected FAKE transport.
+
+### Fixed
+
+- **Fix 1 — the Provider call is bound to the persisted execution contract.** `execute_job` loads the Job +
+  `ExecutionContract` first and `bind_request_to_contract` derives the model, schema, schema version, task type, and
+  provider profile from the contract (never trusted from the caller). Any inconsistency on an authoritative field is a
+  pre-call SAFE REJECTION (`CONTRACT_MISMATCH`) with ZERO transport calls; the token budget is tightened to
+  `min(request, contract bound, model/server hard cap)`, never enlarged. `ProviderConfig.model_max_output_tokens` adds
+  a model/server hard cap.
+- **Fix 2 — a Provider timeout is not a definite terminal failure.** New `JobStatus.PENDING_RECONCILIATION` +
+  `CompletionService.record_timeout_pending`: a timeout retains the reservation (unknown usage, never zero, never
+  auto-released), records safe correlation evidence, triggers no Day56 retry, and is NOT written `FAILED`. Guarded
+  completion now accepts a `RUNNING` OR `PENDING_RECONCILIATION` job, so a controlled, contract-matching late result is
+  still accepted; a terminal `SUCCEEDED`/`FAILED` job still yields zero rows.
+- **Fix 3 — known-usage non-success paths settle/reconcile the exact usage.** New `CompletionService.record_cost`:
+  validation-failure, `ProviderIncomplete`, and `ProviderRefusal` retain the exact known usage (`SETTLED`) or hold
+  `reconciliation_pending` when unknown — invalid output does not mean the Provider did not charge. `ProviderRefusal`
+  now carries `usage` (adapter passes it), so refusal usage is never silently dropped. No raw payload/prompt/secret is
+  persisted.
+- **Fix 4 — config-wide capability 400 fails the config closed.** `ProviderCapabilityError.config_scope` distinguishes
+  a config-wide capability failure (this model/profile cannot honor the controlled schema) from a single-request 400. A
+  config-wide failure disables the `ProviderConfig` (blocks the next call before any transport call) and keeps safe
+  schema/model/profile/correlation + request-id evidence; a single-request 400 does not disable the config. Neither
+  invalidates an already-issued in-flight result that satisfies its persisted contract.
+
+### Added tests (20 -> 33)
+
+Contract binding (tampered model/schema/version rejected pre-call with 0 transport calls; max tightened never enlarged;
+matching request still executes); timeout non-terminal + reservation retained + no auto second call + matching late
+result accepted, and a terminal FAILED job rejects a late result; known-usage settlement for validation-fail /
+forbidden-extra / incomplete / refusal, plus unknown-usage reconciliation_pending; config-wide 400 disables + blocks
+the next call, and a single-request 400 keeps the config enabled.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **33 passed** (was 20); full
+  `projects/ai-backend-data-layer/api/` suite -> **306 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). REAL
+  Pydantic v2 validation + application control flow with an injected FAKE transport. SDK types remain confined to the
+  Adapter. NOT RUN: the real `openai` SDK / network / Provider, real PostgreSQL / Redis / Celery Worker, FastAPI wire,
+  integration, production. No real api_key, base_url secret, raw prompt, Document content, or Provider response used.
+
+---
+
 ## v0.1.109 — Day53 OpenAI SDK, Provider Boundaries and Structured Output
 
 Date: 2026-08-04

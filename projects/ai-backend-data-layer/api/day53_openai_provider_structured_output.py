@@ -89,6 +89,7 @@ class ProviderSuccess(ProviderOutcome):
 @dataclass(frozen=True)
 class ProviderRefusal(ProviderOutcome):
     reason_code: str
+    usage: Usage = field(default_factory=Usage.unknown)  # a refusal may still have billed usage
     provider_request_id: Optional[str] = None
 
 
@@ -119,6 +120,8 @@ class ProviderRateLimited(ProviderOutcome):
 class ProviderCapabilityError(ProviderOutcome):
     status_code: int  # e.g. 400 unsupported model/schema — a capability/config failure
     detail: str = ""
+    config_scope: bool = False  # True: the CURRENT model/profile cannot honor the controlled schema
+    provider_request_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -145,9 +148,12 @@ class FakeRateLimitError(_FakeSDKError):
 
 
 class FakeBadRequestError(_FakeSDKError):
-    def __init__(self, detail: str = "", status_code: int = 400) -> None:
+    def __init__(self, detail: str = "", status_code: int = 400, *, config_scope: bool = False,
+                 request_id: Optional[str] = None) -> None:
         self.detail = detail
         self.status_code = status_code
+        self.config_scope = config_scope   # True models "this model/profile lacks the schema capability"
+        self.request_id = request_id
 
 
 class FakeAPITimeoutError(_FakeSDKError):
@@ -225,7 +231,9 @@ class OpenAICompatibleAdapter:
         except FakeRateLimitError as e:
             return ProviderRateLimited(retry_after=e.retry_after, provider_request_id=e.request_id)
         except FakeBadRequestError as e:
-            return ProviderCapabilityError(status_code=e.status_code, detail=e.detail)
+            return ProviderCapabilityError(status_code=e.status_code, detail=e.detail,
+                                           config_scope=e.config_scope,
+                                           provider_request_id=e.request_id)
         except FakeAPITimeoutError:
             return ProviderTimeout()  # unknown usage
         except FakeAPIConnectionError as e:
@@ -233,7 +241,8 @@ class OpenAICompatibleAdapter:
         # Successful SDK response -> classify into the application union.
         usage = Usage(total_tokens=resp.total_tokens)  # None stays UNKNOWN, never coerced to 0
         if resp.refusal is not None:
-            return ProviderRefusal(reason_code=resp.refusal, provider_request_id=resp.request_id)
+            return ProviderRefusal(reason_code=resp.refusal, usage=usage,
+                                   provider_request_id=resp.request_id)
         if resp.finish_reason != "stop":
             return ProviderIncomplete(reason=resp.finish_reason, usage=usage,
                                       provider_request_id=resp.request_id)
@@ -324,7 +333,9 @@ class StructuredOutputValidator:
 class JobStatus(str, Enum):
     RUNNING = "running"
     SUCCEEDED = "succeeded"
-    FAILED = "failed"
+    FAILED = "failed"                       # definite terminal business failure
+    PENDING_RECONCILIATION = "pending_reconciliation"  # timeout/unknown execution: NOT terminal; a
+    # matching late result may still be accepted through guarded completion (never auto-retried here)
 
 
 class CostState(str, Enum):
@@ -392,9 +403,11 @@ class CompletionService:
     def complete_success(self, job_id: str, *, domain_result: dict, usage: Usage,
                          provider_request_id: Optional[str]) -> CompletionOutcome:
         job = self._store.jobs.get(job_id)
-        # Guarded transition: only a RUNNING job may complete. Zero rows -> STOP (duplicate/
-        # stale/cancelled/retry/changed facts); inspect + reconcile, never overwrite.
-        if job is None or job.status is not JobStatus.RUNNING:
+        # Guarded transition: only a still-completable job may complete — RUNNING, or a
+        # PENDING_RECONCILIATION job whose real outcome/usage was unknown (e.g. after a
+        # timeout) and for which a matching late result now arrives. A terminal SUCCEEDED/
+        # FAILED job yields zero rows -> STOP (duplicate/stale/cancelled/changed), never overwrite.
+        if job is None or job.status not in (JobStatus.RUNNING, JobStatus.PENDING_RECONCILIATION):
             return CompletionOutcome.NOOP_ZERO_ROWS
         job.status = JobStatus.SUCCEEDED
         # Cost axis: unknown usage is retained as reconciliation_pending, never zeroed.
@@ -423,9 +436,10 @@ class CompletionService:
     def record_non_success(self, job_id: str, *, classification: str,
                            provider_request_id: Optional[str] = None,
                            retry_after: Optional[str] = None,
+                           evidence: Optional[dict] = None,
                            mark_failed: bool = True) -> None:
         """Record a classified non-success Attempt/Event WITHOUT a success transition, Result
-        Artifact, or success write. Safe metadata only."""
+        Artifact, or success write. Safe metadata only (no raw payload/prompt/secret)."""
         job = self._store.jobs.get(job_id)
         if job is None:
             return
@@ -438,6 +452,45 @@ class CompletionService:
             event["provider_request_id"] = provider_request_id
         if retry_after is not None:
             event["retry_after"] = retry_after  # safe downstream metadata; Day56 owns policy
+        if evidence is not None:
+            event["evidence"] = dict(evidence)  # safe config/schema/model/profile facts only
+        job.events.append(event)
+
+    def record_cost(self, job_id: str, usage: Usage) -> None:
+        """Day52-compatible cost handling for a NON-success Outcome: an invalid/refused/
+        incomplete result does NOT mean the Provider did not charge. Known usage is retained
+        as the EXACT settled amount; unknown usage holds reconciliation_pending (reservation
+        retained, never released, never fabricated as zero). Never a success Artifact."""
+        job = self._store.jobs.get(job_id)
+        if job is None:
+            return
+        if usage.is_known:
+            job.cost_state = CostState.SETTLED
+            job.settled_tokens = usage.total_tokens
+        else:
+            job.cost_state = CostState.RECONCILIATION_PENDING
+        job.events.append({"type": "job.cost_recorded", "job_id": job_id,
+                           "usage_total_tokens": usage.total_tokens,  # may be None (explicit unknown)
+                           "cost_state": job.cost_state.value,
+                           "correlation_id": job.contract.correlation_id})
+
+    def record_timeout_pending(self, job_id: str, *, provider_request_id: Optional[str] = None) -> None:
+        """A Provider timeout means whether the Provider ran, its result, and its usage are all
+        UNKNOWN. Do NOT write a definite terminal FAILED (that would block a legitimate late
+        result and invite an unprotected re-run). Move to the non-terminal PENDING_RECONCILIATION
+        lifecycle, retain the reservation (unknown usage held reconciliation_pending, never zero,
+        never auto-released), and record safe correlation evidence. No Day56 retry is triggered."""
+        job = self._store.jobs.get(job_id)
+        if job is None:
+            return
+        if job.status in (JobStatus.RUNNING, JobStatus.PENDING_RECONCILIATION):
+            job.status = JobStatus.PENDING_RECONCILIATION
+        job.cost_state = CostState.RECONCILIATION_PENDING
+        event = {"type": "job.provider_timeout_pending_reconciliation", "job_id": job_id,
+                 "classification": "provider_timeout_unknown_execution_and_usage",
+                 "correlation_id": job.contract.correlation_id}
+        if provider_request_id is not None:
+            event["provider_request_id"] = provider_request_id
         job.events.append(event)
 
     def hold_cost_reconciliation(self, job_id: str) -> None:
@@ -459,6 +512,7 @@ class ProviderConfig:
 
     approved_model: str
     provider_profile_version: str
+    model_max_output_tokens: Optional[int] = None  # model/server hard cap; effective max never exceeds it
     disabled: bool = False
     disabled_reason: Optional[str] = None
 
@@ -478,6 +532,7 @@ class ExecutionDecision(str, Enum):
     CAPABILITY_FAILURE = "capability_failure"
     TRANSPORT_ERROR = "transport_error"
     BLOCKED_CONFIG_DISABLED = "blocked_config_disabled"
+    CONTRACT_MISMATCH = "contract_mismatch"  # request inconsistent with the persisted contract; no call made
     COMPLETION_NOOP = "completion_noop"
 
 
@@ -491,6 +546,38 @@ class ExecutionResult:
 # ===========================================================================
 # 7. Application Service — orchestrates generate -> validate -> guarded completion
 # ===========================================================================
+def bind_request_to_contract(
+    request: ProviderRequest, contract: ExecutionContract, *, model_hard_cap: Optional[int] = None,
+) -> tuple[Optional[ProviderRequest], Optional[str]]:
+    """Constrain the outgoing Provider call to the PERSISTED Job execution contract. A caller
+    must not pick the model, schema, task type, provider profile, or an enlarged token budget.
+    Any inconsistency on an authoritative field is a pre-call SAFE REJECTION (no transport call).
+    The token budget is SAFELY TIGHTENED to `min(request, contract bound, model/server hard cap)`
+    — never enlarged. Returns `(bound_request, None)` or `(None, mismatch_reason)`."""
+    for field_name, req_val, con_val in (
+        ("approved_model", request.approved_model, contract.approved_model),
+        ("schema_name", request.schema_name, contract.schema_name),
+        ("schema_version", request.schema_version, contract.schema_version),
+        ("task_type", request.task_type, contract.task_type),
+        ("provider_profile_version", request.provider_profile_version, contract.provider_profile_version),
+    ):
+        if req_val != con_val:
+            return None, f"contract_mismatch:{field_name}"  # reject BEFORE any Provider call
+    caps = [request.max_output_tokens, contract.max_output_bound]
+    if model_hard_cap is not None:
+        caps.append(model_hard_cap)
+    effective_max = min(caps)  # tighten only; the client can never enlarge the per-Job bound
+    if effective_max <= 0:
+        return None, "contract_mismatch:max_output_bound"
+    bound = ProviderRequest(
+        job_id=request.job_id, tenant_id=request.tenant_id, task_type=contract.task_type,
+        schema_name=contract.schema_name, schema_version=contract.schema_version,
+        approved_model=contract.approved_model, provider_profile_version=contract.provider_profile_version,
+        max_output_tokens=effective_max, correlation_id=contract.correlation_id, prompt=request.prompt,
+    )
+    return bound, None
+
+
 def execute_job(
     request: ProviderRequest,
     *,
@@ -501,15 +588,35 @@ def execute_job(
     provider_config: ProviderConfig,
 ) -> ExecutionResult:
     """Execute an already-authorized, budget-reserved, RUNNING Job. The PERSISTED Job
-    execution contract governs result acceptance; a valid result is accepted only through
-    guarded completion. Configuration rollback affects only NEW calls, never a durable fact."""
+    execution contract governs BOTH the outgoing Provider call (model/schema/version/task/
+    profile/max are derived from or strictly compared to the contract — never trusted from the
+    caller) and result acceptance. Configuration rollback affects only NEW calls, never a
+    durable fact."""
     if provider_config.disabled:
         # Current Settings govern NEW calls: refuse to start one with a disabled config.
         return ExecutionResult(ExecutionDecision.BLOCKED_CONFIG_DISABLED)
 
-    outcome = adapter.generate(request)
+    # Load the Job + its persisted contract FIRST; bind the call to it (no trusted caller input).
     job = store.jobs[request.job_id]
-    contract = job.contract  # authoritative: validate the result against the JOB's contract
+    contract = job.contract
+    bound, mismatch = bind_request_to_contract(
+        request, contract, model_hard_cap=provider_config.model_max_output_tokens
+    )
+    if bound is None:
+        # Inconsistent request -> safe rejection BEFORE any transport/network call.
+        completion.record_non_success(request.job_id, classification=mismatch or "contract_mismatch",
+                                      mark_failed=False)
+        return ExecutionResult(ExecutionDecision.CONTRACT_MISMATCH)
+
+    outcome = adapter.generate(bound)  # only the contract-bound request ever reaches the Provider
+
+    def _evidence(request_id: Optional[str]) -> dict:
+        ev = {"schema_name": contract.schema_name, "schema_version": contract.schema_version,
+              "approved_model": contract.approved_model,
+              "provider_profile_version": contract.provider_profile_version}
+        if request_id is not None:
+            ev["provider_request_id"] = request_id
+        return ev
 
     if isinstance(outcome, ProviderSuccess):
         result = validator.validate(contract.schema_name, contract.schema_version, outcome.raw_payload)
@@ -522,33 +629,36 @@ def execute_job(
             decision = (ExecutionDecision.SUCCEEDED if co is CompletionOutcome.COMPLETED
                         else ExecutionDecision.COMPLETION_NOOP)
             return ExecutionResult(decision, completion=co, validation=result)
-        # Invalid output NEVER calls completion success — record a classified failure only.
+        # Invalid output NEVER calls completion success — but the Provider still CHARGED, so the
+        # exact (known) usage is settled/reconciled, never dropped, never fabricated as zero.
         completion.record_non_success(request.job_id, classification=f"validation:{result.outcome.value}",
                                       provider_request_id=outcome.provider_request_id)
+        completion.record_cost(request.job_id, outcome.usage)
         return ExecutionResult(ExecutionDecision.VALIDATION_FAILED, validation=result)
 
     if isinstance(outcome, ProviderRefusal):
-        completion.record_non_success(request.job_id, classification="provider_refusal",
+        completion.record_non_success(request.job_id, classification=f"provider_refusal:{outcome.reason_code}",
                                       provider_request_id=outcome.provider_request_id)
+        completion.record_cost(request.job_id, outcome.usage)  # refusal usage is never dropped
         return ExecutionResult(ExecutionDecision.REFUSED)
 
     if isinstance(outcome, ProviderIncomplete):
         completion.record_non_success(request.job_id, classification=f"provider_incomplete:{outcome.reason}",
                                       provider_request_id=outcome.provider_request_id)
-        if not outcome.usage.is_known:
-            completion.hold_cost_reconciliation(request.job_id)
+        completion.record_cost(request.job_id, outcome.usage)  # known -> settle; unknown -> reconciliation_pending
         return ExecutionResult(ExecutionDecision.INCOMPLETE)
 
     if isinstance(outcome, ProviderTimeout):
-        completion.record_non_success(request.job_id, classification="provider_timeout_unknown_usage")
-        completion.hold_cost_reconciliation(request.job_id)  # retain reservation; unknown != zero
+        # NOT a terminal FAILED: whether the Provider ran, its result, and usage are unknown.
+        completion.record_timeout_pending(request.job_id)
         return ExecutionResult(ExecutionDecision.TIMEOUT_UNKNOWN_USAGE)
 
     if isinstance(outcome, ProviderAuthenticationError):
         # Configuration/authentication failure: STOP new calls with this config; keep evidence.
         provider_config.disable(f"provider_auth_{outcome.status_code}")
         completion.record_non_success(request.job_id,
-                                      classification=f"provider_auth_config_failure:{outcome.status_code}")
+                                      classification=f"provider_auth_config_failure:{outcome.status_code}",
+                                      evidence=_evidence(None))
         return ExecutionResult(ExecutionDecision.AUTH_CONFIG_FAILURE)
 
     if isinstance(outcome, ProviderRateLimited):
@@ -559,9 +669,18 @@ def execute_job(
         return ExecutionResult(ExecutionDecision.RATE_LIMITED)
 
     if isinstance(outcome, ProviderCapabilityError):
-        # e.g. 400 unsupported model/schema — capability/config failure, not user input error.
-        completion.record_non_success(request.job_id,
-                                      classification=f"provider_capability_failure:{outcome.status_code}")
+        # Distinguish a CONFIG-WIDE capability failure (this model/profile cannot honor the
+        # controlled schema) from a single-request 400. A config-wide failure fails the config
+        # CLOSED so no further NEW call uses it; a single-request 400 does not close the config.
+        # Neither is a user-input error; both keep safe schema/model/profile/correlation evidence.
+        if outcome.config_scope:
+            provider_config.disable(f"provider_capability_config_{outcome.status_code}")
+            classification = f"provider_capability_config_failure:{outcome.status_code}"
+        else:
+            classification = f"provider_capability_request_failure:{outcome.status_code}"
+        completion.record_non_success(request.job_id, classification=classification,
+                                      provider_request_id=outcome.provider_request_id,
+                                      evidence=_evidence(outcome.provider_request_id))
         return ExecutionResult(ExecutionDecision.CAPABILITY_FAILURE)
 
     if isinstance(outcome, ProviderTransportError):

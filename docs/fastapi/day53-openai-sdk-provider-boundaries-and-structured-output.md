@@ -12,7 +12,7 @@ Prerequisite: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Previous Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Next Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Engineering Artifact: projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md
-  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 20 passed)
+  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 33 passed)
 ```
 
 Main engineering artifact: a provider-neutral Provider boundary (fake injected transport) with a REAL Pydantic v2
@@ -271,7 +271,10 @@ never come from payloads. Persist only NON-secret execution-contract facts (prov
 model, schema name/version, task type, max-output bound, correlation IDs). The Job-controlled 5,000 cap wins over an
 8,000 Adapter default — `effective_max = min(Job cap, ceiling)`, never enlarging the per-Job limit — and the Adapter
 only REPORTS usage; it does not create a second reservation. Retrieve current credentials when execution begins; never
-persist old credentials.
+persist old credentials. And the outgoing call is BOUND to the persisted execution contract: `execute_job` loads the
+Job + `ExecutionContract` first and derives the model/schema/version/task/profile from it — a caller cannot pick them;
+an inconsistent request is safely rejected (`CONTRACT_MISMATCH`) BEFORE any transport call, and the token budget is
+tightened, never enlarged.
 
 ### Framework Connection
 
@@ -294,8 +297,10 @@ If the Provider times out and usage is unknown, can the Job still succeed? Can y
 Correct on cost. And an important correction: business execution success and cost settlement are SEPARATE state axes. A
 valid structured output can make the Job business status `succeeded` even when usage is UNKNOWN — retain the
 reservation and hold a cost `reconciliation_pending` state; never represent unknown usage as zero. Overages remain
-controlled reconciliation (Day52), never a `min()` truncation. A timeout with no result, by contrast, is a non-success
-outcome that still retains the reservation as reconciliation-pending.
+controlled reconciliation (Day52), never a `min()` truncation. A timeout, by contrast, is a non-terminal outcome with unknown
+execution and usage (see Concept 8). Separately: an invalid, refused, or incomplete result does NOT mean the Provider
+did not charge — every non-success Outcome carrying KNOWN usage retains the exact usage and settles it through a
+Day52-compatible path (known -> settled; unknown -> reconciliation-pending), and a refusal's usage is never dropped.
 
 ### Framework Connection
 
@@ -325,9 +330,12 @@ timed-out Job.
 ### Tech Lead Review
 
 All correct, with one correction: a single unsupported-output request cannot BOTH 400 and return a valid result — the
-valid result belongs to a distinct pre-rollout / old-worker call. 401/403 stops new calls with that config and
-preserves evidence (not a user-input error); 429 after a durable 202 is a downstream Job/Attempt event, not a
-retroactive client 429 (keep safe `Retry-After`; Day56 owns retry). The core rule: **configuration rollback is not a
+valid result belongs to a distinct pre-rollout / old-worker call. A timeout is NOT written as a terminal `FAILED`: whether the Provider ran and what it cost are unknown, so the Job
+moves to a non-terminal `PENDING_RECONCILIATION` lifecycle (reservation retained, no auto-retry) and a later
+contract-matching legitimate result may still be accepted through guarded completion. 401/403 stops new calls with
+that config and preserves evidence (not a user-input error). A 400 that means the current model/profile cannot honor
+the controlled schema is CONFIG-WIDE and fails the config closed (a single-request 400 does not). 429 after a durable
+202 is a downstream Job/Attempt event, not a retroactive client 429 (keep safe `Retry-After`; Day56 owns retry). The core rule: **configuration rollback is not a
 business-fact rollback** — a result that satisfies its persisted contract is still accepted.
 
 ### Framework Connection
@@ -391,7 +399,7 @@ Run the model:
 ```bash
 cd projects/ai-backend-data-layer/api
 python3 -m pip install -r requirements-day53.txt   # pydantic==2.5.0, pytest==7.4.3
-python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 20 passed
+python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 33 passed
 ```
 
 ---
@@ -442,8 +450,9 @@ failure with field locations only, no raw payload."
 
 ### Senior — a Provider times out with unknown usage; can the Job succeed, and how is cost handled?
 
-Strong answer: "Business execution success and cost settlement are separate axes. A timeout with no result is a
-non-success outcome, but the key case is a valid result with unknown usage: the Job can succeed on the business axis
+Strong answer: "Business execution success and cost settlement are separate axes. A timeout is a NON-terminal
+reconciliation outcome (not a definite FAILED, so a matching late result can still be accepted), but the key case is a
+valid result with unknown usage: the Job can succeed on the business axis
 while I keep the reservation and hold a cost reconciliation-pending state — I never record unknown usage as zero. Only
 the guarded `running -> succeeded` transition, owned by the Completion Service, writes the validated Result Artifact;
 if it updates zero rows I stop and reconcile. And a later configuration rollback of the model does not roll back that
@@ -465,7 +474,8 @@ ProviderSuccess.payload (UNTRUSTED) --Day44 strict gate against the Job's bound 
         |
         v
 Result Artifact = validated domain result + safe metadata only (no prompt/secret/raw payload)
-Cost axis: usage known -> SETTLED ; usage unknown -> RECONCILIATION_PENDING (retain reservation, never zero)
+Cost axis: usage known -> SETTLED (success OR known-usage failure) ; usage unknown -> RECONCILIATION_PENDING (retain reservation, never zero)
+Timeout: PENDING_RECONCILIATION (non-terminal; a matching late result may still complete) ; call is bound to the persisted contract
 Config rollback governs NEW calls; the persisted execution contract governs result acceptance (facts are not rolled back)
 ```
 
