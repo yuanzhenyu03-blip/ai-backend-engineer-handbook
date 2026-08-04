@@ -4,24 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day51 — Authentication, Password Security and JWT** that establishes a trusted caller identity
-for the Day43-Day50 AI Job API. A provider-neutral control-flow model (`day51_authentication_jwt.py`) uses **real**
-Argon2id password hashing (argon2-cffi) and **real** asymmetric RS256 JWT issuance/verification (PyJWT + cryptography)
-with **ephemeral in-process keys**, plus an in-memory user + `AuthSession` store: password hash/verify with one
-generic failure + `needs_rehash`; minimal non-secret JWT claims; a full verification contract (pinned algorithm,
-trusted key by allowlisted `kid`, signature + iss + aud + exp + nbf + required `sub`, rejecting `alg=none`/HS256-
-confusion/tamper); `kid` allowlist + unknown-kid trusted-source refresh + emergency revoke + K1->K2 rotation
-overlap; a per-device Refresh Session storing only the token hash with a guarded `UPDATE ... RETURNING` rotation,
-all-or-nothing rollback, a bounded grace/replay state machine, and family-revocation-with-retained-evidence; and a
-browser cookie/Origin/CSRF decision contract. **REAL crypto + control-flow tests were executed** (Python 3.10.12;
-argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 37 passed; deps pinned in
-`api/requirements-day51.txt`). This proves crypto primitives + control flow only: **PostgreSQL
-(UNIQUE/tx/isolation/`UPDATE ... RETURNING`), real FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire), a
-JWKS endpoint, integration, and production are NOT RUN**; JWE is out of scope, and Day52 authorization/quota, Day53
-real Provider, and Day55 real Celery are not implemented. Authentication establishes a trusted `user_id`; a
-client-supplied `tenant_id` is not authority (Day52). Schema honesty: a `password_hash` column and the per-device
-`AuthSession` table are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration
-(not implemented here). No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+Current increment: **Day52 — Authorization, Tenant Isolation, Quotas and API Security** that turns Day51's trusted `user_id` into current, tenant-scoped, action-specific, cost-aware authority over the Day43-Day51 AI Job API. A provider-neutral, **standard-library-only** in-memory model (`day52_authorization_tenant_quota_security.py`) covers: Membership/role authorization where a client `tenant_id` is only a selector and authority is the server-built `AuthorizedTenantContext`; tenant + owner scoped reads returning a public 404 (no existence oracle); a guarded `UPDATE tenant_budgets ... WHERE available >= amount RETURNING` token reservation committed atomically with the Job + Outbox (all-or-nothing rollback; actual-usage reconciliation; unknown-cost retention); a shared, fail-closed token-bucket rate limiter (503 on outage, 429 on a healthy breach) distinct from durable quota; idempotent recovery that adds no cost and is not an authz bypass; and a guarded cancel-policy repair. **The in-memory tests were executed** (Python 3.10.12, pytest 7.4.3 -> 16 passed; standard-library only). This proves application control flow only: **real PostgreSQL (constraint/tx/isolation/`UPDATE ... RETURNING`/RLS), real Redis (distributed limiter atomics/TTL/failover), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker, integration, and production are NOT RUN**. Authority is the server-built `AuthorizedTenantContext`; a client `tenant_id` is never authority. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are new facts modeled in-memory; a real schema adds them via a Day48-safe forward additive migration (not implemented here). No real JWT, Provider key, password, prompt, Document content, or user data is used.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -83,6 +66,7 @@ Lessons:
 - Day49 (verified upload boundary): [`docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md`](../../docs/fastapi/day49-upload-sessions-object-storage-and-artifact-verification.md)
 - Day50 (idempotent acceptance + outbox): [`docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md`](../../docs/fastapi/day50-idempotent-ai-job-api-and-transactional-outbox-integration.md)
 - Day51 (authentication + JWT): [`docs/fastapi/day51-authentication-password-security-and-jwt.md`](../../docs/fastapi/day51-authentication-password-security-and-jwt.md)
+- Day52 (authorization + tenant isolation + quotas): [`docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md`](../../docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md)
 
 ---
 
@@ -126,7 +110,10 @@ projects/ai-backend-data-layer/
 │   ├── day51-authentication-password-security-and-jwt-design.md  # Day51: auth (password/JWT/refresh) design/runbook
 │   ├── day51_authentication_jwt.py                     # Day51: real Argon2id + real RS256 JWT + guarded refresh model
 │   ├── test_day51_authentication_jwt.py                # Day51: real-crypto tests (executed: 37 passed)
-│   └── requirements-day51.txt                          # Day51: pinned deps (argon2-cffi, PyJWT[crypto], cryptography, pytest)
+│   ├── requirements-day51.txt                          # Day51: pinned deps (argon2-cffi, PyJWT[crypto], cryptography, pytest)
+│   ├── day52-authorization-tenant-isolation-quotas-and-api-security-design.md  # Day52: authz/tenant/quota design/runbook
+│   ├── day52_authorization_tenant_quota_security.py    # Day52: authz + tenant isolation + guarded quota reservation model (stdlib-only)
+│   └── test_day52_authorization_tenant_quota_security.py  # Day52: in-memory tests (executed: 16 passed)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -225,6 +212,38 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 > Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
 > new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
 > No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+---
+
+## Day52 increment — authorization, tenant isolation, quotas and API security
+
+`api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md` (with a runnable
+`day52_authorization_tenant_quota_security.py` and `test_day52_authorization_tenant_quota_security.py`) turns Day51's
+trusted `user_id` into current, tenant-scoped, action-specific, cost-aware authority. The tests are **executed**,
+**standard-library only**: **Python 3.10.12, pytest 7.4.3 -> `16 passed`**.
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Authorization | `authorize(identity, requested_tenant_id, action)` -> active Membership + role action -> `AuthorizedTenantContext(user_id, tenant_id, permissions)`; a client `tenant_id` is only a selector; every failure is a generic 403; Membership removal revokes authority immediately. |
+| Tenant/owner scope | `JobRepository.read_job(ctx, job_id)` scopes `WHERE tenant_id = authorized AND job_id`; `job.read_own` also requires `created_by_user_id == user`; a cross-tenant miss is a public 404 (no existence oracle). |
+| Rate limit | `TokenBucketRateLimiter` (shared model; bounded burst + refill); healthy breach -> `RATE_LIMITED` (429 + Retry-After); outage on a paid path -> `LimiterUnavailable` (fail-closed 503, never 429). |
+| Durable quota | guarded `UPDATE tenant_budgets ... WHERE token_limit - used - reserved >= amount RETURNING` single winner; Reservation + Job + Outbox commit in one tx (rollback all on failure); `reconcile` settles actual usage or holds `reconciliation_pending` on unknown Provider cost. |
+| Idempotency | `admit_job` order: authorize -> same-command recovery (no new cost) -> rate-limit new commands -> reserve + create; same key+fingerprint -> original Job, no second reservation; changed fingerprint -> 409; removed Membership blocks old-Key recovery. |
+| Policy repair | `CancelIntentLedger.repair_bad_intent` guarded by intent ID + `policy_version`; zero rows -> reconcile; bad intents invalidated, never deleted; a legitimate later cancel is never overwritten. |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pytest -q test_day52_authorization_tenant_quota_security.py   # 16 passed (standard-library only)
+```
+
+Not run (and not claimed): real PostgreSQL (constraint/tx/isolation/`UPDATE ... RETURNING`/RLS), real Redis
+(distributed limiter atomics/TTL/failover), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes),
+Provider/Worker/Outbox transport, integration, production. Day53 real Provider, Day54 streaming/cancellation, and
+Day55 Workers consume this authorized context rather than bypassing it.
 
 ---
 

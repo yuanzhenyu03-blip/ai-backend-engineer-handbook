@@ -1089,3 +1089,55 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day51), the
 [Day51 design/runbook](../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md),
 the [model](../projects/ai-backend-data-layer/api/day51_authentication_jwt.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py).
+
+---
+
+## Day52 — Authorization, Tenant Isolation, Quotas and API Security
+
+Key vocabulary: authentication, authorization, subject/user ID, tenant, tenant membership, role, permission/action, AuthorizedTenantContext, least privilege, resource scope, ownership predicate, IDOR/BOLA, existence oracle, RLS, rate limit, quota, concurrency limit, token bucket, sliding window, Retry-After, fail-open/fail-closed, reservation, reconciliation, idempotency key, request fingerprint, guarded `UPDATE ... RETURNING`, audit evidence, rollback, forward repair.
+
+### Q1 (Beginner) — authentication vs authorization
+
+Actual answer: "Authentication acts like an access control gate, while authorization defines the scope of resource usage."
+
+Strong answer: "Authentication verifies who is making the request, for example by validating a JWT and extracting the user ID. Authorization then checks whether that user has the required permission in the current tenant to access or modify a specific resource."
+
+### Q2 (Intermediate) — a client sends a different tenant_id
+
+Actual answer: "It should be rejected."
+
+Strong answer: "The backend treats the client-supplied tenant ID only as a requested tenant selector, not as authority. After JWT verification, it checks active Membership and the required action in tenant-A before loading the Job. The Job query is also tenant-scoped, so the user cannot access a Job from another tenant."
+
+### Q3 (Intermediate) — why is a JWT role claim not enough for authorization?
+
+Strong answer: "A role baked into a JWT goes stale: if I remove a user's Membership or downgrade their role, the old token keeps asserting the old role until it expires. For anything sensitive I check current active Membership and role per protected request, or use a short cache with an explicit revocation path. The JWT gives me a trusted user_id; the tenant authority decision is server-side."
+
+### Q4 (Intermediate) — cross-tenant read: 404 or 403?
+
+Strong answer: "A public 404. A 403 that says 'forbidden for tenant X' confirms the resource exists — an existence oracle. A tenant-scoped miss and a truly missing resource must look identical. A missing *action* can be a generic 403 because it doesn't point at a specific resource. Audit logs record the real decision as metadata; the client just sees 404."
+
+### Q5 (Senior) — rate limit vs quota, and a limiter outage on a paid path
+
+Strong answer: "Rate limit controls request speed, quota controls accumulated token/cost spend, and concurrency controls in-flight pressure — three different systems. Rate limiting must use a shared atomic coordinator like Redis, because four instances with local counters each allowing 100 admit about 400. Quota is durable truth in PostgreSQL, not Redis. If the limiter is unavailable on a paid POST /jobs, I fail closed and return 503 — a dependency-unavailable error — not 429, because 429 should only mean a healthy limiter confirmed an exceeded limit."
+
+### Q6 (Senior) — guarded token reservation under concurrency and unknown cost
+
+Actual answer: "An update set is used to return the result: returning one row indicates that the credit limit has been obtained, while returning zero rows indicates it has not. A rollback is performed if the operation fails. In the event of a timeout, it is necessary to save the record, secure evidence, and perform a manual fix."
+
+Correction: one row means a guarded budget reservation atomically succeeded, not that a credit limit was "obtained"; on timeout, preserve evidence and first use reconciliation/correlation — manual escalation is the fallback.
+
+Strong answer: "I would use a guarded database update that reserves tokens only when the tenant has enough available budget. Only one concurrent request can succeed; a zero-row result means the budget is no longer sufficient, so no Job or Outbox event is created. The reservation, Job, and Outbox intent commit in one transaction, and a failure rolls back all of them. If the Provider times out and actual usage is unknown, I keep the reservation and move the Job into a reconciliation state. I preserve correlation and audit evidence, then settle or release the reservation only after the Provider outcome is known."
+
+### Q7 (Senior) — idempotent recovery vs authorization and rate limiting
+
+Strong answer: "I authorize first, then recover: same tenant + same Idempotency-Key + same fingerprint returns the original Job with no second reservation, Job, or Outbox; a changed fingerprint is a 409 with no new facts. Recovery is not an authz bypass — if the user's Membership was removed, authorization fails before recovery runs. I rate-limit new commands, but I don't punish a lost-202 retry with the limiter; if I want abuse protection on reads I add a separate low recovery-read limit."
+
+Production scenario / trade-off prompt: "A bad policy release gave members job.cancel. What do you do?" — "Contain it by rolling back the erroneous centralized job.cancel grant (or failing closed for member cancellation), not by stopping safe Job creation. That protects future traffic only. Then I classify the cancel intents already created by actor, tenant, Job, policy version, time, and whether Worker/Provider work happened, and I invalidate the bad pending intents with a guarded UPDATE ... WHERE intent_id AND policy_version AND state='pending' RETURNING. Zero rows means the fact changed — a legitimate cancel already executed — so I stop automatic repair and reconcile instead of overwriting it. I never delete intents; the ledger is audit evidence."
+
+Validation: in-memory control-flow model, standard-library only (Python 3.10.12, pytest 7.4.3 -> 16 passed). Proves application control flow only. NOT real PostgreSQL (constraint/tx/isolation/UPDATE...RETURNING/RLS), NOT real Redis (distributed atomics/TTL/failover), NOT FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), NOT Provider/Worker/integration/production. Day53 real Provider, Day54 streaming/cancellation, Day55 Workers not implemented. No real JWT, Provider key, password, prompt, or user data used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day52), the
+[Day52 lesson](../docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md), the
+[Day52 design/runbook](../projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md),
+the [model](../projects/ai-backend-data-layer/api/day52_authorization_tenant_quota_security.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py).

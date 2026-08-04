@@ -178,7 +178,7 @@ lifecycles) are recorded in `CURRICULUM.md` under "Future Lesson Implementation 
 | Day49 | Upload Sessions, Object Storage and Artifact Verification | ✅ Completed |
 | Day50 | Idempotent AI Job API and Transactional Outbox Integration | ✅ Completed |
 | Day51 | Authentication, Password Security and JWT | ✅ Completed |
-| Day52 | Authorization, Tenant Isolation, Quotas and API Security | Planned |
+| Day52 | Authorization, Tenant Isolation, Quotas and API Security | ✅ Completed |
 | Day53 | OpenAI SDK, Provider Boundaries and Structured Output | Planned |
 | Day54 | AI Streaming, Client Disconnects, Timeouts and Cancellation | Planned |
 | Day55 | Celery, Worker Execution and Long-running AI Jobs | Planned |

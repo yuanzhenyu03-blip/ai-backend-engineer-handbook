@@ -9,6 +9,40 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.105 — Day52 Authorization, Tenant Isolation, Quotas and API Security
+
+Date: 2026-08-04
+
+Day: Day52
+
+Lesson title: Authorization, Tenant Isolation, Quotas and API Security
+
+### Added
+
+- `docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md` — the Day52 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving verbatim Chinese/English student answers, the four correction trajectories, and labeling the final Chinese synthesis assistant-assisted (the student asked "你帮我总结吧").
+- `projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md` — design/runbook (authn vs authz, Membership/role/action, AuthorizedTenantContext + tenant/owner scope, safe API boundary, rate limit vs quota vs concurrency, guarded reservation + atomic Reservation+Job+Outbox + reconcile, idempotency ordering, erroneous-cancel-grant repair, evidence matrix, schema honesty).
+- `projects/ai-backend-data-layer/api/day52_authorization_tenant_quota_security.py` — provider-neutral, standard-library-only in-memory model: `authorize` -> `AuthorizedTenantContext`; `JobRepository` tenant/owner-scoped reads (public 404); `TokenBucketRateLimiter` (shared, fail-closed); `AdmissionStore` guarded `UPDATE ... RETURNING` reservation + atomic Reservation+Job+Outbox + rollback + `reconcile`; `admit_job` ordering (authz -> recovery -> rate-limit -> reserve); `CancelIntentLedger` guarded repair.
+- `projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py` — in-memory control-flow tests (16 cases).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day52 sections.
+- `projects/ai-backend-data-layer/README.md` — current increment set to Day52, file tree, doc links, and a Day52 increment section (Day51 section left intact).
+- `CURRICULUM.md` (Day52 -> ✅ Completed), `ROADMAP.md` (Day52 -> ✅ Completed), `PROJECT_STATUS.md` (Day52 completed; Current Lesson -> Day53; Last Completed Lesson -> Day52; Day51 archived; Next -> Day53), `TASKS.md` (Day52 complete; Current/Next -> Day53).
+
+### Main learning outcome
+
+Identity is not authority. A trusted `user_id` (Day51) becomes an `AuthorizedTenantContext` only after active Membership + the required effect-named action; a client `tenant_id` is a selector, never authority. Reads are tenant- and owner-scoped and return a public 404 (no existence oracle). Speed (rate limit, shared + fail-closed), spend (durable PostgreSQL token/cost quota via a guarded `UPDATE ... RETURNING` reservation committed atomically with Job + Outbox, reconciled against actual usage, retained on unknown cost), and concurrency are three distinct controls. Idempotent recovery runs after authorization, adds no cost, and is not a bypass. An erroneous cancel grant is contained by rollback plus a guarded, audited repair (zero rows -> reconcile).
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day52_authorization_tenant_quota_security.py` -> **16 passed** (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **257 passed**. Application control flow only.
+- Markdown: Day52 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
+- Secrets: no real JWT, Provider key, password, raw prompt, Document content, database URL, or user data used or committed.
+- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL PYTHON IN-MEMORY CONTROL-FLOW RUNTIME (run: 16 passed); NOT RUN: real PostgreSQL (constraint/transaction/isolation/`UPDATE ... RETURNING`/RLS/SQLAlchemy/migration), real Redis (distributed limiter atomics/TTL/failover/multi-process), real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), Provider/Worker/Outbox transport, integration, production. No separate `py_compile` claim beyond the pytest import. Schema honesty: `tenant_memberships`, `tenant_budgets`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten. Day53 real Provider, Day54 streaming/cancellation, and Day55 real Celery are not implemented.
+
+---
+
 ## v0.1.104 — Day51 review (Codex): destroy refresh recovery material on every revoke path
 
 Date: 2026-08-03

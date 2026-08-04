@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day51 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day52 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day52 — Authorization, Tenant Isolation, Quotas and API Security (Phase 4)
+Day53 — OpenAI SDK, Provider Boundaries and Structured Output (Phase 4)
 
 Status:
 Planned / Not started
 
-(Day51 is complete and recorded under "Last Completed Lesson" below; Day52 is the current focus.
+(Day52 is complete and recorded under "Last Completed Lesson" below; Day53 is the current focus.
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -75,6 +75,7 @@ Planned / Not started
 - ✅ Day49 — Upload Sessions, Object Storage and Artifact Verification
 - ✅ Day50 — Idempotent AI Job API and Transactional Outbox Integration
 - ✅ Day51 — Authentication, Password Security and JWT
+- ✅ Day52 — Authorization, Tenant Isolation, Quotas and API Security
 
 ---
 
@@ -85,6 +86,31 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day52 — Authorization, Tenant Isolation, Quotas and API Security
+
+Completed Time:
+2026-08-04
+
+Main Artifact:
+Day52 authorization + tenant isolation + quotas (projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md) with a runnable provider-neutral, standard-library-only in-memory model (day52_authorization_tenant_quota_security.py) + test_day52_authorization_tenant_quota_security.py: turns Day51's trusted user_id into current, tenant-scoped, action-specific, cost-aware authority. A client-supplied tenant_id is only a SELECTOR; authority is the server-built AuthorizedTenantContext(user_id, tenant_id, permissions) produced by authorize only after verified identity + active tenant_memberships(user_id, tenant_id, role, status) + the required action (effect-named job.create/job.read_own/job.read_all/job.cancel/job.retry; every failure a generic 403; Membership removal/role downgrade revokes authority per request, so a JWT role claim is not sole long-lived authority). Tenant + owner scoped reads (JobRepository.read_job -> WHERE tenant_id = authorized AND job_id; job.read_own also requires created_by_user_id == authenticated_user_id) return a public 404 on a cross-tenant miss (no existence oracle); FastAPI Dependencies centralize policy but repositories must carry the context (RLS optional defense-in-depth whose tenant context comes from AuthorizedTenantContext, never Header/Body). Three distinct controls: a shared, fail-closed TokenBucketRateLimiter (speed; multi-instance local counters undercount ~4x100=400; outage on a paid path -> 503 not 429; healthy breach -> 429 + Retry-After); a durable PostgreSQL token/cost quota via a guarded UPDATE tenant_budgets SET reserved_tokens = reserved_tokens + :amt WHERE token_limit - used_tokens - reserved_tokens >= :amt RETURNING single winner with Reservation + Job + Outbox committed in ONE transaction (all-or-nothing rollback -> no ghost reservation / unfunded Job) plus reconcile that settles actual usage or holds reconciliation_pending on unknown Provider cost; and a concurrency limit. Idempotency runs AFTER authorization (admit_job: authorize -> same-command tenant-scoped recovery with no new cost/no rate-limit charge -> rate-limit new commands -> reserve + create): same tenant+key+fingerprint returns the original Job with no second reservation, a changed fingerprint is 409 with no new facts, and a removed Membership blocks old-Key recovery (not an authz bypass). Production exercise: an erroneous member -> job.cancel grant is contained by rolling back the bad grant (future traffic only), then a guarded repair_bad_intent targeted by stable intent ID + policy_version invalidates pending bad intents (zero UPDATE ... RETURNING rows -> stop and reconcile; a legitimate later cancel is never overwritten; intents retained as audit evidence, never deleted).
+
+Validation Boundary:
+Day52 has IN-MEMORY control-flow evidence only. Executed: python3 -m pytest -q test_day52_authorization_tenant_quota_security.py -> 16 passed (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). This proves APPLICATION CONTROL FLOW over an in-memory model only. NOT RUN: real PostgreSQL (constraint/transaction/isolation/UPDATE ... RETURNING/RLS/SQLAlchemy/migration); real Redis (distributed limiter atomics/TTL/failover/multi-process); real FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/Header/routes); Provider/Worker/Outbox transport; integration; production. Day51 evidence is NOT inherited as Day52 evidence. Boundary preserved: authority is the server-built AuthorizedTenantContext; a client tenant_id is never authority; Day53 puts the real Provider behind this boundary, Day54 owns streaming/cancellation, Day55 owns real Celery Workers. Schema honesty: tenant_memberships, tenant_budgets(token_limit/used_tokens/reserved_tokens), per-Job max_tokens, and a cancel-intent audit ledger with policy_version are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, never a rewrite of published history. No real JWT, Provider key, password, raw prompt, Document content, or user data is used or logged.
+
+Completed Work:
+
+- Day52 classroom learning
+- Day52 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved; four correction trajectories; assistant-assisted final synthesis labeled as such)
+- Day52 design/runbook + runnable provider-neutral standard-library-only in-memory model + tests (executed: 16 passed) and project README increment
+- Day52 authentication-vs-authorization, Membership/role/action, AuthorizedTenantContext + tenant/owner scope (404 no-oracle), safe API boundary, rate-limit vs quota vs concurrency, guarded reservation + atomic Reservation+Job+Outbox + rollback + reconcile, idempotent recovery, and erroneous-cancel-grant containment/guarded-repair exercises
+- Day52 FastAPI cheat sheet append
+- Day52 FastAPI interview notes append
+- Day52 repository status update
+
+---
+
+## Superseded — Day51 Last Completed Lesson (archived)
 
 Day51 — Authentication, Password Security and JWT
 
@@ -185,7 +211,7 @@ Completed Work:
 
 ## Next
 
-- Day52 — Authorization, Tenant Isolation, Quotas and API Security (Phase 4 — Production AI API Engineering)
+- Day53 — OpenAI SDK, Provider Boundaries and Structured Output (Phase 4 — Production AI API Engineering)
 
 Status:
 Planned / Not started

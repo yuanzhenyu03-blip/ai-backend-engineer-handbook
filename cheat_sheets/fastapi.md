@@ -822,3 +822,50 @@ Schema honesty: users already have a unique identity; a `password_hash` column a
 Validation: REAL Argon2id (argon2-cffi) + REAL RS256 JWT (PyJWT + cryptography) with EPHEMERAL in-process keys + an in-memory guarded-rotation store (Python 3.10.12, argon2-cffi 23.1.0, PyJWT 2.8.0, cryptography 48.0.0, pytest 7.4.3 -> 37 passed). Proves crypto primitives + control flow ONLY. NOT real PostgreSQL (UNIQUE/tx/isolation/UPDATE...RETURNING), NOT FastAPI/browser (cookies/SameSite/Origin/CSRF at the wire) / JWKS endpoint, NOT integration/production. JWE (encrypted JWT) out of scope. Day52 authz/quota, Day53 real Provider, Day55 real Celery not implemented. No plaintext passwords / refresh tokens / JWTs / operational signing keys committed.
 
 Related: [Day51 lesson](../docs/fastapi/day51-authentication-password-security-and-jwt.md) · [Day51 design/runbook](../projects/ai-backend-data-layer/api/day51-authentication-password-security-and-jwt-design.md) · [model](../projects/ai-backend-data-layer/api/day51_authentication_jwt.py) · [tests](../projects/ai-backend-data-layer/api/test_day51_authentication_jwt.py)
+
+---
+
+## Day52 — Authorization, Tenant Isolation, Quotas and API Security
+
+Mental model: authentication (Day51) = a trusted `user_id`; authorization (Day52) = active Membership + role action + resource scope. A client `tenant_id` is a SELECTOR, never authority; authority is the server-built `AuthorizedTenantContext(user_id, tenant_id, permissions)`.
+
+AuthN vs AuthZ:
+- Day51 JWT proves `user_id` only; the body/header `tenant_id` is unauthenticated input ("因为请求中的tenant可以被修改。").
+- JWT role claims are NOT sole long-lived authority: Membership removal / role downgrade stays stale until token expiry -> check current active Membership + role per protected request (or an explicit cache/revocation trade-off).
+
+User/Tenant/Membership/role/action:
+- `tenant_memberships(user_id, tenant_id, role, status)` = many-to-many authority; Tenant-A authority never becomes Tenant-B authority.
+- A role is a maintainable SET OF ACTIONS whose names match the effect: `job.create`, `job.read_own`, `job.read_all`, `job.cancel`, `job.retry`. `POST /jobs/{id}/cancel` = `job.cancel` (NOT `job.create`); retry = `job.retry`.
+- `authorize(identity, requested_tenant_id, action)` -> active Membership -> role permissions -> require action; every failure is a GENERIC 403 (no resource/tenant/role revealed).
+
+Tenant + resource isolation (IDOR/BOLA safe):
+- Build `AuthorizedTenantContext` only after verified identity + active Membership + action. Scope EVERY query: `WHERE tenant_id = :authorized_tenant_id AND job_id = :job_id`.
+- `job.read_own` ALSO requires `created_by_user_id = :authenticated_user_id` (role selects the rule; owner predicate proves ownership; same-tenant colleague is not "own").
+- Tenant-scoped miss -> public **404** (no existence oracle); missing action -> generic **403**. FastAPI Dependencies centralize policy but do NOT constrain SQL -> repositories carry the context. RLS = optional defense in depth; its tenant context must come from `AuthorizedTenantContext`, never Header/Body (watch pooled connections + bypass roles).
+
+Safe boundary: public errors never reveal another tenant's resource/tenant/role. Audit = metadata only (trace ID, actor, tenant scope, resource, action, decision, policy version); NEVER log raw JWTs/Refresh Tokens/passwords/Provider keys/prompts/Document content. CORS = browser-origin policy, NOT authn/authz (Day51 cookie+Origin+CSRF is separate).
+
+Rate limit vs quota vs concurrency:
+- Rate limit = speed; quota = accumulated tokens/cost; concurrency = in-flight/Worker pressure. Different systems.
+- Local per-instance counters undercount: 4 instances × 100 ≈ 400 -> use a SHARED atomic coordinator (Redis) for rate limiting, NOT as durable budget truth.
+- Keys: `tenant+action` (capacity), `tenant+user+action` (member abuse), IP only auxiliary (client `X-Forwarded-For` ≠ identity; trusted-proxy config is deliberate).
+- Limiter DOWN on paid `POST /jobs` = FAIL-CLOSED -> 503, NOT 429 (429 = healthy limiter confirmed a breach). Fixed window = edge bursts; sliding = smooth at cost; token bucket = bounded burst (cap 20) + refill (100/min) -> fits Job creation. Normal 429 has `Retry-After` + stable code; client obeys or jittered backoff, SAME Idempotency-Key.
+
+Durable token/cost quota (PostgreSQL is the arbiter):
+- Validate per-Job `max_tokens`; guarded `UPDATE tenant_budgets SET reserved_tokens = reserved_tokens + :amt WHERE token_limit - used_tokens - reserved_tokens >= :amt RETURNING` — one row = reserved, zero rows = no reservation + no acceptance ("由数据库的update returning").
+- Reservation + Job + Outbox commit in ONE tx; failure rolls all three back ("回滚") — no ghost reservation, no unfunded Job.
+- Reconcile actual usage -> `used_tokens`, release the rest; unknown Provider timeout -> keep reservation, `reconciliation_pending`, preserve evidence (do NOT release all).
+
+Idempotency ordering (admission): authorize -> same-command tenant-scoped recovery FIRST (no new cost, no rate-limit charge) -> rate-limit NEW commands -> guarded reserve + Job + Outbox. Same key+fingerprint -> original Job, NO second reservation ("返回原job"); changed fingerprint -> 409, no facts. NOT an authz bypass: removed Membership blocks old-Key recovery. Optional separate low read limit for recovery.
+
+Erroneous cancel-grant exercise: contain by rolling back the bad centralized `job.cancel` grant (fail closed for member cancel), NOT stopping safe creation. Rollback protects FUTURE traffic only; classify historical intents (actor/tenant/Job/policy version/time/Membership/state/Worker-Provider work). Guarded repair by stable intent ID + policy version; zero `UPDATE ... RETURNING` rows = facts changed -> STOP auto-repair + reconcile; never delete bad intents, never overwrite a legitimate later cancel, never blindly re-run paid Provider work.
+
+### Weak vs strong (Day52)
+Weak: "The JWT is valid and carries `tenant_id` and a role, so I trust them and load the Job by id."
+Strong: "The JWT proves user_id only. I treat tenant_id as a selector, prove active Membership + the required action in that tenant, build an AuthorizedTenantContext, and scope the query by tenant (+ owner for read_own) returning 404 on a miss. I reserve tenant budget with a guarded UPDATE ... RETURNING and commit Reservation + Job + Outbox atomically; the shared limiter fails closed on a paid path."
+
+Schema honesty: `tenant_memberships`, `tenant_budgets(token_limit/used/reserved)`, per-Job `max_tokens`, and a cancel-intent audit ledger with `policy_version` are new facts MODELED in-memory; a real deployment adds them via a Day48-safe FORWARD additive migration (no published Alembic revision rewritten). Day50 Job+Outbox reused; quota funded in that same tx.
+
+Validation: in-memory control-flow model, standard-library only (Python 3.10.12, pytest 7.4.3 -> 16 passed). Proves APPLICATION CONTROL FLOW ONLY. NOT real PostgreSQL (constraint/tx/isolation/UPDATE...RETURNING/RLS), NOT real Redis (distributed atomics/TTL/failover), NOT FastAPI/proxy/browser (Dependency/CORS/cookie/CSRF/routes), NOT Provider/Worker/integration/production. Day53 real Provider, Day54 streaming/cancellation, Day55 Workers not implemented. No real JWT/Provider key/password/prompt/user data used.
+
+Related: [Day52 lesson](../docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md) · [Day52 design/runbook](../projects/ai-backend-data-layer/api/day52-authorization-tenant-isolation-quotas-and-api-security-design.md) · [model](../projects/ai-backend-data-layer/api/day52_authorization_tenant_quota_security.py) · [tests](../projects/ai-backend-data-layer/api/test_day52_authorization_tenant_quota_security.py)
