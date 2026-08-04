@@ -44,6 +44,8 @@ from day53_openai_provider_structured_output import (
     Usage,
     ValidationOutcome,
     AttemptStatus,
+    CompletionOutcome,
+    LateClaimStatus,
     ProviderRefusal,
     execute_job,
     ingest_late_outcome,
@@ -407,7 +409,7 @@ def test_timeout_then_ingested_matching_late_outcome_completes_no_transport():
                               store=store, validator=validator, completion=completion, provider_config=cfg)
     assert res.decision is ExecutionDecision.SUCCEEDED and job.status is JobStatus.SUCCEEDED
     assert job.cost_state is CostState.SETTLED and job.settled_tokens == 1500
-    assert job.attempts[aid].status is AttemptStatus.CLOSED
+    assert job.attempts[aid].status is AttemptStatus.CONSUMED
     assert t_timeout.calls == 1                                  # only the original attempt; no new call
 
 
@@ -615,6 +617,99 @@ def test_single_request_400_does_not_close_the_whole_config():
     res = _exec(_request(), store, adapter, validator, completion, cfg)
     assert res.decision is ExecutionDecision.CAPABILITY_FAILURE
     assert cfg.disabled is False   # a single non-config-scope 400 must not disable the Provider config
+
+
+# ===========================================================================
+# Path B concurrency safety + idempotency (at-least-once late delivery)
+# ===========================================================================
+def _timeout_awaiting_job(request_id="rq-1"):
+    """Run a Job to a timeout so its Attempt is AWAITING_LATE_OUTCOME with a recorded id."""
+    t = FakeOpenAITransport(error=FakeAPITimeoutError(request_id=request_id))
+    store, adapter, validator, completion, cfg = _wire(t)
+    r0 = _exec(_request(), store, adapter, validator, completion, cfg)
+    assert store.jobs["job-1"].status is JobStatus.PENDING_RECONCILIATION
+    return store, validator, completion, cfg, t, r0.attempt_id
+
+
+def test_concurrent_duplicate_late_refusal_is_consumed_at_most_once():
+    store, validator, completion, cfg, t, aid = _timeout_awaiting_job()
+    barrier = threading.Barrier(2)
+    results = []
+
+    def deliver():
+        late = ProviderRefusal(reason_code="policy", usage=Usage(total_tokens=4242), provider_request_id="rq-1")
+        barrier.wait()
+        results.append(ingest_late_outcome(late, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                                           store=store, validator=validator, completion=completion,
+                                           provider_config=cfg))
+
+    threads = [threading.Thread(target=deliver) for _ in range(2)]
+    for th in threads: th.start()
+    for th in threads: th.join()
+    job = store.jobs["job-1"]
+    # Exactly one caller truly processed; the other is a guarded no-op.
+    decisions = sorted(r.decision.value for r in results)
+    assert decisions == sorted([ExecutionDecision.REFUSED.value, ExecutionDecision.COMPLETION_NOOP.value])
+    # One business transition, ONE attempt_failed Event, ONE cost_recorded Event, settled once.
+    assert job.status is JobStatus.FAILED
+    assert [e["type"] for e in job.events].count("job.attempt_failed") == 1
+    assert [e["type"] for e in job.events].count("job.cost_recorded") == 1
+    assert job.cost_state is CostState.SETTLED and job.settled_tokens == 4242
+    assert job.attempts[aid].status is AttemptStatus.CONSUMED
+    assert t.calls == 1                                       # no new transport call
+
+
+def test_duplicate_sequential_invalid_late_success_second_is_noop():
+    store, validator, completion, cfg, t, aid = _timeout_awaiting_job()
+    bad = ProviderSuccess(raw_payload={"summary": "x"}, usage=Usage(total_tokens=321), provider_request_id="rq-1")
+    r1 = ingest_late_outcome(bad, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    job = store.jobs["job-1"]
+    assert r1.decision is ExecutionDecision.VALIDATION_FAILED and job.status is JobStatus.FAILED
+    snapshot = ([e["type"] for e in job.events], job.cost_state, job.settled_tokens, job.result_artifact)
+    # A second SEQUENTIAL redelivery of the same invalid success: guarded no-op, no change.
+    r2 = ingest_late_outcome(bad, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert r2.decision is ExecutionDecision.COMPLETION_NOOP
+    after = ([e["type"] for e in job.events], job.cost_state, job.settled_tokens, job.result_artifact)
+    assert after == snapshot
+    assert job.settled_tokens == 321   # not overwritten by the second delivery
+    assert t.calls == 1
+
+
+def test_matching_late_valid_success_completes_exactly_once():
+    store, validator, completion, cfg, t, aid = _timeout_awaiting_job()
+    good = ProviderSuccess(raw_payload=VALID_V1, usage=Usage(total_tokens=1500), provider_request_id="rq-1")
+    r1 = ingest_late_outcome(good, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    job = store.jobs["job-1"]
+    assert r1.decision is ExecutionDecision.SUCCEEDED and job.status is JobStatus.SUCCEEDED
+    assert job.settled_tokens == 1500
+    succeeded_events = [e for e in job.events if e["type"] == "job.succeeded"]
+    # A duplicate delivery after completion: terminal guarded no-op; still exactly one success.
+    r2 = ingest_late_outcome(good, job_id="job-1", attempt_id=aid, correlation_id="corr-1",
+                             store=store, validator=validator, completion=completion, provider_config=cfg)
+    assert r2.decision is ExecutionDecision.COMPLETION_NOOP
+    assert [e for e in job.events if e["type"] == "job.succeeded"] == succeeded_events
+    assert job.attempts[aid].status is AttemptStatus.CONSUMED and t.calls == 1
+
+
+def test_terminal_job_duplicate_late_outcome_is_still_full_noop():
+    # Reach a terminal FAILED job via a validation failure on the FIRST (non-timeout) call.
+    bad = {"summary": "x", "confidence": 0.5}
+    t = FakeOpenAITransport(response=FakeSDKResponse(payload=bad, total_tokens=100))
+    store, adapter, validator, completion, cfg = _wire(t)
+    r0 = _exec(_request(), store, adapter, validator, completion, cfg)
+    job = store.jobs["job-1"]
+    assert job.status is JobStatus.FAILED
+    before = ([e["type"] for e in job.events], job.cost_state, job.settled_tokens, job.result_artifact)
+    late = ProviderRefusal(reason_code="policy", usage=Usage(total_tokens=9))
+    for _ in range(2):
+        res = ingest_late_outcome(late, job_id="job-1", attempt_id=r0.attempt_id, correlation_id="corr-1",
+                                  store=store, validator=validator, completion=completion, provider_config=cfg)
+        assert res.decision is ExecutionDecision.COMPLETION_NOOP
+    after = ([e["type"] for e in job.events], job.cost_state, job.settled_tokens, job.result_artifact)
+    assert after == before and t.calls == 1
 
 
 # ===========================================================================

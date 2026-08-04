@@ -355,7 +355,9 @@ class CostState(str, Enum):
 class AttemptStatus(str, Enum):
     IN_FLIGHT = "in_flight"                    # claimed; Provider call issued; awaiting the outcome
     AWAITING_LATE_OUTCOME = "awaiting_late_outcome"  # timed out; the sent request may still return a late result
-    CLOSED = "closed"                          # a terminal outcome was bound; no further outcome accepted
+    PROCESSING_LATE_OUTCOME = "processing_late_outcome"  # a late outcome is being consumed EXCLUSIVELY (one winner)
+    CONSUMED = "consumed"                      # a late outcome was consumed; no further late outcome accepted
+    CLOSED = "closed"                          # a terminal outcome was bound by the in-flight path; no more accepted
 
 
 @dataclass
@@ -403,6 +405,13 @@ class ExecutionJob:
 class CompletionOutcome(str, Enum):
     COMPLETED = "completed"
     NOOP_ZERO_ROWS = "noop_zero_rows"  # guarded transition saw non-running -> stop, do not overwrite
+
+
+class LateClaimStatus(str, Enum):
+    CLAIMED = "claimed"                        # this caller EXCLUSIVELY won the right to consume the late outcome
+    TERMINAL_NOOP = "terminal_noop"            # Job already terminal -> guarded no-op
+    ALREADY_PROCESSING = "already_processing"  # a concurrent/duplicate caller is already consuming it -> no-op
+    REJECTED = "rejected"                      # association/validation mismatch -> reject
 
 
 class JobExecutionStore:
@@ -468,6 +477,67 @@ class JobExecutionStore:
             attempt.status = AttemptStatus.CLOSED
         if job.open_attempt_id == attempt_id:
             job.open_attempt_id = None
+
+    def claim_late_outcome(self, job_id: str, *, attempt_id: str, correlation_id: str,
+                           incoming_provider_request_id: Optional[str]) -> tuple[LateClaimStatus, str]:
+        """ATOMIC Path-B claim: EXACTLY ONE concurrent/duplicate late outcome may acquire the
+        right to consume an Attempt. Under the lock (a single critical section) it validates the
+        Job exists and is NON-terminal, the Attempt exists/belongs to the Job and is in an
+        accept-late-result state (AWAITING_LATE_OUTCOME), and that attempt_id + correlation_id +
+        provider_request_id match the persisted facts — and ONLY THEN flips the Attempt
+        AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME and returns CLAIMED. Callers that arrive
+        while it is already PROCESSING (a concurrent/duplicate delivery) get ALREADY_PROCESSING;
+        a terminal Job gets TERMINAL_NOOP; any mismatch gets REJECTED. A non-winner must NOT call
+        `_dispatch_outcome` (no Event/cost/Result Artifact write). Models a guarded
+        `UPDATE attempt SET status='processing' WHERE status='awaiting_late_outcome' AND ...
+        RETURNING` so at-least-once redelivery is consumed at most once."""
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                return LateClaimStatus.REJECTED, "unknown_job"
+            if job.status in (JobStatus.SUCCEEDED, JobStatus.FAILED):
+                return LateClaimStatus.TERMINAL_NOOP, "terminal_job"
+            attempt = job.attempts.get(attempt_id)
+            if attempt is None:
+                return LateClaimStatus.REJECTED, "attempt_not_found"
+            if attempt.status in (AttemptStatus.CLOSED, AttemptStatus.CONSUMED):
+                return LateClaimStatus.REJECTED, "attempt_closed"
+            if attempt.status is AttemptStatus.PROCESSING_LATE_OUTCOME:
+                return LateClaimStatus.ALREADY_PROCESSING, "already_processing"
+            if attempt.status is not AttemptStatus.AWAITING_LATE_OUTCOME:
+                return LateClaimStatus.REJECTED, "attempt_not_awaiting_late_outcome"
+            if attempt.correlation_id != correlation_id or correlation_id != job.contract.correlation_id:
+                return LateClaimStatus.REJECTED, "correlation_mismatch"
+            if attempt.provider_request_id is not None:
+                if incoming_provider_request_id is not None \
+                        and incoming_provider_request_id != attempt.provider_request_id:
+                    return LateClaimStatus.REJECTED, "provider_request_id_mismatch"
+            elif incoming_provider_request_id is not None:
+                attempt.provider_request_id = incoming_provider_request_id  # controlled first-record
+            attempt.status = AttemptStatus.PROCESSING_LATE_OUTCOME  # EXCLUSIVE claim (atomic)
+            return LateClaimStatus.CLAIMED, ""
+
+    def consume_late_outcome(self, job_id: str, attempt_id: str) -> None:
+        """The claimed late outcome was fully dispatched -> mark the Attempt CONSUMED (terminal;
+        no further late outcome accepted) regardless of success/failure/reject/invalid output."""
+        with self._lock:
+            job = self.jobs.get(job_id)
+            if job is None:
+                return
+            attempt = job.attempts.get(attempt_id)
+            if attempt is not None:
+                attempt.status = AttemptStatus.CONSUMED
+            if job.open_attempt_id == attempt_id:
+                job.open_attempt_id = None
+
+    def release_late_outcome_claim(self, job_id: str, attempt_id: str) -> None:
+        """Safe recovery if dispatch raised unexpectedly: return the Attempt from PROCESSING back
+        to AWAITING_LATE_OUTCOME so it is not stuck forever. This NEVER re-calls the Provider (a
+        real persistent implementation expresses this with a transaction/lease/reconciliation)."""
+        with self._lock:
+            attempt = self.get_attempt(job_id, attempt_id)
+            if attempt is not None and attempt.status is AttemptStatus.PROCESSING_LATE_OUTCOME:
+                attempt.status = AttemptStatus.AWAITING_LATE_OUTCOME
 
 
 class CompletionService:
@@ -826,56 +896,38 @@ def ingest_late_outcome(
     provider_request_id: Optional[str] = None,
 ) -> ExecutionResult:
     """PATH B — ingest an ALREADY-ISSUED Provider outcome (a callback-like late result) for a
-    prior request. This does NOT call the Adapter or any transport. It locates the PERSISTED
-    Attempt the outcome claims to belong to and verifies the association before touching any
-    fact:
+    prior request. CONCURRENCY-SAFE and IDEMPOTENT: real callbacks/message delivery are
+    at-least-once, so duplicate and concurrent deliveries must be consumed AT MOST ONCE.
 
-      * a TERMINAL Job (SUCCEEDED/FAILED) -> guarded no-op (COMPLETION_NOOP): no Event, cost,
-        Result Artifact, status, or reservation change (a separate idempotent reconciliation
-        ledger would be required for post-terminal cost settlement — not modeled here);
-      * the Attempt must exist, be OPEN (IN_FLIGHT/AWAITING_LATE_OUTCOME), and match this Job;
-      * `attempt_id` + `correlation_id` must match the persisted Attempt (and the contract);
-      * `provider_request_id`: if the Attempt already recorded one, the incoming id must match;
-        if none was recorded yet (e.g. after a timeout), the incoming id is recorded ONCE
-        (controlled first-record) — a DIFFERENT Attempt's result is never accepted;
-      * only then does it route through the SAME guarded completion path.
-
-    A mismatch is `LATE_OUTCOME_REJECTED` with no completion/overwrite/transport. This is the
-    correct 'late result after a timeout' flow — NOT a second `execute_job` (which would issue a
-    second paid Provider call). Day54 owns the real callback/streaming/cancellation protocol."""
-    job = store.jobs.get(job_id)
-    if job is None:
-        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="unknown_job")
-
-    # P1-3: ANY late outcome on a TERMINAL Job is a guarded no-op — never rewrite durable facts.
-    if job.status in (JobStatus.SUCCEEDED, JobStatus.FAILED):
-        return ExecutionResult(ExecutionDecision.COMPLETION_NOOP, reason="terminal_job", attempt_id=attempt_id)
-
-    contract = job.contract
-    attempt = job.attempts.get(attempt_id)
-    if attempt is None:
-        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="attempt_not_found",
-                               attempt_id=attempt_id)
-    if attempt.status is AttemptStatus.CLOSED:
-        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="attempt_closed",
-                               attempt_id=attempt_id)
-    if attempt.correlation_id != correlation_id or correlation_id != contract.correlation_id:
-        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason="correlation_mismatch",
-                               attempt_id=attempt_id)
-
+    Flow: an ATOMIC `claim_late_outcome` (one critical section) validates the association —
+    Job exists + non-terminal; Attempt exists/belongs/is AWAITING_LATE_OUTCOME; attempt_id +
+    correlation_id + provider_request_id match the persisted facts — and EXCLUSIVELY flips the
+    Attempt AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME. Only the single winner runs
+    `_dispatch_outcome`; a terminal Job or a concurrent/duplicate delivery returns a guarded
+    COMPLETION_NOOP WITHOUT dispatching (no Event/cost/Result Artifact write); a mismatch
+    returns LATE_OUTCOME_REJECTED. After dispatch the Attempt is CONSUMED (any outcome). If
+    dispatch raises, the claim is safely released back to AWAITING_LATE_OUTCOME (never a Provider
+    re-call). This NEVER calls the Adapter/transport. Day54 owns the real callback protocol."""
     incoming_prid = provider_request_id if provider_request_id is not None \
         else getattr(outcome, "provider_request_id", None)
-    if attempt.provider_request_id is not None:
-        if incoming_prid is not None and incoming_prid != attempt.provider_request_id:
-            return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED,
-                                   reason="provider_request_id_mismatch", attempt_id=attempt_id)
-    elif incoming_prid is not None:
-        attempt.provider_request_id = incoming_prid  # controlled first-record of the request id
+    status, reason = store.claim_late_outcome(
+        job_id, attempt_id=attempt_id, correlation_id=correlation_id,
+        incoming_provider_request_id=incoming_prid,
+    )
+    if status is LateClaimStatus.TERMINAL_NOOP or status is LateClaimStatus.ALREADY_PROCESSING:
+        # Guarded no-op: a terminal Job, or a concurrent/duplicate delivery already being
+        # consumed. No dispatch, no Event, no cost/Result Artifact change.
+        return ExecutionResult(ExecutionDecision.COMPLETION_NOOP, reason=reason, attempt_id=attempt_id)
+    if status is LateClaimStatus.REJECTED:
+        return ExecutionResult(ExecutionDecision.LATE_OUTCOME_REJECTED, reason=reason, attempt_id=attempt_id)
 
-    # Associated + contract-known -> guarded completion (no Adapter/transport call).
-    result = _dispatch_outcome(outcome, job_id=job_id, contract=contract, validator=validator,
-                               completion=completion, provider_config=provider_config)
-    # If the Job resolved to a terminal state, CLOSE the Attempt (no further outcome accepted).
-    if store.jobs[job_id].status in (JobStatus.SUCCEEDED, JobStatus.FAILED):
-        store.close_attempt(job_id, attempt_id)
+    # CLAIMED -> EXCLUSIVE consumer. Dispatch outside the lock; consume (or release on error).
+    contract = store.jobs[job_id].contract
+    try:
+        result = _dispatch_outcome(outcome, job_id=job_id, contract=contract, validator=validator,
+                                   completion=completion, provider_config=provider_config)
+    except Exception:
+        store.release_late_outcome_claim(job_id, attempt_id)  # safe recovery; no Provider re-call
+        raise
+    store.consume_late_outcome(job_id, attempt_id)  # CONSUMED regardless of the outcome kind
     return replace(result, attempt_id=attempt_id)

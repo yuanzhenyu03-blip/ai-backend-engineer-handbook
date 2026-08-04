@@ -9,6 +9,57 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.113 — Day53 review (Codex): concurrency-safe + idempotent late-outcome consumption
+
+Date: 2026-08-04
+
+Day: Day53 (review fix)
+
+`ingest_late_outcome` read the OPEN Attempt, then ran `_dispatch_outcome` OUTSIDE the lock, then closed the Attempt.
+Two concurrent or duplicate late outcomes could both pass Attempt validation and both write — for a `ProviderRefusal`,
+`ProviderIncomplete`, or invalid `ProviderSuccess` the second delivery could add another failure Event or overwrite
+`settled_tokens`/`cost_state`. Real callbacks/message delivery are at-least-once, so duplicate + concurrent deliveries
+must be consumed AT MOST ONCE. Scope limited to the Day53 module + tests (plus Day53 status/doc descriptions).
+
+### Fixed
+
+- Added `AttemptStatus.PROCESSING_LATE_OUTCOME` (a late outcome is being consumed exclusively) and
+  `AttemptStatus.CONSUMED` (a late outcome was consumed; terminal for the Attempt), plus a `LateClaimStatus` enum.
+- Added `JobExecutionStore.claim_late_outcome`: a lock-guarded ATOMIC claim that, in ONE critical section, validates
+  the Job exists + is non-terminal, the Attempt exists/belongs and is `AWAITING_LATE_OUTCOME`, and that
+  attempt_id + correlation_id + provider_request_id match the persisted facts, and ONLY THEN flips the Attempt
+  `AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME` and returns `CLAIMED`. A terminal Job returns `TERMINAL_NOOP`; a
+  concurrent/duplicate delivery arriving while it is already `PROCESSING` returns `ALREADY_PROCESSING`; a mismatch
+  returns `REJECTED`.
+- `ingest_late_outcome` now dispatches ONLY on `CLAIMED`; `TERMINAL_NOOP`/`ALREADY_PROCESSING` -> `COMPLETION_NOOP` with
+  no dispatch/Event/cost/Result Artifact write; a mismatch -> `LATE_OUTCOME_REJECTED`. After dispatch the Attempt is
+  `CONSUMED` (regardless of success/failure/reject/invalid output). If dispatch raises, the claim is released back to
+  `AWAITING_LATE_OUTCOME` via `release_late_outcome_claim` (safe recovery; the model NEVER re-calls the Provider — a
+  real persistent implementation expresses this with a transaction/lease/reconciliation).
+- Preserved: the atomic PRE-CALL claim for NEW calls; timeout keeps the Job `PENDING_RECONCILIATION` and the Attempt
+  `AWAITING_LATE_OUTCOME`; a matching late success completes once; a known-usage non-success settles exactly once;
+  unknown usage never written as 0; the Day52 reservation never auto-released; terminal-Job late outcomes are still a
+  side-effect-free no-op; Path B never calls the Adapter/transport.
+
+### Added tests (41 -> 45)
+
+Two threads concurrently deliver the SAME `ProviderRefusal(known usage)` -> exactly one dispatch (one
+`job.attempt_failed` + one `job.cost_recorded`, `settled_tokens` written once), the other `COMPLETION_NOOP`, Attempt
+ends `CONSUMED`, 0 transport calls; a duplicate SEQUENTIAL invalid `ProviderSuccess` -> the second is a no-op (no
+Event/cost/result change); a matching late valid success completes exactly once (a later duplicate is a terminal
+no-op); a terminal Job's duplicate late outcome is a full no-op.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day53_openai_provider_structured_output.py` -> **45 passed** (was 41; the
+  concurrency test is deterministic across reruns); full `projects/ai-backend-data-layer/api/` suite -> **318 passed**
+  (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). REAL Pydantic v2 validation + application control flow with an
+  injected FAKE transport; SDK types confined to the Adapter. NOT RUN: the real `openai` SDK / network / Provider, real
+  PostgreSQL / Redis / Celery Worker, FastAPI wire, integration, production. No real api_key, prompt, Document content,
+  or Provider response used.
+
+---
+
 ## v0.1.112 — Day53 review (Codex): atomic pre-call claim + Attempt, Attempt-validated ingestion, terminal-job late-outcome no-op
 
 Date: 2026-08-04

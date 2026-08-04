@@ -12,7 +12,7 @@ Prerequisite: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Previous Lesson: Day52 — Authorization, Tenant Isolation, Quotas and API Security
 Next Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Engineering Artifact: projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md
-  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 41 passed)
+  + runnable day53_openai_provider_structured_output.py + test_day53_openai_provider_structured_output.py (real Pydantic v2 + fake transport; 45 passed)
 ```
 
 Main engineering artifact: a provider-neutral Provider boundary (fake injected transport) with a REAL Pydantic v2
@@ -338,7 +338,11 @@ moves to a non-terminal `PENDING_RECONCILIATION` lifecycle (reservation retained
 contract-matching legitimate result is accepted via the LATE-OUTCOME INGESTION path (`ingest_late_outcome`, which
 locates the persisted `Attempt` and validates attempt_id + correlation + provider request id against it, then runs
 guarded completion WITHOUT calling the Adapter) — NOT by calling `execute_job` again (that would issue a second paid
-Provider call). Any late outcome on a terminal Job is a guarded no-op that never rewrites facts. 401/403 stops new calls with
+Provider call). Any late outcome on a terminal Job is a guarded no-op that never rewrites facts. Because real callbacks are
+at-least-once, ingestion is also CONCURRENCY-SAFE + IDEMPOTENT: an atomic `claim_late_outcome` flips the Attempt
+`AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME` under a lock, so of two concurrent or duplicate deliveries exactly
+one dispatches (one Event, one cost record, settled once) and the other is a `COMPLETION_NOOP`; the Attempt ends
+`CONSUMED`. 401/403 stops new calls with
 that config and preserves evidence (not a user-input error). A 400 that means the current model/profile cannot honor
 the controlled schema is CONFIG-WIDE and fails the config closed (a single-request 400 does not). 429 after a durable
 202 is a downstream Job/Attempt event, not a retroactive client 429 (keep safe `Retry-After`; Day56 owns retry). The core rule: **configuration rollback is not a
@@ -405,7 +409,7 @@ Run the model:
 ```bash
 cd projects/ai-backend-data-layer/api
 python3 -m pip install -r requirements-day53.txt   # pydantic==2.5.0, pytest==7.4.3
-python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 41 passed
+python3 -m pytest -q test_day53_openai_provider_structured_output.py   # 45 passed
 ```
 
 ---
