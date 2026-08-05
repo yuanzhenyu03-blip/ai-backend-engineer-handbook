@@ -9,6 +9,43 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.117 — Day54 fix (Codex): restore the accidentally erased Day54 design/runbook
+
+Date: 2026-08-04
+
+Day: Day54 (repair)
+
+The v0.1.116 Day54 review-fix commit accidentally erased
+`projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md` to 0
+lines, while the lesson, README, CURRICULUM, and status files still link to it and claim it exists.
+
+### Fixed
+
+- Restored the Day54 Design + Runbook, rewritten to reflect the CURRENT (already-fixed) implementation — not the old
+  content. It accurately documents: the two streaming kinds (transient Provider tokens vs durable Job progress/events;
+  no default raw-token persistence); the three independent lifecycles; Provider timeout ->
+  `PENDING_RECONCILIATION` (reservation retained, unknown usage never 0, no retro-504, no blind re-call); the durable,
+  auditable, cooperative, guarded cancellation/deadline protocol with the kind-derived terminal mapping
+  (`USER_CANCELLATION -> CANCELLED`, `DEADLINE_EXPIRY -> EXPIRED`) applied consistently across the pre-call, mid-stream,
+  final pre-completion, and crash-re-observation paths; `provider_request_id` persisted at Provider-request open as
+  recovery evidence; the final pre-completion durable-intent re-check + one-guarded-winner completion race; the
+  late-result path reusing Day53 identity binding (`attempt_id` + `correlation_id` + `provider_request_id`) + the strict
+  Day53 `StructuredOutputValidator`, with side-effect-free refusals and at-most-once matched completion; and the
+  incident-rollback exercise. The evidence matrix and schema-honesty (Day48-safe forward additive migration; nothing
+  claimed to exist) are restored honestly.
+- No Day54 implementation/tests were altered (the module + tests were already correct); only the erased runbook was
+  restored. No teaching spec, Master Prompt, or published Alembic history was touched.
+
+### Validation
+
+- Executed: `python3 -m py_compile day54_streaming_disconnects_timeouts_cancellation.py test_day54_streaming_disconnects_timeouts_cancellation.py`;
+  `python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py` -> **27 passed** (Python 3.10.12,
+  pydantic 2.5.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **348 passed**. All lesson/README/
+  CURRICULUM/status links to the restored runbook resolve. Application control flow only; real FastAPI/SSE, OpenAI
+  SDK/network/Provider, PostgreSQL/Redis/Celery, integration, and production remain NOT RUN.
+
+---
+
 ## v0.1.116 — Day54 review (Codex): deadline terminal, pre-completion re-check, request-id capture, late-result identity+validation
 
 Date: 2026-08-04
