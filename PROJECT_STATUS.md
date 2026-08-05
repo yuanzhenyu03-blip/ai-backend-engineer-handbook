@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day54 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day55 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day55 — Celery, Worker Execution and Long-running AI Jobs (Phase 4)
+Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure (Phase 4)
 
 Status:
 Planned / Not started
 
-(Day54 is complete and recorded under "Last Completed Lesson" below; Day55 is the current focus.
+(Day55 is complete and recorded under "Last Completed Lesson" below; Day56 is the current focus.
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -78,6 +78,7 @@ Planned / Not started
 - ✅ Day52 — Authorization, Tenant Isolation, Quotas and API Security
 - ✅ Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 - ✅ Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
+- ✅ Day55 — Celery, Worker Execution and Long-running AI Jobs
 
 ---
 
@@ -88,6 +89,32 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day55 — Celery, Worker Execution and Long-running AI Jobs
+
+Completed Time:
+2026-08-05
+
+Main Artifact:
+Day55 Celery Worker execution/recovery (projects/ai-backend-data-layer/api/day55-celery-worker-execution-and-long-running-ai-jobs-design.md) with a runnable provider-neutral in-memory model (day55_celery_worker_execution.py; standard-library delivery/execution/recovery control flow, the guarded completion reusing Day53's pydantic-backed strict validation gate and the Day54 durable-cancellation terminal mapping) + test_day55_celery_worker_execution.py: moves accepted long-running AI Jobs from the Day50 Outbox Relay onto a SUPPORTED Celery broker transport (CeleryBrokerSim models publish/deliver/redeliver-via-visibility-timeout/ack/dead-letter only — NOT the Day40 custom Redis Streams / Consumer Group design, NOT a hand-built Celery replacement) and Celery Workers, with PostgreSQL the single source of business truth. The Outbox Relay publishes the Celery task BEFORE the published checkpoint (crash-between duplicates the publish, absorbed by the guarded claim; checkpoint-first strands a queued Job; ambiguous publish != success). The FIRST duplicate-call gate is an atomic PostgreSQL-owned GUARDED CLAIM (claim_execution: UPDATE ... WHERE status IN ('queued','running') RETURNING): one row = Provider execution authority, zero rows = STOP before the call — a lease is temporary ownership and a fencing token rejects stale durable writes but cannot undo an already-issued Provider request, so neither is the first gate. ClaimStatus routes GRANTED / CONFLICT (another live Worker -> redeliver, don't ACK) / ALREADY_TERMINAL (duplicate -> safe no-op ACK, 0 calls) / RECONCILE_ONLY (PENDING_RECONCILIATION redelivery -> reconcile from existing Attempt evidence, 0 re-calls). Eight identity layers stay distinct; redelivery/new Worker retains the open Attempt + provider_idempotency_key (only an explicit A2 gets a new key); provider_request_id is recorded at Provider-request open. ACK timing: early ACK silently LOSES a delivery on crash; late ACK (default) REDELIVERS and the app absorbs duplicates. Celery ACK/SUCCESS = delivery handled, NOT Job succeeded (GET /jobs/{id} reads the durable JobStore, not the result backend). Provider timeout / Worker OOM -> non-terminal PENDING_RECONCILIATION, reservation retained (unknown usage never 0), NO blind re-call; the long call stays OUTSIDE any DB transaction. Poison is durably classified and never ordinary-requeued: unsupported envelope_version (job.dispatch.v2) is detected BEFORE Job load -> dead-letter + ACK, 0 calls, Job untouched; unsupported persisted execution-contract is detected AFTER Job load -> durable QUARANTINED + ACK, 0 calls (disjoint version spaces); a transient failure retains Attempt/evidence and redelivers for a bounded retry whose backoff DEPTH is Day56. Day54 cancellation preserved: request_cancellation commits a durable intent FIRST, optional Celery revoke is best-effort AFTER (never authority), the cooperative Worker checks the intent at safe points (pre-call -> 0 calls + guarded terminal; final pre-completion -> a durable intent after the last token still prevents succeeded); terminal_for_intent maps user cancel -> CANCELLED, deadline -> EXPIRED; completion vs cancellation is one guarded winner (loser -> 0 rows); a crash after intent is re-observed at-least-once with repeats absorbed. Graceful drain stops new claims, drains in-flight bounded, checkpoints, ACKs and exits (abandoned work redelivers; force-kill != business cancellation). The erroneous early-ACK release incident is contained by rolling the config back FIRST (future harm only, NOT a business-fact rollback), building the affected set from release version + a bounded time window + Worker/Attempt/Event evidence (no bulk flip), and classifying repair from evidence (provider_request_id present -> RECONCILE_ONLY, never blind re-dispatch; no execution evidence -> explicit guarded audited redispatch; a client idempotency key proves acceptance only).
+
+Validation Boundary:
+Day55 has IN-MEMORY control-flow evidence only. Executed: python3 -m pytest -q test_day55_celery_worker_execution.py -> 27 passed (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3; the delivery/execution/recovery control flow is standard-library only, the guarded completion reuses Day53's pydantic-backed validation gate); full projects/ai-backend-data-layer/api/ suite -> 375 passed. This proves APPLICATION CONTROL FLOW over an in-memory model only. NOT RUN: a real Celery broker (Redis/RabbitMQ) transport + Worker process; real ACK/redelivery/visibility timeouts; Worker-loss/OOM/redelivery fault injection; real PostgreSQL transactions/isolation; Redis; the real OpenAI SDK/network/Provider. A fake/in-memory test does not prove actual Celery ACK, broker redelivery, Worker-loss, or PostgreSQL behavior. Day53/Day54 evidence is NOT inherited as Day55 evidence. Boundary preserved verbatim: Celery ACK/SUCCESS != Job succeeded; broker redelivery != permission to call the Provider again; Worker identity != durable Attempt identity; Provider timeout/Worker loss != proof of no Provider execution or zero cost; Celery revoke != durable cancellation authority; configuration rollback != business-fact rollback. Day56 retry/backoff/rate-limit/token-cost/backpressure and Day57 integration/failure-injection/recovery verification are not implemented. Schema honesty: the cancelled/expired/pending_reconciliation/quarantined statuses, a durable cancellation/expiry intent table, per-Job open_attempt_id, and per-Attempt provider_idempotency_key/provider_request_id/(schema_name,schema_version) fields are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, never a rewrite of published history. Day50 Job/Outbox/Relay, Day53 guarded completion/strict validation, and the Day54 cancellation protocol are reused. No real credentials, raw prompts, Document content, or raw Provider payloads/tokens are persisted or logged.
+
+Completed Work:
+
+- Day55 classroom learning
+- Day55 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved; six misconception corrections; assistant-assisted final Chinese Mental Model labeled as such)
+- Day55 design/runbook + runnable provider-neutral in-memory model (standard-library delivery/execution/recovery control flow + reused Day53 validation gate + Day54 cancellation mapping) + tests (executed: 27 passed; full api suite 375) and project README increment
+- Day55 guarded-claim, identity-layer, ACK-timing, timeout/OOM-reconciliation, poison-vs-transient, envelope-vs-execution-contract, durable-cancellation-in-Celery, Outbox-ordering, graceful-drain, and erroneous-early-ACK-recovery exercises
+- Day55 FastAPI cheat sheet append
+- Day55 FastAPI interview notes append
+- Day55 requirements-day55.txt (pydantic + pytest; guarded completion reuses Day53's validation gate)
+- Day55 repository status update
+
+---
+
+## Superseded — Day54 Last Completed Lesson (archived)
 
 Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 

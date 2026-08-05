@@ -1,0 +1,6 @@
+# Day55 — Celery, Worker Execution and Long-running AI Jobs.
+# The delivery/execution/recovery control flow is Python standard library only; the guarded
+# completion path REUSES Day53's pydantic-backed strict validation gate (imported), so pydantic
+# is a dependency here as in Day53/Day54. No Celery/broker/PostgreSQL is invoked by these tests.
+pydantic==2.5.0
+pytest==7.4.3

@@ -9,6 +9,62 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.118 — Day55: Celery, Worker Execution and Long-running AI Jobs
+
+Date: 2026-08-05
+
+Day: Day55
+
+Lesson: Celery, Worker Execution and Long-running AI Jobs (Phase 4)
+
+Move accepted long-running AI Jobs from the Day50 Outbox Relay onto a SUPPORTED Celery broker transport and Celery
+Workers, keeping PostgreSQL the single source of business truth, at-least-once delivery safe, Day54 cancellation
+semantics intact, and external-side-effect recovery honest.
+
+### Added
+
+- `docs/fastapi/day55-celery-worker-execution-and-long-running-ai-jobs.md` — LESSON_TEMPLATE_v2 lesson (exact
+  16-section order; verbatim CN/EN student answers; six misconception corrections; assistant-assisted final Chinese
+  Mental Model labeled as such).
+- `projects/ai-backend-data-layer/api/day55-celery-worker-execution-and-long-running-ai-jobs-design.md` — design/runbook
+  (evidence label, guarded claim, identity layers, ACK timing, timeout/OOM reconciliation, poison classification, Day54
+  cancellation in Celery, Outbox ordering, Day40 boundary, graceful drain, incident repair, evidence matrix, schema
+  honesty).
+- `projects/ai-backend-data-layer/api/day55_celery_worker_execution.py` — runnable provider-neutral in-memory model
+  (standard-library delivery/execution/recovery control flow; the guarded completion reuses Day53's pydantic-backed
+  strict validation gate and the Day54 durable-cancellation terminal mapping).
+- `projects/ai-backend-data-layer/api/test_day55_celery_worker_execution.py` — 27 tests.
+- `projects/ai-backend-data-layer/api/requirements-day55.txt` — pydantic==2.5.0, pytest==7.4.3 (guarded completion
+  reuses the Day53 gate; no Celery/broker/PostgreSQL is invoked by these tests).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `projects/ai-backend-data-layer/README.md` — Day55 appends/increment.
+- `CURRICULUM.md` (Day55 -> Completed with released paths), `ROADMAP.md` (Day55 -> Completed), `PROJECT_STATUS.md`
+  (Day55 Last Completed Lesson; Day54 archived; Day56 current), `TASKS.md` (Day55 done; Day56 current).
+
+### Main learning outcome
+
+A PostgreSQL-owned guarded claim — not a lease/fencing token — is the first duplicate-call gate; Celery ACK/SUCCESS
+means delivery handled, never Job succeeded; a Provider timeout / Worker OOM is non-terminal PENDING_RECONCILIATION with
+the reservation retained and no blind re-call; envelope poison (before Job load) and execution-contract poison (after
+Job load) are durably classified and never ordinary-requeued; Day54 durable cancellation is preserved with a durable
+intent first, a best-effort revoke, and one guarded winner; the Outbox publishes before its checkpoint; and an
+erroneous early-ACK release is recovered by policy rollback (not a business-fact rollback) plus evidence-based
+reconciliation without a bulk state flip.
+
+### Validation
+
+- Executed: `python3 -m py_compile day55_celery_worker_execution.py test_day55_celery_worker_execution.py`;
+  `python3 -m pytest -q test_day55_celery_worker_execution.py` -> **27 passed** (Python 3.10.12, pydantic 2.5.0,
+  pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **375 passed**. Markdown fences balanced; relative
+  links resolve; no secrets. APPLICATION CONTROL FLOW only — a real Celery broker/Worker, real ACK/redelivery/
+  visibility-timeout, Worker-loss/OOM fault injection, real PostgreSQL/Redis, the real Provider, integration, and
+  production remain NOT RUN. Day56 retry/backoff/cost/backpressure and Day57 integration/failure-injection are not
+  implemented.
+
+---
+
 ## v0.1.117 — Day54 fix (Codex): restore the accidentally erased Day54 design/runbook
 
 Date: 2026-08-04

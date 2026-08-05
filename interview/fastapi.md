@@ -1221,3 +1221,39 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day54), the
 [Day54 design/runbook](../projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md),
 the [model](../projects/ai-backend-data-layer/api/day54_streaming_disconnects_timeouts_cancellation.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day54_streaming_disconnects_timeouts_cancellation.py).
+
+## Day55 — Celery, Worker Execution and Long-running AI Jobs
+
+Key vocabulary: at-least-once delivery, redelivery, acknowledgement (ACK), visibility timeout, guarded claim, execution authority, durable Attempt, provider idempotency key, poison message, dead-letter, quarantine, envelope version, execution contract, reconciliation, graceful drain, revoke.
+
+Useful expressions: "ACK means the delivery was handled, not that the Job succeeded." · "A guarded claim in PostgreSQL decides execution authority; the broker only delivers." · "An unknown outcome is reconciliation, not a failure and not a blind retry."
+
+### Q1 (Beginner) — What does a Celery task SUCCESS mean?
+
+Strong answer: "It means the delivery was reliably handled — an operational delivery/execution status. The business Job is only `succeeded` when PostgreSQL, the source of truth, records it through a guarded completion. I read the durable Job (`GET /jobs/{id}`), not the Celery result backend." (Student's own EN: "celery task being success means task response success that is a temporary state; durable job is a truth.")
+
+### Q2 (Intermediate) — Two Workers get the same Job. Prevent a double Provider call.
+
+Strong answer: "The first duplicate-call gate is an atomic PostgreSQL guarded claim: `UPDATE ... WHERE status IN ('queued','running') RETURNING`. One Worker gets one row and the authority to call the Provider; the other gets zero rows and stops before the call. A lease or fencing token is secondary — a lease is temporary ownership and fencing rejects stale writes but can't undo an external call. Redelivery keeps the same Attempt and the same provider idempotency key; only an explicit, durable, authorized A2 gets a new key." Weak answer: "Celery dedups retries for me, so redelivery is safe."
+
+### Q3 (Intermediate) — Envelope poison vs execution-contract poison vs transient failure.
+
+Strong answer: "`job.dispatch.v2` I can't parse is envelope compatibility — checked before I load the Job — so I dead-letter and ACK with zero Provider calls, Job untouched. An unsupported persisted execution contract is checked after I load the Job, so I durably quarantine it and ACK, zero calls. A transient transport failure is different: bounded retry with exponential backoff and jitter — that depth is Day56 — while I retain the Attempt and evidence and let it redeliver. Deterministic poison never uses an ordinary infinite requeue." (Student intermediate EN: "guarded completion.")
+
+### Q4 (Senior) — Provider timeout / Worker OOM mid-call. Cost? Re-call?
+
+Strong answer: "Neither cost nor execution is known. OOM means the OS or container killed the Worker with no chance to clean up, so exception handling alone is insufficient — that's why I persist the guarded claim, Attempt, correlation, and `provider_request_id` before the call and keep the long call outside any DB transaction. On an unknown outcome I retain the reservation, enter `PENDING_RECONCILIATION`, never fabricate zero usage, and never blind re-call. A redelivery of that Job reconciles from the existing Attempt evidence and calls the Provider zero times."
+
+### Q5 (Senior) — Design cancellation + incident recovery for long-running Celery AI Jobs.
+
+Strong answer: "Cancellation is a durable, auditable intent committed first — reason, actor, timestamp, version. The Celery revoke is best-effort delivery control after the commit, never the authority; it can fail or race. Workers check the intent at safe points: pre-call means zero Provider calls and a guarded terminal (user cancel -> CANCELLED, deadline -> EXPIRED); a final pre-completion check stops a late `succeeded`. Completion and cancellation both use guarded terminal writes, so exactly one wins and the loser sees zero rows. For an erroneous early-ACK release, I roll the configuration back first to stop future harm — that is not a business-fact rollback — then build an affected set from the release version, a bounded time window, and Worker/Attempt/Event evidence. I don't bulk-flip running Jobs; I reconcile each from evidence and only re-dispatch, under a guarded audited action, the Jobs with no Provider-execution evidence." (Student senior EN, verbatim: "rollback configuration, contain worker request new job admission. classify job running status, like provider calling or not yet or happen cost. use attempt event usage provider request id artifact idempotency key guarded repaire.")
+
+Production scenario / trade-off prompt: "Publish the Celery task before or after the Outbox checkpoint?" — "Publish first, then checkpoint. A crash in between may duplicate the publish, which the guarded claim absorbs. Checkpoint-first could strand a queued Job with no broker message. An ambiguous publish outcome is not success — I retain the event and accept at-least-once delivery. And I reuse Day40 delivery semantics on a supported Celery broker transport; I don't reimplement Redis Streams consumer groups or hand-build a Celery replacement."
+
+Validation: in-memory control-flow model — standard-library control flow; the guarded completion REUSES Day53's pydantic-backed strict validation gate (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 27 passed; full api suite 375). Proves application control flow only. NOT a real Celery broker/Worker, NOT real ACK/redelivery/visibility-timeout, NOT Worker-loss/OOM fault injection, NOT real PostgreSQL/Redis, NOT the real Provider. Day56 retry/backoff/rate-limit/cost/backpressure and Day57 integration/failure-injection suite are not implemented. No real credentials, prompts, Document content, or raw Provider tokens are used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day55), the
+[Day55 lesson](../docs/fastapi/day55-celery-worker-execution-and-long-running-ai-jobs.md), the
+[Day55 design/runbook](../projects/ai-backend-data-layer/api/day55-celery-worker-execution-and-long-running-ai-jobs-design.md),
+the [model](../projects/ai-backend-data-layer/api/day55_celery_worker_execution.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day55_celery_worker_execution.py).
