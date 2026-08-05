@@ -180,7 +180,7 @@ lifecycles) are recorded in `CURRICULUM.md` under "Future Lesson Implementation 
 | Day51 | Authentication, Password Security and JWT | ✅ Completed |
 | Day52 | Authorization, Tenant Isolation, Quotas and API Security | ✅ Completed |
 | Day53 | OpenAI SDK, Provider Boundaries and Structured Output | ✅ Completed |
-| Day54 | AI Streaming, Client Disconnects, Timeouts and Cancellation | Planned |
+| Day54 | AI Streaming, Client Disconnects, Timeouts and Cancellation | ✅ Completed |
 | Day55 | Celery, Worker Execution and Long-running AI Jobs | Planned |
 | Day56 | Provider Resilience, Rate Limits, Token Cost and Backpressure | Planned |
 | Day57 | AI Backend Testing, Fake Providers, Contract Tests and Failure Injection | Planned |

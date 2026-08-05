@@ -4,7 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day53 — OpenAI SDK, Provider Boundaries and Structured Output** that puts an OpenAI-compatible Provider behind an application-owned boundary so SDK behavior, untrusted outputs, cost evidence, and configuration changes cannot corrupt durable AI Job facts. A provider-neutral model (`day53_openai_provider_structured_output.py`) keeps ALL SDK objects/exceptions inside `OpenAICompatibleAdapter` (which translates them into a typed `ProviderOutcome` union and never completes Jobs or writes DBs), validates the UNTRUSTED payload with a **real Pydantic v2** strict gate against a server-owned versioned schema before any side effect, and lets only a `CompletionService` run the guarded `running -> succeeded` UoW (zero rows -> stop). Business execution success and cost settlement are separate axes: a valid output can succeed with UNKNOWN usage while the Day52 reservation is retained as `reconciliation_pending` (never zero); refusal/incomplete/timeout/401-403/429/400 are classified without fabricating success or cost; the Job-controlled 5000 output cap wins over an 8000 adapter default; raw responses are not persisted; and a configuration rollback never rolls back a durable business fact. **The tests were executed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 41 passed) proving the REAL Pydantic validation gate + application control flow with an INJECTED FAKE transport. An ATOMIC pre-call claim creates exactly one in-flight `Attempt` BEFORE any paid Provider call (a terminal/pending Job re-execute or a concurrent caller is `PRECALL_BLOCKED` with zero transport calls, so two Workers can't both issue a paid call); a late result after a timeout is handled by a no-adapter `ingest_late_outcome` path that validates the persisted Attempt (attempt_id + correlation + provider request id) before guarded completion, never a second `execute_job`; any late outcome on a terminal Job is a guarded no-op; and Path B consumption is concurrency-safe + idempotent (an atomic `claim_late_outcome` flips the Attempt `AWAITING_LATE_OUTCOME -> PROCESSING_LATE_OUTCOME`, so at-least-once duplicate/concurrent deliveries dispatch at most once, then the Attempt is `CONSUMED`; a recorded `provider_request_id` must be matched exactly (a missing incoming id is rejected); and the winner's dispatch is one UoW that rolls back any partial write on a dispatch failure before reopening the Attempt). The outgoing call is bound to the persisted Job execution contract (a caller cannot substitute model/schema/version/task/profile or enlarge the token budget); a timeout is a non-terminal `pending_reconciliation` lifecycle (not a terminal `failed`) so a matching late result can still complete; every known-usage non-success settles the exact usage (invalid output != no charge); and a config-wide capability 400 fails the Provider config closed. This proves control flow + validation only: the **real `openai` SDK / network / Provider, real PostgreSQL, Redis, Celery Worker, FastAPI wire, integration, and production are NOT RUN**; Day54 streaming/cancellation, Day55 Celery, and Day56 retry/backoff are not implemented. No real api_key, base_url secret, raw prompt, Document content, or Provider response is persisted or logged.
+Current increment: **Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation** that separates TWO kinds of streaming and THREE independent lifecycles so a client disconnect, Provider uncertainty, explicit cancellation, and durable Job truth cannot be confused or overwrite one another. A provider-neutral, **standard-library-only** in-memory model (`day54_streaming_disconnects_timeouts_cancellation.py`) covers: an SSE disconnect ending ONLY that subscription (the durable Job stays `running`); reconnection reading durable state + safe events (never a Provider token replay, and tokens are never default-persisted); a Provider timeout as non-terminal `PENDING_RECONCILIATION` (reservation retained, unknown usage never 0, the original 202 not retro-504); a durable, auditable, cooperative, guarded cancellation/expiry protocol (persist intent FIRST -> Worker cooperative check -> guarded terminal transition; pre-call makes zero Provider calls; mid-stream is best-effort with unknown cost retained); a completion-vs-cancellation race with exactly one guarded winner (loser sees zero rows); crash-safe re-observation of a persisted intent (at-least-once, repeats absorbed); a terminal Job refusing a late valid result; and an erroneous disconnect->cancel rollout recovered by policy rollback + evidence-based reconciliation (no blind flip/re-call). **The tests were executed** (Python 3.10.12, pytest 7.4.3 -> 15 passed; standard-library only) proving APPLICATION CONTROL FLOW only: **real FastAPI/SSE wire behavior, the real OpenAI SDK/network/Provider token stream, real PostgreSQL/Redis/Celery, integration, and production are NOT RUN**; Day55 Celery and Day56 retry/backoff are not implemented. Schema honesty: the `cancelled`/`expired`/`pending_reconciliation` statuses and a durable cancellation/expiry intent table are modeled in-memory; a real deployment adds them via a Day48-safe forward additive migration. Day52 reservation/reconciliation and Day53 guarded completion/Provider boundary are reused. No real credentials, raw prompts, Document content, or raw Provider tokens are persisted or logged.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -68,6 +68,7 @@ Lessons:
 - Day51 (authentication + JWT): [`docs/fastapi/day51-authentication-password-security-and-jwt.md`](../../docs/fastapi/day51-authentication-password-security-and-jwt.md)
 - Day52 (authorization + tenant isolation + quotas): [`docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md`](../../docs/fastapi/day52-authorization-tenant-isolation-quotas-and-api-security.md)
 - Day53 (OpenAI SDK provider boundary + structured output): [`docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md`](../../docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md)
+- Day54 (streaming, disconnects, timeouts, cancellation): [`docs/fastapi/day54-ai-streaming-client-disconnects-timeouts-and-cancellation.md`](../../docs/fastapi/day54-ai-streaming-client-disconnects-timeouts-and-cancellation.md)
 
 ---
 
@@ -118,7 +119,11 @@ projects/ai-backend-data-layer/
 │   ├── day53-openai-sdk-provider-boundaries-and-structured-output-design.md  # Day53: provider boundary + structured output design/runbook
 │   ├── day53_openai_provider_structured_output.py      # Day53: OpenAI-compatible adapter boundary + Pydantic v2 validation model
 │   ├── test_day53_openai_provider_structured_output.py # Day53: real-Pydantic + fake-transport tests (executed: 48 passed)
-│   └── requirements-day53.txt                          # Day53: pinned deps (pydantic==2.5.0, pytest==7.4.3; fake transport, no openai dep)
+│   ├── requirements-day53.txt                          # Day53: pinned deps (pydantic==2.5.0, pytest==7.4.3; fake transport, no openai dep)
+│   ├── day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md  # Day54: streaming/lifecycles/cancellation design/runbook
+│   ├── day54_streaming_disconnects_timeouts_cancellation.py  # Day54: three-lifecycle + durable cancellation model (stdlib-only)
+│   ├── test_day54_streaming_disconnects_timeouts_cancellation.py  # Day54: in-memory tests (executed: 15 passed)
+│   └── requirements-day54.txt                          # Day54: pinned deps (pytest==7.4.3; standard-library-only model)
 ├── redis/
 │   ├── redis-acceleration-layer-design.md             # Day38: Redis acceleration-layer design (design + evidence, not executed)
 │   ├── redis-cache-consistency-design.md              # Day39: Redis cache consistency design (design + evidence, not executed)
@@ -217,6 +222,38 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 > Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
 > new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
 > No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+---
+
+## Day54 increment — AI streaming, client disconnects, timeouts and cancellation
+
+`api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md` (with a runnable
+`day54_streaming_disconnects_timeouts_cancellation.py` and `test_day54_streaming_disconnects_timeouts_cancellation.py`)
+separates two kinds of streaming and three independent lifecycles. The tests are **executed**, **standard-library
+only**: **Python 3.10.12, pytest 7.4.3 -> `15 passed`**.
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Three lifecycles | `SubscriptionRegistry` (HTTP connection) vs the Provider token stream vs the durable `JobStore`; an SSE `disconnect` ends only the subscription and never touches the Job. |
+| Two streams | transient `FakeProviderStream` tokens vs durable `JobStore` events + `reconnect_view` (safe milestones only; raw tokens never persisted). |
+| Timeout | `record_timeout_pending` -> `PENDING_RECONCILIATION`, reservation retained, unknown usage (never 0); the 202 is not retro-504. |
+| Cancellation | `request_cancellation` persists a durable auditable intent only; `run_worker` cooperatively checks it (pre-call -> no Provider call; mid-stream -> best-effort abort + `reconciliation_pending`) then a `guarded_terminal_transition`. |
+| Concurrency | completion vs cancellation each guarded (`UPDATE ... WHERE status IN (live) RETURNING`); exactly one WON, the loser ZERO_ROWS; a late result after terminal -> `REFUSED_TERMINAL`. |
+| Crash recovery | `scan_open_intents` + `apply_cancellation`; at-least-once re-observation, guarded transition absorbs repeats. |
+| Incident recovery | `DisconnectPolicy.rollback` (stop new harm) + `build_affected_set` (version + time window) + `classify_recovery` (evidence-based; no blind flip/re-call). |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py   # 15 passed (standard-library only)
+```
+
+Not run (and not claimed): real FastAPI/SSE wire behavior, the real OpenAI SDK/network/Provider token stream, real
+PostgreSQL/Redis/Celery, integration, production. Day55 (Celery Worker execution) consumes this cancellation/lifecycle
+contract; Day56 owns retry/backoff/backpressure — neither is implemented here.
 
 ---
 

@@ -906,3 +906,40 @@ Strong: "The Adapter translates the SDK response/exceptions into my ProviderOutc
 Validation: REAL Pydantic v2 strict validation + an in-memory Adapter->Validator->Completion model with an INJECTED FAKE transport (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 48 passed). Proves the validation gate + application control flow ONLY. NOT the real `openai` SDK/network/Provider, NOT PostgreSQL/Redis/Celery Worker, NOT FastAPI wire/integration/production. Day54 streaming/disconnect/cancellation, Day55 Celery, Day56 retry/backoff not implemented. No real api_key/prompt/Document content/Provider response persisted or logged.
 
 Related: [Day53 lesson](../docs/fastapi/day53-openai-sdk-provider-boundaries-and-structured-output.md) · [Day53 design/runbook](../projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md) · [model](../projects/ai-backend-data-layer/api/day53_openai_provider_structured_output.py) · [tests](../projects/ai-backend-data-layer/api/test_day53_openai_provider_structured_output.py)
+
+---
+
+## Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
+
+Mental model: THREE independent lifecycles — HTTP client connection, Provider request, durable Job — plus TWO streaming kinds. Confusing them corrupts business truth or wastes billable work.
+
+Boundary (state it explicitly): HTTP client disconnect != the Provider call necessarily stops != an already-persisted Job auto-cancels != the accepted business commitment disappears.
+
+Three lifecycles:
+- HTTP client connection: an SSE disconnect / connection timeout ends only THAT subscription (never touches the durable Job).
+- Provider request: its real state/outcome/usage may stay UNKNOWN after a disconnect or timeout.
+- Durable Job: a PostgreSQL-owned business fact (queued -> running -> succeeded); it does NOT auto-cancel on disconnect. Student first said "queued running success" (wrong lifecycle), corrected to "保持running".
+
+Two streaming kinds: (A) Provider token streaming = transient chunks for ONE Provider request; (B) durable Job progress/event streaming = safe observable state for a persisted Job (subscription/reconnection). Never treat one as the other's durable truth. Worker consumes A; browser subscribes to B.
+
+Reconnection + persistence trade-off: a reconnecting browser reads/subscribes to durable Job state + safe progress events, NOT a Provider token replay. Do NOT default-persist every token as a JobEvent (write/storage cost + unvalidated/partial/sensitive content + breaks Day53 raw minimization). Persist low-frequency SAFE milestones; persist the final Result Artifact only after Day53 validation + guarded completion. A replayable partial-text product needs its own explicit design.
+
+Timeout: HTTP connection timeout limits a subscription only. Provider request timeout = our side got no response in time -> execution/result/usage may be UNKNOWN -> `PENDING_RECONCILIATION`, reservation retained, no invented zero usage, no blind re-call (Day53 preserved). A later Provider timeout does NOT retroactively turn the original 202 into a 504; users observe later state via Job reads/events. The Provider may have raw output, but it does NOT create the application's Result Artifact — only Day53 validation + guarded completion does.
+
+Durable cancellation/deadline protocol: cancel/expiry request (authorized) -> PERSIST a durable auditable INTENT FIRST (reason/timestamp/actor-or-system-source/version) — the Router must NOT write `cancelled` just because HTTP arrived ("不能") -> Worker cooperatively OBSERVES the intent at safe points -> GUARDED terminal transition (`cancelled`/`expired`) -> observable result. Pre-call: do NOT call the Provider ("是不调用并尝试 guarded transition 到 cancelled"), provider.calls == 0. Mid-stream: best-effort Provider abort/stream close + stop publishing + record safe correlation; does NOT prove remote stop or zero cost ("不能") -> unknown usage `reconciliation_pending`, reservation retained. Deadline: different trigger, same durable/auditable/cooperative/guarded constraints.
+
+Crash + at-least-once: persist the intent FIRST because it survives process loss, is auditable, and is re-observable ("worker会再次扫描intent") — NOT because it authorizes Day56 blind retries. A restarted Worker re-observes; the guarded transition absorbs repeats (second apply -> zero rows).
+
+Concurrency: completion and cancellation/expiry each use a guarded terminal write (`UPDATE ... WHERE status IN (live) RETURNING`). Exactly ONE wins; the loser sees zero rows and stops/reconciles ("不应该" overwrite). A late valid Provider result AFTER a terminal cancel/expiry cannot flip the Job to `succeeded` ("不能") — no Result Artifact/success overwrite.
+
+Erroneous disconnect->cancel rollout: FIRST roll the policy back (stop new harm) — policy rollback != business-fact rollback; do NOT bulk-flip terminal Jobs to running ("不能"). Build the affected set from release VERSION + a bounded TIME WINDOW (period the bad release was active — evidence, NOT a retry delay) + stable intent IDs. Retain audit history. Evidence: a client idempotency key proves logical acceptance only, NOT Provider execution; Provider request/correlation/cost evidence decides reconciliation. Request id + unknown usage -> retain reservation + reconcile, never blind re-call ("不能").
+
+### Weak vs strong (Day54)
+Weak: "The browser disconnected, so cancel the Job; the Provider timed out, so mark it failed and retry."
+Strong: "A disconnect ends only the subscription — the durable Job stays running. A timeout is PENDING_RECONCILIATION with unknown usage retained, not a failure or a blind retry. Cancellation is a durable auditable intent + cooperative Worker + guarded terminal write; completion and cancellation never overwrite (zero rows -> stop/reconcile)."
+
+Schema honesty: the `cancelled`/`expired` terminal statuses, `PENDING_RECONCILIATION`, and a durable cancellation/expiry intent table (reason/actor/timestamp/version) are new facts MODELED in-memory; a real deployment adds them via a Day48-safe FORWARD additive migration (no published Alembic revision rewritten). Day52 reservation/reconciliation + Day53 guarded completion/Provider boundary reused.
+
+Validation: in-memory control-flow model, standard-library only (Python 3.10.12, pytest 7.4.3 -> 15 passed). Proves APPLICATION CONTROL FLOW ONLY. NOT real FastAPI/SSE wire, NOT the real OpenAI SDK/network/Provider token stream, NOT PostgreSQL/Redis/Celery, NOT integration/production. Day55 Celery, Day56 retry/backoff not implemented. No real credentials/prompts/Document content/raw Provider tokens used.
+
+Related: [Day54 lesson](../docs/fastapi/day54-ai-streaming-client-disconnects-timeouts-and-cancellation.md) · [Day54 design/runbook](../projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md) · [model](../projects/ai-backend-data-layer/api/day54_streaming_disconnects_timeouts_cancellation.py) · [tests](../projects/ai-backend-data-layer/api/test_day54_streaming_disconnects_timeouts_cancellation.py)

@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.115 — Day54 AI Streaming, Client Disconnects, Timeouts and Cancellation
+
+Date: 2026-08-04
+
+Day: Day54
+
+Lesson title: AI Streaming, Client Disconnects, Timeouts and Cancellation
+
+### Added
+
+- `docs/fastapi/day54-ai-streaming-client-disconnects-timeouts-and-cancellation.md` — the Day54 lesson (LESSON_TEMPLATE_v2, exact 16-section order), preserving verbatim Chinese/English student answers, the four correction trajectories, and labeling the final Chinese summary assistant-assisted (explicitly requested by the student).
+- `projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md` — design/runbook (three lifecycles, two streaming kinds, reconnection/persistence trade-off, timeout model, durable cancellation/deadline protocol, completion-vs-cancellation concurrency, rollout/rollback exercise, evidence matrix, schema honesty).
+- `projects/ai-backend-data-layer/api/day54_streaming_disconnects_timeouts_cancellation.py` — provider-neutral, standard-library-only in-memory model: `JobStore` (durable facts + guarded terminal transitions + durable cancellation/expiry intents), `SubscriptionRegistry` (SSE), `FakeProvider`/`FakeProviderStream` (transient tokens + best-effort abort), `request_cancellation` (intent-first), `run_worker` (cooperative pre-call/mid-stream checks), `apply_cancellation`/`scan_open_intents` (crash re-observation), `ingest_late_provider_result` (terminal refusal), and `DisconnectPolicy`/`build_affected_set`/`classify_recovery` (incident recovery).
+- `projects/ai-backend-data-layer/api/test_day54_streaming_disconnects_timeouts_cancellation.py` — in-memory control-flow tests (15 cases).
+- `projects/ai-backend-data-layer/api/requirements-day54.txt` — pinned `pytest==7.4.3` (module + tests are standard-library only).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day54 sections.
+- `projects/ai-backend-data-layer/README.md` — current increment set to Day54, file tree, doc links, and a Day54 increment section (Day53 section left intact).
+- `CURRICULUM.md` (Day54 -> ✅ Completed), `ROADMAP.md` (Day54 -> ✅ Completed), `PROJECT_STATUS.md` (Day54 completed; Current Lesson -> Day55; Last Completed Lesson -> Day54; Day53 archived; Next -> Day55), `TASKS.md` (Day54 complete; Current/Next -> Day55).
+
+### Main learning outcome
+
+Three lifecycles — HTTP connection, Provider request, durable Job — are independent. An SSE disconnect ends only that subscription; a Provider timeout is non-terminal `PENDING_RECONCILIATION` (reservation retained, unknown usage never 0, no retro-504, no blind re-call); a cancellation or deadline must first become a durable, auditable intent that a Worker cooperatively turns into a guarded terminal fact (pre-call makes zero Provider calls; mid-stream is best-effort with unknown cost retained); completion and cancellation never overwrite each other (zero rows means stop and reconcile); a crash after a persisted intent is recovered by at-least-once re-observation; and a policy rollback stops future harm but never blindly rewrites durable facts. Provider token streams are transient and never default-persisted; reconnection reads durable state/events.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py` -> **15 passed** (Python 3.10.12, pytest 7.4.3; module + tests standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **336 passed**. Application control flow only.
+- Markdown: Day54 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
+- Secrets: no real credentials, raw prompts, Document content, or raw Provider payloads/tokens used or committed.
+- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL IN-MEMORY CONTROL-FLOW RUNTIME (run: 15 passed); NOT RUN: real FastAPI/SSE wire behavior, the real OpenAI SDK/network/Provider token stream, real PostgreSQL transactions/isolation, Redis, Celery, integration, production. Day55 Celery and Day56 retry/backoff/backpressure are not implemented. Schema honesty: the `cancelled`/`expired`/`pending_reconciliation` statuses and a durable cancellation/expiry intent table are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten.
+
+---
+
 ## v0.1.114 — Day53 review (Codex): strict provider_request_id match + transactional late-outcome dispatch
 
 Date: 2026-08-04

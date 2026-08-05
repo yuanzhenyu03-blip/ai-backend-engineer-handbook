@@ -1181,3 +1181,43 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day53), the
 [Day53 design/runbook](../projects/ai-backend-data-layer/api/day53-openai-sdk-provider-boundaries-and-structured-output-design.md),
 the [model](../projects/ai-backend-data-layer/api/day53_openai_provider_structured_output.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day53_openai_provider_structured_output.py).
+
+---
+
+## Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
+
+Key vocabulary: HTTP connection lifecycle, Provider request lifecycle, durable Job lifecycle, SSE subscription, token streaming vs progress/event streaming, reconnection, Provider timeout, `PENDING_RECONCILIATION`, durable cancellation intent, cooperative cancellation, guarded terminal transition, zero-row stop, deadline/expiry, at-least-once observation, policy rollback vs business-fact rollback, evidence-based recovery.
+
+### Q1 (Beginner) — what does an HTTP client disconnect mean for a durable Job?
+
+Actual answer: "http client disconnect means subscribe finished, cancellation of a durable background Job is a durabel cancellation intent".
+
+Strong answer: "An HTTP client disconnect just means the client subscription has ended — the durable background Job is unaffected and stays running. Cancelling a durable Job is different: it starts with a durable, auditable cancellation intent, then requires the Worker to cooperate and a guarded terminal transition to actually make it `cancelled`."
+
+### Q2 (Beginner) — the two kinds of streaming and reconnection
+
+Strong answer: "Provider token streaming is transient chunks for one Provider request; durable Job progress/event streaming is safe observable state for a persisted Job. A reconnecting browser reads/subscribes to the durable Job state and progress events, not a replay of Provider tokens — and I don't default-persist every token as an event because it inflates storage, can keep unvalidated or sensitive content, and breaks raw-data minimization."
+
+### Q3 (Intermediate) — a Provider call times out; do you retry immediately?
+
+Actual answer: "retry the provider call may waste provider".
+
+Strong answer: "No — an immediate retry may waste Provider capacity, and more importantly a timeout leaves execution, result, and usage unknown, so an immediate retry can duplicate execution and cost. I move the Job to a reconciliation-pending state, keep the budget reservation, and reconcile from Provider correlation/usage evidence rather than fabricating a failure or a zero cost. The original 202 is not retroactively a 504; later state is observed through Job reads."
+
+### Q4 (Intermediate) — a user cancels; can the Router write `cancelled`?
+
+Strong answer: "No. The Router authorizes and persists a durable, auditable cancellation intent first — reason, timestamp, actor. A Worker observes the intent cooperatively at safe points: before the Provider call it doesn't call the Provider and takes a guarded terminal transition; mid-stream it best-effort aborts the stream and takes a guarded transition without claiming the remote model stopped or that cost is zero. I persist the intent first because it survives process loss, is auditable, and is re-observable at-least-once."
+
+### Q5 (Senior) — design cancellation for a long-running, billable, streaming Job (incident runbook)
+
+Strong answer: "First, an authorized cancel request persists a durable, auditable intent — it does not directly write `cancelled`. A Worker observes it cooperatively: pre-call it doesn't call the Provider and takes a guarded terminal transition; mid-stream it best-effort aborts the Provider stream, stops publishing tokens, records correlation evidence, and takes a guarded transition — without claiming the remote model stopped or that cost is zero, so unknown usage stays reconciliation-pending. Completion and cancellation both use guarded terminal writes, so exactly one wins and the loser sees zero rows and reconciles; a late valid result after a terminal cancel cannot flip the Job to succeeded. A crash after the intent is persisted is safe because a restarted Worker re-observes it and the guarded transition absorbs repeats. If a bad release turned disconnects into cancellations, my first step is to roll the policy back to stop new harm — that is not a business-fact rollback; I then build an affected set from release version and a bounded time window, keep the audit history, and reconcile each Job from Provider evidence instead of blindly flipping state or re-calling the Provider."
+
+Production scenario / trade-off prompt: "Should you persist every Provider token so a reconnecting user can replay?" — "No, not by default. I persist low-frequency safe lifecycle milestones and the validated final Result Artifact; a reconnecting browser reads durable state and events. Default per-token persistence inflates writes/storage, can retain unvalidated/partial/sensitive content, and conflicts with raw-data minimization. A replayable partial-text product is a separate design with its own minimization, access, retention, idempotency, and cost decisions."
+
+Validation: in-memory control-flow model, standard-library only (Python 3.10.12, pytest 7.4.3 -> 15 passed). Proves application control flow only. NOT real FastAPI/SSE wire behavior, NOT the real OpenAI SDK/network/Provider token stream, NOT PostgreSQL/Redis/Celery, NOT integration/production. Day55 Celery and Day56 retry/backoff are not implemented. No real credentials, prompts, Document content, or raw Provider tokens are used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day54), the
+[Day54 lesson](../docs/fastapi/day54-ai-streaming-client-disconnects-timeouts-and-cancellation.md), the
+[Day54 design/runbook](../projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md),
+the [model](../projects/ai-backend-data-layer/api/day54_streaming_disconnects_timeouts_cancellation.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day54_streaming_disconnects_timeouts_cancellation.py).

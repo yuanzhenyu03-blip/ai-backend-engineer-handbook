@@ -1,0 +1,19 @@
+# Day54 AI Streaming, Client Disconnects, Timeouts and Cancellation — pinned dependencies
+# for the recorded repository test evidence. These are the versions used to run
+# day54_streaming_disconnects_timeouts_cancellation.py + test_day54_streaming_disconnects_timeouts_cancellation.py.
+#
+# Install and run from a clean checkout:
+#   cd projects/ai-backend-data-layer/api
+#   python3 -m pip install -r requirements-day54.txt
+#   python3 -m py_compile day54_streaming_disconnects_timeouts_cancellation.py test_day54_streaming_disconnects_timeouts_cancellation.py
+#   python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py
+#
+# Runtime scope: the module + tests are Python-STANDARD-LIBRARY ONLY (no third-party runtime
+# dependency). The suite exercises an IN-MEMORY model of the three lifecycles (HTTP connection /
+# Provider request / durable Job), SSE subscription, durable cancellation/expiry intent,
+# cooperative Worker checks, guarded terminal transitions, the completion-vs-cancellation race,
+# and the erroneous-disconnect-policy recovery. This proves APPLICATION CONTROL FLOW only. Real
+# FastAPI/SSE wire behavior, the real OpenAI SDK/network/Provider, real PostgreSQL
+# transactions/isolation, Redis, Celery, integration, and production are NOT part of Day54 and
+# are not (and cannot be) proven by these tests.
+pytest==7.4.3

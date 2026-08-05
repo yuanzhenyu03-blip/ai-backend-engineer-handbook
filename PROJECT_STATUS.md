@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day53 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day54 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation (Phase 4)
+Day55 — Celery, Worker Execution and Long-running AI Jobs (Phase 4)
 
 Status:
 Planned / Not started
 
-(Day53 is complete and recorded under "Last Completed Lesson" below; Day54 is the current focus.
+(Day54 is complete and recorded under "Last Completed Lesson" below; Day55 is the current focus.
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -77,6 +77,7 @@ Planned / Not started
 - ✅ Day51 — Authentication, Password Security and JWT
 - ✅ Day52 — Authorization, Tenant Isolation, Quotas and API Security
 - ✅ Day53 — OpenAI SDK, Provider Boundaries and Structured Output
+- ✅ Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 
 ---
 
@@ -87,6 +88,32 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
+
+Completed Time:
+2026-08-04
+
+Main Artifact:
+Day54 streaming/lifecycles/cancellation (projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md) with a runnable provider-neutral, standard-library-only in-memory model (day54_streaming_disconnects_timeouts_cancellation.py) + test_day54_streaming_disconnects_timeouts_cancellation.py: separates TWO streaming kinds (transient Provider token streaming vs durable Job progress/event streaming) and THREE independent lifecycles (HTTP client connection / Provider request / durable Job), with the explicit boundary HTTP disconnect != the Provider call necessarily stops != the persisted Job auto-cancels != the accepted business commitment disappears. An SSE disconnect (SubscriptionRegistry) ends ONLY that subscription and never touches the durable JobStore (the Job stays running); a reconnecting browser reads durable state + safe milestone events via reconnect_view, not a Provider token replay, and raw tokens are never default-persisted (Day53 minimization). A Provider timeout is a NON-terminal PENDING_RECONCILIATION (reservation retained, unknown usage never 0, no blind re-call, the 202 not retro-504; the Provider may have raw output but does NOT create the application Result Artifact — only Day53 validation + guarded completion does). Cancellation/deadline is a DURABLE, auditable, cooperative, guarded protocol: the Router (request_cancellation) persists a durable intent FIRST (reason/actor/timestamp/version) and never writes cancelled merely because HTTP arrived; a cooperative Worker (run_worker) observes it — pre-call it does NOT call the Provider (zero Provider calls) and takes a guarded_terminal_transition; mid-stream it best-effort aborts the stream, holds reconciliation_pending (never fabricating remote stop or zero cost) and takes a guarded transition; a deadline uses the same constraints with terminal EXPIRED. Completion and cancellation/expiry each use a guarded terminal write (UPDATE ... WHERE status IN (live) RETURNING) so exactly ONE wins and the loser sees zero rows and reconciles; a late valid result after a terminal cancel/expiry is REFUSED_TERMINAL (no artifact/success overwrite). A crash after intent persistence is recoverable (scan_open_intents + apply_cancellation re-observe at-least-once, guarded transition absorbs repeats). Integrated exercise: an erroneous disconnect->cancel deployment is contained by rolling the policy back FIRST (future harm only, NOT a business-fact rollback), building the affected set from release version + a bounded time window + stable intent IDs, retaining audit, and classifying recovery from evidence (idempotency key proves acceptance only, not Provider execution; request id + unknown usage -> retain reservation + reconcile, never a blind flip/re-call).
+
+Validation Boundary:
+Day54 has IN-MEMORY control-flow evidence only. Executed: python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py -> 15 passed (Python 3.10.12, pytest 7.4.3; module + tests are Python-standard-library only). This proves APPLICATION CONTROL FLOW over an in-memory model only. NOT RUN: real FastAPI/SSE wire behavior; the real OpenAI SDK/network/Provider token stream; real PostgreSQL transactions/isolation; Redis; Celery. Day53 evidence is NOT inherited as Day54 evidence. Boundary preserved: the three lifecycles are independent; a disconnect ends only a subscription; a timeout is non-terminal reconciliation; cancellation is durable+auditable+cooperative+guarded; Day55 Celery Worker execution and Day56 retry/backoff/backpressure are not implemented. Schema honesty: the cancelled/expired/pending_reconciliation statuses and a durable cancellation/expiry intent table are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration, not implemented here, never a rewrite of published history. No real credentials, raw prompts, Document content, or raw Provider payloads/tokens are persisted or logged.
+
+Completed Work:
+
+- Day54 classroom learning
+- Day54 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim Chinese/English student answers preserved; four correction trajectories; assistant-assisted final Chinese summary labeled as such)
+- Day54 design/runbook + runnable provider-neutral standard-library-only in-memory model + tests (executed: 15 passed) and project README increment
+- Day54 three-lifecycle, two-streaming-kind, reconnection/persistence-trade-off, timeout-reconciliation, durable-cancellation-protocol, completion-vs-cancellation-race, crash-re-observation, late-result-refusal, and erroneous-disconnect-policy recovery exercises
+- Day54 FastAPI cheat sheet append
+- Day54 FastAPI interview notes append
+- Day54 requirements-day54.txt (pytest; standard-library-only model)
+- Day54 repository status update
+
+---
+
+## Superseded — Day53 Last Completed Lesson (archived)
 
 Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 
@@ -238,7 +265,7 @@ Completed Work:
 
 ## Next
 
-- Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation (Phase 4 — Production AI API Engineering)
+- Day55 — Celery, Worker Execution and Long-running AI Jobs (Phase 4 — Production AI API Engineering)
 
 Status:
 Planned / Not started
