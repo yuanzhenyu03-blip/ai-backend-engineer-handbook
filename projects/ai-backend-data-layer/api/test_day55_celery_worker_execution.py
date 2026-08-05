@@ -472,3 +472,85 @@ def test_f5_revoke_uses_the_invariant_task_id():
     assert revoked == [celery_task_id_for_job("job-1")]   # correct task id via the invariant
     assert revoked == ["job-1"]
     assert store.open_intent("job-1") is not None          # durable intent remains sole authority
+
+
+# ===========================================================================
+# P1 recovery-gap regression: OOM AFTER dispatch marker, BEFORE provider_request_id
+# ===========================================================================
+def test_p1_oom_after_dispatch_marker_before_request_id_reconciles_no_recall():
+    """Worker A guarded-claims and persists the conservative external-call marker, then is lost
+    BEFORE recording provider_request_id. The lease expires and Worker B gets a redelivery. Worker B
+    must NOT call the Provider; the Job is reconciliation-only (Provider may already have executed)."""
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    # Worker A claims and marks dispatch starting, then dies before recording provider_request_id.
+    claimA = store.claim_execution(job.job_id, worker_id="wA", now=NOW)
+    assert claimA.status is ClaimStatus.GRANTED
+    store.mark_provider_dispatch_starting(claimA.attempt.attempt_id, now=NOW)
+    assert store._attempts[claimA.attempt.attempt_id].provider_request_id is None   # id never recorded
+    key_before = claimA.attempt.provider_idempotency_key
+    # Lease expires; Worker B receives a redelivery well after expiry.
+    later = NOW + timedelta(minutes=6)
+    broker.publish(Envelope("run_ai_job", "job.dispatch.v1", job.job_id,
+                            celery_task_id=job.job_id))
+    d = broker.deliver()
+    providerB = _success_provider()
+    res = run_worker(store, broker, d, providerB, worker_id="wB", now=later)
+    # No blind re-call; reconciliation-only; unknown cost retained.
+    assert providerB.calls == 0
+    assert res.outcome is WorkerOutcome.RECONCILE_NO_RECALL
+    j = store.get(job.job_id)
+    assert j.status is JobStatus.PENDING_RECONCILIATION
+    assert j.cost_state is CostState.RECONCILIATION_PENDING
+    # No new Attempt; same provider idempotency key; request id still absent.
+    assert j.open_attempt_id == claimA.attempt.attempt_id
+    assert store._attempts[j.open_attempt_id].provider_idempotency_key == key_before
+    assert store._attempts[j.open_attempt_id].provider_request_id is None
+
+
+def test_p1_claim_reconciles_on_marker_only_even_without_request_id():
+    """A direct claim_execution regression: the conservative marker alone (no provider_request_id)
+    routes a lease-expired re-claim to RECONCILE_ONLY. Missing request id != Provider not executed."""
+    store = JobStore()
+    _job(store)
+    c1 = store.claim_execution("job-1", worker_id="wA", now=NOW)
+    store.mark_provider_dispatch_starting(c1.attempt.attempt_id, now=NOW)
+    c2 = store.claim_execution("job-1", worker_id="wB", now=NOW + timedelta(minutes=6))
+    assert c2.status is ClaimStatus.RECONCILE_ONLY
+    assert c2.attempt.attempt_id == c1.attempt.attempt_id
+    assert c2.attempt.provider_request_id is None       # still no id, still reconcile-only
+
+
+def test_p1_marker_persisted_but_request_never_sent_still_reconciles_accepted_false_positive():
+    """Accepted safety-first FALSE POSITIVE: even if the Provider request had not actually left the
+    process when the Worker crashed, a persisted marker still forces reconciliation rather than a
+    retry. We never trade a possible duplicate paid Provider call for an automatic retry."""
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    claimA = store.claim_execution(job.job_id, worker_id="wA", now=NOW)
+    store.mark_provider_dispatch_starting(claimA.attempt.attempt_id, now=NOW)
+    # (In reality the socket write may not have happened — the model cannot know, and by design
+    # does not try to.) Redelivery after lease expiry:
+    broker.publish(Envelope("run_ai_job", "job.dispatch.v1", job.job_id, celery_task_id=job.job_id))
+    d = broker.deliver()
+    providerB = _success_provider()
+    res = run_worker(store, broker, d, providerB, worker_id="wB", now=NOW + timedelta(minutes=6))
+    assert providerB.calls == 0
+    assert res.outcome is WorkerOutcome.RECONCILE_NO_RECALL
+    assert store.get(job.job_id).status is JobStatus.PENDING_RECONCILIATION
+    # A durable audit event records the conservative dispatch marker for later reconciliation.
+    assert any(e["type"] == "provider_dispatch_started" and e["job_id"] == job.job_id
+               for e in store.events)
+
+
+def test_p1_dispatch_marker_persisted_before_provider_call_in_worker_flow():
+    """The happy path still records the marker BEFORE the Provider call (order guarantee)."""
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    d = _relay_and_deliver(store, broker, job)
+    run_worker(store, broker, d, _success_provider(), worker_id="w1", now=NOW)
+    att = store._attempts[store.get(job.job_id).open_attempt_id]
+    assert att.provider_dispatch_started_at is not None      # marker persisted during the run
+    # marker event is attributed to the real Job
+    assert any(e["type"] == "provider_dispatch_started" and e["job_id"] == job.job_id
+               for e in store.events)

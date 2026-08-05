@@ -9,6 +9,49 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.120 — Day55 fix (Codex): P1 recovery gap — conservative external-call marker before the Provider request
+
+Date: 2026-08-05
+
+Day: Day55 (review P1)
+
+The previous Day55 fix only blocked a lease-expired re-call when the Attempt already had a `provider_request_id`. That
+left a real recovery gap: a Worker can dispatch to the Provider and then OOM/be killed BEFORE it records the request id,
+so the durable Attempt has no `provider_request_id` and a redelivery treats the call as "never made" and re-calls the
+Provider — a possible duplicate paid execution. Missing request id does not prove the Provider did not execute.
+
+### Fixed
+
+- **Conservative pre-dispatch marker.** `Attempt.provider_dispatch_started_at` is persisted by a new
+  `JobStore.mark_provider_dispatch_starting` BEFORE the Provider request leaves the process. The strict order is now
+  `guarded claim -> durable external-call marker -> Provider request (outside any DB transaction) -> record
+  provider_request_id -> validate / guarded terminal transition`.
+- **Reconcile on either evidence.** `claim_execution` routes a redelivery / lease-expiry re-claim to `RECONCILE_ONLY`
+  (Job -> `PENDING_RECONCILIATION`, reservation/cost retained as unknown) when the open Attempt carries EITHER a
+  `provider_request_id` (strong evidence) OR the `provider_dispatch_started_at` marker (conservative evidence). No new
+  Attempt is created and the provider idempotency key is unchanged. `classify_repair` treats the marker as evidence too.
+- **Accepted safety-first trade-off.** If a Worker crashes after the marker commits but before the request actually left
+  the process, the Job reconciles unnecessarily (a false positive). This is deliberate: we never trade a possible
+  duplicate paid Provider call + duplicate cost for an automatic retry. A provider idempotency key reduces risk but is
+  not a reason to treat unknown external execution as a safe retry.
+
+### Added
+
+- 4 regression tests: OOM after the dispatch marker but before the request id -> Worker B makes zero Provider calls, Job
+  `PENDING_RECONCILIATION`, reconciliation-only outcome, cost `reconciliation_pending`, same Attempt + same provider
+  idempotency key, request id still absent; a claim-level marker-only reconcile; the accepted-false-positive case; and
+  the worker-flow order guarantee (marker persisted before the Provider call).
+
+### Validation
+
+- Executed: `python3 -m py_compile day55_celery_worker_execution.py test_day55_celery_worker_execution.py`;
+  `python3 -m pytest -q test_day55_celery_worker_execution.py` -> **40 passed** (was 36); full
+  `projects/ai-backend-data-layer/api/` suite -> **388 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3).
+  Application control flow only — a real Celery broker/Worker, real ACK/redelivery/visibility-timeout, Worker-loss/OOM
+  fault injection, real PostgreSQL/Redis, the real Provider, integration, and production remain NOT RUN.
+
+---
+
 ## v0.1.119 — Day55 fix (Codex): lease-expiry re-call, RUNNING cancellation, event owner, repair window, revoke id
 
 Date: 2026-08-05

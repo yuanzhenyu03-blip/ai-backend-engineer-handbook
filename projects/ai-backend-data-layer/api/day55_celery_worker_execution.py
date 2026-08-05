@@ -128,7 +128,8 @@ class Attempt:
     attempt_number: int
     provider_idempotency_key: str          # retained across redelivery of the SAME attempt
     correlation_id: str
-    provider_request_id: Optional[str] = None   # external execution evidence, recorded at open
+    provider_request_id: Optional[str] = None   # STRONG external execution evidence (recorded at open)
+    provider_dispatch_started_at: Optional[datetime] = None  # CONSERVATIVE marker: external call MAY have started (P1)
     schema_name: str = "research_summary"
     schema_version: str = "v1"
 
@@ -367,20 +368,29 @@ class JobStore:
                     and job.lease_expiry is not None and job.lease_expiry >= now
                     and job.lease_owner != worker_id):
                 return ClaimResult(ClaimStatus.CONFLICT)      # another live Worker holds it
-            # F1: if the open Attempt already carries Provider execution evidence
-            # (at least a provider_request_id), a redelivery OR a lease expiry is NOT
-            # re-authorization to call the Provider. Route to reconciliation and never re-execute.
+            # F1 + P1: if the open Attempt carries ANY external-execution evidence, a redelivery OR
+            # a lease expiry is NOT re-authorization to call the Provider. Two evidence kinds both
+            # block a blind re-call:
+            #   * provider_request_id           -> STRONG evidence the Provider request was opened;
+            #   * provider_dispatch_started_at   -> CONSERVATIVE marker persisted BEFORE the call
+            #     left the process. A Worker can OOM/die AFTER this marker but BEFORE recording the
+            #     request id, so a MISSING request id does NOT prove the Provider did not execute.
             # A lease is temporary ownership; its expiry says nothing about the external call.
             if job.open_attempt_id is not None:
                 existing = self._attempts.get(job.open_attempt_id)
-                if existing is not None and existing.provider_request_id is not None:
+                if existing is not None and (existing.provider_request_id is not None
+                                             or existing.provider_dispatch_started_at is not None):
                     if job.status != JobStatus.PENDING_RECONCILIATION:
                         job.status = JobStatus.PENDING_RECONCILIATION
                         job.cost_state = CostState.RECONCILIATION_PENDING
-                        self.add_event(job_id, "reconcile_on_reclaim_with_provider_evidence",
-                                       attempt_id=existing.attempt_id,
-                                       provider_request_id=existing.provider_request_id,
-                                       correlation_id=existing.correlation_id)
+                        self.add_event(
+                            job_id, "reconcile_on_reclaim_with_provider_evidence",
+                            attempt_id=existing.attempt_id,
+                            provider_request_id=existing.provider_request_id,           # may be None
+                            provider_dispatch_started_at=existing.provider_dispatch_started_at,
+                            evidence=("provider_request_id" if existing.provider_request_id
+                                      else "dispatch_marker_only"),
+                            correlation_id=existing.correlation_id)
                     return ClaimResult(ClaimStatus.RECONCILE_ONLY, attempt=existing)
             # Grant. Redelivery/new Worker does NOT mint a new Attempt: retain the open one.
             if job.open_attempt_id is not None:
@@ -401,6 +411,22 @@ class JobStore:
             self.add_event(job_id, "execution_claimed", worker_id=worker_id,
                            attempt_id=attempt.attempt_id)
             return ClaimResult(ClaimStatus.GRANTED, attempt=attempt)
+
+    def mark_provider_dispatch_starting(self, attempt_id: str, *, now: datetime) -> None:
+        """Persist a CONSERVATIVE durable marker BEFORE the Provider request leaves the process
+        (P1 recovery gap). From the moment this commits, the system must NOT assume the Provider did
+        not execute — even if `provider_request_id` is never recorded (a Worker can OOM/be killed
+        between this marker and recording the id). A false positive (marker set, request never
+        actually sent) is the ACCEPTED safety-first trade-off: we never trade a possible duplicate
+        paid Provider call + duplicate cost for an automatic retry."""
+        with self._lock:
+            att = self._attempts[attempt_id]
+            if att.provider_dispatch_started_at is None:
+                att.provider_dispatch_started_at = now
+                self.add_event(att.job_id, "provider_dispatch_started",
+                               attempt_id=att.attempt_id,
+                               correlation_id=att.correlation_id,
+                               external_execution="unknown")
 
     def record_provider_request_id(self, attempt_id: str, provider_request_id: str) -> None:
         """Persist external execution evidence AS SOON AS the Provider request is opened. The
@@ -603,6 +629,14 @@ def run_worker(
         # the Job stuck RUNNING and no redelivery. Late ACK is the safe default.
         broker.ack(delivery.delivery_id)
 
+    # (d3) CONSERVATIVE durable external-call marker BEFORE the Provider request leaves the process
+    # (P1 recovery gap): if the Worker OOMs/dies after this commit but before provider_request_id is
+    # recorded, a later redelivery still treats the external call as MAYBE-executed and reconciles —
+    # it never blindly re-calls. A false-positive reconciliation (marker set, request not yet sent)
+    # is the accepted safety-first trade-off. Order: guarded claim -> marker -> Provider request ->
+    # persist provider_request_id -> validate / guarded terminal transition.
+    store.mark_provider_dispatch_starting(attempt.attempt_id, now=now)
+
     # (e) Provider call OUTSIDE any DB transaction. Record provider_request_id as soon as available.
     result = provider.run(provider_idempotency_key=attempt.provider_idempotency_key)
     store.record_provider_request_id(attempt.attempt_id, result.request_id)
@@ -746,12 +780,15 @@ class RepairAction(str, Enum):
 
 
 def classify_repair(store: JobStore, job_id: str) -> RepairAction:
-    """A Job whose Attempt has a provider_request_id may have executed at the Provider: reconcile,
-    never blind re-dispatch. Only Jobs with NO Provider-execution evidence are safe to re-dispatch
-    under an explicit, guarded, audited action.
+    """A Job whose Attempt carries external-execution evidence may have executed at the Provider:
+    reconcile, never blind re-dispatch. Evidence is EITHER a provider_request_id (strong) OR a
+    provider_dispatch_started_at marker (conservative — the call may have started before a crash).
+    Only Jobs with NO such evidence are safe to re-dispatch under an explicit, guarded, audited
+    action.
     """
     job = store.get(job_id)
     att = store._attempts.get(job.open_attempt_id) if job.open_attempt_id else None
-    if att is not None and att.provider_request_id is not None:
+    if att is not None and (att.provider_request_id is not None
+                            or att.provider_dispatch_started_at is not None):
         return RepairAction.RECONCILE_ONLY
     return RepairAction.RECONCILE_THEN_GUARDED_REDISPATCH

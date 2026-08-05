@@ -12,7 +12,7 @@ Prerequisite: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellat
 Previous Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Next Lesson: Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 Engineering Artifact: projects/ai-backend-data-layer/api/day55-celery-worker-execution-and-long-running-ai-jobs-design.md
-  + runnable day55_celery_worker_execution.py + test_day55_celery_worker_execution.py (in-memory control flow; 36 passed)
+  + runnable day55_celery_worker_execution.py + test_day55_celery_worker_execution.py (in-memory control flow; 40 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of a supported-Celery Worker execution/recovery path —
@@ -226,10 +226,27 @@ Late ACK + duplicate absorption via the guarded claim is the safe default.
 The student also asked, honestly, "OOM 是什么?"
 
 **Tech Lead Review:** Correct. **OOM = Out Of Memory**: the OS/container can kill a Worker without letting it clean up,
-so `try/except` alone is insufficient. Persist the guarded claim, Attempt, and correlation evidence — and
-`provider_request_id` as soon as available — BEFORE the call; keep the long call OUTSIDE any DB transaction. If the
-outcome is unknown, retain the reservation and enter `PENDING_RECONCILIATION`; never fabricate zero usage; never blind
-re-call. A redelivery of a `PENDING_RECONCILIATION` Job returns `RECONCILE_ONLY` and calls the Provider zero times.
+so `try/except` alone is insufficient. Persist the guarded claim, Attempt, and correlation evidence BEFORE the call;
+keep the long call OUTSIDE any DB transaction. If the outcome is unknown, retain the reservation and enter
+`PENDING_RECONCILIATION`; never fabricate zero usage; never blind re-call.
+
+There is a subtle recovery gap here (P1). A Worker can dispatch to the Provider and then OOM *before* it records
+`provider_request_id` — so a MISSING request id does NOT prove the Provider did not execute. To close it, the Worker
+persists a **conservative durable marker before the call leaves the process**:
+
+```text
+guarded claim
+-> provider_dispatch_started_at   (external call MAY have started)
+-> Provider request (outside any DB transaction)
+-> record provider_request_id as soon as available
+-> validate / guarded terminal
+```
+
+From the moment that marker commits, the system never assumes the Provider did not run. A redelivery of an Attempt that
+has EITHER a `provider_request_id` (strong evidence) OR the marker (conservative evidence) returns `RECONCILE_ONLY` and
+calls the Provider zero times. Accepting a false positive — the marker was set but the request had not actually left the
+process when the Worker died, so the Job reconciles unnecessarily — is the deliberate safety-first trade-off: we never
+trade a possible duplicate paid Provider call and duplicate cost for an automatic retry.
 
 **Production Example:** An eight-minute summarization call: a 500-line DB transaction around it would pin a connection
 and risk lock timeouts; instead the call runs outside the transaction and only the short guarded writes touch the DB.
@@ -316,6 +333,10 @@ Celery task success
 Timeout redelivery
 ❌ A redelivered timed-out Job can begin with guarded completion.
 ✅ First retain/re-enter PENDING_RECONCILIATION, load the existing Attempt, and do NOT call the Provider; guarded completion follows only a matching, validated late result.
+
+Missing provider_request_id
+❌ No provider_request_id means the Provider never executed, so it is safe to re-call.
+✅ A Worker can OOM after dispatching but before recording the id. A conservative pre-dispatch marker means "may have executed" — a redelivery reconciles, never blindly re-calls. Missing id != not executed.
 ```
 
 How to remember: **ACK moves messages; PostgreSQL moves truth.**
