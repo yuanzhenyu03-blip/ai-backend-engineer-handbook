@@ -12,10 +12,10 @@ Prerequisite: Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 Previous Lesson: Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 Next Lesson: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Engineering Artifact: projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md
-  + runnable day54_streaming_disconnects_timeouts_cancellation.py + test_day54_streaming_disconnects_timeouts_cancellation.py (in-memory control flow; 15 passed)
+  + runnable day54_streaming_disconnects_timeouts_cancellation.py + test_day54_streaming_disconnects_timeouts_cancellation.py (in-memory control flow; 27 passed)
 ```
 
-Main engineering artifact: a provider-neutral, standard-library-only in-memory model of the three lifecycles + the
+Main engineering artifact: a provider-neutral in-memory model of the three lifecycles + the durable cancellation/expiry protocol (standard-library control flow; the late-result path reuses Day53's pydantic-backed strict validation gate) + the
 durable cancellation/expiry protocol, plus the
 [design/runbook](../../projects/ai-backend-data-layer/api/day54-ai-streaming-client-disconnects-timeouts-and-cancellation-design.md).
 
@@ -250,8 +250,13 @@ All correct. The Router authorizes and persists a durable, auditable intent firs
 source) — it must not write `cancelled` just because HTTP arrived. The Worker cooperatively observes the intent at safe
 points: before the Provider call it does not call the Provider and attempts a guarded terminal cancellation. Extend the
 "can retry" reasoning: persistence also survives process loss, gives auditability, and lets Workers re-observe
-at-least-once — but it does NOT authorize Day56-style blind Provider retries. A deadline shares the same
-durable/auditable/cooperative/guarded constraints with a different trigger (`expired`).
+at-least-once — but it does NOT authorize Day56-style blind Provider retries. The terminal fact is DERIVED from the
+intent kind (`terminal_for_intent`): a user cancellation -> `CANCELLED`, a deadline -> `EXPIRED`, consistently across
+the pre-call, mid-stream, final-pre-completion, and crash-re-observation paths. As soon as the Provider request is
+opened, its `provider_request_id` is persisted to protected Job evidence so a later cancel/timeout reconciles as
+`RECONCILE_UNKNOWN_EXTERNAL`, not `NO_PROVIDER_EXECUTION_EVIDENCE`. And a durable intent written AFTER the last token
+but BEFORE completion is caught by a final cooperative check: the Worker does not write `succeeded`, it takes the
+guarded cancel/expiry terminal path.
 
 ### Framework Connection
 
@@ -297,7 +302,12 @@ Completion/cancellation overwrite: "不应该". Late result after terminal cance
 
 Correct. Both use guarded terminal writes; exactly one wins and the loser sees zero rows and stops/reconciles rather
 than overwriting. A late valid Provider result after a terminal cancellation/expiry cannot flip the Job to `succeeded`;
-no Result Artifact/success overwrite follows the late path.
+no Result Artifact/success overwrite follows the late path. A late result reuses Day53's identity-binding + strict
+validation boundary (`ingest_late_provider_result`, the equivalent minimal abstraction of Day53's
+`ingest_late_outcome`): it completes the Job only when it is non-terminal AND awaiting reconciliation AND `job_id` +
+`attempt_id` + `correlation_id` + `provider_request_id` match the persisted evidence AND the payload passes the Day53
+strict gate — any mismatch/missing-id/not-awaiting/terminal/invalid payload is a side-effect-free refusal, and
+duplicate/concurrent matched deliveries complete at most once.
 
 ### Framework Connection
 
@@ -391,7 +401,7 @@ Run the model:
 
 ```bash
 cd projects/ai-backend-data-layer/api
-python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py   # 15 passed (standard-library only)
+python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py   # 27 passed (reuses Day53's validation gate)
 ```
 
 ---

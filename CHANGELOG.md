@@ -9,6 +9,62 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.116 — Day54 review (Codex): deadline terminal, pre-completion re-check, request-id capture, late-result identity+validation
+
+Date: 2026-08-04
+
+Day: Day54 (review fix)
+
+Addresses four P1s + one P2 in the Day54 in-memory model. Scope limited to the Day54 module, tests, and the Day54
+status/doc descriptions. The streaming/lifecycle/cancellation control flow stays standard-library only; the late-result
+path now REUSES Day53's real pydantic-backed strict validation gate (so pydantic is a Day54 dependency, as in Day53).
+
+### Fixed
+
+- **P1-1 — deadline intent must not be written as `cancelled`.** New `terminal_for_intent(kind)` maps
+  `USER_CANCELLATION -> CANCELLED` and `DEADLINE_EXPIRY -> EXPIRED`. The Worker's pre-call, mid-stream, and (new)
+  pre-completion paths, plus `apply_cancellation` (crash re-observation), all derive the terminal from the intent kind.
+- **P1-2 — re-check the durable intent before completion.** After the token loop ends, `run_worker` runs a FINAL
+  cooperative durable-intent check: if an intent now exists it does NOT write `succeeded` — it takes the guarded
+  cancel/expiry terminal path (`CANCELLED_PRE_COMPLETION`).
+- **P1-3 — persist provider_request_id at request open.** `run_worker` calls `record_provider_request_id` as soon as the
+  Provider request/stream is opened (and on the timeout path), so a later mid-stream cancellation or timeout classifies
+  as `RECONCILE_UNKNOWN_EXTERNAL`, not `NO_PROVIDER_EXECUTION_EVIDENCE`. The id is safe correlation evidence, not a raw
+  prompt/payload.
+- **P1-4 — late results reuse Day53 identity binding + validation.** `ingest_late_provider_result` now takes
+  `attempt_id`, `correlation_id`, `provider_request_id`, a `raw_payload`, and a `StructuredOutputValidator`, and completes
+  the Job ONLY when it is non-terminal AND awaiting reconciliation AND all four identity fields match the persisted
+  execution/attempt evidence (a missing id == mismatch) AND the payload passes the Day53 strict gate for the bound
+  `(schema_name, schema_version)` contract. Any mismatch/missing-id/not-awaiting/terminal/invalid payload is a
+  side-effect-free refusal; duplicate/concurrent matched deliveries complete AT MOST ONCE via the guarded transition;
+  and it never calls the Adapter/transport. Day53's `StructuredOutputValidator`/`SchemaRegistry` are imported (not
+  copied), so the gate is not weakened.
+- **P2 — cleaned the `request_cancellation` default** from `IntentKind.USER_CancellATION if False else
+  IntentKind.USER_CANCELLATION` to `IntentKind.USER_CANCELLATION`.
+
+### Added tests (15 -> 27)
+
+Deadline pre-call/mid-stream -> `EXPIRED` (user cancel still `CANCELLED`); crash re-observation derives the terminal
+from the intent kind; an intent after the last token before completion is not `succeeded` (user->CANCELLED,
+deadline->EXPIRED, no artifact); provider_request_id is persisted after a mid-stream cancel; wrongly-cancelled job with
+a request id -> `RECONCILE_UNKNOWN_EXTERNAL` and without one -> `NO_PROVIDER_EXECUTION_EVIDENCE`; late result matched +
+validated completes exactly once (duplicate -> `REFUSED_TERMINAL`); identity mismatch/missing id -> side-effect-free
+refusal; invalid payload -> refused with no artifact; concurrent matched delivery completes at most once; all zero
+Provider transport calls.
+
+### Validation
+
+- Executed: `python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py` -> **27 passed** (was 15;
+  the concurrency + race tests are deterministic across reruns); full `projects/ai-backend-data-layer/api/` suite ->
+  **348 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). Application control flow only. NOT RUN: real FastAPI/SSE
+  wire behavior, the real OpenAI SDK/network/Provider token stream, real PostgreSQL/Redis/Celery, integration,
+  production. Schema honesty preserved: the `cancelled`/`expired`/`pending_reconciliation` statuses, the durable
+  cancellation/expiry intent table, and the per-Job `attempt_id` + `(schema_name, schema_version)` fields are modeled
+  in-memory; a real schema needs a Day48-safe forward additive migration. No real credentials, prompts, Document
+  content, or raw Provider payloads/tokens used.
+
+---
+
 ## v0.1.115 — Day54 AI Streaming, Client Disconnects, Timeouts and Cancellation
 
 Date: 2026-08-04
@@ -37,10 +93,10 @@ Three lifecycles — HTTP connection, Provider request, durable Job — are inde
 
 ### Validation
 
-- Executed: `python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py` -> **15 passed** (Python 3.10.12, pytest 7.4.3; module + tests standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **336 passed**. Application control flow only.
+- Executed: `python3 -m pytest -q test_day54_streaming_disconnects_timeouts_cancellation.py` -> **27 passed** (Python 3.10.12, pytest 7.4.3; module + tests standard-library only). Full `projects/ai-backend-data-layer/api/` suite -> **336 passed**. Application control flow only.
 - Markdown: Day54 lesson has all 16 required sections in order; changed Markdown fences balanced; relative links checked.
 - Secrets: no real credentials, raw prompts, Document content, or raw Provider payloads/tokens used or committed.
-- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL IN-MEMORY CONTROL-FLOW RUNTIME (run: 15 passed); NOT RUN: real FastAPI/SSE wire behavior, the real OpenAI SDK/network/Provider token stream, real PostgreSQL transactions/isolation, Redis, Celery, integration, production. Day55 Celery and Day56 retry/backoff/backpressure are not implemented. Schema honesty: the `cancelled`/`expired`/`pending_reconciliation` statuses and a durable cancellation/expiry intent table are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten.
+- Evidence tiers kept separate — CONCEPTUAL DESIGN (completed); LOCAL IN-MEMORY CONTROL-FLOW RUNTIME (run: 27 passed); NOT RUN: real FastAPI/SSE wire behavior, the real OpenAI SDK/network/Provider token stream, real PostgreSQL transactions/isolation, Redis, Celery, integration, production. Day55 Celery and Day56 retry/backoff/backpressure are not implemented. Schema honesty: the `cancelled`/`expired`/`pending_reconciliation` statuses and a durable cancellation/expiry intent table are modeled in-memory; a real schema needs a Day48-safe forward additive migration, no published Alembic revision rewritten.
 
 ---
 

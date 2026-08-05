@@ -34,7 +34,10 @@ EVIDENCE LABEL (do not conflate the tiers):
 
 SECURITY: no real credentials, raw prompts, Document content, or raw Provider payloads/tokens
 are persisted or logged. Provider tokens are transient and never default-persisted as JobEvents.
-Standard library only.
+
+The streaming/lifecycle/cancellation control flow is Python-standard-library only; the late-result
+path REUSES Day53's real (pydantic-backed) strict structured-output validation gate
+(`StructuredOutputValidator` + `SchemaRegistry`) so it does not weaken Day53's guarantees.
 """
 
 from __future__ import annotations
@@ -45,6 +48,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from typing import Callable, Iterator, Optional
+
+# Reuse Day53's REAL strict structured-output validation gate + server-owned schema registry —
+# the SAME gate, not a weakened Day54 copy (P1-4). This makes pydantic a Day54 dependency too.
+from day53_openai_provider_structured_output import (
+    SchemaRegistry,
+    StructuredOutputValidator,
+    ValidationOutcome,
+)
 
 
 # ===========================================================================
@@ -105,6 +116,9 @@ class Job:
     intents: list[CancellationIntent] = field(default_factory=list)  # durable audit; never deleted
     provider_request_id: Optional[str] = None             # Provider correlation (external execution)
     correlation_id: Optional[str] = None
+    attempt_id: Optional[str] = None                      # persisted execution/attempt identity
+    schema_name: Optional[str] = None                     # bound execution contract (Day53 schema)
+    schema_version: Optional[str] = None
 
 
 class TransitionOutcome(str, Enum):
@@ -122,11 +136,46 @@ class JobStore:
         self._lock = threading.Lock()
 
     def create_running_job(self, job_id: str, *, tenant_id: str, reserved_tokens: int,
-                           correlation_id: Optional[str] = None) -> Job:
+                           correlation_id: Optional[str] = None, attempt_id: Optional[str] = None,
+                           schema_name: Optional[str] = None,
+                           schema_version: Optional[str] = None) -> Job:
         job = Job(job_id=job_id, tenant_id=tenant_id, reserved_tokens=reserved_tokens,
-                  correlation_id=correlation_id)
+                  correlation_id=correlation_id, attempt_id=attempt_id,
+                  schema_name=schema_name, schema_version=schema_version)
         self.jobs[job_id] = job
         return job
+
+    def record_provider_request_id(self, job_id: str, provider_request_id: Optional[str]) -> None:
+        """P1-3: as soon as the external Provider request is opened and its id is available,
+        persist it to protected Job execution evidence (safe correlation only — NOT a raw prompt
+        or payload). This is what lets a later mid-stream cancellation / timeout be reconciled as
+        RECONCILE_UNKNOWN_EXTERNAL instead of NO_PROVIDER_EXECUTION_EVIDENCE."""
+        if provider_request_id is None:
+            return
+        with self._lock:
+            job = self.jobs[job_id]
+            if job.provider_request_id is None:
+                job.provider_request_id = provider_request_id
+
+    def guarded_complete_success(self, job_id: str, *, artifact: dict, actual_tokens: Optional[int],
+                                 now: datetime) -> TransitionOutcome:
+        """Atomic guarded `running/pending -> succeeded` that ALSO writes the Result Artifact + cost
+        in the SAME critical section, so duplicate/concurrent late deliveries produce the fact at
+        most once. Unknown usage is retained as reconciliation_pending, never fabricated as 0."""
+        with self._lock:
+            job = self.jobs[job_id]
+            if job.status not in LIVE_STATUSES:
+                return TransitionOutcome.ZERO_ROWS
+            job.status = JobStatus.SUCCEEDED
+            if actual_tokens is not None:
+                job.cost_state = CostState.SETTLED
+                job.settled_tokens = actual_tokens
+            else:
+                job.cost_state = CostState.RECONCILIATION_PENDING
+            job.result_artifact = dict(artifact)
+            job.events.append({"type": "job.succeeded", "job_id": job_id,
+                               "correlation_id": job.correlation_id})
+            return TransitionOutcome.WON
 
     def add_event(self, job_id: str, event_type: str, **safe_fields: object) -> None:
         """Persist a LOW-FREQUENCY, SAFE lifecycle milestone (never a raw Provider token)."""
@@ -280,7 +329,7 @@ class FakeProvider:
 # 4. Router: authorize + persist a durable cancellation/expiry intent (no terminal write)
 # ===========================================================================
 def request_cancellation(store: JobStore, job_id: str, *, actor: str, reason: str, now: datetime,
-                         kind: IntentKind = IntentKind.USER_CancellATION if False else IntentKind.USER_CANCELLATION,
+                         kind: IntentKind = IntentKind.USER_CANCELLATION,
                          release_version: Optional[str] = None) -> CancellationIntent:
     """Router-level: an authorized cancel/expiry request persists a DURABLE intent FIRST. It must
     NOT directly write `cancelled` merely because an HTTP request arrived — the Worker reacts
@@ -296,8 +345,16 @@ class WorkerOutcome(str, Enum):
     COMPLETED = "completed"                     # guarded running -> succeeded
     CANCELLED_BEFORE_CALL = "cancelled_before_call"   # intent seen pre-call: no Provider call
     CANCELLED_MID_STREAM = "cancelled_mid_stream"     # best-effort abort; unknown cost retained
+    CANCELLED_PRE_COMPLETION = "cancelled_pre_completion"  # intent seen AFTER the last token, BEFORE completion
     TIMED_OUT_PENDING = "timed_out_pending"    # Provider timeout: PENDING_RECONCILIATION
     COMPLETION_NOOP = "completion_noop"         # guarded zero rows -> stop (already terminal)
+
+
+def terminal_for_intent(kind: IntentKind) -> JobStatus:
+    """Map a durable intent kind to its guarded TERMINAL status. A user cancellation and a Job
+    deadline share the durable/auditable/cooperative/guarded protocol but end in DIFFERENT
+    terminal facts (P1-1)."""
+    return JobStatus.EXPIRED if kind is IntentKind.DEADLINE_EXPIRY else JobStatus.CANCELLED
 
 
 @dataclass
@@ -317,21 +374,27 @@ def run_worker(
     simulate_timeout: bool = False,
     cancel_check: Optional[Callable[[], bool]] = None,
 ) -> WorkerResult:
-    """Cooperative Worker. Order of cooperative cancellation checks:
+    """Cooperative Worker. Order of cooperative durable-intent checks:
       1. BEFORE the Provider call: if a durable intent exists, do NOT call the Provider and try a
-         guarded terminal cancellation.
-      2. DURING the Provider stream: at safe points, if a durable intent (or an injected
-         `cancel_check`) fires, best-effort abort the Provider stream, STOP publishing tokens,
-         record safe correlation evidence, and try a guarded terminal cancellation — this does
-         NOT prove remote stop or zero cost, so unknown usage stays reconciliation_pending.
-      3. Provider timeout -> record PENDING_RECONCILIATION (unknown outcome/usage), no fabricated
+         guarded terminal transition (CANCELLED for a user cancel, EXPIRED for a deadline).
+      2. As soon as the Provider request is opened, persist its provider_request_id to protected
+         Job execution evidence (P1-3) — before consuming tokens / handling cancel / timeout.
+      3. DURING the Provider stream: at safe points, if a durable intent (or an injected
+         `cancel_check`) fires, best-effort abort the stream, STOP publishing tokens, record safe
+         correlation evidence, hold unknown cost as reconciliation_pending, and try a guarded
+         terminal transition (kind-derived). This does NOT prove remote stop or zero cost.
+      4. AFTER the last token but BEFORE completion, RE-CHECK the durable intent (P1-2): if one now
+         exists, do NOT write `succeeded` — follow the guarded cancel/expiry terminal path instead.
+      5. Provider timeout -> PENDING_RECONCILIATION (unknown outcome/usage), no fabricated
          failure/zero cost, no blind re-call.
-      4. Otherwise complete via a guarded running -> succeeded transition.
     Never publishes raw Provider tokens as durable JobEvents."""
-    # (1) pre-call cooperative check
-    if store.open_intent(job_id) is not None:
-        outcome = store.guarded_terminal_transition(job_id, JobStatus.CANCELLED, now=now)
-        store.add_event(job_id, "job.cancellation_observed", stage="pre_provider_call")
+    # (1) pre-call cooperative check — kind-derived terminal
+    intent = store.open_intent(job_id)
+    if intent is not None:
+        target = terminal_for_intent(intent.kind)
+        outcome = store.guarded_terminal_transition(job_id, target, now=now)
+        store.add_event(job_id, "job.cancellation_observed", stage="pre_provider_call",
+                        terminal=target.value)
         return WorkerResult(
             WorkerOutcome.CANCELLED_BEFORE_CALL if outcome is TransitionOutcome.WON
             else WorkerOutcome.COMPLETION_NOOP,
@@ -339,49 +402,68 @@ def run_worker(
         )
 
     if simulate_timeout:
-        provider.calls += 1  # the call was attempted but our side received no response in time
+        # The request was opened (id known) but our side received no response in time.
+        stream = provider.open_stream()
+        store.record_provider_request_id(job_id, stream.request_id)  # (2) persist evidence first
         store.record_timeout_pending(job_id)
         return WorkerResult(WorkerOutcome.TIMED_OUT_PENDING, provider_calls=provider.calls)
 
     stream = provider.open_stream()
+    store.record_provider_request_id(job_id, stream.request_id)  # (2) persist evidence immediately
     tokens_seen = 0
     for _tok in stream:  # transient tokens streamed to the client; NOT persisted as JobEvents
         tokens_seen += 1
-        # (2) mid-stream cooperative check
-        if store.open_intent(job_id) is not None or (cancel_check is not None and cancel_check()):
+        # (3) mid-stream cooperative check
+        mid_intent = store.open_intent(job_id)
+        if mid_intent is not None or (cancel_check is not None and cancel_check()):
             stream.abort()  # best-effort; does NOT prove remote stop or zero cost
             store.hold_cost_reconciliation(job_id)  # unknown usage -> reconciliation_pending
             store.add_event(job_id, "job.cancellation_observed", stage="mid_stream",
                             provider_request_id=stream.request_id)
-            outcome = store.guarded_terminal_transition(job_id, JobStatus.CANCELLED, now=now)
+            target = terminal_for_intent(mid_intent.kind) if mid_intent is not None else JobStatus.CANCELLED
+            outcome = store.guarded_terminal_transition(job_id, target, now=now)
             return WorkerResult(
                 WorkerOutcome.CANCELLED_MID_STREAM if outcome is TransitionOutcome.WON
                 else WorkerOutcome.COMPLETION_NOOP,
                 provider_calls=provider.calls, tokens_seen=tokens_seen,
             )
 
-    # (4) guarded completion — business success + cost settlement (Day53 semantics reused)
-    outcome = store.guarded_terminal_transition(job_id, JobStatus.SUCCEEDED, now=now)
-    if outcome is TransitionOutcome.WON:
-        actual = complete_with_tokens if complete_with_tokens is not None else stream.total_tokens
-        if actual is not None:
-            store.settle_cost(job_id, actual)
-        else:
-            store.hold_cost_reconciliation(job_id)  # valid success, unknown usage -> pending
-        with store._lock:
-            store.jobs[job_id].result_artifact = {"summary": "validated-domain-result",
-                                                  "provider_request_id": stream.request_id}
-        return WorkerResult(WorkerOutcome.COMPLETED, provider_calls=provider.calls,
-                            tokens_seen=tokens_seen)
-    return WorkerResult(WorkerOutcome.COMPLETION_NOOP, provider_calls=provider.calls,
-                        tokens_seen=tokens_seen)
+    # (4) FINAL cooperative check AFTER the last token, BEFORE completion (P1-2)
+    final_intent = store.open_intent(job_id)
+    if final_intent is not None:
+        target = terminal_for_intent(final_intent.kind)
+        store.hold_cost_reconciliation(job_id)  # do not fabricate a settled cost while cancelling
+        store.add_event(job_id, "job.cancellation_observed", stage="post_stream_pre_completion",
+                        provider_request_id=stream.request_id, terminal=target.value)
+        outcome = store.guarded_terminal_transition(job_id, target, now=now)
+        return WorkerResult(
+            WorkerOutcome.CANCELLED_PRE_COMPLETION if outcome is TransitionOutcome.WON
+            else WorkerOutcome.COMPLETION_NOOP,
+            provider_calls=provider.calls, tokens_seen=tokens_seen,
+        )
+
+    # (5) guarded completion — business success + cost settlement (Day53 semantics reused)
+    actual = complete_with_tokens if complete_with_tokens is not None else stream.total_tokens
+    outcome = store.guarded_complete_success(
+        job_id, artifact={"summary": "validated-domain-result", "provider_request_id": stream.request_id},
+        actual_tokens=actual, now=now,
+    )
+    return WorkerResult(
+        WorkerOutcome.COMPLETED if outcome is TransitionOutcome.WON else WorkerOutcome.COMPLETION_NOOP,
+        provider_calls=provider.calls, tokens_seen=tokens_seen,
+    )
 
 
 def apply_cancellation(store: JobStore, job_id: str, *, now: datetime,
-                       target: JobStatus = JobStatus.CANCELLED) -> TransitionOutcome:
+                       target: Optional[JobStatus] = None) -> TransitionOutcome:
     """Apply a durable intent as a guarded terminal transition (used by a re-observing Worker
-    after a crash, or by the deadline/expiry path with target=EXPIRED). Repeats are absorbed:
-    a second call after the Job is terminal returns ZERO_ROWS."""
+    after a crash). When `target` is not given, it is DERIVED from the Job's open intent kind
+    (CANCELLED for a user cancel, EXPIRED for a deadline) so the crash-recovery path stays
+    semantically consistent with the Worker's pre-call/mid-stream paths (P1-1). Repeats are
+    absorbed: a second call after the Job is terminal returns ZERO_ROWS."""
+    if target is None:
+        intent = store.open_intent(job_id)
+        target = terminal_for_intent(intent.kind) if intent is not None else JobStatus.CANCELLED
     return store.guarded_terminal_transition(job_id, target, now=now)
 
 
@@ -397,23 +479,67 @@ def scan_open_intents(store: JobStore) -> list[str]:
 # 6. Late result after a terminal Job — guarded, never overwrites
 # ===========================================================================
 class LateResultOutcome(str, Enum):
-    COMPLETED = "completed"
-    REFUSED_TERMINAL = "refused_terminal"      # Job already terminal (e.g. cancelled) -> no overwrite
+    COMPLETED = "completed"                     # matched + validated late result completed the Job (once)
+    REFUSED_TERMINAL = "refused_terminal"       # Job already terminal (cancelled/expired/...) -> guarded no-op
+    REFUSED_NOT_AWAITING = "refused_not_awaiting"   # Job not in a reconciliation-awaiting state
+    REFUSED_IDENTITY_MISMATCH = "refused_identity_mismatch"  # job/attempt/correlation/provider_request_id mismatch or missing
+    REFUSED_INVALID_PAYLOAD = "refused_invalid_payload"     # failed the Day53 strict validation gate
 
 
-def ingest_late_provider_result(store: JobStore, job_id: str, *, now: datetime,
-                                actual_tokens: Optional[int]) -> LateResultOutcome:
-    """A late VALID Provider result after a terminal cancellation/expiry CANNOT turn the Job into
-    `succeeded`: the guarded transition sees a terminal status (zero rows), so no Result Artifact
-    or success overwrite follows from the late path."""
-    outcome = store.guarded_terminal_transition(job_id, JobStatus.SUCCEEDED, now=now)
-    if outcome is TransitionOutcome.ZERO_ROWS:
+def ingest_late_provider_result(
+    store: JobStore,
+    job_id: str,
+    *,
+    attempt_id: str,
+    correlation_id: str,
+    provider_request_id: str,
+    raw_payload: dict,
+    validator: StructuredOutputValidator,
+    now: datetime,
+    actual_tokens: Optional[int] = None,
+) -> LateResultOutcome:
+    """A late Provider result reuses Day53's identity-binding + strict validation boundary — it is
+    the EQUIVALENT minimal control-flow abstraction of Day53's `ingest_late_outcome`, not a weaker
+    one. It NEVER calls the Adapter/transport. A result completes the Job ONLY when ALL hold:
+
+      * the Job exists and is NON-terminal AND awaiting reconciliation (PENDING_RECONCILIATION);
+      * `job_id` + `attempt_id` + `correlation_id` + `provider_request_id` match the persisted
+        execution/attempt evidence (a MISSING id is as invalid as a different one);
+      * the payload passes the Day53 strict structured-output validation gate for the Job's bound
+        `(schema_name, schema_version)` execution contract.
+
+    Any mismatch / missing id / not-awaiting / terminal Job / invalid payload is a SIDE-EFFECT-FREE
+    refusal: no status/cost/Result Artifact/event change, and no Provider call. Duplicate/concurrent
+    matched deliveries complete the fact AT MOST ONCE via the guarded transition (a terminal Job
+    then returns REFUSED_TERMINAL)."""
+    job = store.jobs.get(job_id)
+    if job is None:
+        return LateResultOutcome.REFUSED_IDENTITY_MISMATCH
+    # Terminal Job -> guarded no-op (a late result cannot overwrite a cancelled/expired/succeeded fact).
+    if job.status in TERMINAL_STATUSES:
         return LateResultOutcome.REFUSED_TERMINAL
-    if actual_tokens is not None:
-        store.settle_cost(job_id, actual_tokens)
-    with store._lock:
-        store.jobs[job_id].result_artifact = {"summary": "validated-domain-result"}
-    return LateResultOutcome.COMPLETED
+    # Must be bound to a persisted attempt that is awaiting reconciliation (e.g. after a timeout).
+    if job.status is not JobStatus.PENDING_RECONCILIATION:
+        return LateResultOutcome.REFUSED_NOT_AWAITING
+    # Identity binding: every persisted id must be present AND equal (missing == mismatch).
+    if (job.attempt_id is None or attempt_id != job.attempt_id
+            or correlation_id != job.correlation_id
+            or job.provider_request_id is None or provider_request_id != job.provider_request_id):
+        return LateResultOutcome.REFUSED_IDENTITY_MISMATCH
+    # Day53 strict validation gate against the Job's bound execution contract — before any side effect.
+    result = validator.validate(job.schema_name or "", job.schema_version or "", raw_payload)
+    if result.outcome is not ValidationOutcome.VALID:
+        return LateResultOutcome.REFUSED_INVALID_PAYLOAD
+    # Guarded, at-most-once completion with the validated domain result + safe metadata only.
+    artifact = {
+        "domain_result": result.domain_result,
+        "schema_name": job.schema_name,
+        "schema_version": job.schema_version,
+        "provider_request_id": job.provider_request_id,
+        "correlation_id": job.correlation_id,
+    }
+    outcome = store.guarded_complete_success(job_id, artifact=artifact, actual_tokens=actual_tokens, now=now)
+    return LateResultOutcome.COMPLETED if outcome is TransitionOutcome.WON else LateResultOutcome.REFUSED_TERMINAL
 
 
 # ===========================================================================
