@@ -9,6 +9,55 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.119 — Day55 fix (Codex): lease-expiry re-call, RUNNING cancellation, event owner, repair window, revoke id
+
+Date: 2026-08-05
+
+Day: Day55 (review fixes)
+
+Five review findings on the Day55 Celery Worker execution/recovery model, fixed in the runnable model + tests (plus
+the Day55 lesson/design/runbook and status docs). No teaching-spec files (Master Prompt, teaching-session prompt,
+LESSON_TEMPLATE) were touched.
+
+### Fixed
+
+- **F1 — lease-expiry re-call.** If the open Attempt already carries Provider execution evidence (at least a
+  `provider_request_id`), a redelivery OR a lease-expiry re-claim now returns `RECONCILE_ONLY` and moves the Job to
+  `PENDING_RECONCILIATION`; the Provider is never re-called. A lease is temporary ownership — its expiry is not
+  re-authorization for an external call.
+- **F2 — cancellation intent bypassed in RUNNING.** After the guarded claim succeeds and BEFORE the Provider request,
+  `run_worker` re-checks the durable cancellation intent; if present it takes the guarded terminal transition, ACKs the
+  delivery, and calls the Provider zero times. The pre-claim (QUEUED) path and the final pre-completion re-check remain.
+- **F3 — event owner.** `record_provider_request_id` now attributes the `provider_request_id_recorded` event to the real
+  parent Job via a durable `attempt_id -> job_id` path (added `Attempt.job_id`) and carries `attempt_id`,
+  `provider_request_id`, and `correlation_id` as repair evidence — instead of writing the event under the
+  `correlation_id` as if it were a Job id.
+- **F4 — repair window.** `build_affected_set` now filters by release version AND a bounded time window
+  (`Job.running_since` within `[window_start, window_end]`, corroborated by the durable `execution_claimed` events) AND
+  running evidence, so same-release `running` Jobs outside the window (or with no running evidence) are strictly excluded.
+- **F5 — revoke entity id.** Adopted and enforced the published invariant `celery_task_id == job_id`: the Outbox
+  publisher (`OutboxRelay.relay`) stamps `envelope.celery_task_id = celery_task_id_for_job(job_id)` and asserts it, and
+  `request_cancellation` revokes that task id. Revoke stays best-effort; the durable cancellation intent is the sole
+  business authority.
+
+### Added
+
+- 9 regression tests (F1 x2, F2 x2, F3 x1, F4 x2, F5 x2), including: Worker A records `provider_request_id` then the
+  lease expires and Worker B redelivers -> zero Provider calls, reconciliation-only; an intent written after a RUNNING
+  claim -> zero Provider calls + correct terminal; the `provider_request_id_recorded` event attributed to the real Job
+  with evidence; the affected set strictly excluding out-of-window same-release running Jobs; and revoke using the
+  invariant task id.
+
+### Validation
+
+- Executed: `python3 -m py_compile day55_celery_worker_execution.py test_day55_celery_worker_execution.py`;
+  `python3 -m pytest -q test_day55_celery_worker_execution.py` -> **36 passed** (was 27); full
+  `projects/ai-backend-data-layer/api/` suite -> **384 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3).
+  Application control flow only — a real Celery broker/Worker, real ACK/redelivery/visibility-timeout, Worker-loss/OOM
+  fault injection, real PostgreSQL/Redis, the real Provider, integration, and production remain NOT RUN.
+
+---
+
 ## v0.1.118 — Day55: Celery, Worker Execution and Long-running AI Jobs
 
 Date: 2026-08-05

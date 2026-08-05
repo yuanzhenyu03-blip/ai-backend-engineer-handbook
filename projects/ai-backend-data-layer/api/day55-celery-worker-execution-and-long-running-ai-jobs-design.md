@@ -25,8 +25,8 @@ Day57 integration/failure-injection/recovery suite     : NOT IMPLEMENTED (future
 Production validation                                 : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day55_celery_worker_execution.py` -> **27 passed**
-(Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **375 passed**.
+Executed: `python3 -m pytest -q test_day55_celery_worker_execution.py` -> **36 passed**
+(Python 3.10.12, pydantic 2.5.0, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **384 passed**.
 The delivery/execution/recovery control flow is Python standard library only; the guarded completion REUSES Day53's
 real pydantic-backed strict validation gate (`StructuredOutputValidator` + `SchemaRegistry`) and Day54's durable
 cancellation terminal mapping (semantics re-expressed in this module's `JobStatus`). The suite proves APPLICATION
@@ -92,6 +92,12 @@ Claim results (`ClaimStatus`): `GRANTED` (authority) · `CONFLICT` (another live
 do not ACK away) · `ALREADY_TERMINAL` (duplicate of a finished Job -> safe no-op ACK) · `RECONCILE_ONLY`
 (`PENDING_RECONCILIATION` redelivery -> reconcile from evidence, NO Provider re-call).
 
+**Lease expiry is not re-authorization (F1).** A lease is temporary ownership; its expiry says nothing about the
+external Provider call. If the open `Attempt` already carries Provider execution evidence (at least a
+`provider_request_id`), then a redelivery OR a lease-expiry re-claim — even by a new Worker — returns `RECONCILE_ONLY`
+and transitions the Job to `PENDING_RECONCILIATION`; the Provider is never re-called. Only a first claim on an Attempt
+with no recorded `provider_request_id` is granted execution authority.
+
 ---
 
 ## 3. Identity layers (each is a DIFFERENT thing)
@@ -130,7 +136,9 @@ Job is `succeeded`. A Worker may safely ACK after recording a cancellation, a po
 ## 5. Provider uncertainty, Worker loss, OOM, and short transactions
 
 Persist a guarded claim, Attempt, and correlation evidence BEFORE the Provider call. Persist `provider_request_id` as
-soon as it is available (`record_provider_request_id`). A long Provider call stays OUTSIDE any database transaction. If
+soon as it is available (`record_provider_request_id`, whose event is attributed to the REAL parent Job via the durable
+`attempt_id -> job_id` path and carries `attempt_id` + `provider_request_id` + `correlation_id` as repair evidence, F3).
+A long Provider call stays OUTSIDE any database transaction. If
 the Provider may have run but result/cost are unknown (`ProviderResultKind.TIMEOUT`), retain the reservation
 (`CostState.RECONCILIATION_PENDING`, never fabricated 0), enter `PENDING_RECONCILIATION`, and never blind re-call.
 
@@ -177,10 +185,16 @@ authorized cancellation request
 ```
 
 `request_cancellation` persists the intent first; the optional `revoke` callable is best-effort delivery/runtime
-control, NOT the business authority (it may fail or race — the durable intent still governs). The Worker observes the
+control, NOT the business authority (it may fail or race — the durable intent still governs). Revoke is called with the
+CORRECT Celery task id via the published invariant `celery_task_id == job_id` (F5): the Outbox publisher
+(`OutboxRelay.relay`) stamps `envelope.celery_task_id = celery_task_id_for_job(job_id)` and asserts the invariant, so a
+durable `job_id` is always sufficient to revoke the right task. The Worker observes the
 intent cooperatively:
 
-- **Pre-call**: zero Provider calls, guarded terminal transition (`WorkerOutcome.CANCELLED_PRE_CALL`).
+- **Pre-call**: zero Provider calls, guarded terminal transition (`WorkerOutcome.CANCELLED_PRE_CALL`). This fires in
+  TWO places: a pre-claim fast path for a still-`QUEUED` Job, and — critically (F2) — a POST-CLAIM, PRE-PROVIDER re-check
+  after the guarded claim succeeds, so an intent persisted while the Job was already `RUNNING` still prevents the
+  Provider call.
 - **Final pre-completion**: a durable intent written AFTER the last token but BEFORE completion is caught by a final
   cooperative re-check that does NOT write `succeeded` and takes the guarded cancel/expiry path
   (`WorkerOutcome.CANCELLED_PRE_COMPLETION`).
@@ -224,8 +238,11 @@ Integrated incident — an erroneous early-ACK release that can silently lose de
 
 1. **Roll the policy back FIRST** (`ReleaseConfig.rollback`) — stops FUTURE harm only. It does NOT repair Jobs already
    committed `running` under the bad release. Configuration rollback != business-fact rollback.
-2. **Build the affected set** from release version + a bounded time window + Worker/Attempt/Event evidence
-   (`build_affected_set`). Do NOT bulk-flip `running` Jobs to `queued`.
+2. **Build the affected set** from release version AND a bounded time window AND auditable running evidence
+   (`build_affected_set` filters on `Job.running_since` within `[window_start, window_end]`, corroborated by the durable
+   `execution_claimed` events; F4). A Job that became `running` OUTSIDE the window — even under the same release — is
+   strictly excluded, so historical `running` Jobs are never swept into the repair. Do NOT bulk-flip `running` Jobs to
+   `queued`.
 3. **Classify repair from evidence** (`classify_repair`): a Job whose Attempt already has a `provider_request_id` may
    have executed at the Provider -> `RECONCILE_ONLY`, never blind re-dispatch. Only Jobs with NO Provider-execution
    evidence are safe under an explicit, guarded, audited `RECONCILE_THEN_GUARDED_REDISPATCH`. A client idempotency key
@@ -246,6 +263,11 @@ Integrated incident — an erroneous early-ACK release that can silently lose de
 | Day54 cancellation: pre-call zero calls -> CANCELLED; deadline -> EXPIRED; final pre-completion prevents succeeded; revoke best-effort after commit; one guarded winner; crash re-observation idempotent | LOCAL CONTROL-FLOW | `test_pre_call_cancellation_zero_provider_calls`, `test_deadline_intent_maps_to_expired`, `test_final_pre_completion_cancellation_prevents_succeeded`, `test_revoke_is_best_effort_not_authority`, `test_completion_and_cancellation_one_guarded_winner`, `test_crash_after_intent_is_reobservable_and_idempotent` |
 | Validation before guarded completion (ACK != business success) | LOCAL CONTROL-FLOW | `test_success_path_completes_and_acks`, `test_ack_success_is_not_business_success_until_guarded_complete` |
 | Graceful drain stops new claims + drains bounded; config rollback != business-fact rollback; affected set no bulk flip; evidence-based repair | LOCAL CONTROL-FLOW | `test_graceful_drain_stops_new_claims_and_drains_bounded`, `test_config_rollback_is_not_business_fact_rollback`, `test_affected_set_from_release_and_no_bulk_flip`, `test_repair_reconcile_only_when_provider_evidence_exists`, `test_repair_guarded_redispatch_when_no_provider_evidence` |
+| F1: lease expiry after Provider evidence -> RECONCILE_ONLY, zero re-calls | LOCAL CONTROL-FLOW | `test_f1_lease_expiry_after_provider_evidence_is_reconcile_only_no_recall`, `test_f1_claim_execution_directly_routes_reconcile_when_evidence_and_lease_expired` |
+| F2: an intent persisted after a RUNNING claim blocks the Provider call (pre-Provider re-check) | LOCAL CONTROL-FLOW | `test_f2_cancellation_intent_after_running_claim_blocks_provider_call`, `test_f2_deadline_intent_after_running_claim_maps_to_expired` |
+| F3: `provider_request_id_recorded` attributed to the real parent Job with repair evidence | LOCAL CONTROL-FLOW | `test_f3_provider_request_id_event_attributes_to_real_job_with_evidence` |
+| F4: affected set excludes same-release running Jobs outside the window / with no running evidence | LOCAL CONTROL-FLOW | `test_f4_affected_set_excludes_same_release_running_job_outside_window`, `test_f4_affected_set_excludes_running_job_with_no_running_evidence` |
+| F5: published invariant `celery_task_id == job_id`; revoke uses the invariant task id | LOCAL CONTROL-FLOW | `test_f5_published_celery_task_id_equals_job_id_invariant`, `test_f5_revoke_uses_the_invariant_task_id` |
 | Real Celery broker/Worker/ACK/redelivery/visibility-timeout | NOT RUN | requires a real broker + Worker process (Day57 integration) |
 | Worker-loss / OOM / fault injection | NOT RUN | requires real process kills (Day57) |
 | Real PostgreSQL / Redis / Provider | NOT RUN | fakes only |

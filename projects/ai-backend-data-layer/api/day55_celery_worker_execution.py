@@ -124,6 +124,7 @@ class CancellationIntent:
 class Attempt:
     """Durable execution attempt. Worker identity and broker delivery are NOT this identity."""
     attempt_id: str
+    job_id: str                            # durable parent Job (attempt_id -> job_id path, F3)
     attempt_number: int
     provider_idempotency_key: str          # retained across redelivery of the SAME attempt
     correlation_id: str
@@ -145,6 +146,7 @@ class Job:
     open_attempt_id: Optional[str] = None
     lease_owner: Optional[str] = None          # SECONDARY ownership; NOT the first duplicate gate
     lease_expiry: Optional[datetime] = None
+    running_since: Optional[datetime] = None   # when this Job entered running (repair-window evidence, F4)
     intent: Optional[CancellationIntent] = None
     result_artifact: Optional[dict] = None
     release_version: Optional[str] = None      # release that produced the current running state
@@ -187,6 +189,7 @@ class Envelope:
     task_name: str
     envelope_version: str
     job_id: str
+    celery_task_id: Optional[str] = None       # published invariant: celery_task_id == job_id (F5)
     headers: dict = field(default_factory=dict)
 
 
@@ -272,8 +275,10 @@ class OutboxRelay:
             task_name="run_ai_job",
             envelope_version="job.dispatch.v1",
             job_id=job.job_id,
+            celery_task_id=celery_task_id_for_job(job.job_id),   # invariant: celery_task_id == job_id
             headers={"tenant_id": job.tenant_id},     # safe routing metadata only
         )
+        assert envelope.celery_task_id == job.job_id  # F5 published invariant
         self.broker.publish(envelope)                 # 1) publish FIRST
         if crash_after_publish:
             # Crash before checkpoint: the message is already queued. On recovery the relay will
@@ -362,12 +367,27 @@ class JobStore:
                     and job.lease_expiry is not None and job.lease_expiry >= now
                     and job.lease_owner != worker_id):
                 return ClaimResult(ClaimStatus.CONFLICT)      # another live Worker holds it
+            # F1: if the open Attempt already carries Provider execution evidence
+            # (at least a provider_request_id), a redelivery OR a lease expiry is NOT
+            # re-authorization to call the Provider. Route to reconciliation and never re-execute.
+            # A lease is temporary ownership; its expiry says nothing about the external call.
+            if job.open_attempt_id is not None:
+                existing = self._attempts.get(job.open_attempt_id)
+                if existing is not None and existing.provider_request_id is not None:
+                    if job.status != JobStatus.PENDING_RECONCILIATION:
+                        job.status = JobStatus.PENDING_RECONCILIATION
+                        job.cost_state = CostState.RECONCILIATION_PENDING
+                        self.add_event(job_id, "reconcile_on_reclaim_with_provider_evidence",
+                                       attempt_id=existing.attempt_id,
+                                       provider_request_id=existing.provider_request_id,
+                                       correlation_id=existing.correlation_id)
+                    return ClaimResult(ClaimStatus.RECONCILE_ONLY, attempt=existing)
             # Grant. Redelivery/new Worker does NOT mint a new Attempt: retain the open one.
             if job.open_attempt_id is not None:
                 attempt = self._attempts[job.open_attempt_id]     # same provider_idempotency_key
             else:
                 attempt = Attempt(
-                    attempt_id=_new_id("att"), attempt_number=1,
+                    attempt_id=_new_id("att"), job_id=job_id, attempt_number=1,
                     provider_idempotency_key=f"pik-{job_id}-1",   # deterministic per attempt
                     correlation_id=_new_id("cor"),
                 )
@@ -376,17 +396,24 @@ class JobStore:
             job.status = JobStatus.RUNNING
             job.lease_owner = worker_id
             job.lease_expiry = now + self._lease
+            if job.running_since is None:
+                job.running_since = now               # first running entry (F4 repair-window evidence)
             self.add_event(job_id, "execution_claimed", worker_id=worker_id,
                            attempt_id=attempt.attempt_id)
             return ClaimResult(ClaimStatus.GRANTED, attempt=attempt)
 
     def record_provider_request_id(self, attempt_id: str, provider_request_id: str) -> None:
-        """Persist external execution evidence AS SOON AS the Provider request is opened."""
+        """Persist external execution evidence AS SOON AS the Provider request is opened. The
+        event is attributed to the REAL parent Job (via the durable attempt_id -> job_id path) and
+        carries the evidence a later repair needs (F3)."""
         with self._lock:
             att = self._attempts[attempt_id]
             if att.provider_request_id is None:
                 att.provider_request_id = provider_request_id
-                self.add_event(att.correlation_id, "provider_request_id_recorded")
+                self.add_event(att.job_id, "provider_request_id_recorded",
+                               attempt_id=att.attempt_id,
+                               provider_request_id=provider_request_id,
+                               correlation_id=att.correlation_id)
 
     # --- reconciliation / cost --------------------------------------------
     def mark_pending_reconciliation(self, job_id: str) -> TransitionOutcome:
@@ -439,6 +466,13 @@ class JobStore:
 
 def _new_id(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
+
+
+def celery_task_id_for_job(job_id: str) -> str:
+    """Published invariant (F5): the Celery task id EQUALS the job_id. The Outbox publisher sets
+    the Celery task id to the job_id, so a durable job_id is always sufficient to revoke the right
+    task. Revoke stays best-effort; the durable cancellation intent is the sole business authority."""
+    return job_id
 
 
 # ===========================================================================
@@ -554,6 +588,16 @@ def run_worker(
     attempt = claim.attempt
     assert attempt is not None
 
+    # (d2) POST-CLAIM, PRE-PROVIDER cancellation re-check (F2): an intent persisted while the Job
+    # was already RUNNING (the guarded claim succeeded) must still prevent the Provider call. Pre-
+    # claim step (b) only covers QUEUED; this covers the normal RUNNING case. Zero Provider calls.
+    intent = store.open_intent(job.job_id)
+    if intent is not None:
+        store.guarded_terminal_transition(job.job_id, terminal_for_intent(intent.kind), now=now)
+        broker.ack(delivery.delivery_id)
+        return WorkerResult(WorkerOutcome.CANCELLED_PRE_CALL, True, provider.calls,
+                            store.get(job.job_id).status)
+
     if ack_mode is AckMode.EARLY:
         # Anti-pattern demonstrated: ACK before durable work. A crash here loses the delivery with
         # the Job stuck RUNNING and no redelivery. Late ACK is the safe default.
@@ -624,7 +668,9 @@ def request_cancellation(store: JobStore, job_id: str, *, actor: str, reason: st
     intent = store.persist_cancellation_intent(job_id, kind=kind, reason=reason, actor=actor,
                                                now=now)
     if revoke is not None:
-        revoke(job_id)      # best-effort; may fail or race — the durable intent still governs
+        # Revoke the CORRECT Celery task id via the published invariant celery_task_id == job_id
+        # (F5). Best-effort only; it may fail or race — the durable intent still governs.
+        revoke(celery_task_id_for_job(job_id))
     return intent
 
 
@@ -677,13 +723,20 @@ class ReleaseConfig:
 
 def build_affected_set(store: JobStore, *, release_version: str, window_start: datetime,
                        window_end: datetime) -> list[str]:
-    """Build the affected set from release version + a bounded time window + Worker/Attempt/Event
-    evidence. Do NOT bulk-flip `running` Jobs to `queued`.
+    """Build the affected set from release version AND a bounded time window AND auditable running
+    evidence (`Job.running_since`, corroborated by the durable `execution_claimed` events). A Job
+    that became `running` OUTSIDE [window_start, window_end] — even under the same release — is
+    strictly excluded, so historical running Jobs are never swept into the repair. Do NOT bulk-flip
+    `running` Jobs to `queued` (F4).
     """
     affected = []
     for job in store._jobs.values():
-        if job.release_version == release_version and job.status == JobStatus.RUNNING:
-            affected.append(job.job_id)
+        if job.release_version != release_version or job.status != JobStatus.RUNNING:
+            continue
+        rs = job.running_since
+        if rs is None or rs < window_start or rs > window_end:
+            continue                          # no running evidence, or outside the bounded window
+        affected.append(job.job_id)
     return affected
 
 

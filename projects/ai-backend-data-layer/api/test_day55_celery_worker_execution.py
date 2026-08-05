@@ -331,3 +331,144 @@ def test_worker_identity_is_not_attempt_identity():
     # a different worker resuming does not change the durable Attempt identity
     c2 = store.claim_execution("job-1", worker_id="w1", now=NOW)
     assert c1.attempt.attempt_id == c2.attempt.attempt_id
+
+
+# ===========================================================================
+# Review-round regression tests (F1-F5)
+# ===========================================================================
+from datetime import timedelta
+
+from day55_celery_worker_execution import celery_task_id_for_job
+
+
+def test_f1_lease_expiry_after_provider_evidence_is_reconcile_only_no_recall():
+    """Worker A records provider_request_id then goes dark; the lease expires and Worker B gets a
+    redelivery. Provider must NOT be called again; the result is reconciliation-only."""
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    # Worker A claims and opens a Provider request (evidence persisted), then never completes.
+    claimA = store.claim_execution(job.job_id, worker_id="wA", now=NOW)
+    assert claimA.status is ClaimStatus.GRANTED
+    store.record_provider_request_id(claimA.attempt.attempt_id, "req-A")
+    assert store.get(job.job_id).status is JobStatus.RUNNING       # still running, lease held by wA
+    # Lease expires; Worker B receives a redelivery well after expiry.
+    later = NOW + timedelta(minutes=6)
+    broker.publish(Envelope("run_ai_job", "job.dispatch.v1", job.job_id,
+                            celery_task_id=job.job_id))
+    d = broker.deliver()
+    providerB = _success_provider()
+    res = run_worker(store, broker, d, providerB, worker_id="wB", now=later)
+    assert res.outcome is WorkerOutcome.RECONCILE_NO_RECALL
+    assert providerB.calls == 0                                    # NO second Provider call
+    assert store.get(job.job_id).status is JobStatus.PENDING_RECONCILIATION
+    # The retained Attempt + its provider_request_id are unchanged.
+    assert store._attempts[store.get(job.job_id).open_attempt_id].provider_request_id == "req-A"
+
+
+def test_f1_claim_execution_directly_routes_reconcile_when_evidence_and_lease_expired():
+    store = JobStore()
+    _job(store)
+    c1 = store.claim_execution("job-1", worker_id="wA", now=NOW)
+    store.record_provider_request_id(c1.attempt.attempt_id, "req-A")
+    c2 = store.claim_execution("job-1", worker_id="wB", now=NOW + timedelta(minutes=6))
+    assert c2.status is ClaimStatus.RECONCILE_ONLY
+    assert c2.attempt.attempt_id == c1.attempt.attempt_id
+
+
+def test_f2_cancellation_intent_after_running_claim_blocks_provider_call():
+    """A Job already claimed RUNNING, then a cancellation intent is written; the delivery is
+    processed before the Provider request. Provider calls must be 0 and the Job reaches the correct
+    terminal cancellation state."""
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    OutboxRelay(broker).relay(job)
+    # A Worker claims it -> RUNNING (no Provider evidence yet).
+    store.claim_execution(job.job_id, worker_id="w1", now=NOW)
+    assert store.get(job.job_id).status is JobStatus.RUNNING
+    # Now an authorized cancellation intent is persisted while RUNNING.
+    request_cancellation(store, job.job_id, actor="user", reason="stop", now=NOW)
+    # The delivery is processed (same worker re-claims); the pre-Provider re-check must fire.
+    d = broker.deliver()
+    provider = _success_provider()
+    res = run_worker(store, broker, d, provider, worker_id="w1", now=NOW)
+    assert res.outcome is WorkerOutcome.CANCELLED_PRE_CALL
+    assert provider.calls == 0
+    assert res.acked is True
+    assert store.get(job.job_id).status is JobStatus.CANCELLED
+
+
+def test_f2_deadline_intent_after_running_claim_maps_to_expired():
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    OutboxRelay(broker).relay(job)
+    store.claim_execution(job.job_id, worker_id="w1", now=NOW)
+    request_cancellation(store, job.job_id, actor="system", reason="deadline", now=NOW,
+                         kind=IntentKind.DEADLINE_EXPIRY)
+    d = broker.deliver()
+    provider = _success_provider()
+    res = run_worker(store, broker, d, provider, worker_id="w1", now=NOW)
+    assert res.outcome is WorkerOutcome.CANCELLED_PRE_CALL
+    assert provider.calls == 0
+    assert store.get(job.job_id).status is JobStatus.EXPIRED
+
+
+def test_f3_provider_request_id_event_attributes_to_real_job_with_evidence():
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    d = _relay_and_deliver(store, broker, job)
+    run_worker(store, broker, d, FakeProvider(kind=ProviderResultKind.TIMEOUT, request_id="req-1"),
+               worker_id="w1", now=NOW)
+    evs = [e for e in store.events if e["type"] == "provider_request_id_recorded"]
+    assert len(evs) == 1
+    ev = evs[0]
+    assert ev["job_id"] == job.job_id                       # attributed to the REAL parent Job
+    assert ev["provider_request_id"] == "req-1"             # carries repair evidence
+    att = store._attempts[store.get(job.job_id).open_attempt_id]
+    assert ev["attempt_id"] == att.attempt_id
+    assert ev["correlation_id"] == att.correlation_id
+    # never a correlation_id used as a Job id
+    assert ev["job_id"] != att.correlation_id
+
+
+def test_f4_affected_set_excludes_same_release_running_job_outside_window():
+    store = JobStore()
+    _job(store, "job-in", release="bad-r2")
+    _job(store, "job-out", release="bad-r2")           # SAME bad release, but claimed earlier
+    t_out = NOW - timedelta(hours=2)                    # outside the window
+    t_in = NOW                                          # inside the window
+    store.claim_execution("job-out", worker_id="w1", now=t_out)
+    store.claim_execution("job-in", worker_id="w1", now=t_in)
+    affected = build_affected_set(store, release_version="bad-r2",
+                                  window_start=NOW - timedelta(minutes=30),
+                                  window_end=NOW + timedelta(minutes=30))
+    assert affected == ["job-in"]                      # the out-of-window running Job is excluded
+
+
+def test_f4_affected_set_excludes_running_job_with_no_running_evidence():
+    store = JobStore()
+    j = _job(store, "job-x", release="bad-r2")
+    j.status = JobStatus.RUNNING                        # running but no running_since / claim event
+    affected = build_affected_set(store, release_version="bad-r2",
+                                  window_start=NOW - timedelta(days=1),
+                                  window_end=NOW + timedelta(days=1))
+    assert affected == []
+
+
+def test_f5_published_celery_task_id_equals_job_id_invariant():
+    store, broker = JobStore(), CeleryBrokerSim()
+    job = _job(store)
+    OutboxRelay(broker).relay(job)
+    d = broker.deliver()
+    assert d.envelope.celery_task_id == job.job_id
+    assert celery_task_id_for_job(job.job_id) == job.job_id
+
+
+def test_f5_revoke_uses_the_invariant_task_id():
+    store = JobStore()
+    _job(store, "job-1")
+    revoked = []
+    request_cancellation(store, "job-1", actor="user", reason="x", now=NOW,
+                         revoke=lambda task_id: revoked.append(task_id))
+    assert revoked == [celery_task_id_for_job("job-1")]   # correct task id via the invariant
+    assert revoked == ["job-1"]
+    assert store.open_intent("job-1") is not None          # durable intent remains sole authority

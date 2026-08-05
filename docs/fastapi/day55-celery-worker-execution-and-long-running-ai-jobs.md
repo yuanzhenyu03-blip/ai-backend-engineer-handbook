@@ -12,7 +12,7 @@ Prerequisite: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellat
 Previous Lesson: Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 Next Lesson: Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 Engineering Artifact: projects/ai-backend-data-layer/api/day55-celery-worker-execution-and-long-running-ai-jobs-design.md
-  + runnable day55_celery_worker_execution.py + test_day55_celery_worker_execution.py (in-memory control flow; 27 passed)
+  + runnable day55_celery_worker_execution.py + test_day55_celery_worker_execution.py (in-memory control flow; 36 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of a supported-Celery Worker execution/recovery path —
