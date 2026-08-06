@@ -641,3 +641,86 @@ def test_concurrent_reserve_and_settle_stay_consistent():
     # exactly the reservations that are still open sum to (initial - available)
     open_sum = round(sum(ledger._reserved.values()), 6)
     assert round(ledger.available("t1") + open_sum, 6) == worst
+
+
+# ===========================================================================
+# CircuitBreaker concurrent state consistency (in-memory threading control-flow only)
+# ===========================================================================
+def test_concurrent_record_failure_never_loses_count_and_opens():
+    """P1: N Workers concurrently record a failure for the same failure domain. No increment is
+    lost, so the count reaches exactly N and the circuit OPENs at the threshold. Deterministic:
+    with the atomic increment the count is always exactly N (a lost update would drop below N)."""
+    N = 64
+    circuit = CircuitBreaker(fail_threshold=N)
+    key = _contract().circuit_key()
+    barrier = threading.Barrier(N)
+
+    def worker():
+        barrier.wait()                                  # all fire together to force the race
+        circuit.record_failure(key)
+
+    threads = [threading.Thread(target=worker) for _ in range(N)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert circuit._fails[key] == N                     # no lost updates under concurrency
+    assert circuit.state(key) is CircuitState.OPEN      # threshold reached -> OPEN
+
+
+def test_concurrent_probe_success_keeps_inflight_and_count_consistent():
+    """HALF_OPEN: K probes are in flight; K Workers concurrently record success. Every in-flight
+    decrement and success increment is accounted (in-flight back to 0, successes == K) — no lost
+    updates and no overwritten state. `needed_to_close` is high so the circuit stays HALF_OPEN."""
+    K = 16
+    circuit = CircuitBreaker(half_open_max_probes=K)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        circuit.record_failure(key)                     # -> OPEN (default threshold 5)
+    circuit.start_half_open(key)
+    for _ in range(K):
+        assert circuit.try_acquire_probe(key) is True   # fill all K probe slots
+    assert circuit._probes_in_flight[key] == K
+    barrier = threading.Barrier(K)
+
+    def worker():
+        barrier.wait()
+        circuit.record_probe_success(key, needed_to_close=10_000)   # high: do not CLOSE mid-test
+
+    threads = [threading.Thread(target=worker) for _ in range(K)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert circuit._probes_in_flight[key] == 0          # every release accounted
+    assert circuit._probe_successes[key] == K           # every success counted
+    assert circuit.state(key) is CircuitState.HALF_OPEN # not closed (needed_to_close not reached)
+
+
+def test_concurrent_probe_failure_reopens_and_decrements_consistently():
+    """HALF_OPEN: K probes in flight; K Workers concurrently record failure. In-flight returns to 0
+    (no lost decrement) and the circuit is OPEN (a failed probe re-opens)."""
+    K = 12
+    circuit = CircuitBreaker(half_open_max_probes=K)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        circuit.record_failure(key)
+    circuit.start_half_open(key)
+    for _ in range(K):
+        assert circuit.try_acquire_probe(key) is True
+    barrier = threading.Barrier(K)
+
+    def worker():
+        barrier.wait()
+        circuit.record_probe_failure(key)
+
+    threads = [threading.Thread(target=worker) for _ in range(K)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert circuit._probes_in_flight[key] == 0          # no lost decrement
+    assert circuit.state(key) is CircuitState.OPEN      # re-opened on failed probes

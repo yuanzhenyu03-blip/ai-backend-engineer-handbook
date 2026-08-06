@@ -372,38 +372,46 @@ class CircuitBreaker:
         self._fails: dict[str, int] = {}
         self._probes_in_flight: dict[str, int] = {}
         self._probe_successes: dict[str, int] = {}
-        # Models the atomic critical section a real circuit store (e.g. Redis Lua / a DB row lock)
-        # would provide. In-memory only: this is NOT a real distributed store (P1-1).
-        self._lock = threading.Lock()
+        # ONE reentrant lock guards ALL per-failure-domain state (`_state`, `_fails`,
+        # `_probes_in_flight`, `_probe_successes`), so every read-modify-write is atomic and
+        # concurrent failures/probe outcomes cannot lose updates or overwrite a state transition.
+        # RLock (not a plain Lock) is used so a locked method may call another locked method (e.g.
+        # `state`) without deadlocking. In-memory ONLY: this models the atomic critical section a
+        # real circuit store (Redis Lua / a DB row lock) provides — it is NOT a real distributed
+        # store, PostgreSQL isolation, or a production guarantee.
+        self._lock = threading.RLock()
 
     def state(self, key: str) -> CircuitState:
-        return self._state.get(key, CircuitState.CLOSED)
+        with self._lock:
+            return self._state.get(key, CircuitState.CLOSED)
 
     def record_failure(self, key: str) -> None:
-        self._fails[key] = self._fails.get(key, 0) + 1
-        if self._fails[key] >= self.fail_threshold:
-            self._state[key] = CircuitState.OPEN
+        with self._lock:
+            self._fails[key] = self._fails.get(key, 0) + 1      # atomic increment (no lost update)
+            if self._fails[key] >= self.fail_threshold:
+                self._state[key] = CircuitState.OPEN
 
     def start_half_open(self, key: str) -> None:
-        self._state[key] = CircuitState.HALF_OPEN
-        self._probes_in_flight[key] = 0
-        self._probe_successes[key] = 0
+        with self._lock:
+            self._state[key] = CircuitState.HALF_OPEN
+            self._probes_in_flight[key] = 0
+            self._probe_successes[key] = 0
 
     def has_probe_capacity(self, key: str) -> bool:
-        """Read-only gate HINT: True if a HALF_OPEN probe slot currently looks free. This does NOT
-        reserve anything and is inherently racy — it is only a cheap early-out so a clearly-full
-        circuit DEFERs before taking a rate permit. The AUTHORITATIVE acquisition is the atomic
-        `try_acquire_probe` (P1-1)."""
-        if self.state(key) is not CircuitState.HALF_OPEN:
-            return False
-        return self._probes_in_flight.get(key, 0) < self.half_open_max_probes
+        """Read-only gate HINT: True if a HALF_OPEN probe slot currently looks free. It reads a
+        CONSISTENT snapshot under the lock, but is still only a cheap early-out — the AUTHORITATIVE
+        acquisition is the atomic `try_acquire_probe`, which two racing Workers cannot both win."""
+        with self._lock:
+            if self._state.get(key, CircuitState.CLOSED) is not CircuitState.HALF_OPEN:
+                return False
+            return self._probes_in_flight.get(key, 0) < self.half_open_max_probes
 
     def try_acquire_probe(self, key: str) -> bool:
-        """ATOMIC check-and-acquire of a HALF_OPEN probe slot (P1-1). Under concurrency exactly ONE
-        of two racing Workers succeeds; the loser gets False and must not CALL. Call this ONLY when
-        a real Provider call is about to happen. A no-call never consumes a slot."""
+        """ATOMIC check-and-acquire of a HALF_OPEN probe slot. Under concurrency exactly ONE of two
+        racing Workers succeeds; the loser gets False and must not CALL. Call this ONLY when a real
+        Provider call is about to happen. A no-call never consumes a slot."""
         with self._lock:
-            if self.state(key) is not CircuitState.HALF_OPEN:
+            if self._state.get(key, CircuitState.CLOSED) is not CircuitState.HALF_OPEN:
                 return False
             if self._probes_in_flight.get(key, 0) >= self.half_open_max_probes:
                 return False
@@ -423,8 +431,9 @@ class CircuitBreaker:
                 self._fails[key] = 0
 
     def record_probe_failure(self, key: str) -> None:
-        self._probes_in_flight[key] = max(0, self._probes_in_flight.get(key, 0) - 1)
-        self._state[key] = CircuitState.OPEN               # re-open on a failed probe
+        with self._lock:
+            self._probes_in_flight[key] = max(0, self._probes_in_flight.get(key, 0) - 1)
+            self._state[key] = CircuitState.OPEN           # re-open on a failed probe
 
 
 # ===========================================================================

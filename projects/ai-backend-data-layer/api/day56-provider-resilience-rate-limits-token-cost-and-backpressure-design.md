@@ -25,8 +25,8 @@ Observability / runtime evidence                       : NOT IMPLEMENTED (Day58)
 Production validation                                 : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **48 passed**
-(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **436 passed**. The model is Python
+Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **51 passed**
+(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **439 passed**. The model is Python
 standard library only; it imports Day54's `IntentKind` for the durable cancellation/deadline terminal mapping. The
 suite proves APPLICATION CONTROL FLOW over an in-memory model; it does NOT prove a real Celery broker/Worker, a real
 Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load behavior, Worker-kill
@@ -143,9 +143,12 @@ via the ATOMIC, lock-guarded `try_acquire_probe(key)` at the moment of an actual
 two racing Workers wins the slot; the loser gets `False` and, if it had already taken a rate permit, RELEASES the permit
 and DEFERs — so `half_open_max_probes` is never exceeded and no permit leaks (P1-1 concurrency). A Job that reaches
 HALF_OPEN but then DEFERs (no rate capacity, limiter outage, or missing reservation) never consumes a probe slot, so the
-circuit cannot get stuck HALF_OPEN; a no-call is never counted as a probe failure. The in-memory `CircuitBreaker` uses a
-`threading.Lock` to model the atomic critical section a real store (Redis Lua / a DB row lock) would provide — it is NOT
-a real distributed store. A single successful probe does NOT close the circuit or
+circuit cannot get stuck HALF_OPEN; a no-call is never counted as a probe failure. The in-memory `CircuitBreaker` uses ONE
+`threading.RLock` to guard ALL per-failure-domain state (`_state`, `_fails`, `_probes_in_flight`, `_probe_successes`), so
+every read-modify-write is atomic: concurrent `record_failure` never loses a count (the circuit reliably OPENs at the
+threshold) and concurrent probe success/failure never lose an in-flight decrement or overwrite a state transition. RLock
+(reentrant) lets a locked method call another locked method (e.g. `state`) without deadlock. This models the atomic
+critical section a real store (Redis Lua / a DB row lock) provides — it is NOT a real distributed store. A single successful probe does NOT close the circuit or
 release all deferred Jobs — `record_probe_success(needed_to_close=N)` requires several progressive successes; a failed
 probe re-opens.
 
@@ -208,6 +211,7 @@ PRESERVED, no unaudited bulk flip), re-opens the Job to `QUEUED`, makes the new 
 | P1-1 concurrency: two Workers race a single HALF_OPEN probe slot -> exactly one CALL, one DEFER, no permit leak (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_half_open_probe_acquire_is_atomic_under_concurrency` |
 | P1-2 concurrency: two threads repair the same repair id -> exactly one REDISPATCHED + one ALREADY_APPLIED, one Outbox intent, one reservation (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_repair_is_atomic_under_concurrency` |
 | Budget concurrency: two Jobs race a tenant balance that covers only one -> exactly one reservation, balance never negative, one job_id reserved (threading.Barrier); reserve idempotent per job_id | LOCAL IN-MEMORY CONCURRENCY | `test_reserve_worst_case_is_atomic_under_concurrency`, `test_reserve_worst_case_idempotent_no_double_charge`, `test_concurrent_reserve_and_settle_stay_consistent` |
+| Circuit-state concurrency: N concurrent record_failure never lose a count and OPEN at the threshold; concurrent HALF_OPEN probe success/failure keep in-flight + state consistent (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_concurrent_record_failure_never_loses_count_and_opens`, `test_concurrent_probe_success_keeps_inflight_and_count_consistent`, `test_concurrent_probe_failure_reopens_and_decrements_consistently` |
 | Real DB isolation / Redis Lua-transaction / Celery / production concurrency | NOT RUN | in-memory locks model the atomic boundary only |
 | Real Celery/Redis/PostgreSQL/Provider/load/fault-injection | NOT RUN | Day57 integration owns it |
 
@@ -231,8 +235,8 @@ not durable tenant truth. Day55 guarded claim/Outbox/P1 marker and Day54 durable
   verification (real Worker kills, real broker redelivery, real limiter/circuit stores).
 - **Day58** owns observability: structured logs, `job_id` / `trace_id` / `attempt_id` correlation, metrics, traces, and
   runtime evidence for these decisions.
-- The concurrency tests (rate-permit / HALF_OPEN probe, guarded repair, and tenant budget reservation) are LOCAL
-  IN-MEMORY CONTROL-FLOW concurrency (Python threads + `threading.Barrier` + in-memory locks). They verify the atomic
+- The concurrency tests (rate-permit / HALF_OPEN probe, guarded repair, tenant budget reservation, and CircuitBreaker
+  state transitions) are LOCAL IN-MEMORY CONTROL-FLOW concurrency (Python threads + `threading.Barrier` + in-memory locks). They verify the atomic
   critical sections in THIS model; they are NOT PostgreSQL isolation, a Redis Lua/transaction, a real Celery worker
   fleet, or production concurrency validation.
 - Real Celery, real Redis distributed limiter/circuit, real PostgreSQL, and real Provider traffic/costs are NOT RUN.

@@ -9,6 +9,53 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.125 — Day56 fix (Codex): atomic CircuitBreaker state (concurrent lost updates / state overwrite)
+
+Date: 2026-08-06
+
+Day: Day56 (review concurrency P1)
+
+`CircuitBreaker.try_acquire_probe`/`record_probe_success` were locked, but `state`, `record_failure`, `start_half_open`,
+`has_probe_capacity`, and `record_probe_failure` still read-modified-wrote the shared per-failure-domain state
+(`_state`, `_fails`, `_probes_in_flight`, `_probe_successes`) WITHOUT synchronization. Under concurrent failures
+`_fails[key] = get(...) + 1` could lose updates, so the circuit could OPEN late (or not at all), and concurrent probe
+success/failure plus HALF_OPEN transitions could overwrite each other. Fixed in the runnable model + tests (plus the
+Day56 lesson/design/runbook, cheat sheet, interview, and status docs). No teaching-spec files were touched.
+
+### Fixed
+
+- **One reentrant lock over all circuit state.** `CircuitBreaker` now holds a single `threading.RLock` and every method
+  that reads or mutates `_state`/`_fails`/`_probes_in_flight`/`_probe_successes` runs under it — `state`,
+  `record_failure`, `start_half_open`, `has_probe_capacity`, `try_acquire_probe`, `record_probe_success`, and
+  `record_probe_failure`. Every read-modify-write is now atomic: concurrent `record_failure` never loses a count and the
+  circuit reliably OPENs at the threshold; concurrent probe success/failure never lose an in-flight decrement or
+  overwrite a state transition. `RLock` (reentrant) is used so a locked method may call another locked method (e.g.
+  `state`) without deadlocking.
+- **Semantics preserved.** `has_probe_capacity` remains a cheap read-only HINT (now a consistent snapshot);
+  `try_acquire_probe` remains the AUTHORITATIVE atomic check-and-acquire that two racing Workers cannot both win; the
+  probe loser still releases its rate permit and DEFERs; and OPEN/HALF_OPEN/CLOSED progressive recovery is unchanged.
+
+The in-memory `RLock` models the atomic critical section a real store (Redis Lua / a DB row lock) provides — it is NOT a
+real distributed store, PostgreSQL isolation, or a production guarantee.
+
+### Added
+
+- 3 stable, non-flaky concurrency-state regression tests (`threading.Barrier`): N concurrent `record_failure` reach
+  exactly N and OPEN the circuit (no lost updates); K concurrent HALF_OPEN probe successes return in-flight to 0 with
+  every success counted (state stays HALF_OPEN when `needed_to_close` is not reached); K concurrent probe failures
+  return in-flight to 0 and re-OPEN the circuit. With these, the in-memory artifact exercises concurrency control flow
+  for the rate permit, the HALF_OPEN probe, repair idempotency, the budget reservation, AND CircuitBreaker state.
+
+### Validation
+
+- Executed: `python3 -m py_compile day56_provider_resilience.py test_day56_provider_resilience.py`;
+  `python3 -m pytest -q test_day56_provider_resilience.py` -> **51 passed** (was 48; the new tests ran green across 6
+  repeated runs); full `projects/ai-backend-data-layer/api/` suite -> **439 passed** (Python 3.10.12, pytest 7.4.3).
+  This is IN-MEMORY CONTROL-FLOW concurrency (Python threads + an in-memory reentrant lock) — NOT Redis Lua, PostgreSQL
+  isolation, a real Celery worker fleet, load, Worker-kill fault injection, or production validation.
+
+---
+
 ## v0.1.124 — Day56 fix (Codex): atomic tenant budget reservation (concurrent overspend)
 
 Date: 2026-08-06

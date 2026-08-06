@@ -12,7 +12,7 @@ Prerequisite: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Previous Lesson: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Next Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Engineering Artifact: projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md
-  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 48 passed)
+  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 51 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of the admission-to-Provider control plane — bounded
@@ -252,8 +252,10 @@ facts OUTRANK a claim: re-check them when a deferred Job wakes. For the zero-def
 evidence + deadline, preserve expired history, and re-dispatch ONLY proven-no-execution, still-valid Jobs via a guarded,
 IDEMPOTENT, audited repair whose repair-id claim, reservation, audit record, status change, and single Outbox intent all
 run in ONE atomic critical section — so two CONCURRENT repairs of the same id yield exactly one re-dispatch and one
-`ALREADY_APPLIED` — Jobs with Provider evidence are RECONCILE_ONLY. (These atomic sections are verified with in-memory
-threaded tests; they model, but are not, real database isolation.)
+`ALREADY_APPLIED` — Jobs with Provider evidence are RECONCILE_ONLY. (The CircuitBreaker also guards all of its per-failure-domain state — failure count, in-flight probes, probe
+successes, and state — under one reentrant lock, so concurrent failures reliably OPEN the circuit and concurrent probe
+outcomes never lose an update. These atomic sections are verified with in-memory threaded tests; they model, but are
+not, real database isolation.)
 
 ---
 
