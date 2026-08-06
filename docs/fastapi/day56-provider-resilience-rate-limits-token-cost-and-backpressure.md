@@ -12,7 +12,7 @@ Prerequisite: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Previous Lesson: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Next Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Engineering Artifact: projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md
-  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 31 passed)
+  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 43 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of the admission-to-Provider control plane — bounded
@@ -149,11 +149,12 @@ cache-avalanche terminology.
 bounded exponential backoff with FULL jitter, and treating `Retry-After` as an EARLIEST retry time — never permission
 for every Worker to wake at the same instant.
 
-**Engineering Thinking:** `compute_next_attempt_at` returns the later of a jittered backoff and the Retry-After floor;
-jitter is what breaks the herd.
+**Engineering Thinking:** `compute_next_attempt_at` treats Retry-After as an EARLIEST floor and adds a bounded random
+jitter ABOVE it — the result is always >= the floor but different Workers get different times. Returning the exact floor
+would itself be a wake-all.
 
-**Production Example:** Without jitter, `Retry-After: 30` makes all 200 Workers fire at t+30 and re-trip the limit.
-With full jitter they spread across the window.
+**Production Example:** Without jitter, `Retry-After: 30` makes all 200 Workers fire at exactly t+30 and re-trip the
+limit. With jitter above the floor they each wake at t+30+rand, spread across a bounded window.
 
 ### Concept 2: A guarded claim is not a rate permit
 
@@ -203,13 +204,17 @@ never a silent default.
 
 **Student Thinking / Answer:** "500 token" (remaining budget) and, on release, "应该回归到limiter."
 
-**Tech Lead Review:** Two corrections. Reserve the Job's BOUNDED WORST-CASE cost from the persisted contract
-(`max_tokens * price`), not the remaining balance — if the budget cannot cover the worst case, do not call. And unused
-financial reservation returns to the durable TENANT COST LEDGER, not the rate limiter (capacity and money are different
-resources). Reserve at acceptance; on success settle actual use and release the unused remainder.
+**Tech Lead Review:** Two corrections, plus a precision. Reserve the Job's BOUNDED WORST-CASE cost from the persisted
+contract, not the remaining balance — if the budget cannot cover the worst case, do not call. The worst case must cover
+BOTH sides of a real AI request: a bounded input (prompt) cost AND a bounded output (completion) cost, each with its own
+unit price (`max_input_tokens * input_price + max_tokens * output_price`), not output alone. And unused financial
+reservation returns to the durable TENANT COST LEDGER, not the rate limiter. Reserve at acceptance; on success settle
+actual use and release the unused remainder — and if actual somehow exceeds the reservation, never silently overdraw the
+tenant: charge exactly what was reserved, record the overage, and enter a protected reconciliation for the excess.
 
-**Production Example:** worst case 1.0 reserved from a 100.0 balance -> 99.0 available; actual 0.4 -> 0.6 returned ->
-99.6. `settle_actual` releases to the ledger; `release()` is only for the rate permit.
+**Production Example:** input 1000 tok @ 0.03 + output 500 tok @ 0.06 -> worst case 0.06 reserved; actual 0.04 -> 0.02
+returned. If actual came back 0.09 (> 0.06), `settle_actual` returns `OVERAGE_RECONCILE`, charges 0.06, records
+`cost_overage=0.03`, and holds it for a protected extra-charge decision.
 
 ### Concept 6: Backpressure before 202; degrade only if authorized
 
@@ -239,11 +244,13 @@ job … 写入一个新的 durable Outbox dispatch intent 再由 Relay 发布."
 the Adapter classifies `DEFINITELY_NOT_ACCEPTED` vs `MAY_HAVE_EXECUTED`/`UNKNOWN`, retaining a request id when
 available; only definitely-not-accepted can ordinary-defer/retry, unknown execution RECONCILES. A circuit breaker
 protects a failure domain: CLOSED allows, OPEN durably defers, HALF_OPEN permits a small progressive probe set — one
-success does not release the herd. And durable cancellation/terminal facts OUTRANK a claim: re-check them when a
-deferred Job wakes. For the zero-defer incident: roll the config back first (future harm only, not a business-fact
-rollback), build a bounded affected set from release + window + expiry reason + evidence + deadline, preserve expired
-history, and re-dispatch ONLY proven-no-execution, still-valid Jobs via a NEW Outbox dispatch intent — Jobs with
-Provider evidence are RECONCILE_ONLY.
+success does not release the herd, and a probe slot is consumed only when a real call happens, so a Job that then defers
+for capacity never leaks a slot and strands the circuit. Durable cancellation/terminal facts OUTRANK a claim: re-check
+them when a deferred Job wakes. For the zero-defer incident: roll the config back first (future harm only, not a
+business-fact rollback), build a bounded affected set from release + window + expiry reason + evidence + deadline,
+preserve expired history, and re-dispatch ONLY proven-no-execution, still-valid Jobs via a guarded, IDEMPOTENT, audited
+repair (a stable repair id -> exactly one new Outbox dispatch intent even under duplicate/concurrent repair; a re-check
+of cancel/contract/deadline/budget/eligibility) — Jobs with Provider evidence are RECONCILE_ONLY.
 
 ---
 
@@ -453,8 +460,8 @@ limiter outage   -> fail closed (fail-open only explicit)
 unknown 429/exec -> RECONCILE (never blind retry)
 backpressure     -> before 202: tenant 429 vs system 503
 degradation      -> only if the persisted contract authorizes it
-settle           -> release unused money to the tenant ledger, not the limiter
-incident repair  -> config rollback (future harm) + bounded evidence + new Outbox intent (evidence -> reconcile-only)
+reservation      -> worst-case = bounded INPUT + OUTPUT cost; settle releases unused to the ledger; actual>reserved -> protected reconciliation (never overdraw)
+incident repair  -> config rollback (future harm) + bounded evidence + guarded IDEMPOTENT repair (one Outbox intent per repair id; evidence -> reconcile-only)
 ```
 
 ---

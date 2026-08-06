@@ -13,10 +13,10 @@ from day54_streaming_disconnects_timeouts_cancellation import IntentKind
 from day56_provider_resilience import (
     AdmissionDecision, Attempt, CircuitBreaker, CircuitState, CostState, DeferRecord,
     ExecutionCertainty, ExecutionContract, Job, JobStatus, OutboxDispatchIntent, ProviderAction,
-    RepairAction, ReleaseConfig, SharedRateLimiter, TenantBudgetLedger, admit_job,
-    apply_authorized_degradation, backoff_delay_seconds, build_capacity_expiry_affected_set,
+    RepairAction, RepairOutcome, ReleaseConfig, SettleOutcome, SharedRateLimiter, TenantBudgetLedger,
+    admit_job, apply_authorized_degradation, backoff_delay_seconds, build_capacity_expiry_affected_set,
     can_ordinary_retry, classify_execution_certainty, classify_incident_repair, compute_next_attempt_at,
-    evaluate_dispatch, process_deadline, repair_redispatch, terminal_for_intent,
+    evaluate_dispatch, process_deadline, repair_id_for, repair_redispatch, terminal_for_intent,
 )
 
 NOW = datetime(2026, 8, 6, 12, 0, 0, tzinfo=timezone.utc)
@@ -24,7 +24,7 @@ NOW = datetime(2026, 8, 6, 12, 0, 0, tzinfo=timezone.utc)
 
 def _contract(**kw):
     base = dict(provider="openai", account="acct1", model="gpt-x", region="us",
-                max_tokens=1000, price_per_1k_tokens=0.01)
+                max_tokens=1000, output_price_per_1k=0.01, max_input_tokens=0, input_price_per_1k=0.0)
     base.update(kw)
     return ExecutionContract(**base)
 
@@ -52,12 +52,19 @@ def test_backoff_is_bounded_and_jittered():
     assert hi == 30.0 and lo == 0.0            # bounded by cap; jitter spreads across [0, cap]
 
 
-def test_retry_after_is_earliest_floor_not_wake_all():
-    # Retry-After 100s dominates a tiny backoff; different rand -> different times (no herd).
-    t1 = compute_next_attempt_at(NOW, 1, retry_after_seconds=100, rand=lambda: 0.0)
-    t2 = compute_next_attempt_at(NOW, 1, retry_after_seconds=100, rand=lambda: 1.0)
-    assert t1 >= NOW + timedelta(seconds=100)
-    assert t2 >= t1                            # jitter can only push later than the earliest floor
+def test_retry_after_is_earliest_floor_with_jitter_above_it():
+    # Retry-After 100s is the FLOOR; different random draws must yield DIFFERENT times, all >= floor,
+    # so a fleet does not wake at the same instant (P1-1).
+    floor = NOW + timedelta(seconds=100)
+    t0 = compute_next_attempt_at(NOW, 1, retry_after_seconds=100, rand=lambda: 0.0)
+    t_mid = compute_next_attempt_at(NOW, 1, retry_after_seconds=100, rand=lambda: 0.5)
+    t_hi = compute_next_attempt_at(NOW, 1, retry_after_seconds=100, rand=lambda: 1.0)
+    assert t0 >= floor and t_mid >= floor and t_hi >= floor   # never earlier than the floor
+    assert t0 < t_mid < t_hi                                  # bounded jitter spreads the fleet
+    # an explicit jitter window is honored and stays bounded
+    tw = compute_next_attempt_at(NOW, 1, retry_after_seconds=100, rand=lambda: 1.0,
+                                 jitter_window_seconds=10)
+    assert tw == floor + timedelta(seconds=10)
 
 
 # --- 2. guarded claim vs rate permit: shared quota across simulated workers ---
@@ -121,23 +128,47 @@ def test_limiter_outage_emergency_fail_open_is_explicit_policy():
 # --- 5. cost reservation: worst-case, settle actual, release unused -------
 def test_reserve_worst_case_not_remaining_balance():
     ledger = TenantBudgetLedger({"t1": 100.0})
-    job = _job(ledger, max_tokens=2000, price_per_1k_tokens=0.5)   # worst case = 1.0
+    job = _job(ledger, max_tokens=2000, output_price_per_1k=0.5)   # output worst case = 1.0
     assert job.reserved_cost == 1.0
     assert ledger.available("t1") == 99.0                  # only worst-case reserved, not the balance
 
 
+def test_worst_case_cost_includes_bounded_input_and_output():
+    # input 1000 tok @ 0.03 = 0.03 ; output 500 tok @ 0.06 = 0.03 ; total = 0.06 (P1-3)
+    ledger = TenantBudgetLedger({"t1": 1.0})
+    job = _job(ledger, max_tokens=500, output_price_per_1k=0.06,
+               max_input_tokens=1000, input_price_per_1k=0.03)
+    assert job.contract.worst_case_cost() == 0.06
+    assert job.reserved_cost == 0.06
+    assert ledger.available("t1") == 0.94                  # both input and output are reserved
+
+
 def test_settle_actual_releases_unused_money_to_ledger_not_limiter():
     ledger = TenantBudgetLedger({"t1": 10.0})
-    job = _job(ledger, max_tokens=1000, price_per_1k_tokens=1.0)   # worst case = 1.0
+    job = _job(ledger, max_tokens=1000, output_price_per_1k=1.0)   # worst case = 1.0
     assert ledger.available("t1") == 9.0
-    ledger.settle_actual(job, actual_cost=0.4)
+    out = ledger.settle_actual(job, actual_cost=0.4)
+    assert out is SettleOutcome.SETTLED
     assert job.cost_state is CostState.SETTLED
     assert ledger.available("t1") == 9.6                   # 0.6 unused returned to the budget ledger
 
 
+def test_settle_actual_over_reservation_does_not_bypass_budget():
+    # actual > reserved must NOT silently deduct more than reserved (P1-3): protected reconciliation.
+    ledger = TenantBudgetLedger({"t1": 10.0})
+    job = _job(ledger, max_tokens=1000, output_price_per_1k=1.0)   # worst case = 1.0 reserved
+    assert ledger.available("t1") == 9.0
+    out = ledger.settle_actual(job, actual_cost=1.6)               # over the reservation
+    assert out is SettleOutcome.OVERAGE_RECONCILE
+    assert job.settled_cost == 1.0                                 # charged only what was reserved
+    assert job.cost_overage == 0.6                                 # excess flagged, not auto-charged
+    assert job.cost_state is CostState.RECONCILIATION_PENDING
+    assert ledger.available("t1") == 9.0                           # tenant NOT overdrawn silently
+
+
 def test_budget_blocked_pre_call_cannot_reserve():
     ledger = TenantBudgetLedger({"t1": 0.5})
-    job = Job(job_id="job-1", tenant_id="t1", contract=_contract(max_tokens=1000, price_per_1k_tokens=1.0),
+    job = Job(job_id="job-1", tenant_id="t1", contract=_contract(max_tokens=1000, output_price_per_1k=1.0),
               status=JobStatus.RUNNING, deadline=NOW + timedelta(minutes=30))
     assert ledger.reserve_worst_case(job) is False         # worst case 1.0 > balance 0.5 -> do not call
 
@@ -271,7 +302,7 @@ def test_deferred_job_waking_to_terminal_status_is_noop():
 # --- 11. deadline expiry + safe reservation release only w/o evidence -----
 def test_deadline_expiry_releases_reservation_when_no_execution():
     ledger = TenantBudgetLedger({"t1": 10.0})
-    job = _job(ledger, max_tokens=1000, price_per_1k_tokens=1.0)
+    job = _job(ledger, max_tokens=1000, output_price_per_1k=1.0)
     assert ledger.available("t1") == 9.0
     d = process_deadline(job, ledger)
     assert d.action is ProviderAction.TERMINAL and d.terminal_status is JobStatus.EXPIRED
@@ -280,7 +311,7 @@ def test_deadline_expiry_releases_reservation_when_no_execution():
 
 def test_deadline_with_execution_evidence_reconciles_and_holds_reservation():
     ledger = TenantBudgetLedger({"t1": 10.0})
-    job = _job(ledger, max_tokens=1000, price_per_1k_tokens=1.0)
+    job = _job(ledger, max_tokens=1000, output_price_per_1k=1.0)
     job.attempt = Attempt(attempt_id="a1", job_id="job-1", provider_idempotency_key="pik",
                           correlation_id="cor", provider_request_id="req-1")
     d = process_deadline(job, ledger)
@@ -320,21 +351,88 @@ def test_affected_set_bounded_by_release_window_reason():
     assert affected == ["in"]
 
 
+def _repair_deps(balance=10.0):
+    return [], {}, TenantBudgetLedger({"t1": balance})     # outbox, repair_ledger, budget ledger
+
+
 def test_repair_redispatches_only_no_evidence_valid_jobs_via_new_outbox_intent():
-    outbox: list[OutboxDispatchIntent] = []
+    outbox, rledger, ledger = _repair_deps()
     clean = _expired_capacity_job("clean", "bad-r2", NOW)
     assert classify_incident_repair(clean, now=NOW) is RepairAction.REDISPATCH_NEW_OUTBOX_INTENT
-    assert repair_redispatch(clean, outbox, now=NOW) is True
-    assert clean.status is JobStatus.QUEUED                # re-opened; expired history preserved in audit log
-    assert len(outbox) == 1 and outbox[0].job_id == "clean"   # a NEW durable Outbox intent, not a direct call
+    out = repair_redispatch(clean, outbox, rledger, ledger, now=NOW,
+                            affected_set={"clean"}, release_version="bad-r2")
+    assert out is RepairOutcome.REDISPATCHED
+    assert clean.status is JobStatus.QUEUED                # re-opened
+    assert clean.repair_history and clean.repair_history[0]["was_status"] == "expired"  # EXPIRED preserved
+    assert len(outbox) == 1 and outbox[0].job_id == "clean"
+    assert ledger.has_reservation(clean)                   # a fresh worst-case reservation was made
+
+
+def test_repair_is_idempotent_one_intent_for_duplicate_calls():
+    outbox, rledger, ledger = _repair_deps()
+    clean = _expired_capacity_job("clean", "bad-r2", NOW)
+    a = repair_redispatch(clean, outbox, rledger, ledger, now=NOW,
+                          affected_set={"clean"}, release_version="bad-r2")
+    # a duplicate / concurrent repair with the same identity must NOT write a second intent
+    b = repair_redispatch(clean, outbox, rledger, ledger, now=NOW,
+                          affected_set={"clean"}, release_version="bad-r2")
+    assert a is RepairOutcome.REDISPATCHED and b is RepairOutcome.ALREADY_APPLIED
+    assert len(outbox) == 1                                # exactly one Outbox dispatch intent
+    assert outbox[0].repair_id == repair_id_for(clean, release_version="bad-r2")
+    assert ledger.available("t1") == 10.0 - clean.reserved_cost   # reserved exactly once
 
 
 def test_repair_reconcile_only_when_provider_evidence():
-    outbox: list[OutboxDispatchIntent] = []
+    outbox, rledger, ledger = _repair_deps()
     dirty = _expired_capacity_job("dirty", "bad-r2", NOW, evidence=True)
     assert classify_incident_repair(dirty, now=NOW) is RepairAction.RECONCILE_ONLY
-    assert repair_redispatch(dirty, outbox, now=NOW) is False
-    assert outbox == []                                    # never blind re-dispatch a maybe-executed Job
+    out = repair_redispatch(dirty, outbox, rledger, ledger, now=NOW,
+                            affected_set={"dirty"}, release_version="bad-r2")
+    assert out is RepairOutcome.BLOCKED_PROVIDER_EVIDENCE
+    assert outbox == [] and dirty.status is JobStatus.EXPIRED   # never blind re-dispatch, history intact
+
+
+def test_repair_blocked_by_cancellation_intent():
+    outbox, rledger, ledger = _repair_deps()
+    j = _expired_capacity_job("c", "bad-r2", NOW)
+    j.intent_kind = IntentKind.USER_CANCELLATION
+    out = repair_redispatch(j, outbox, rledger, ledger, now=NOW,
+                            affected_set={"c"}, release_version="bad-r2")
+    assert out is RepairOutcome.BLOCKED_CANCELLED and outbox == []
+
+
+def test_repair_blocked_by_passed_deadline():
+    outbox, rledger, ledger = _repair_deps()
+    j = _expired_capacity_job("d", "bad-r2", NOW)
+    j.deadline = NOW - timedelta(minutes=1)               # commitment no longer valid
+    out = repair_redispatch(j, outbox, rledger, ledger, now=NOW,
+                            affected_set={"d"}, release_version="bad-r2")
+    assert out is RepairOutcome.BLOCKED_DEADLINE_PASSED and outbox == []
+
+
+def test_repair_blocked_by_insufficient_budget():
+    outbox, rledger, ledger = _repair_deps(balance=0.0)   # cannot re-fund the worst case
+    j = _expired_capacity_job("b", "bad-r2", NOW)
+    out = repair_redispatch(j, outbox, rledger, ledger, now=NOW,
+                            affected_set={"b"}, release_version="bad-r2")
+    assert out is RepairOutcome.BLOCKED_BUDGET and outbox == [] and j.status is JobStatus.EXPIRED
+
+
+def test_repair_blocked_when_not_in_affected_set():
+    outbox, rledger, ledger = _repair_deps()
+    j = _expired_capacity_job("x", "bad-r2", NOW)
+    out = repair_redispatch(j, outbox, rledger, ledger, now=NOW,
+                            affected_set=set(), release_version="bad-r2")
+    assert out is RepairOutcome.BLOCKED_NOT_IN_AFFECTED_SET and outbox == []
+
+
+def test_repair_blocked_when_status_not_expired():
+    outbox, rledger, ledger = _repair_deps()
+    j = _expired_capacity_job("s", "bad-r2", NOW)
+    j.status = JobStatus.SUCCEEDED                        # already resolved another way
+    out = repair_redispatch(j, outbox, rledger, ledger, now=NOW,
+                            affected_set={"s"}, release_version="bad-r2")
+    assert out is RepairOutcome.BLOCKED_WRONG_STATUS and outbox == []
 
 
 def test_repair_reconcile_only_when_deadline_passed():
@@ -347,3 +445,60 @@ def test_repair_reconcile_only_when_deadline_passed():
 def test_terminal_for_intent_mapping():
     assert terminal_for_intent(IntentKind.USER_CANCELLATION) is JobStatus.CANCELLED
     assert terminal_for_intent(IntentKind.DEADLINE_EXPIRY) is JobStatus.EXPIRED
+
+
+# ===========================================================================
+# P1-2 regression: a HALF_OPEN probe slot must not leak when the Job DEFERs
+# ===========================================================================
+def _half_open_circuit():
+    c = CircuitBreaker(half_open_max_probes=1)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        c.record_failure(key)
+    c.start_half_open(key)
+    return c, key
+
+
+def test_half_open_no_capacity_defer_does_not_leak_probe_slot():
+    circuit, key = _half_open_circuit()
+    ledger = TenantBudgetLedger({"t1": 100.0})
+    limiter0 = SharedRateLimiter(0)                        # no capacity -> DEFER
+    job = _job(ledger)
+    d = evaluate_dispatch(job, limiter=limiter0, ledger=ledger, circuit=circuit, now=NOW,
+                          rand=lambda: 0.0)
+    assert d.action is ProviderAction.DEFER
+    assert circuit.has_probe_capacity(key) is True        # slot NOT consumed by a non-call
+    # a subsequent healthy Job can still take the single probe and CALL
+    l2 = TenantBudgetLedger({"t1": 100.0})
+    j2 = _job(l2)
+    d2 = evaluate_dispatch(j2, limiter=SharedRateLimiter(1), ledger=l2, circuit=circuit, now=NOW)
+    assert d2.action is ProviderAction.CALL
+
+
+def test_half_open_limiter_outage_defer_does_not_leak_probe_slot():
+    circuit, key = _half_open_circuit()
+    ledger = TenantBudgetLedger({"t1": 100.0})
+    job = _job(ledger)
+    outage = SharedRateLimiter(5, available=False)         # limiter outage -> fail closed DEFER
+    d = evaluate_dispatch(job, limiter=outage, ledger=ledger, circuit=circuit, now=NOW, rand=lambda: 0.0)
+    assert d.action is ProviderAction.DEFER and d.reason == "limiter_unavailable_fail_closed"
+    assert circuit.has_probe_capacity(key) is True         # slot not consumed
+
+
+def test_half_open_missing_reservation_defer_does_not_leak_probe_slot():
+    circuit, key = _half_open_circuit()
+    limiter = SharedRateLimiter(1)
+    job = _job(TenantBudgetLedger({"t1": 100.0}), reserve=False)   # no reservation -> DEFER
+    ledger = TenantBudgetLedger({"t1": 100.0})             # ledger without this job's reservation
+    d = evaluate_dispatch(job, limiter=limiter, ledger=ledger, circuit=circuit, now=NOW, rand=lambda: 0.0)
+    assert d.action is ProviderAction.DEFER and d.reason == "no_cost_reservation"
+    assert circuit.has_probe_capacity(key) is True         # slot not consumed
+    assert limiter.in_flight == 0                          # and the permit was returned
+
+
+def test_half_open_call_consumes_probe_slot_only_on_call():
+    circuit, key = _half_open_circuit()
+    job = _job(l := TenantBudgetLedger({"t1": 100.0}))
+    d = evaluate_dispatch(job, limiter=SharedRateLimiter(1), ledger=l, circuit=circuit, now=NOW)
+    assert d.action is ProviderAction.CALL
+    assert circuit.has_probe_capacity(key) is False        # the single probe slot is now taken

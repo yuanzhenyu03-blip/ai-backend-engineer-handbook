@@ -118,6 +118,11 @@ class CostState(str, Enum):
     SETTLED = "settled"
 
 
+class SettleOutcome(str, Enum):
+    SETTLED = "settled"                        # actual <= reserved: settled + unused released
+    OVERAGE_RECONCILE = "overage_reconcile"    # actual > reserved: protected reconciliation (P1-3)
+
+
 # ===========================================================================
 # 2. Execution contract + Job + Attempt + defer record
 # ===========================================================================
@@ -130,8 +135,10 @@ class ExecutionContract:
     account: str
     model: str
     region: str
-    max_tokens: int
-    price_per_1k_tokens: float                 # worst-case unit price for the reserved model
+    max_tokens: int                            # max OUTPUT/completion tokens (the LLM output cap)
+    output_price_per_1k: float                 # unit price per 1k OUTPUT tokens
+    max_input_tokens: int = 0                  # bounded max INPUT/prompt tokens
+    input_price_per_1k: float = 0.0            # unit price per 1k INPUT tokens
     degradation_allowed: bool = False
     min_model: Optional[str] = None
     min_max_tokens: Optional[int] = None
@@ -141,8 +148,13 @@ class ExecutionContract:
         return f"circuit:{self.provider}:{self.account}:{self.model}:{self.region}"
 
     def worst_case_cost(self) -> float:
-        # Bounded worst-case monetary cost from the persisted contract + output bound (max_tokens).
-        return round((self.max_tokens / 1000.0) * self.price_per_1k_tokens, 6)
+        # Bounded worst-case monetary cost = bounded INPUT cost + bounded OUTPUT cost. Both the
+        # input (prompt) size and the output (completion) cap are bounded by the persisted contract,
+        # each with its own unit price, so the reservation truly covers the maximum allowed Provider
+        # spend for this Job (P1-3) — not just the output side.
+        input_cost = (self.max_input_tokens / 1000.0) * self.input_price_per_1k
+        output_cost = (self.max_tokens / 1000.0) * self.output_price_per_1k
+        return round(input_cost + output_cost, 6)
 
 
 @dataclass
@@ -173,6 +185,8 @@ class Job:
     cost_state: CostState = CostState.NONE
     reserved_cost: Optional[float] = None
     settled_cost: Optional[float] = None
+    cost_overage: Optional[float] = None        # actual-over-reservation excess (P1-3)
+    repair_history: list = field(default_factory=list)  # audited repair trail (P1-4)
     attempt: Optional[Attempt] = None
     intent_kind: Optional[IntentKind] = None    # durable cancellation/deadline intent (Day54)
     defer: Optional[DeferRecord] = None
@@ -201,16 +215,26 @@ def backoff_delay_seconds(attempt_number: int, *, base: float = 1.0, cap: float 
 
 def compute_next_attempt_at(now: datetime, attempt_number: int, *,
                             retry_after_seconds: Optional[float] = None,
-                            rand: Callable[[], float] = None) -> datetime:
-    """The next attempt is the LATER of (a) the Provider's Retry-After earliest time and (b) a
-    jittered exponential backoff. Retry-After is a floor, never permission for all Workers to wake
-    at the same instant."""
+                            rand: Callable[[], float] = None,
+                            jitter_window_seconds: Optional[float] = None) -> datetime:
+    """Compute the next attempt time. Retry-After is an EARLIEST allowed time (a floor), never a
+    wake-all signal: when it dominates the jittered backoff we still add a BOUNDED random jitter
+    ABOVE the floor so the whole fleet does not wake at the same instant (P1-1). The result is
+    always >= the Retry-After floor; different random draws yield different times."""
+    import random
+    rand = rand or random.random
     backoff = backoff_delay_seconds(attempt_number, rand=rand)
     candidate = now + timedelta(seconds=backoff)
-    if retry_after_seconds is not None:
-        earliest = now + timedelta(seconds=retry_after_seconds)
-        return max(candidate, earliest)
-    return candidate
+    if retry_after_seconds is None:
+        return candidate                       # backoff is itself full-jittered
+    earliest = now + timedelta(seconds=retry_after_seconds)
+    if candidate > earliest:
+        return candidate                       # backoff already dominates and is jittered
+    # Retry-After is the FLOOR. Add bounded jitter on top of it (never below). The default jitter
+    # window is the bounded backoff magnitude for this attempt (grows with attempts, capped).
+    window = (jitter_window_seconds if jitter_window_seconds is not None
+              else backoff_delay_seconds(attempt_number, rand=lambda: 1.0))
+    return earliest + timedelta(seconds=window * rand())
 
 
 # ===========================================================================
@@ -258,6 +282,8 @@ class TenantBudgetLedger:
         return self._available.get(tenant_id, 0.0) + 1e-9 >= amount
 
     def reserve_worst_case(self, job: Job) -> bool:
+        if job.job_id in self._reserved:
+            return True                       # idempotent: a reservation already exists
         amount = job.contract.worst_case_cost()
         if not self.can_afford(job.tenant_id, amount):
             return False                      # cannot cover worst case -> do NOT accept/call
@@ -270,14 +296,29 @@ class TenantBudgetLedger:
     def has_reservation(self, job: Job) -> bool:
         return job.job_id in self._reserved
 
-    def settle_actual(self, job: Job, actual_cost: float) -> None:
-        """Record actual use and release the unused reservation back to the tenant ledger."""
+    def settle_actual(self, job: Job, actual_cost: float) -> "SettleOutcome":
+        """Settle a completed Job against its reservation.
+
+        Trade-off (P1-3): a correct worst-case reservation should always cover actual cost, but if
+        `actual_cost > reserved` we must NOT silently bypass the tenant budget by deducting more
+        than was reserved (that could overdraw the tenant). Policy chosen here = SAFE PROTECTED
+        RECONCILIATION: charge exactly the reserved amount, record the overage, and enter
+        RECONCILIATION_PENDING so an explicit, protected extra-charge decision handles the excess.
+        Otherwise settle the actual cost and RELEASE the unused remainder back to the tenant
+        ledger (never to the limiter)."""
         reserved = self._reserved.pop(job.job_id, 0.0)
+        if actual_cost > reserved + 1e-9:
+            job.settled_cost = reserved                # charge only what was reserved
+            job.cost_overage = round(actual_cost - reserved, 6)
+            job.cost_state = CostState.RECONCILIATION_PENDING
+            return SettleOutcome.OVERAGE_RECONCILE
         unused = round(reserved - actual_cost, 6)
         if unused > 0:
             self._available[job.tenant_id] += unused   # unused MONEY returns to the ledger
         job.settled_cost = actual_cost
+        job.cost_overage = None
         job.cost_state = CostState.SETTLED
+        return SettleOutcome.SETTLED
 
     def release_reservation(self, job: Job) -> None:
         """Full release with NO external execution (safe only when proven not executed)."""
@@ -323,11 +364,17 @@ class CircuitBreaker:
         self._probes_in_flight[key] = 0
         self._probe_successes[key] = 0
 
-    def allow_probe(self, key: str) -> bool:
-        """True only if a HALF_OPEN probe slot is free (bounded, progressive)."""
+    def has_probe_capacity(self, key: str) -> bool:
+        """Read-only: True if a HALF_OPEN probe slot is free. Does NOT consume a slot, so a Job that
+        later DEFERs (no capacity / limiter outage / missing reservation) never leaks a slot (P1-2)."""
         if self.state(key) is not CircuitState.HALF_OPEN:
             return False
-        if self._probes_in_flight.get(key, 0) >= self.half_open_max_probes:
+        return self._probes_in_flight.get(key, 0) < self.half_open_max_probes
+
+    def allow_probe(self, key: str) -> bool:
+        """Consume a HALF_OPEN probe slot if one is free (bounded, progressive). Call this ONLY when
+        an actual Provider call is about to happen — never merely to gate a decision."""
+        if not self.has_probe_capacity(key):
             return False
         self._probes_in_flight[key] = self._probes_in_flight.get(key, 0) + 1
         return True
@@ -432,7 +479,9 @@ def evaluate_dispatch(job: Job, *, limiter: SharedRateLimiter, ledger: TenantBud
     cstate = circuit.state(key)
     if cstate is CircuitState.OPEN:
         return _defer(job, "circuit_open", now, rand)
-    if cstate is CircuitState.HALF_OPEN and not circuit.allow_probe(key):
+    if cstate is CircuitState.HALF_OPEN and not circuit.has_probe_capacity(key):
+        # Only CHECK capacity here (read-only); the probe slot is consumed at CALL time so a later
+        # DEFER (no capacity / limiter outage / missing reservation) never leaks a slot (P1-2).
         return _defer(job, "circuit_half_open_no_probe_slot", now, rand)
 
     # (5) Fleet capacity permit (shared limiter). An OUTAGE fails CLOSED by default; a tightly
@@ -452,7 +501,10 @@ def evaluate_dispatch(job: Job, *, limiter: SharedRateLimiter, ledger: TenantBud
             limiter.release()                 # give the permit back; we are not calling
         return _defer(job, "no_cost_reservation", now, rand)
 
-    # (7) All four authorities agree -> CALL.
+    # (7) All four authorities agree -> CALL. Consume a HALF_OPEN probe slot NOW (not earlier), so
+    # it is only ever taken when a real Provider call is about to happen.
+    if cstate is CircuitState.HALF_OPEN:
+        circuit.allow_probe(key)
     return DispatchDecision(ProviderAction.CALL, "all_gates_passed")
 
 
@@ -565,14 +617,68 @@ class OutboxDispatchIntent:
     job_id: str
     created_at: datetime
     reason: str
+    repair_id: str
 
 
-def repair_redispatch(job: Job, outbox: list[OutboxDispatchIntent], *, now: datetime) -> bool:
-    """Guarded, audited repair: preserve the EXPIRED history, re-open the Job to QUEUED, and write a
-    NEW durable Outbox dispatch intent (the Relay publishes after commit). NEVER a direct queue call."""
+class RepairOutcome(str, Enum):
+    REDISPATCHED = "redispatched"                  # committed: one new Outbox intent written
+    ALREADY_APPLIED = "already_applied"            # idempotent duplicate: no second intent
+    BLOCKED_NOT_IN_AFFECTED_SET = "blocked_not_in_affected_set"
+    BLOCKED_WRONG_STATUS = "blocked_wrong_status"
+    BLOCKED_CANCELLED = "blocked_cancelled"
+    BLOCKED_DEADLINE_PASSED = "blocked_deadline_passed"
+    BLOCKED_PROVIDER_EVIDENCE = "blocked_provider_evidence"   # RECONCILE_ONLY, never re-dispatch
+    BLOCKED_BUDGET = "blocked_budget"
+
+
+def repair_id_for(job: Job, *, release_version: str) -> str:
+    """Stable repair identity so a repeated repair of the SAME Job/incident is idempotent."""
+    return f"repair:{job.job_id}:{release_version}:defer_deadline_expired"
+
+
+def repair_redispatch(job: Job, outbox: list[OutboxDispatchIntent], repair_ledger: dict,
+                      ledger: "TenantBudgetLedger", *, now: datetime, affected_set: set,
+                      release_version: str) -> RepairOutcome:
+    """Guarded, idempotent, audited repair of ONE capacity-expired Job. The eligibility recheck,
+    the status transition, the audit repair record, the new reservation, and the single new Outbox
+    dispatch intent are ONE guarded atomic decision (P1-4):
+
+      * idempotent: a repair id (`repair:{job}:{release}:{reason}`) is recorded on commit; a repeat
+        with the same id writes NO second Outbox intent and makes NO second reservation;
+      * eligibility is re-verified at repair time: still in the affected set, still EXPIRED, no
+        durable cancellation intent, deadline not passed, NO Provider-execution evidence, and a new
+        worst-case reservation can be made;
+      * a Job with a provider_request_id or a pre-dispatch external-call marker stays RECONCILE_ONLY
+        and is never re-dispatched;
+      * the original EXPIRED history is PRESERVED in an audit trail (no unaudited bulk status flip).
+    """
+    rid = repair_id_for(job, release_version=release_version)
+    if rid in repair_ledger:
+        return RepairOutcome.ALREADY_APPLIED       # idempotent: exactly one intent per repair id
+
+    # --- guarded eligibility rechecks (order: cheapest / safety-first) ---
+    if job.job_id not in affected_set:
+        return RepairOutcome.BLOCKED_NOT_IN_AFFECTED_SET
+    if job.status is not JobStatus.EXPIRED:
+        return RepairOutcome.BLOCKED_WRONG_STATUS
+    if job.intent_kind is not None:
+        return RepairOutcome.BLOCKED_CANCELLED     # a durable cancellation outranks repair
     if classify_incident_repair(job, now=now) is not RepairAction.REDISPATCH_NEW_OUTBOX_INTENT:
-        return False
-    job.status = JobStatus.QUEUED             # history is preserved in the audit/event log, not erased
+        # provider evidence -> RECONCILE_ONLY; or deadline already passed
+        att = job.attempt
+        if att is not None and (att.provider_request_id is not None
+                                or att.provider_dispatch_started_at is not None):
+            return RepairOutcome.BLOCKED_PROVIDER_EVIDENCE
+        return RepairOutcome.BLOCKED_DEADLINE_PASSED
+    if not ledger.reserve_worst_case(job):
+        return RepairOutcome.BLOCKED_BUDGET        # cannot re-fund the worst case -> do not re-dispatch
+
+    # --- commit the repair atomically: audit history, re-open, one Outbox intent ---
+    job.repair_history.append({"was_status": JobStatus.EXPIRED.value, "repair_id": rid,
+                               "repaired_at": now, "reason": "capacity_expiry_repair"})
+    job.status = JobStatus.QUEUED              # EXPIRED history preserved in repair_history (audited)
     job.defer = None
-    outbox.append(OutboxDispatchIntent(job_id=job.job_id, created_at=now, reason="capacity_expiry_repair"))
-    return True
+    outbox.append(OutboxDispatchIntent(job_id=job.job_id, created_at=now,
+                                       reason="capacity_expiry_repair", repair_id=rid))
+    repair_ledger[rid] = now                   # record the committed repair -> idempotent thereafter
+    return RepairOutcome.REDISPATCHED

@@ -9,6 +9,55 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.122 — Day56 fix (Codex): Retry-After jitter, probe-slot leak, input+output cost, guarded idempotent repair
+
+Date: 2026-08-06
+
+Day: Day56 (review P1)
+
+Four P1 findings on the Day56 admission-to-Provider control plane, fixed in the runnable model + tests (plus the Day56
+lesson/design/runbook, cheat sheet, interview, and status docs). No teaching-spec files were touched.
+
+### Fixed
+
+- **P1-1 Retry-After eliminated jitter.** `compute_next_attempt_at` now keeps Retry-After as an EARLIEST floor but adds
+  a bounded random jitter ABOVE it, so the result is always >= the floor and different random draws produce different
+  times — a fleet no longer wakes at the same instant. A `jitter_window_seconds` override is supported.
+- **P1-2 HALF_OPEN probe slot leaked on DEFER.** The dispatch gate now uses a read-only `has_probe_capacity`; the probe
+  slot is consumed via `allow_probe` ONLY when an actual CALL happens. A Job that reaches HALF_OPEN but then DEFERs (no
+  rate capacity, limiter outage, or missing reservation) never leaks a slot, so the circuit cannot get stuck HALF_OPEN;
+  a no-call is never counted as a probe failure.
+- **P1-3 worst-case reservation ignored input cost; over-reservation was silent.** `ExecutionContract` now models
+  bounded input (`max_input_tokens`, `input_price_per_1k`) and output (`max_tokens`, `output_price_per_1k`) separately;
+  `worst_case_cost` = input + output. `settle_actual` returns a `SettleOutcome`: `SETTLED` (releases unused to the
+  tenant ledger) or, when `actual > reserved`, `OVERAGE_RECONCILE` — it charges only the reserved amount, records
+  `cost_overage`, and enters `RECONCILIATION_PENDING` for a protected extra-charge decision, never silently overdrawing
+  the tenant. `reserve_worst_case` is idempotent. Trade-off: safety over automatic settlement.
+- **P1-4 repair was not guarded/idempotent.** `repair_redispatch` is now one guarded atomic decision keyed by a stable
+  `repair_id` (`repair:{job}:{release}:{reason}`): a duplicate/concurrent repair returns `ALREADY_APPLIED` and writes NO
+  second Outbox intent and makes NO second reservation. It re-verifies affected-set membership, EXPIRED status, absence
+  of a cancellation intent, deadline validity, absence of Provider-execution evidence, and a fresh worst-case
+  reservation (each with an explicit `RepairOutcome.BLOCKED_*`), preserves the original EXPIRED status in an audited
+  `repair_history`, and writes exactly one `OutboxDispatchIntent` (carrying the repair id). Jobs with Provider evidence
+  stay `RECONCILE_ONLY`.
+
+### Added
+
+- 12 regression tests: Retry-After jitter above the floor; three HALF_OPEN probe-no-leak cases + probe-consumed-only-on
+  -call; worst-case input+output cost; actual-over-reservation protected reconciliation; repair idempotency (one intent
+  for duplicate calls) and six repair blockers (not-in-set, wrong-status, cancellation, deadline, provider-evidence,
+  budget).
+
+### Validation
+
+- Executed: `python3 -m py_compile day56_provider_resilience.py test_day56_provider_resilience.py`;
+  `python3 -m pytest -q test_day56_provider_resilience.py` -> **43 passed** (was 31); full
+  `projects/ai-backend-data-layer/api/` suite -> **431 passed** (Python 3.10.12, pytest 7.4.3). Application control flow
+  only — a real Celery broker/Worker, a real Redis distributed limiter/circuit, real PostgreSQL, real Provider
+  traffic/rate limits/costs, load tests, Worker-kill fault injection, and production remain NOT RUN.
+
+---
+
 ## v0.1.121 — Day56: Provider Resilience, Rate Limits, Token Cost and Backpressure
 
 Date: 2026-08-06

@@ -25,8 +25,8 @@ Observability / runtime evidence                       : NOT IMPLEMENTED (Day58)
 Production validation                                 : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **31 passed**
-(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **419 passed**. The model is Python
+Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **43 passed**
+(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **431 passed**. The model is Python
 standard library only; it imports Day54's `IntentKind` for the durable cancellation/deadline terminal mapping. The
 suite proves APPLICATION CONTROL FLOW over an in-memory model; it does NOT prove a real Celery broker/Worker, a real
 Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load behavior, Worker-kill
@@ -72,10 +72,12 @@ Decision order (facts OUTRANK capacity retry): terminal/NOOP -> durable intent (
 ## 3. Bounded retry + jitter (Retry-After is an earliest floor, not a wake-all)
 
 `backoff_delay_seconds(attempt_number, base, cap, jitter)` is exponential backoff with FULL jitter, bounded by `cap`.
-`compute_next_attempt_at(now, attempt_number, retry_after_seconds)` returns the LATER of the jittered backoff and the
-Retry-After earliest time. A fleet hitting Provider 429s must NOT wake together: Retry-After is an earliest retry time,
-not permission for all Workers to fire at the same instant. A synchronized retry storm / thundering herd re-amplifies
-the dependency; it is NOT a cache avalanche (that is cache expiry causing backend load).
+`compute_next_attempt_at(now, attempt_number, retry_after_seconds)` treats Retry-After as an EARLIEST allowed time (a
+floor): when the floor dominates the jittered backoff it still adds a BOUNDED random jitter ABOVE the floor, so the
+result is always >= the floor but different random draws yield different times (P1-1). A fleet hitting Provider 429s
+must NOT wake together: Retry-After is an earliest retry time, never permission for all Workers to fire at the same
+instant, and returning the exact floor would itself be a wake-all. A synchronized retry storm / thundering herd
+re-amplifies the dependency; it is NOT a cache avalanche (that is cache expiry causing backend load).
 
 ---
 
@@ -92,10 +94,15 @@ reads, and evidence reconciliation still work. A tightly bounded emergency fail-
 ## 5. Cost reservation ledger (worst-case; settle/release)
 
 `TenantBudgetLedger` is durable money/token truth. `reserve_worst_case(job)` reserves the BOUNDED WORST-CASE cost from
-the persisted contract (`max_tokens / 1000 * price_per_1k_tokens`) — NOT the remaining balance. If the tenant cannot
-cover the worst case, do not accept/call. On success, `settle_actual(job, actual)` records real use and RELEASES the
-unused remainder back to the tenant ledger (never to the limiter). Unknown execution -> `hold_for_reconciliation`
-(reservation held, never zeroed). Proven no execution -> `release_reservation`.
+the persisted contract — the SUM of a bounded INPUT cost and a bounded OUTPUT cost, each with its own unit price
+(`max_input_tokens/1000 * input_price_per_1k + max_tokens/1000 * output_price_per_1k`) — NOT the remaining balance and
+NOT output-only (P1-3). If the tenant cannot cover the worst case, do not accept/call. On success,
+`settle_actual(job, actual)` returns a `SettleOutcome`: when `actual <= reserved` it settles and RELEASES the unused
+remainder back to the tenant ledger (never to the limiter); when `actual > reserved` it does NOT silently overdraw the
+tenant — it charges exactly the reserved amount, records `cost_overage`, sets `RECONCILIATION_PENDING`, and returns
+`OVERAGE_RECONCILE` so an explicit, protected extra-charge decision handles the excess (trade-off: safety over automatic
+settlement). Unknown execution -> `hold_for_reconciliation` (reservation held, never zeroed). Proven no execution ->
+`release_reservation`. `reserve_worst_case` is idempotent (it never double-reserves an existing reservation).
 
 ---
 
@@ -131,8 +138,12 @@ proof nothing ran; only a clearly-not-accepted 429 (`accepted_header=False`, no 
 
 `CircuitBreaker` keys on the Provider fault domain (`circuit:{provider}:{account}:{model}:{region}`; no secrets).
 `CLOSED` allows calls; `OPEN` durably defers new calls; `HALF_OPEN` permits only a small, bounded probe set
-(`allow_probe`, `half_open_max_probes`). A single successful probe does NOT close the circuit or release all deferred
-Jobs — `record_probe_success(needed_to_close=N)` requires several progressive successes; a failed probe re-opens.
+(`half_open_max_probes`). The dispatch gate uses the READ-ONLY `has_probe_capacity(key)` and the probe slot is CONSUMED
+via `allow_probe` ONLY at the moment of an actual CALL — so a Job that reaches HALF_OPEN but then DEFERs (no rate
+capacity, limiter outage, or missing reservation) never leaks a probe slot and the circuit cannot get permanently stuck
+HALF_OPEN (P1-2); a no-call is never counted as a probe failure. A single successful probe does NOT close the circuit or
+release all deferred Jobs — `record_probe_success(needed_to_close=N)` requires several progressive successes; a failed
+probe re-opens.
 
 ---
 
@@ -153,9 +164,15 @@ A bad release set the max defer duration to zero, prematurely EXPIRING capacity-
 committed EXPIRED Jobs). `build_capacity_expiry_affected_set` builds a BOUNDED set: same bad release AND `EXPIRED` AND
 within the time window AND the capacity expiry reason AND a recorded defer (evidence) — expired history is preserved,
 never bulk-flipped. `classify_incident_repair` returns `REDISPATCH_NEW_OUTBOX_INTENT` only for Jobs with proof of no
-Provider execution AND a still-valid deadline (a new reservation re-checks budget); Jobs with Provider evidence, or a
-passed deadline, are `RECONCILE_ONLY`. `repair_redispatch` re-opens the Job to `QUEUED` (history preserved in audit) and
-writes a NEW `OutboxDispatchIntent` for the Relay to publish after commit — NEVER a direct queue call.
+Provider execution AND a still-valid deadline; Jobs with Provider evidence, or a passed deadline, are `RECONCILE_ONLY`.
+`repair_redispatch` is a GUARDED, IDEMPOTENT, AUDITED atomic decision (P1-4): a stable repair id
+(`repair:{job}:{release}:{reason}`, via `repair_id_for`) is recorded on commit, so a duplicate/concurrent repair with
+the same id returns `ALREADY_APPLIED` and writes NO second Outbox intent and makes NO second reservation. Eligibility is
+re-verified at repair time — still in the affected set, still `EXPIRED`, no durable cancellation intent, deadline not
+passed, no Provider-execution evidence, and a fresh worst-case reservation can be made — each with an explicit
+`RepairOutcome.BLOCKED_*`. On commit it appends an audit record to `job.repair_history` (the original `EXPIRED` status is
+PRESERVED, no unaudited bulk flip), re-opens the Job to `QUEUED`, makes the new reservation, and writes exactly ONE
+`OutboxDispatchIntent` (carrying the `repair_id`) for the Relay to publish after commit — NEVER a direct queue call.
 
 ---
 
@@ -175,6 +192,10 @@ writes a NEW `OutboxDispatchIntent` for the Relay to publish after commit — NE
 | Cancellation/terminal outrank capacity retry; re-checked on wake | LOCAL CONTROL-FLOW | `test_cancellation_intent_outranks_capacity_retry`, `test_deferred_job_waking_to_terminal_status_is_noop` |
 | Deadline expiry releases reservation only w/o evidence; else reconcile + hold | LOCAL CONTROL-FLOW | `test_deadline_expiry_releases_reservation_when_no_execution`, `test_deadline_with_execution_evidence_reconciles_and_holds_reservation` |
 | Zero-defer incident: config rollback != fact rollback; bounded affected set; repair only no-evidence valid Jobs via NEW Outbox intent; evidence -> RECONCILE_ONLY | LOCAL CONTROL-FLOW | `test_config_rollback_is_not_business_fact_rollback`, `test_affected_set_bounded_by_release_window_reason`, `test_repair_redispatches_only_no_evidence_valid_jobs_via_new_outbox_intent`, `test_repair_reconcile_only_when_provider_evidence`, `test_repair_reconcile_only_when_deadline_passed` |
+| P1-1: Retry-After floor keeps bounded jitter above it (different draws differ, all >= floor) | LOCAL CONTROL-FLOW | `test_retry_after_is_earliest_floor_with_jitter_above_it` |
+| P1-2: HALF_OPEN probe slot not leaked on DEFER (no capacity / limiter outage / missing reservation); consumed only at CALL; later Job still probes | LOCAL CONTROL-FLOW | `test_half_open_no_capacity_defer_does_not_leak_probe_slot`, `test_half_open_limiter_outage_defer_does_not_leak_probe_slot`, `test_half_open_missing_reservation_defer_does_not_leak_probe_slot`, `test_half_open_call_consumes_probe_slot_only_on_call` |
+| P1-3: worst-case reservation covers bounded input + output; actual>reserved -> protected reconciliation, tenant not overdrawn | LOCAL CONTROL-FLOW | `test_worst_case_cost_includes_bounded_input_and_output`, `test_settle_actual_over_reservation_does_not_bypass_budget` |
+| P1-4: guarded idempotent repair (one Outbox intent per repair id); blocked by not-in-set / wrong-status / cancel / deadline / provider-evidence / budget; EXPIRED history preserved | LOCAL CONTROL-FLOW | `test_repair_is_idempotent_one_intent_for_duplicate_calls`, `test_repair_blocked_by_cancellation_intent`, `test_repair_blocked_by_passed_deadline`, `test_repair_blocked_by_insufficient_budget`, `test_repair_blocked_when_not_in_affected_set`, `test_repair_blocked_when_status_not_expired`, `test_repair_reconcile_only_when_provider_evidence` |
 | Real Celery/Redis/PostgreSQL/Provider/load/fault-injection | NOT RUN | Day57 integration owns it |
 
 ---
@@ -182,8 +203,9 @@ writes a NEW `OutboxDispatchIntent` for the Relay to publish after commit — NE
 ## 13. Schema honesty
 
 New facts MODELED in-memory: a `deferred` status; a durable defer record (`retry_reason`, `next_attempt_at`,
-`defer_count`, `deadline`); a per-Job `execution_retry_count` vs `defer_count`; a tenant cost-reservation ledger
-(reserved/settled/held); and circuit/limiter coordination state. A real deployment adds the durable columns/tables via a
+`defer_count`, `deadline`); a per-Job `execution_retry_count` vs `defer_count`; a tenant cost-reservation ledger with
+bounded input+output pricing, `reserved`/`settled`/`cost_overage`/`held` state; an audited `repair_history` trail; and
+circuit/limiter coordination state. A real deployment adds the durable columns/tables via a
 Day48-safe FORWARD additive migration (new status allowlist value + defer/reservation columns via a gated revision),
 never a rewrite of published Alembic history. The rate limiter and circuit state are TRANSIENT coordination (Redis-like),
 not durable tenant truth. Day55 guarded claim/Outbox/P1 marker and Day54 durable intents are reused.
