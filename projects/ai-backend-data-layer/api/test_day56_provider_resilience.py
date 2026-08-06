@@ -724,3 +724,82 @@ def test_concurrent_probe_failure_reopens_and_decrements_consistently():
 
     assert circuit._probes_in_flight[key] == 0          # no lost decrement
     assert circuit.state(key) is CircuitState.OPEN      # re-opened on failed probes
+
+
+def test_late_probe_success_after_failure_does_not_close_circuit():
+    """State-machine race: with two HALF_OPEN probes in flight, one fails first and re-OPENs the
+    circuit; a LATE success then returns. The late success must release its slot but must NOT count
+    toward recovery or flip the known failure back to CLOSED. Controlled order -> deterministic."""
+    circuit = CircuitBreaker(fail_threshold=5, half_open_max_probes=3)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        circuit.record_failure(key)                     # -> OPEN
+    circuit.start_half_open(key)
+    assert circuit.try_acquire_probe(key) is True       # probe A
+    assert circuit.try_acquire_probe(key) is True       # probe B
+    assert circuit._probes_in_flight[key] == 2
+
+    circuit.record_probe_failure(key)                   # probe A fails first -> re-OPEN
+    assert circuit.state(key) is CircuitState.OPEN
+    assert circuit._probes_in_flight[key] == 1          # A released its slot
+
+    # probe B returns LATE as a success; needed_to_close=1 would have closed it under the old bug.
+    circuit.record_probe_success(key, needed_to_close=1)
+    assert circuit.state(key) is CircuitState.OPEN      # stale success must NOT close a re-OPENed circuit
+    assert circuit._probes_in_flight[key] == 0          # B still safely released its slot
+    assert circuit._probe_successes.get(key, 0) == 0    # stale success not counted (no recovery credit)
+
+
+def test_stale_success_does_not_carry_into_next_half_open_round():
+    """After a re-OPEN + late (uncounted) success, the NEXT HALF_OPEN round starts clean: the old
+    success does not carry, so one real success is not enough to close a needs-two round."""
+    circuit = CircuitBreaker(fail_threshold=5, half_open_max_probes=3)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        circuit.record_failure(key)
+    circuit.start_half_open(key)
+    circuit.try_acquire_probe(key)                      # A
+    circuit.try_acquire_probe(key)                      # B
+    circuit.record_probe_failure(key)                   # A fails -> OPEN
+    circuit.record_probe_success(key, needed_to_close=1)  # B late success -> uncounted
+
+    circuit.start_half_open(key)                        # a fresh recovery round
+    assert circuit._probe_successes[key] == 0           # nothing carried over
+    circuit.try_acquire_probe(key)
+    circuit.record_probe_success(key, needed_to_close=2)  # only ONE real success this round
+    assert circuit.state(key) is CircuitState.HALF_OPEN # needs two progressive successes -> not closed
+    assert circuit._probe_successes[key] == 1
+
+
+def test_concurrent_late_success_vs_failure_never_closes_a_reopened_circuit():
+    """Concurrency variant: K probes in flight; one thread records a failure while the others record
+    successes. Whatever the interleaving, once a failure has re-OPENed the circuit no later success
+    may close it, so the terminal state is OPEN and in-flight returns to 0. Non-flaky: the assertion
+    holds for every interleaving because a failed probe re-OPENs and success is HALF_OPEN-gated."""
+    K = 8
+    circuit = CircuitBreaker(fail_threshold=5, half_open_max_probes=K)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        circuit.record_failure(key)
+    circuit.start_half_open(key)
+    for _ in range(K):
+        assert circuit.try_acquire_probe(key) is True
+    barrier = threading.Barrier(K)
+
+    def fail_worker():
+        barrier.wait()
+        circuit.record_probe_failure(key)
+
+    def success_worker():
+        barrier.wait()
+        circuit.record_probe_success(key, needed_to_close=1)   # low bar: would close if not gated
+
+    threads = [threading.Thread(target=fail_worker)] + \
+              [threading.Thread(target=success_worker) for _ in range(K - 1)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert circuit.state(key) is CircuitState.OPEN      # a failure re-OPENed; no late success closes it
+    assert circuit._probes_in_flight[key] == 0          # every probe released its slot

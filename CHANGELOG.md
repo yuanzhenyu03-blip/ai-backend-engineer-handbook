@@ -9,6 +9,47 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.126 — Day56 fix (Codex): late HALF_OPEN probe success must not overwrite a probe failure
+
+Date: 2026-08-06
+
+Day: Day56 (review concurrency P1)
+
+Several HALF_OPEN probes can be in flight at once. If one probe failed first and re-OPENed the circuit, a later probe
+returning as a success still ran `record_probe_success`, incremented `_probe_successes`, and — once `needed_to_close`
+was reached — flipped the circuit back to `CLOSED`, overwriting the known failure. Fixed in the runnable model + tests
+(plus the Day56 lesson/design/runbook, cheat sheet, interview, and status docs). No teaching-spec files were touched.
+
+### Fixed
+
+- **HALF_OPEN-gated success.** `record_probe_success` now always releases the in-flight probe slot, but only counts the
+  success toward progressive recovery (and may `CLOSE`) when the failure domain is STILL `HALF_OPEN`. A LATE success
+  that returns after another probe already failed and re-OPENed the circuit releases its slot safely but does NOT count,
+  does NOT flip the known failure back to `CLOSED`, and — because it is never counted — does NOT carry into the next
+  `HALF_OPEN` round. A failed probe therefore latches `OPEN` until an explicit new recovery round is started.
+- **Semantics preserved.** A HALF_OPEN failure still re-OPENs immediately; `try_acquire_probe` is still the sole atomic
+  probe-slot acquisition; one success still does not release the herd (progressive multi-success close is unchanged);
+  and the limiter, budget ledger, and repair semantics are untouched. Everything stays under the single `RLock` with no
+  re-entry deadlock.
+
+### Added
+
+- 3 stable, non-flaky regression tests: a controlled-order case (two probes in flight, one fails -> OPEN, a late
+  success does not close and is not counted); a next-round case (the uncounted stale success does not carry, so one real
+  success is not enough to close a needs-two round); and a concurrent case (`threading.Barrier`: one failure racing
+  many successes always ends OPEN with in-flight back to 0, because a failed probe latches OPEN and later successes are
+  HALF_OPEN-gated).
+
+### Validation
+
+- Executed: `python3 -m py_compile day56_provider_resilience.py test_day56_provider_resilience.py`;
+  `python3 -m pytest -q test_day56_provider_resilience.py` -> **54 passed** (was 51; the new tests ran green across 8
+  repeated runs); full `projects/ai-backend-data-layer/api/` suite -> **442 passed** (Python 3.10.12, pytest 7.4.3).
+  This is IN-MEMORY CONTROL-FLOW concurrency (Python threads + an in-memory reentrant lock) — NOT Redis Lua, PostgreSQL
+  isolation, a real Celery worker fleet, load, Worker-kill fault injection, or production validation.
+
+---
+
 ## v0.1.125 — Day56 fix (Codex): atomic CircuitBreaker state (concurrent lost updates / state overwrite)
 
 Date: 2026-08-06

@@ -12,7 +12,7 @@ Prerequisite: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Previous Lesson: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Next Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Engineering Artifact: projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md
-  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 51 passed)
+  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 54 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of the admission-to-Provider control plane — bounded
@@ -254,7 +254,9 @@ IDEMPOTENT, audited repair whose repair-id claim, reservation, audit record, sta
 run in ONE atomic critical section — so two CONCURRENT repairs of the same id yield exactly one re-dispatch and one
 `ALREADY_APPLIED` — Jobs with Provider evidence are RECONCILE_ONLY. (The CircuitBreaker also guards all of its per-failure-domain state — failure count, in-flight probes, probe
 successes, and state — under one reentrant lock, so concurrent failures reliably OPEN the circuit and concurrent probe
-outcomes never lose an update. These atomic sections are verified with in-memory threaded tests; they model, but are
+outcomes never lose an update. And because several probes can be in flight, a probe success only counts toward recovery
+while the domain is still HALF_OPEN — a late success returning after a probe failure already re-OPENed the circuit
+releases its slot but never re-CLOSEs the known failure or carries into the next round. These atomic sections are verified with in-memory threaded tests; they model, but are
 not, real database isolation.)
 
 ---

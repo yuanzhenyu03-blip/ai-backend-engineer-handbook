@@ -25,8 +25,8 @@ Observability / runtime evidence                       : NOT IMPLEMENTED (Day58)
 Production validation                                 : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **51 passed**
-(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **439 passed**. The model is Python
+Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **54 passed**
+(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **442 passed**. The model is Python
 standard library only; it imports Day54's `IntentKind` for the durable cancellation/deadline terminal mapping. The
 suite proves APPLICATION CONTROL FLOW over an in-memory model; it does NOT prove a real Celery broker/Worker, a real
 Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load behavior, Worker-kill
@@ -150,7 +150,11 @@ threshold) and concurrent probe success/failure never lose an in-flight decremen
 (reentrant) lets a locked method call another locked method (e.g. `state`) without deadlock. This models the atomic
 critical section a real store (Redis Lua / a DB row lock) provides — it is NOT a real distributed store. A single successful probe does NOT close the circuit or
 release all deferred Jobs — `record_probe_success(needed_to_close=N)` requires several progressive successes; a failed
-probe re-opens.
+probe re-opens immediately. Because several probes can be in flight at once, `record_probe_success` only counts toward
+recovery (and may CLOSE) when the domain is STILL `HALF_OPEN`: a LATE success that returns after another probe already
+failed and re-OPENed the circuit safely releases its in-flight slot but does NOT count, does NOT flip a known failure
+back to `CLOSED`, and (being uncounted) does NOT carry into the next `HALF_OPEN` round — a failed probe latches `OPEN`
+until an explicit new recovery round.
 
 ---
 
@@ -212,6 +216,7 @@ PRESERVED, no unaudited bulk flip), re-opens the Job to `QUEUED`, makes the new 
 | P1-2 concurrency: two threads repair the same repair id -> exactly one REDISPATCHED + one ALREADY_APPLIED, one Outbox intent, one reservation (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_repair_is_atomic_under_concurrency` |
 | Budget concurrency: two Jobs race a tenant balance that covers only one -> exactly one reservation, balance never negative, one job_id reserved (threading.Barrier); reserve idempotent per job_id | LOCAL IN-MEMORY CONCURRENCY | `test_reserve_worst_case_is_atomic_under_concurrency`, `test_reserve_worst_case_idempotent_no_double_charge`, `test_concurrent_reserve_and_settle_stay_consistent` |
 | Circuit-state concurrency: N concurrent record_failure never lose a count and OPEN at the threshold; concurrent HALF_OPEN probe success/failure keep in-flight + state consistent (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_concurrent_record_failure_never_loses_count_and_opens`, `test_concurrent_probe_success_keeps_inflight_and_count_consistent`, `test_concurrent_probe_failure_reopens_and_decrements_consistently` |
+| Circuit late-success: a HALF_OPEN success returning after a probe failure re-OPENed the circuit releases its slot but never counts / re-CLOSEs / carries to the next round (controlled-order + concurrent) | LOCAL IN-MEMORY CONCURRENCY | `test_late_probe_success_after_failure_does_not_close_circuit`, `test_stale_success_does_not_carry_into_next_half_open_round`, `test_concurrent_late_success_vs_failure_never_closes_a_reopened_circuit` |
 | Real DB isolation / Redis Lua-transaction / Celery / production concurrency | NOT RUN | in-memory locks model the atomic boundary only |
 | Real Celery/Redis/PostgreSQL/Provider/load/fault-injection | NOT RUN | Day57 integration owns it |
 

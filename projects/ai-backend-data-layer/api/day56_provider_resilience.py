@@ -424,8 +424,16 @@ class CircuitBreaker:
 
     def record_probe_success(self, key: str, *, needed_to_close: int = 2) -> None:
         with self._lock:
-            self._probe_successes[key] = self._probe_successes.get(key, 0) + 1
+            # Always release the in-flight probe slot this success held.
             self._probes_in_flight[key] = max(0, self._probes_in_flight.get(key, 0) - 1)
+            # A LATE success that returns AFTER another in-flight probe already failed and re-OPENed
+            # the circuit must NOT overwrite that known failure: it does not count toward recovery,
+            # does not flip the circuit back to CLOSED, and (because it is not counted) cannot carry
+            # into the next HALF_OPEN round. Only a success observed while the domain is STILL
+            # HALF_OPEN progresses recovery. (Reads/writes stay under the one RLock; no re-entry.)
+            if self._state.get(key, CircuitState.CLOSED) is not CircuitState.HALF_OPEN:
+                return
+            self._probe_successes[key] = self._probe_successes.get(key, 0) + 1
             if self._probe_successes[key] >= needed_to_close:   # progressive: several, not one
                 self._state[key] = CircuitState.CLOSED
                 self._fails[key] = 0
