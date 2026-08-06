@@ -1259,3 +1259,39 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day55), the
 [Day55 design/runbook](../projects/ai-backend-data-layer/api/day55-celery-worker-execution-and-long-running-ai-jobs-design.md),
 the [model](../projects/ai-backend-data-layer/api/day55_celery_worker_execution.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day55_celery_worker_execution.py).
+
+## Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
+
+Key vocabulary: retry storm / thundering herd, exponential backoff, full jitter, Retry-After, rate permit, shared limiter, fail closed, cost reservation, worst-case cost, settle/release, backpressure, admission control, execution certainty, circuit breaker, half-open probe, defer budget, business deadline, reconcile.
+
+Useful expressions: "A guarded claim is execution authority; a rate permit is fleet capacity — both are required." · "No permit before a call is a durable defer, not a failure." · "A 429 alone is not proof nothing executed; unknown execution reconciles."
+
+### Q1 (Beginner) — What is a retry storm and how do you prevent it?
+
+Strong answer: "It's failed requests retrying together and re-amplifying the dependency — a thundering herd, not a cache avalanche (that's cache expiry loading the backend). I use bounded exponential backoff with full jitter and treat Retry-After as an earliest retry time, not a signal for every Worker to wake at the same instant." (Student's own: "不应该会导致缓存雪崩" — saw the amplification, used the wrong term.)
+
+### Q2 (Intermediate) — A Worker holds the guarded claim. Why might it still not call the Provider?
+
+Strong answer: "The claim is only per-Job execution authority. The call also needs fleet capacity from a shared rate limiter, an intact worst-case cost reservation, and a closed circuit for the Provider's failure domain. If any is missing and no call was made, it's a durable defer — persist next_attempt_at, reason, defer_count, and a deadline, and release the Worker; don't sleep in the Worker and don't mark the Job failed or pending reconciliation. A defer consumes no execution-retry budget. If the shared limiter store is down, I fail closed for new paid calls because I've lost the only cross-Worker concurrency bound." Weak answer: "It won the claim, so it can call."
+
+### Q3 (Intermediate) — How do you reserve budget for a billable Job, and where does unused money go?
+
+Strong answer: "Reserve the bounded worst-case cost at acceptance from the persisted contract — max_tokens times unit price — not the remaining balance. If the tenant can't cover the worst case, don't accept or call. On success I settle the actual usage and release the unused remainder back to the durable tenant cost ledger, not to the rate limiter — capacity and money are different resources." (Student corrections: "500 token" remaining-budget → worst-case; "应该回归到limiter" → returns to the tenant ledger.)
+
+### Q4 (Senior) — Classify a Provider 429 and design circuit recovery.
+
+Strong answer: "A 429 alone is not universal proof nothing executed. The Adapter classifies execution certainty: definitely-not-accepted (safe to ordinary-defer/retry), may-have-executed, or unknown — retaining a provider request id when available. Only definitely-not-accepted can retry; unknown or evidence reconciles, so I never double-bill. A circuit breaker protects the Provider failure domain keyed by provider/account/model/region with no secrets: CLOSED allows, OPEN durably defers new calls, HALF_OPEN allows a small progressive probe set. A single successful probe doesn't close the circuit or release all deferred Jobs — recovery is gradual." (Student: "暂时停止向该 Provider 发起新的调用", "不能，应该少量的受控渐进恢复".)
+
+### Q5 (Senior) — A bad release set max defer to zero and expired capacity-deferred Jobs. Recover.
+
+Strong answer: "Roll the configuration back first to stop future harm — that is not a business-fact rollback, it doesn't repair Jobs already committed EXPIRED. Then build a bounded affected set from the release version, a time window, the capacity expiry reason, and Attempt/Event evidence, and preserve the expired history — never bulk-flip to queued. Re-dispatch only Jobs with proof of no Provider execution and a still-valid contract, deadline, and budget, via a guarded, audited repair that writes a new durable Outbox dispatch intent for the Relay to publish after commit — never a direct queue call, which would reintroduce a dual-write failure. Jobs with any Provider evidence are reconcile-only." (Student: "第一步回滚错误配置，第二步修复持久化的job", "写入一个新的 durable Outbox dispatch intent 再由 Relay 发布".)
+
+Production scenario / trade-off prompt: "Where does backpressure live, and can a Worker shrink max_tokens under load?" — "Backpressure lives before the durable Job + Outbox commit: a tenant over its own quota gets 429, system-wide unavailability gets 503, and I never return 202 for a commitment I can't keep or retroactively convert an accepted Job to 429/503. A Worker never silently reduces persisted model or max_tokens; degradation is allowed only if the persisted, product-authorized contract permits it, down to a floor." (Student: "创建 Job 之前拒绝/限速该请求", "不能，worker只是执行者".)
+
+Validation: in-memory control-flow model — standard-library only, imports Day54 IntentKind (Python 3.10.12, pytest 7.4.3 -> 31 passed; full api suite 419). Proves application control flow only. NOT a real Celery broker/Worker, NOT a real Redis distributed limiter/circuit, NOT real PostgreSQL, NOT real Provider traffic/rate limits/costs, NOT load, NOT Worker-kill fault injection, NOT production. Day57 integration/failure-injection and Day58 observability are not implemented. No real credentials, prompts, Document content, raw Provider payloads, or secrets are used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day56), the
+[Day56 lesson](../docs/fastapi/day56-provider-resilience-rate-limits-token-cost-and-backpressure.md), the
+[Day56 design/runbook](../projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md),
+the [model](../projects/ai-backend-data-layer/api/day56_provider_resilience.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day56_provider_resilience.py).

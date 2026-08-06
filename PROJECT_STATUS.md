@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day55 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day56 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure (Phase 4)
+Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection (Phase 4)
 
 Status:
 Planned / Not started
 
-(Day55 is complete and recorded under "Last Completed Lesson" below; Day56 is the current focus.
+(Day56 is complete and recorded under "Last Completed Lesson" below; Day57 is the current focus.
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -79,6 +79,7 @@ Planned / Not started
 - ✅ Day53 — OpenAI SDK, Provider Boundaries and Structured Output
 - ✅ Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 - ✅ Day55 — Celery, Worker Execution and Long-running AI Jobs
+- ✅ Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 
 ---
 
@@ -89,6 +90,32 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
+
+Completed Time:
+2026-08-06
+
+Main Artifact:
+Day56 admission-to-Provider control plane (projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md) with a runnable provider-neutral in-memory model (day56_provider_resilience.py; standard-library control flow, imports Day54's IntentKind) + test_day56_provider_resilience.py: even a Job holding the Day55 guarded claim still needs fleet capacity, an intact worst-case cost reservation, and a healthy Provider circuit before a paid call. FOUR authorities are distinct (guarded claim = execution authority for ONE Job; rate permit = fleet capacity now via SharedRateLimiter; reservation = tenant affordability via TenantBudgetLedger; circuit = Provider-health containment via CircuitBreaker; a claim is not a permit, a limiter is not the ledger) and FIVE dispatch outcomes are executable via evaluate_dispatch: CALL / DEFER / RECONCILE / TERMINAL / NOOP, with durable terminal/cancellation facts and execution evidence outranking capacity retry. Bounded exponential backoff + FULL jitter with Retry-After as an earliest floor (retry storm != cache avalanche); a no-permit-before-call is a durable DEFER (retry_reason/next_attempt_at/defer_count/deadline, no Worker sleep, zero execution-retry spend, bounded by the business deadline), not FAILED/PENDING_RECONCILIATION; a shared-limiter outage fails CLOSED for new paid calls by default (emergency fail-open only explicit). Cost: reserve the BOUNDED WORST-CASE at acceptance (not remaining balance), settle actual use and release unused money to the tenant ledger (not the limiter), hold the reservation on unknown execution. Backpressure BEFORE the durable Job + Outbox commit (tenant 429 vs system 503, system dominates; never retro-429/503); no silent contract mutation (degradation only if the persisted contract authorizes it, down to a floor). A 429 alone is not proof of no execution: classify_execution_certainty (DEFINITELY_NOT_ACCEPTED vs MAY_HAVE_EXECUTED/UNKNOWN); evidence/marker forces RECONCILE. Circuit CLOSED/OPEN/HALF_OPEN with bounded progressive probes (one success does not release the herd). Deadline expiry releases the reservation only with proof of no execution, else reconcile + hold. Zero-defer incident: rollback config first (future harm only, not a business-fact rollback), bounded evidence-based affected set (preserve expired history, no bulk flip), guarded audited repair via a NEW Outbox dispatch intent for proven-no-execution valid Jobs, Provider-evidence Jobs RECONCILE_ONLY.
+
+Validation Boundary:
+Day56 has IN-MEMORY control-flow evidence only. Executed: python3 -m pytest -q test_day56_provider_resilience.py -> 31 passed (Python 3.10.12, pytest 7.4.3; standard-library control flow, imports Day54 IntentKind); full projects/ai-backend-data-layer/api/ suite -> 419 passed. This proves APPLICATION CONTROL FLOW over an in-memory model only. NOT RUN: a real Celery broker/Worker; a real Redis distributed limiter/circuit store; real PostgreSQL transactions/isolation; real Provider traffic/rate limits/costs; load tests; Worker-kill/fault-injection integration; production. Day55/Day53 evidence is NOT inherited as Day56 evidence. Boundary preserved: a guarded claim is not a rate permit; a limiter is not the budget ledger; no-permit-before-call is a durable DEFER; unknown external execution is RECONCILE; backpressure precedes 202; degradation needs a pre-authorized contract. Day57 owns integration + failure injection; Day58 owns observability/runtime evidence — neither is implemented here. Schema honesty: a deferred status, a durable defer record, execution_retry_count vs defer_count, and a tenant cost-reservation ledger are new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration; limiter/circuit state is transient coordination, not durable tenant truth. No real credentials, raw prompts, Document content, raw Provider payloads, or secrets are persisted or logged.
+
+Completed Work:
+
+- Day56 classroom learning
+- Day56 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim CN/EN student answers + corrections preserved; assistant-assisted final Chinese Mental Model labeled as such)
+- Day56 design/runbook + runnable provider-neutral in-memory model (standard-library control flow + imported Day54 IntentKind) + tests (executed: 31 passed; full api suite 419) and project README increment
+- Day56 four-authorities / five-outcomes, bounded-retry+jitter, shared-limiter fail-closed, durable-defer, worst-case-reservation, admission-backpressure, execution-certainty, circuit-progressive-recovery, deadline-expiry, and zero-defer-incident-repair exercises
+- Day56 FastAPI cheat sheet append
+- Day56 FastAPI interview notes append
+- Day56 requirements-day56.txt (pytest; imports Day54 IntentKind)
+- Day56 repository status update
+
+---
+
+## Superseded — Day55 Last Completed Lesson (archived)
 
 Day55 — Celery, Worker Execution and Long-running AI Jobs
 

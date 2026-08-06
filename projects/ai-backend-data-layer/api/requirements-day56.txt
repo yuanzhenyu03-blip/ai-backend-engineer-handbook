@@ -1,0 +1,4 @@
+# Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure.
+# The control-plane model + tests are Python standard library only; the module imports Day54's
+# IntentKind (already available in this project). No Celery/Redis/PostgreSQL/Provider is invoked.
+pytest==7.4.3

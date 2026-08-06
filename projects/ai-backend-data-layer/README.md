@@ -4,7 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day55 — Celery, Worker Execution and Long-running AI Jobs** that moves accepted long-running AI Jobs from the Day50 Outbox Relay onto a SUPPORTED Celery broker transport and Celery Workers without losing durable business truth, at-least-once delivery safety, Day54 cancellation semantics, or honest external-side-effect recovery. A provider-neutral in-memory model (`day55_celery_worker_execution.py`; standard-library control flow, the guarded completion reusing Day53's pydantic-backed strict validation gate) covers: the Outbox publish-BEFORE-checkpoint ordering; a Celery-like broker (publish/deliver/redeliver/ACK/visibility-timeout/dead-letter); the PostgreSQL-owned GUARDED CLAIM as the first duplicate-call gate (one row = execution authority, zero rows = stop; a lease/fencing token is NOT the first gate); the eight identity layers (redelivery/new Worker retains the same Attempt + provider idempotency key); ACK timing (`early ACK -> silent loss`, `late ACK -> redeliver + absorb`; `ACK/SUCCESS != Job succeeded`); Provider timeout / Worker OOM -> `PENDING_RECONCILIATION` (reservation retained, unknown usage never 0, no blind re-call; a redelivered pending Job reconciles with zero Provider calls); poison classification (envelope poison dead-lettered BEFORE Job load vs execution-contract poison quarantined AFTER Job load — disjoint version spaces) vs transient failure (bounded retry/backoff/jitter is Day56 depth); the Day54 durable cancellation protocol in Celery (durable intent FIRST -> optional best-effort revoke -> cooperative Worker check -> one guarded winner; user cancel -> CANCELLED, deadline -> EXPIRED); graceful drain (stop new claims, drain in-flight bounded, checkpoint, ACK, exit; force-kill != business cancellation); and an erroneous early-ACK release recovered by policy rollback (future harm only, NOT a business-fact rollback) + an evidence-based affected set (no bulk flip) + reconcile-vs-guarded-redispatch by Provider-execution evidence. **The tests were executed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 40 passed; full api suite 388) proving APPLICATION CONTROL FLOW only: **a real Celery broker/Worker, real ACK/redelivery/visibility-timeout, Worker-loss/OOM fault injection, real PostgreSQL/Redis, and the real Provider are NOT RUN**; Day56 retry/backoff/rate-limit/cost/backpressure and Day57 integration/failure-injection are not implemented. Schema honesty: the `cancelled`/`expired`/`pending_reconciliation`/`quarantined` statuses, a durable cancellation/expiry intent table, and per-Attempt idempotency/request-id/contract fields are modeled in-memory; a real deployment adds them via a Day48-safe forward additive migration. Day50 Job/Outbox/Relay, Day53 guarded completion/strict validation, and the Day54 cancellation protocol are reused. No real credentials, raw prompts, Document content, or raw Provider tokens are persisted or logged.
+Current increment: **Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure** that adds the admission-to-Provider control plane on top of Day55: even a Job holding the guarded claim still needs fleet capacity, an intact worst-case cost reservation, and a healthy Provider circuit before a paid call. A provider-neutral in-memory model (`day56_provider_resilience.py`; standard-library control flow, imports Day54's `IntentKind`) makes FOUR authorities distinct (guarded claim = execution authority for ONE Job; rate permit = fleet capacity now; reservation = tenant affordability; circuit = Provider-health containment) and FIVE dispatch outcomes executable via `evaluate_dispatch` (CALL | DEFER | RECONCILE | TERMINAL | NOOP). It covers: bounded exponential backoff + FULL jitter with Retry-After as an earliest floor (a retry storm is NOT a cache avalanche); a shared rate limiter that caps fleet concurrency and fails CLOSED on outage (emergency fail-open only as explicit policy); a durable no-permit DEFER (next_attempt_at/reason/defer_count/deadline, no Worker sleep, zero execution-retry spend, bounded by the business deadline); a tenant cost ledger that reserves the BOUNDED WORST-CASE at acceptance and settles actual use + releases unused money back to the ledger (not the limiter); admission backpressure BEFORE the durable Job + Outbox commit (tenant 429 vs system 503; never retro-429/503); no silent contract mutation (degradation only if the persisted contract authorizes it, down to a floor); execution-certainty classification (a 429 alone is not proof — unknown / may-have-executed -> RECONCILE, only definitely-not-accepted may defer/retry); a circuit breaker with OPEN defer and HALF_OPEN progressive probes (one success does not release the herd); deadline expiry that releases the reservation only with proof of no execution (else reconcile + hold); and the zero-defer incident recovery (config rollback for future harm only, a bounded evidence-based affected set, per-Job guarded repair via a NEW Outbox dispatch intent, Provider-evidence Jobs RECONCILE_ONLY). **The tests were executed** (Python 3.10.12, pytest 7.4.3 -> 31 passed; full api suite 419) proving APPLICATION CONTROL FLOW only: **a real Celery broker/Worker, a real Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load, and Worker-kill fault injection are NOT RUN**; Day57 integration/failure-injection and Day58 observability are not implemented. Schema honesty: the `deferred` status, a durable defer record, execution_retry_count vs defer_count, and a tenant cost-reservation ledger are modeled in-memory; a real deployment adds them via a Day48-safe forward additive migration; the limiter/circuit state is transient coordination, not durable tenant truth. Day55 guarded claim/Outbox/P1 marker and Day54 durable intents are reused. No real credentials, raw prompts, Document content, raw Provider payloads, or secrets are persisted or logged.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -222,6 +222,42 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 > Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
 > new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
 > No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+---
+
+## Day56 increment — Provider resilience, rate limits, token cost and backpressure
+
+`api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md` (with a runnable
+`day56_provider_resilience.py` and `test_day56_provider_resilience.py`) adds the admission-to-Provider control plane on
+top of Day55 execution. The tests are **executed**, standard-library control flow (imports Day54 `IntentKind`):
+**Python 3.10.12, pytest 7.4.3 -> `31 passed`**.
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Four authorities | guarded claim (execution, Day55) vs `SharedRateLimiter` (fleet capacity) vs `TenantBudgetLedger` (affordability) vs `CircuitBreaker` (Provider health). A claim is not a permit; a limiter is not the ledger. |
+| Five outcomes | `evaluate_dispatch` -> CALL / DEFER / RECONCILE / TERMINAL / NOOP; facts (terminal, intent, evidence, deadline) outrank capacity retry. |
+| Retry | `backoff_delay_seconds` (bounded + full jitter); `compute_next_attempt_at` = max(jittered backoff, Retry-After floor). Retry storm != cache avalanche. |
+| Limiter outage | fails CLOSED by default (`limiter_unavailable_fail_closed`); `emergency_fail_open` is an explicit policy. |
+| Defer | durable `DeferRecord` (reason/next_attempt_at/defer_count/deadline); no Worker sleep; `defer_count` != `execution_retry_count`; never past the deadline. |
+| Cost | `reserve_worst_case` (contract max_tokens x price, not remaining balance); `settle_actual` releases unused money to the ledger; unknown -> `hold_for_reconciliation`. |
+| Backpressure | `admit_job` -> ACCEPT / REJECT_429_TENANT / REJECT_503_SYSTEM (system dominates); before the durable commit. |
+| Degradation | `apply_authorized_degradation` only if the persisted contract allows it, down to `min_model`/`min_max_tokens`. |
+| Certainty | `classify_execution_certainty` (DEFINITELY_NOT_ACCEPTED / MAY_HAVE_EXECUTED / UNKNOWN); evidence/marker -> RECONCILE. |
+| Circuit | CLOSED/OPEN/HALF_OPEN; bounded progressive probes; one success does not close; key `circuit:{provider}:{account}:{model}:{region}` (no secrets). |
+| Deadline / incident | `process_deadline` (release only w/o evidence); `ReleaseConfig.rollback` + `build_capacity_expiry_affected_set` + `classify_incident_repair` + `repair_redispatch` (new `OutboxDispatchIntent`, evidence -> RECONCILE_ONLY). |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pytest -q test_day56_provider_resilience.py   # 31 passed
+```
+
+Not run (and not claimed): a real Celery broker/Worker, a real Redis distributed limiter/circuit, real PostgreSQL,
+real Provider traffic/rate limits/costs, load tests, and Worker-kill fault injection. Day57 owns integration + failure
+injection; Day58 owns observability/runtime evidence — neither is implemented here.
 
 ---
 

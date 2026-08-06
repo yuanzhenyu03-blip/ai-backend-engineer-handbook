@@ -9,6 +9,58 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.121 — Day56: Provider Resilience, Rate Limits, Token Cost and Backpressure
+
+Date: 2026-08-06
+
+Day: Day56
+
+Lesson: Provider Resilience, Rate Limits, Token Cost and Backpressure (Phase 4)
+
+Add the admission-to-Provider control plane on top of Day55 execution: even a Job holding the guarded claim still needs
+fleet capacity, an intact worst-case cost reservation, and a healthy Provider circuit before a paid call.
+
+### Added
+
+- `docs/fastapi/day56-provider-resilience-rate-limits-token-cost-and-backpressure.md` — LESSON_TEMPLATE_v2 lesson
+  (exact 16-section order; verbatim CN/EN student answers + corrections; assistant-assisted final Chinese Mental Model
+  labeled as such).
+- `projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md` —
+  design/runbook (four authorities, five outcomes, retry/jitter, limiter fail-closed, cost reservation, backpressure,
+  degradation, execution certainty, circuit progressive recovery, deadline expiry, incident repair, evidence matrix).
+- `projects/ai-backend-data-layer/api/day56_provider_resilience.py` — runnable provider-neutral in-memory model
+  (standard-library control flow; imports Day54 `IntentKind`).
+- `projects/ai-backend-data-layer/api/test_day56_provider_resilience.py` — 31 tests.
+- `projects/ai-backend-data-layer/api/requirements-day56.txt` — pytest (imports Day54 IntentKind; no Celery/Redis/
+  PostgreSQL/Provider invoked).
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `projects/ai-backend-data-layer/README.md` — Day56 appends/increment.
+- `CURRICULUM.md` (Day56 -> Completed), `ROADMAP.md` (Day56 -> Completed), `PROJECT_STATUS.md` (Day56 Last Completed
+  Lesson; Day55 archived; Day57 current), `TASKS.md` (Day56 done; Day57 current).
+
+### Main learning outcome
+
+Four authorities are distinct — a guarded claim (execution), a rate permit (fleet capacity), a reservation (tenant
+money), and a circuit (Provider health) — and dispatch resolves to CALL / DEFER / RECONCILE / TERMINAL / NOOP. A retry
+storm is not a cache avalanche; Retry-After is an earliest floor and jitter breaks the herd. A no-permit-before-call is
+a durable defer (no Worker sleep, no execution-retry spend, bounded by the deadline), a shared-limiter outage fails
+closed, cost is reserved worst-case and settled/released to the tenant ledger, backpressure precedes 202 (tenant 429 vs
+system 503), a 429 is classified by execution certainty (unknown reconciles), the circuit recovers progressively, and a
+zero-defer incident is repaired by config rollback plus evidence-based re-dispatch via a new Outbox intent.
+
+### Validation
+
+- Executed: `python3 -m py_compile day56_provider_resilience.py test_day56_provider_resilience.py`;
+  `python3 -m pytest -q test_day56_provider_resilience.py` -> **31 passed** (Python 3.10.12, pytest 7.4.3). Full
+  `projects/ai-backend-data-layer/api/` suite -> **419 passed**. Markdown fences balanced; relative links resolve; no
+  secrets. APPLICATION CONTROL FLOW only — a real Celery broker/Worker, a real Redis distributed limiter/circuit, real
+  PostgreSQL, real Provider traffic/rate limits/costs, load tests, Worker-kill fault injection, and production remain
+  NOT RUN. Day57 integration/failure-injection and Day58 observability are not implemented.
+
+---
+
 ## v0.1.120 — Day55 fix (Codex): P1 recovery gap — conservative external-call marker before the Provider request
 
 Date: 2026-08-05
