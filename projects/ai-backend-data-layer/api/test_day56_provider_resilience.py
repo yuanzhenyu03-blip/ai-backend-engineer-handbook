@@ -563,3 +563,81 @@ def test_repair_is_atomic_under_concurrency():
     assert ledger.available("t1") == round(100.0 - reserved, 6)   # reserved exactly once
     assert job.status is JobStatus.QUEUED
     assert job.repair_history and job.repair_history[0]["was_status"] == "expired"  # EXPIRED preserved
+
+
+def _budget_job(job_id, **ckw):
+    return Job(job_id=job_id, tenant_id="t1", contract=_contract(**ckw),
+               status=JobStatus.RUNNING, deadline=NOW + timedelta(minutes=30))
+
+
+def test_reserve_worst_case_is_atomic_under_concurrency():
+    """P1: a tenant whose balance covers EXACTLY one Job's worst-case cost must not be overspent when
+    two Jobs race reserve_worst_case. Exactly one reservation succeeds; the balance never goes
+    negative; only one job_id is reserved."""
+    worst = _contract().worst_case_cost()               # default contract worst-case = 0.01
+    ledger = TenantBudgetLedger({"t1": worst})          # room for exactly ONE reservation
+    jobA, jobB = _budget_job("job-A"), _budget_job("job-B")
+    results = {}
+    barrier = threading.Barrier(2)
+
+    def worker(name, job):
+        barrier.wait()                                  # maximize the real race window
+        results[name] = ledger.reserve_worst_case(job)
+
+    tA = threading.Thread(target=worker, args=("A", jobA))
+    tB = threading.Thread(target=worker, args=("B", jobB))
+    tA.start(); tB.start(); tA.join(); tB.join()
+
+    assert list(results.values()).count(True) == 1      # exactly one succeeds
+    assert list(results.values()).count(False) == 1     # the other fails
+    assert ledger.available("t1") >= 0.0                # never negative
+    assert ledger.available("t1") == 0.0                # the single winner consumed the whole balance
+    assert len(ledger._reserved) == 1                   # only ONE job_id reserved
+
+    winner, loser = (jobA, jobB) if results["A"] else (jobB, jobA)
+    assert winner.reserved_cost == worst and winner.cost_state is CostState.RESERVED
+    assert ledger.has_reservation(winner)
+    assert loser.reserved_cost is None                  # loser got no reservation
+    assert loser.cost_state is not CostState.RESERVED
+    assert not ledger.has_reservation(loser)
+
+
+def test_reserve_worst_case_idempotent_no_double_charge():
+    worst = _contract().worst_case_cost()
+    ledger = TenantBudgetLedger({"t1": 10.0})
+    job = _budget_job("job-1")
+    assert ledger.reserve_worst_case(job) is True
+    after_first = ledger.available("t1")
+    assert ledger.reserve_worst_case(job) is True       # same job_id again -> idempotent
+    assert ledger.available("t1") == after_first        # NOT double-charged
+    assert len(ledger._reserved) == 1
+
+
+def test_concurrent_reserve_and_settle_stay_consistent():
+    """Optional: a settle of one already-reserved Job racing a reserve of another Job keeps the
+    ledger consistent (no lost update). In-memory threading only."""
+    worst = _contract().worst_case_cost()
+    ledger = TenantBudgetLedger({"t1": worst})          # only enough for one at a time
+    reserved_job = _budget_job("job-R")
+    assert ledger.reserve_worst_case(reserved_job) is True   # balance now 0
+    new_job = _budget_job("job-N")
+    results = {}
+    barrier = threading.Barrier(2)
+
+    def do_settle():
+        barrier.wait()
+        ledger.settle_actual(reserved_job, actual_cost=0.0)  # releases the full reservation back
+
+    def do_reserve():
+        barrier.wait()
+        results["reserve"] = ledger.reserve_worst_case(new_job)
+
+    t1 = threading.Thread(target=do_settle)
+    t2 = threading.Thread(target=do_reserve)
+    t1.start(); t2.start(); t1.join(); t2.join()
+
+    # Regardless of interleaving the ledger is consistent: total money is conserved and non-negative.
+    assert ledger.available("t1") >= 0.0
+    # exactly the reservations that are still open sum to (initial - available)
+    open_sum = round(sum(ledger._reserved.values()), 6)
+    assert round(ledger.available("t1") + open_sum, 6) == worst

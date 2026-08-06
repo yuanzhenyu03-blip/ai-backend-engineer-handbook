@@ -25,8 +25,8 @@ Observability / runtime evidence                       : NOT IMPLEMENTED (Day58)
 Production validation                                 : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **45 passed**
-(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **433 passed**. The model is Python
+Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **48 passed**
+(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **436 passed**. The model is Python
 standard library only; it imports Day54's `IntentKind` for the durable cancellation/deadline terminal mapping. The
 suite proves APPLICATION CONTROL FLOW over an in-memory model; it does NOT prove a real Celery broker/Worker, a real
 Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load behavior, Worker-kill
@@ -102,7 +102,7 @@ remainder back to the tenant ledger (never to the limiter); when `actual > reser
 tenant — it charges exactly the reserved amount, records `cost_overage`, sets `RECONCILIATION_PENDING`, and returns
 `OVERAGE_RECONCILE` so an explicit, protected extra-charge decision handles the excess (trade-off: safety over automatic
 settlement). Unknown execution -> `hold_for_reconciliation` (reservation held, never zeroed). Proven no execution ->
-`release_reservation`. `reserve_worst_case` is idempotent (it never double-reserves an existing reservation).
+`release_reservation`. `reserve_worst_case` is idempotent (it never double-reserves an existing reservation). All ledger operations (`reserve_worst_case`, `has_reservation`, `settle_actual`, `release_reservation`, `hold_for_reconciliation`, `available`, `can_afford`) run under a ledger-level lock, so the affordability check + balance deduction + reservation write are ONE atomic critical section: two Jobs racing a tenant whose balance covers only one cannot both pass the check and overspend the tenant (P1 concurrency). The in-memory lock models the atomic boundary a real PostgreSQL ledger provides (`UPDATE ... WHERE available - reserved >= :amt RETURNING`, or `SELECT ... FOR UPDATE`) — it is NOT real PostgreSQL isolation, a Redis transaction, or a production guarantee.
 
 ---
 
@@ -207,6 +207,7 @@ PRESERVED, no unaudited bulk flip), re-opens the Job to `QUEUED`, makes the new 
 | P1-4: guarded idempotent repair (one Outbox intent per repair id); blocked by not-in-set / wrong-status / cancel / deadline / provider-evidence / budget; EXPIRED history preserved | LOCAL CONTROL-FLOW | `test_repair_is_idempotent_one_intent_for_duplicate_calls`, `test_repair_blocked_by_cancellation_intent`, `test_repair_blocked_by_passed_deadline`, `test_repair_blocked_by_insufficient_budget`, `test_repair_blocked_when_not_in_affected_set`, `test_repair_blocked_when_status_not_expired`, `test_repair_reconcile_only_when_provider_evidence` |
 | P1-1 concurrency: two Workers race a single HALF_OPEN probe slot -> exactly one CALL, one DEFER, no permit leak (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_half_open_probe_acquire_is_atomic_under_concurrency` |
 | P1-2 concurrency: two threads repair the same repair id -> exactly one REDISPATCHED + one ALREADY_APPLIED, one Outbox intent, one reservation (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_repair_is_atomic_under_concurrency` |
+| Budget concurrency: two Jobs race a tenant balance that covers only one -> exactly one reservation, balance never negative, one job_id reserved (threading.Barrier); reserve idempotent per job_id | LOCAL IN-MEMORY CONCURRENCY | `test_reserve_worst_case_is_atomic_under_concurrency`, `test_reserve_worst_case_idempotent_no_double_charge`, `test_concurrent_reserve_and_settle_stay_consistent` |
 | Real DB isolation / Redis Lua-transaction / Celery / production concurrency | NOT RUN | in-memory locks model the atomic boundary only |
 | Real Celery/Redis/PostgreSQL/Provider/load/fault-injection | NOT RUN | Day57 integration owns it |
 
@@ -230,7 +231,8 @@ not durable tenant truth. Day55 guarded claim/Outbox/P1 marker and Day54 durable
   verification (real Worker kills, real broker redelivery, real limiter/circuit stores).
 - **Day58** owns observability: structured logs, `job_id` / `trace_id` / `attempt_id` correlation, metrics, traces, and
   runtime evidence for these decisions.
-- The two concurrency tests are LOCAL IN-MEMORY CONTROL-FLOW concurrency (Python threads + `threading.Barrier` +
-  in-memory locks). They verify the atomic critical sections in THIS model; they are NOT PostgreSQL isolation, a Redis
-  Lua/transaction, a real Celery worker fleet, or production concurrency validation.
+- The concurrency tests (rate-permit / HALF_OPEN probe, guarded repair, and tenant budget reservation) are LOCAL
+  IN-MEMORY CONTROL-FLOW concurrency (Python threads + `threading.Barrier` + in-memory locks). They verify the atomic
+  critical sections in THIS model; they are NOT PostgreSQL isolation, a Redis Lua/transaction, a real Celery worker
+  fleet, or production concurrency validation.
 - Real Celery, real Redis distributed limiter/circuit, real PostgreSQL, and real Provider traffic/costs are NOT RUN.

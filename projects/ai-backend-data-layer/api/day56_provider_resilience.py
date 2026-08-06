@@ -281,24 +281,37 @@ class TenantBudgetLedger:
     def __init__(self, balances: dict[str, float]) -> None:
         self._available = dict(balances)      # tenant_id -> spendable balance
         self._reserved: dict[str, float] = {}  # job_id -> reserved amount
+        # A ledger-level lock makes "balance check + balance deduction + reservation write" ONE
+        # atomic critical section, so two Jobs racing for a tenant whose balance covers only one
+        # cannot both pass the affordability check and overspend the tenant (P1 concurrency). It
+        # models the atomic transaction boundary a real PostgreSQL ledger provides (e.g.
+        # `UPDATE budgets SET reserved = reserved + :amt WHERE available - reserved >= :amt
+        # RETURNING`, or `SELECT ... FOR UPDATE`). In-memory ONLY: this is NOT real PostgreSQL
+        # isolation, a Redis transaction, or a production guarantee.
+        self._lock = threading.Lock()
 
     def can_afford(self, tenant_id: str, amount: float) -> bool:
-        return self._available.get(tenant_id, 0.0) + 1e-9 >= amount
+        with self._lock:
+            return self._available.get(tenant_id, 0.0) + 1e-9 >= amount
 
     def reserve_worst_case(self, job: Job) -> bool:
-        if job.job_id in self._reserved:
-            return True                       # idempotent: a reservation already exists
-        amount = job.contract.worst_case_cost()
-        if not self.can_afford(job.tenant_id, amount):
-            return False                      # cannot cover worst case -> do NOT accept/call
-        self._available[job.tenant_id] -= amount
-        self._reserved[job.job_id] = amount
-        job.reserved_cost = amount
-        job.cost_state = CostState.RESERVED
-        return True
+        # The whole decision runs under one lock: an idempotency check, the affordability check, the
+        # balance deduction, and the reservation write are atomic together.
+        with self._lock:
+            if job.job_id in self._reserved:
+                return True                   # idempotent per job_id: never double-charge the same Job
+            amount = job.contract.worst_case_cost()
+            if self._available.get(job.tenant_id, 0.0) + 1e-9 < amount:
+                return False                  # cannot cover worst case -> do NOT accept/call
+            self._available[job.tenant_id] -= amount
+            self._reserved[job.job_id] = amount
+            job.reserved_cost = amount
+            job.cost_state = CostState.RESERVED
+            return True
 
     def has_reservation(self, job: Job) -> bool:
-        return job.job_id in self._reserved
+        with self._lock:
+            return job.job_id in self._reserved
 
     def settle_actual(self, job: Job, actual_cost: float) -> "SettleOutcome":
         """Settle a completed Job against its reservation.
@@ -309,34 +322,39 @@ class TenantBudgetLedger:
         RECONCILIATION: charge exactly the reserved amount, record the overage, and enter
         RECONCILIATION_PENDING so an explicit, protected extra-charge decision handles the excess.
         Otherwise settle the actual cost and RELEASE the unused remainder back to the tenant
-        ledger (never to the limiter)."""
-        reserved = self._reserved.pop(job.job_id, 0.0)
-        if actual_cost > reserved + 1e-9:
-            job.settled_cost = reserved                # charge only what was reserved
-            job.cost_overage = round(actual_cost - reserved, 6)
-            job.cost_state = CostState.RECONCILIATION_PENDING
-            return SettleOutcome.OVERAGE_RECONCILE
-        unused = round(reserved - actual_cost, 6)
-        if unused > 0:
-            self._available[job.tenant_id] += unused   # unused MONEY returns to the ledger
-        job.settled_cost = actual_cost
-        job.cost_overage = None
-        job.cost_state = CostState.SETTLED
-        return SettleOutcome.SETTLED
+        ledger (never to the limiter). Runs under the ledger lock so a settle can never race a
+        concurrent reservation into a negative/overspent balance."""
+        with self._lock:
+            reserved = self._reserved.pop(job.job_id, 0.0)
+            if actual_cost > reserved + 1e-9:
+                job.settled_cost = reserved            # charge only what was reserved
+                job.cost_overage = round(actual_cost - reserved, 6)
+                job.cost_state = CostState.RECONCILIATION_PENDING
+                return SettleOutcome.OVERAGE_RECONCILE
+            unused = round(reserved - actual_cost, 6)
+            if unused > 0:
+                self._available[job.tenant_id] += unused   # unused MONEY returns to the ledger
+            job.settled_cost = actual_cost
+            job.cost_overage = None
+            job.cost_state = CostState.SETTLED
+            return SettleOutcome.SETTLED
 
     def release_reservation(self, job: Job) -> None:
         """Full release with NO external execution (safe only when proven not executed)."""
-        reserved = self._reserved.pop(job.job_id, 0.0)
-        self._available[job.tenant_id] += reserved
-        job.cost_state = CostState.NONE
-        job.reserved_cost = None
+        with self._lock:
+            reserved = self._reserved.pop(job.job_id, 0.0)
+            self._available[job.tenant_id] += reserved
+            job.cost_state = CostState.NONE
+            job.reserved_cost = None
 
     def hold_for_reconciliation(self, job: Job) -> None:
         """Unknown external execution: keep the reservation held, never release/zero it."""
-        job.cost_state = CostState.RECONCILIATION_PENDING
+        with self._lock:
+            job.cost_state = CostState.RECONCILIATION_PENDING
 
     def available(self, tenant_id: str) -> float:
-        return round(self._available.get(tenant_id, 0.0), 6)
+        with self._lock:
+            return round(self._available.get(tenant_id, 0.0), 6)
 
 
 # ===========================================================================

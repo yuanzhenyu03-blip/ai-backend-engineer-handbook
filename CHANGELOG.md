@@ -9,6 +9,52 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.124 — Day56 fix (Codex): atomic tenant budget reservation (concurrent overspend)
+
+Date: 2026-08-06
+
+Day: Day56 (review concurrency P1)
+
+The final concurrency race on the Day56 control plane: `TenantBudgetLedger.reserve_worst_case` performed
+`can_afford -> balance deduction -> reservation write` as three non-atomic steps, so two different Jobs racing a tenant
+whose balance covers only one could both pass the affordability check and each write a reservation, overspending the
+tenant. Fixed in the runnable model + tests (plus the Day56 lesson/design/runbook, cheat sheet, interview, and status
+docs). No teaching-spec files were touched.
+
+### Fixed
+
+- **Atomic ledger reservation.** `TenantBudgetLedger` now holds a ledger-level lock across every reservation/balance
+  operation — `reserve_worst_case`, `has_reservation`, `settle_actual`, `release_reservation`,
+  `hold_for_reconciliation`, `available`, and `can_afford` — so the affordability check, the balance deduction, and the
+  reservation write are ONE atomic critical section. Two Jobs racing a tenant whose balance covers only one can no
+  longer both reserve; exactly one succeeds and the tenant is never overspent. `reserve_worst_case` remains idempotent
+  per `job_id` (a repeat never double-charges). All prior semantics are unchanged: the reservation is the tenant durable
+  budget ledger (not the rate limiter); the worst case covers bounded input + output; `actual > reserved` still routes
+  to protected reconciliation (never a silent overdraw); a successful settle releases the unused remainder; and a
+  deadline expiry releases the full reservation only with no external-execution evidence.
+
+The in-memory `threading.Lock` models the atomic transaction boundary a real PostgreSQL ledger provides
+(`UPDATE budgets SET reserved = reserved + :amt WHERE available - reserved >= :amt RETURNING`, or
+`SELECT ... FOR UPDATE`) — it is NOT real PostgreSQL isolation, a Redis transaction, or a production guarantee.
+
+### Added
+
+- 3 regression tests: a `threading.Barrier` race where a tenant balance covers exactly one worst-case cost and two Jobs
+  reserve at once (exactly one success, balance never negative, one job_id reserved, correct winner/loser states);
+  reserve idempotency (same job_id twice, no double-charge); and a concurrent reserve-vs-settle consistency check (money
+  conserved, never negative). With these, the in-memory artifact now exercises concurrency control flow for the rate
+  permit, the HALF_OPEN probe, repair idempotency, AND the budget reservation.
+
+### Validation
+
+- Executed: `python3 -m py_compile day56_provider_resilience.py test_day56_provider_resilience.py`;
+  `python3 -m pytest -q test_day56_provider_resilience.py` -> **48 passed** (was 45; new tests green across repeated
+  runs); full `projects/ai-backend-data-layer/api/` suite -> **436 passed** (Python 3.10.12, pytest 7.4.3). This is
+  IN-MEMORY CONTROL-FLOW concurrency (Python threads + in-memory locks) — NOT PostgreSQL isolation, a Redis
+  Lua/transaction, a real Celery worker fleet, load, Worker-kill fault injection, or production validation.
+
+---
+
 ## v0.1.123 — Day56 fix (Codex): two concurrency P1s — atomic HALF_OPEN probe acquire + atomic guarded repair
 
 Date: 2026-08-06

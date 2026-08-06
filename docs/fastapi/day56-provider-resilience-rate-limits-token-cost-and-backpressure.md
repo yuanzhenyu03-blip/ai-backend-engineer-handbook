@@ -12,7 +12,7 @@ Prerequisite: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Previous Lesson: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Next Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Engineering Artifact: projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md
-  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 45 passed)
+  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 48 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of the admission-to-Provider control plane — bounded
@@ -210,7 +210,7 @@ BOTH sides of a real AI request: a bounded input (prompt) cost AND a bounded out
 unit price (`max_input_tokens * input_price + max_tokens * output_price`), not output alone. And unused financial
 reservation returns to the durable TENANT COST LEDGER, not the rate limiter. Reserve at acceptance; on success settle
 actual use and release the unused remainder — and if actual somehow exceeds the reservation, never silently overdraw the
-tenant: charge exactly what was reserved, record the overage, and enter a protected reconciliation for the excess.
+tenant: charge exactly what was reserved, record the overage, and enter a protected reconciliation for the excess. All ledger operations run under a ledger-level lock, so the affordability check, the balance deduction, and the reservation write are one atomic step — two Jobs racing a tenant whose balance covers only one can never both reserve and overspend the tenant (verified with an in-memory threaded test; it models, but is not, real database isolation).
 
 **Production Example:** input 1000 tok @ 0.03 + output 500 tok @ 0.06 -> worst case 0.06 reserved; actual 0.04 -> 0.02
 returned. If actual came back 0.09 (> 0.06), `settle_actual` returns `OVERAGE_RECONCILE`, charges 0.06, records
