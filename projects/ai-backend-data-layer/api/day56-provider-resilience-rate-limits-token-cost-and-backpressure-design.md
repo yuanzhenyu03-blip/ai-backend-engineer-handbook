@@ -25,8 +25,8 @@ Observability / runtime evidence                       : NOT IMPLEMENTED (Day58)
 Production validation                                 : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **43 passed**
-(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **431 passed**. The model is Python
+Executed: `python3 -m pytest -q test_day56_provider_resilience.py` -> **45 passed**
+(Python 3.10.12, pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **433 passed**. The model is Python
 standard library only; it imports Day54's `IntentKind` for the durable cancellation/deadline terminal mapping. The
 suite proves APPLICATION CONTROL FLOW over an in-memory model; it does NOT prove a real Celery broker/Worker, a real
 Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load behavior, Worker-kill
@@ -138,10 +138,14 @@ proof nothing ran; only a clearly-not-accepted 429 (`accepted_header=False`, no 
 
 `CircuitBreaker` keys on the Provider fault domain (`circuit:{provider}:{account}:{model}:{region}`; no secrets).
 `CLOSED` allows calls; `OPEN` durably defers new calls; `HALF_OPEN` permits only a small, bounded probe set
-(`half_open_max_probes`). The dispatch gate uses the READ-ONLY `has_probe_capacity(key)` and the probe slot is CONSUMED
-via `allow_probe` ONLY at the moment of an actual CALL — so a Job that reaches HALF_OPEN but then DEFERs (no rate
-capacity, limiter outage, or missing reservation) never leaks a probe slot and the circuit cannot get permanently stuck
-HALF_OPEN (P1-2); a no-call is never counted as a probe failure. A single successful probe does NOT close the circuit or
+(`half_open_max_probes`). The dispatch gate uses the READ-ONLY `has_probe_capacity(key)` only as a cheap early-out; the probe slot is CONSUMED
+via the ATOMIC, lock-guarded `try_acquire_probe(key)` at the moment of an actual CALL. Under concurrency exactly ONE of
+two racing Workers wins the slot; the loser gets `False` and, if it had already taken a rate permit, RELEASES the permit
+and DEFERs — so `half_open_max_probes` is never exceeded and no permit leaks (P1-1 concurrency). A Job that reaches
+HALF_OPEN but then DEFERs (no rate capacity, limiter outage, or missing reservation) never consumes a probe slot, so the
+circuit cannot get stuck HALF_OPEN; a no-call is never counted as a probe failure. The in-memory `CircuitBreaker` uses a
+`threading.Lock` to model the atomic critical section a real store (Redis Lua / a DB row lock) would provide — it is NOT
+a real distributed store. A single successful probe does NOT close the circuit or
 release all deferred Jobs — `record_probe_success(needed_to_close=N)` requires several progressive successes; a failed
 probe re-opens.
 
@@ -165,9 +169,14 @@ committed EXPIRED Jobs). `build_capacity_expiry_affected_set` builds a BOUNDED s
 within the time window AND the capacity expiry reason AND a recorded defer (evidence) — expired history is preserved,
 never bulk-flipped. `classify_incident_repair` returns `REDISPATCH_NEW_OUTBOX_INTENT` only for Jobs with proof of no
 Provider execution AND a still-valid deadline; Jobs with Provider evidence, or a passed deadline, are `RECONCILE_ONLY`.
-`repair_redispatch` is a GUARDED, IDEMPOTENT, AUDITED atomic decision (P1-4): a stable repair id
-(`repair:{job}:{release}:{reason}`, via `repair_id_for`) is recorded on commit, so a duplicate/concurrent repair with
-the same id returns `ALREADY_APPLIED` and writes NO second Outbox intent and makes NO second reservation. Eligibility is
+`repair_redispatch` is a GUARDED, IDEMPOTENT, AUDITED atomic decision (P1-4 + P1-2 concurrency): the repair-id claim,
+every eligibility recheck, the reservation, the audit record, the status transition, and the single Outbox intent all
+run inside ONE lock-guarded critical section (`_REPAIR_LOCK`), so two CONCURRENT repairs of the same id cannot both
+commit — exactly one returns `REDISPATCHED` and the other `ALREADY_APPLIED`, with NO second Outbox intent and NO second
+reservation. The stable repair id (`repair:{job}:{release}:{reason}`, via `repair_id_for`) is recorded on commit. The
+in-memory lock models the atomic boundary a real system gets from a per-repair-id DB uniqueness/row lock (e.g.
+`INSERT ... ON CONFLICT DO NOTHING`, or `SELECT ... FOR UPDATE`) — it is NOT a real DB transaction, Redis Lua, Celery,
+or production guarantee. Eligibility is
 re-verified at repair time — still in the affected set, still `EXPIRED`, no durable cancellation intent, deadline not
 passed, no Provider-execution evidence, and a fresh worst-case reservation can be made — each with an explicit
 `RepairOutcome.BLOCKED_*`. On commit it appends an audit record to `job.repair_history` (the original `EXPIRED` status is
@@ -196,6 +205,9 @@ PRESERVED, no unaudited bulk flip), re-opens the Job to `QUEUED`, makes the new 
 | P1-2: HALF_OPEN probe slot not leaked on DEFER (no capacity / limiter outage / missing reservation); consumed only at CALL; later Job still probes | LOCAL CONTROL-FLOW | `test_half_open_no_capacity_defer_does_not_leak_probe_slot`, `test_half_open_limiter_outage_defer_does_not_leak_probe_slot`, `test_half_open_missing_reservation_defer_does_not_leak_probe_slot`, `test_half_open_call_consumes_probe_slot_only_on_call` |
 | P1-3: worst-case reservation covers bounded input + output; actual>reserved -> protected reconciliation, tenant not overdrawn | LOCAL CONTROL-FLOW | `test_worst_case_cost_includes_bounded_input_and_output`, `test_settle_actual_over_reservation_does_not_bypass_budget` |
 | P1-4: guarded idempotent repair (one Outbox intent per repair id); blocked by not-in-set / wrong-status / cancel / deadline / provider-evidence / budget; EXPIRED history preserved | LOCAL CONTROL-FLOW | `test_repair_is_idempotent_one_intent_for_duplicate_calls`, `test_repair_blocked_by_cancellation_intent`, `test_repair_blocked_by_passed_deadline`, `test_repair_blocked_by_insufficient_budget`, `test_repair_blocked_when_not_in_affected_set`, `test_repair_blocked_when_status_not_expired`, `test_repair_reconcile_only_when_provider_evidence` |
+| P1-1 concurrency: two Workers race a single HALF_OPEN probe slot -> exactly one CALL, one DEFER, no permit leak (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_half_open_probe_acquire_is_atomic_under_concurrency` |
+| P1-2 concurrency: two threads repair the same repair id -> exactly one REDISPATCHED + one ALREADY_APPLIED, one Outbox intent, one reservation (threading.Barrier) | LOCAL IN-MEMORY CONCURRENCY | `test_repair_is_atomic_under_concurrency` |
+| Real DB isolation / Redis Lua-transaction / Celery / production concurrency | NOT RUN | in-memory locks model the atomic boundary only |
 | Real Celery/Redis/PostgreSQL/Provider/load/fault-injection | NOT RUN | Day57 integration owns it |
 
 ---
@@ -218,4 +230,7 @@ not durable tenant truth. Day55 guarded claim/Outbox/P1 marker and Day54 durable
   verification (real Worker kills, real broker redelivery, real limiter/circuit stores).
 - **Day58** owns observability: structured logs, `job_id` / `trace_id` / `attempt_id` correlation, metrics, traces, and
   runtime evidence for these decisions.
+- The two concurrency tests are LOCAL IN-MEMORY CONTROL-FLOW concurrency (Python threads + `threading.Barrier` +
+  in-memory locks). They verify the atomic critical sections in THIS model; they are NOT PostgreSQL isolation, a Redis
+  Lua/transaction, a real Celery worker fleet, or production concurrency validation.
 - Real Celery, real Redis distributed limiter/circuit, real PostgreSQL, and real Provider traffic/costs are NOT RUN.

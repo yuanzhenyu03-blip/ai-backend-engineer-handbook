@@ -53,6 +53,7 @@ raw prompts, Document content, raw Provider payloads, or secrets are persisted o
 
 from __future__ import annotations
 
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
@@ -249,18 +250,21 @@ class SharedRateLimiter:
         self.capacity = capacity
         self._used = 0
         self.available = available            # flip to False to model a limiter/coordination outage
+        self._lock = threading.Lock()         # models the atomic critical section of a real store
 
     def try_acquire(self) -> bool:
-        if not self.available:
-            return False                      # outage -> no permit (caller must fail closed)
-        if self._used >= self.capacity:
-            return False
-        self._used += 1
-        return True
+        with self._lock:
+            if not self.available:
+                return False                  # outage -> no permit (caller must fail closed)
+            if self._used >= self.capacity:
+                return False
+            self._used += 1
+            return True
 
     def release(self) -> None:
-        if self._used > 0:
-            self._used -= 1
+        with self._lock:
+            if self._used > 0:
+                self._used -= 1
 
     @property
     def in_flight(self) -> int:
@@ -350,6 +354,9 @@ class CircuitBreaker:
         self._fails: dict[str, int] = {}
         self._probes_in_flight: dict[str, int] = {}
         self._probe_successes: dict[str, int] = {}
+        # Models the atomic critical section a real circuit store (e.g. Redis Lua / a DB row lock)
+        # would provide. In-memory only: this is NOT a real distributed store (P1-1).
+        self._lock = threading.Lock()
 
     def state(self, key: str) -> CircuitState:
         return self._state.get(key, CircuitState.CLOSED)
@@ -365,26 +372,37 @@ class CircuitBreaker:
         self._probe_successes[key] = 0
 
     def has_probe_capacity(self, key: str) -> bool:
-        """Read-only: True if a HALF_OPEN probe slot is free. Does NOT consume a slot, so a Job that
-        later DEFERs (no capacity / limiter outage / missing reservation) never leaks a slot (P1-2)."""
+        """Read-only gate HINT: True if a HALF_OPEN probe slot currently looks free. This does NOT
+        reserve anything and is inherently racy — it is only a cheap early-out so a clearly-full
+        circuit DEFERs before taking a rate permit. The AUTHORITATIVE acquisition is the atomic
+        `try_acquire_probe` (P1-1)."""
         if self.state(key) is not CircuitState.HALF_OPEN:
             return False
         return self._probes_in_flight.get(key, 0) < self.half_open_max_probes
 
+    def try_acquire_probe(self, key: str) -> bool:
+        """ATOMIC check-and-acquire of a HALF_OPEN probe slot (P1-1). Under concurrency exactly ONE
+        of two racing Workers succeeds; the loser gets False and must not CALL. Call this ONLY when
+        a real Provider call is about to happen. A no-call never consumes a slot."""
+        with self._lock:
+            if self.state(key) is not CircuitState.HALF_OPEN:
+                return False
+            if self._probes_in_flight.get(key, 0) >= self.half_open_max_probes:
+                return False
+            self._probes_in_flight[key] = self._probes_in_flight.get(key, 0) + 1
+            return True
+
     def allow_probe(self, key: str) -> bool:
-        """Consume a HALF_OPEN probe slot if one is free (bounded, progressive). Call this ONLY when
-        an actual Provider call is about to happen — never merely to gate a decision."""
-        if not self.has_probe_capacity(key):
-            return False
-        self._probes_in_flight[key] = self._probes_in_flight.get(key, 0) + 1
-        return True
+        """Backwards-compatible alias for the atomic `try_acquire_probe`."""
+        return self.try_acquire_probe(key)
 
     def record_probe_success(self, key: str, *, needed_to_close: int = 2) -> None:
-        self._probe_successes[key] = self._probe_successes.get(key, 0) + 1
-        self._probes_in_flight[key] = max(0, self._probes_in_flight.get(key, 0) - 1)
-        if self._probe_successes[key] >= needed_to_close:   # progressive: several probes, not one
-            self._state[key] = CircuitState.CLOSED
-            self._fails[key] = 0
+        with self._lock:
+            self._probe_successes[key] = self._probe_successes.get(key, 0) + 1
+            self._probes_in_flight[key] = max(0, self._probes_in_flight.get(key, 0) - 1)
+            if self._probe_successes[key] >= needed_to_close:   # progressive: several, not one
+                self._state[key] = CircuitState.CLOSED
+                self._fails[key] = 0
 
     def record_probe_failure(self, key: str) -> None:
         self._probes_in_flight[key] = max(0, self._probes_in_flight.get(key, 0) - 1)
@@ -501,10 +519,14 @@ def evaluate_dispatch(job: Job, *, limiter: SharedRateLimiter, ledger: TenantBud
             limiter.release()                 # give the permit back; we are not calling
         return _defer(job, "no_cost_reservation", now, rand)
 
-    # (7) All four authorities agree -> CALL. Consume a HALF_OPEN probe slot NOW (not earlier), so
-    # it is only ever taken when a real Provider call is about to happen.
-    if cstate is CircuitState.HALF_OPEN:
-        circuit.allow_probe(key)
+    # (7) All other authorities agree. For HALF_OPEN, ATOMICALLY try to acquire the probe slot NOW
+    # (P1-1): only the Worker that actually wins the slot may CALL. If we lost the check-and-acquire
+    # race (another Worker took the last slot after our read-only gate), release the rate permit we
+    # took in (5) and DEFER — we never exceed half_open_max_probes and never leak a permit.
+    if cstate is CircuitState.HALF_OPEN and not circuit.try_acquire_probe(key):
+        if permit_acquired:
+            limiter.release()
+        return _defer(job, "circuit_half_open_no_probe_slot", now, rand)
     return DispatchDecision(ProviderAction.CALL, "all_gates_passed")
 
 
@@ -631,6 +653,13 @@ class RepairOutcome(str, Enum):
     BLOCKED_BUDGET = "blocked_budget"
 
 
+# A single guarded critical section for repair decisions. In a real system this is a per-repair-id
+# DB uniqueness/row lock (e.g. INSERT ... ON CONFLICT DO NOTHING on the repair id, or SELECT ... FOR
+# UPDATE); here it is an in-memory lock that models that atomic boundary (P1-2). NOT a real DB
+# transaction, Redis Lua script, Celery, or production guarantee.
+_REPAIR_LOCK = threading.Lock()
+
+
 def repair_id_for(job: Job, *, release_version: str) -> str:
     """Stable repair identity so a repeated repair of the SAME Job/incident is idempotent."""
     return f"repair:{job.job_id}:{release_version}:defer_deadline_expired"
@@ -653,32 +682,36 @@ def repair_redispatch(job: Job, outbox: list[OutboxDispatchIntent], repair_ledge
       * the original EXPIRED history is PRESERVED in an audit trail (no unaudited bulk status flip).
     """
     rid = repair_id_for(job, release_version=release_version)
-    if rid in repair_ledger:
-        return RepairOutcome.ALREADY_APPLIED       # idempotent: exactly one intent per repair id
+    # ONE atomic guarded transaction: the repair-id claim, every eligibility recheck, the reservation,
+    # the audit record, the status transition, and the single Outbox intent all happen under one lock,
+    # so two concurrent repairs of the SAME id cannot both write an Outbox intent or reserve twice.
+    with _REPAIR_LOCK:
+        if rid in repair_ledger:
+            return RepairOutcome.ALREADY_APPLIED   # idempotent: exactly one intent per repair id
 
-    # --- guarded eligibility rechecks (order: cheapest / safety-first) ---
-    if job.job_id not in affected_set:
-        return RepairOutcome.BLOCKED_NOT_IN_AFFECTED_SET
-    if job.status is not JobStatus.EXPIRED:
-        return RepairOutcome.BLOCKED_WRONG_STATUS
-    if job.intent_kind is not None:
-        return RepairOutcome.BLOCKED_CANCELLED     # a durable cancellation outranks repair
-    if classify_incident_repair(job, now=now) is not RepairAction.REDISPATCH_NEW_OUTBOX_INTENT:
-        # provider evidence -> RECONCILE_ONLY; or deadline already passed
-        att = job.attempt
-        if att is not None and (att.provider_request_id is not None
-                                or att.provider_dispatch_started_at is not None):
-            return RepairOutcome.BLOCKED_PROVIDER_EVIDENCE
-        return RepairOutcome.BLOCKED_DEADLINE_PASSED
-    if not ledger.reserve_worst_case(job):
-        return RepairOutcome.BLOCKED_BUDGET        # cannot re-fund the worst case -> do not re-dispatch
+        # --- guarded eligibility rechecks (order: cheapest / safety-first) ---
+        if job.job_id not in affected_set:
+            return RepairOutcome.BLOCKED_NOT_IN_AFFECTED_SET
+        if job.status is not JobStatus.EXPIRED:
+            return RepairOutcome.BLOCKED_WRONG_STATUS
+        if job.intent_kind is not None:
+            return RepairOutcome.BLOCKED_CANCELLED   # a durable cancellation outranks repair
+        if classify_incident_repair(job, now=now) is not RepairAction.REDISPATCH_NEW_OUTBOX_INTENT:
+            # provider evidence -> RECONCILE_ONLY; or deadline already passed
+            att = job.attempt
+            if att is not None and (att.provider_request_id is not None
+                                    or att.provider_dispatch_started_at is not None):
+                return RepairOutcome.BLOCKED_PROVIDER_EVIDENCE
+            return RepairOutcome.BLOCKED_DEADLINE_PASSED
+        if not ledger.reserve_worst_case(job):
+            return RepairOutcome.BLOCKED_BUDGET      # cannot re-fund the worst case -> do not re-dispatch
 
-    # --- commit the repair atomically: audit history, re-open, one Outbox intent ---
-    job.repair_history.append({"was_status": JobStatus.EXPIRED.value, "repair_id": rid,
-                               "repaired_at": now, "reason": "capacity_expiry_repair"})
-    job.status = JobStatus.QUEUED              # EXPIRED history preserved in repair_history (audited)
-    job.defer = None
-    outbox.append(OutboxDispatchIntent(job_id=job.job_id, created_at=now,
-                                       reason="capacity_expiry_repair", repair_id=rid))
-    repair_ledger[rid] = now                   # record the committed repair -> idempotent thereafter
-    return RepairOutcome.REDISPATCHED
+        # --- commit the repair: audit history, re-open, one reservation, one Outbox intent ---
+        job.repair_history.append({"was_status": JobStatus.EXPIRED.value, "repair_id": rid,
+                                   "repaired_at": now, "reason": "capacity_expiry_repair"})
+        job.status = JobStatus.QUEUED            # EXPIRED history preserved in repair_history (audited)
+        job.defer = None
+        outbox.append(OutboxDispatchIntent(job_id=job.job_id, created_at=now,
+                                           reason="capacity_expiry_repair", repair_id=rid))
+        repair_ledger[rid] = now                 # record the committed repair -> idempotent thereafter
+        return RepairOutcome.REDISPATCHED

@@ -12,7 +12,7 @@ Prerequisite: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Previous Lesson: Day55 — Celery, Worker Execution and Long-running AI Jobs
 Next Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Engineering Artifact: projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md
-  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 43 passed)
+  + runnable day56_provider_resilience.py + test_day56_provider_resilience.py (in-memory control flow; 45 passed)
 ```
 
 Main engineering artifact: a provider-neutral in-memory model of the admission-to-Provider control plane — bounded
@@ -244,13 +244,16 @@ job … 写入一个新的 durable Outbox dispatch intent 再由 Relay 发布."
 the Adapter classifies `DEFINITELY_NOT_ACCEPTED` vs `MAY_HAVE_EXECUTED`/`UNKNOWN`, retaining a request id when
 available; only definitely-not-accepted can ordinary-defer/retry, unknown execution RECONCILES. A circuit breaker
 protects a failure domain: CLOSED allows, OPEN durably defers, HALF_OPEN permits a small progressive probe set — one
-success does not release the herd, and a probe slot is consumed only when a real call happens, so a Job that then defers
-for capacity never leaks a slot and strands the circuit. Durable cancellation/terminal facts OUTRANK a claim: re-check
-them when a deferred Job wakes. For the zero-defer incident: roll the config back first (future harm only, not a
-business-fact rollback), build a bounded affected set from release + window + expiry reason + evidence + deadline,
-preserve expired history, and re-dispatch ONLY proven-no-execution, still-valid Jobs via a guarded, IDEMPOTENT, audited
-repair (a stable repair id -> exactly one new Outbox dispatch intent even under duplicate/concurrent repair; a re-check
-of cancel/contract/deadline/budget/eligibility) — Jobs with Provider evidence are RECONCILE_ONLY.
+success does not release the herd, and a HALF_OPEN probe slot is acquired ATOMICALLY (a lock-guarded try-acquire) only
+when a real call happens — so two racing Workers can never both probe past the limit, the loser releases its rate permit
+and defers, and a Job that defers for capacity never leaks a slot or strands the circuit. Durable cancellation/terminal
+facts OUTRANK a claim: re-check them when a deferred Job wakes. For the zero-defer incident: roll the config back first
+(future harm only, not a business-fact rollback), build a bounded affected set from release + window + expiry reason +
+evidence + deadline, preserve expired history, and re-dispatch ONLY proven-no-execution, still-valid Jobs via a guarded,
+IDEMPOTENT, audited repair whose repair-id claim, reservation, audit record, status change, and single Outbox intent all
+run in ONE atomic critical section — so two CONCURRENT repairs of the same id yield exactly one re-dispatch and one
+`ALREADY_APPLIED` — Jobs with Provider evidence are RECONCILE_ONLY. (These atomic sections are verified with in-memory
+threaded tests; they model, but are not, real database isolation.)
 
 ---
 

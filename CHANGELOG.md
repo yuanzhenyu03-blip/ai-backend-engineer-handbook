@@ -9,6 +9,55 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.123 — Day56 fix (Codex): two concurrency P1s — atomic HALF_OPEN probe acquire + atomic guarded repair
+
+Date: 2026-08-06
+
+Day: Day56 (review concurrency P1)
+
+Two check-then-act races that sequential tests could not catch, fixed in the runnable model + tests (plus the Day56
+lesson/design/runbook, cheat sheet, interview, and status docs). No teaching-spec files were touched.
+
+### Fixed
+
+- **P1-1 HALF_OPEN probe check-and-acquire race.** `evaluate_dispatch` previously called the read-only
+  `has_probe_capacity` and then `allow_probe` while ignoring its result, so two concurrent Workers could both pass the
+  read gate and both CALL, exceeding `half_open_max_probes`. The probe slot is now taken via an ATOMIC, lock-guarded
+  `CircuitBreaker.try_acquire_probe` at CALL time; only the Worker that actually wins the slot returns CALL, and a
+  Worker that loses the race after taking a rate permit RELEASES the permit and DEFERs. The read-only
+  `has_probe_capacity` remains a cheap early-out (so a clearly-full circuit DEFERs before taking a permit) and the
+  no-capacity / limiter-outage / missing-reservation DEFER still never consumes a probe slot. `SharedRateLimiter`
+  `try_acquire`/`release` are now lock-guarded too.
+- **P1-2 repair idempotency not atomic under concurrency.** `repair_redispatch` previously checked the repair id,
+  reserved budget, wrote the Outbox intent, and recorded the repair id without a shared critical section, so two
+  concurrent repairs of the same id could both write an Outbox intent. The repair-id claim, every eligibility recheck,
+  the reservation, the audit record, the status transition, and the single Outbox intent now run inside ONE
+  lock-guarded critical section (`_REPAIR_LOCK`): two concurrent repairs of the same id yield exactly one
+  `REDISPATCHED` and one `ALREADY_APPLIED`, one Outbox intent, and one reservation. The ordering/safety rules are
+  unchanged (already-applied -> ALREADY_APPLIED; Provider evidence -> RECONCILE_ONLY; cancellation / deadline /
+  wrong-status / not-in-affected-set / budget all block; EXPIRED history preserved in `repair_history`).
+
+The in-memory `threading.Lock`s model the atomic boundary a real system gets from a DB row lock /
+`INSERT ... ON CONFLICT DO NOTHING` / `SELECT ... FOR UPDATE`, or a Redis Lua transaction.
+
+### Added
+
+- 2 real concurrency regression tests using `threading.Barrier`: two Workers racing a single HALF_OPEN probe slot
+  (`half_open_max_probes=1`) end with exactly one CALL, one DEFER, and no leaked rate permit; two threads repairing the
+  same repair id end with exactly one REDISPATCHED, one ALREADY_APPLIED, one Outbox intent, and one reservation.
+
+### Validation
+
+- Executed: `python3 -m py_compile day56_provider_resilience.py test_day56_provider_resilience.py`;
+  `python3 -m pytest -q test_day56_provider_resilience.py` -> **45 passed** (was 43; the two new tests ran green across
+  repeated runs); full `projects/ai-backend-data-layer/api/` suite -> **433 passed** (Python 3.10.12, pytest 7.4.3).
+  This is IN-MEMORY CONTROL-FLOW concurrency (Python threads + in-memory locks) — NOT PostgreSQL isolation, a Redis
+  Lua/transaction, a real Celery worker fleet, or production validation. A real Celery broker/Worker, a real Redis
+  distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load tests, Worker-kill fault
+  injection, and production remain NOT RUN.
+
+---
+
 ## v0.1.122 — Day56 fix (Codex): Retry-After jitter, probe-slot leak, input+output cost, guarded idempotent repair
 
 Date: 2026-08-06

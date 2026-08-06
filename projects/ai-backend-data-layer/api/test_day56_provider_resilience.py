@@ -5,6 +5,7 @@ plane. They do NOT prove a real Celery broker/Worker, a real Redis distributed l
 real PostgreSQL, real Provider traffic/rate limits/costs, load, Worker-kill fault injection, or
 production.
 """
+import threading
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -502,3 +503,63 @@ def test_half_open_call_consumes_probe_slot_only_on_call():
     d = evaluate_dispatch(job, limiter=SharedRateLimiter(1), ledger=l, circuit=circuit, now=NOW)
     assert d.action is ProviderAction.CALL
     assert circuit.has_probe_capacity(key) is False        # the single probe slot is now taken
+
+
+# ===========================================================================
+# Concurrency regression (in-memory control-flow only; NOT PostgreSQL/Redis/Celery/prod)
+# ===========================================================================
+def test_half_open_probe_acquire_is_atomic_under_concurrency():
+    """P1-1: two Workers race the HALF_OPEN check-and-acquire with a single probe slot. Exactly one
+    must CALL and one must safely DEFER, and the loser must not leak its rate permit."""
+    circuit = CircuitBreaker(half_open_max_probes=1)
+    key = _contract().circuit_key()
+    for _ in range(5):
+        circuit.record_failure(key)
+    circuit.start_half_open(key)
+    limiter = SharedRateLimiter(10)                     # plenty of fleet capacity: probe slot is the scarce gate
+    results = {}
+    barrier = threading.Barrier(2)
+
+    def worker(name):
+        lg = TenantBudgetLedger({"t1": 100.0})
+        job = _job(lg)                                  # each Worker its own Job + reserved ledger
+        barrier.wait()                                  # maximize the real race window
+        results[name] = evaluate_dispatch(job, limiter=limiter, ledger=lg, circuit=circuit,
+                                          now=NOW, rand=lambda: 0.0).action
+
+    t1 = threading.Thread(target=worker, args=("a",))
+    t2 = threading.Thread(target=worker, args=("b",))
+    t1.start(); t2.start(); t1.join(); t2.join()
+
+    actions = list(results.values())
+    assert actions.count(ProviderAction.CALL) == 1     # never two probes past half_open_max_probes=1
+    assert actions.count(ProviderAction.DEFER) == 1
+    assert limiter.in_flight == 1                       # exactly one permit held; the loser released its permit
+
+
+def test_repair_is_atomic_under_concurrency():
+    """P1-2: two threads repair the SAME Job / repair id at once. Exactly one REDISPATCHED and one
+    ALREADY_APPLIED, exactly one Outbox intent, and exactly one reservation."""
+    outbox, rledger, ledger = [], {}, TenantBudgetLedger({"t1": 100.0})
+    job = _expired_capacity_job("clean", "bad-r2", NOW)
+    reserved = job.contract.worst_case_cost()
+    results = {}
+    barrier = threading.Barrier(2)
+
+    def worker(name):
+        barrier.wait()
+        results[name] = repair_redispatch(job, outbox, rledger, ledger, now=NOW,
+                                          affected_set={"clean"}, release_version="bad-r2")
+
+    t1 = threading.Thread(target=worker, args=("a",))
+    t2 = threading.Thread(target=worker, args=("b",))
+    t1.start(); t2.start(); t1.join(); t2.join()
+
+    outs = list(results.values())
+    assert outs.count(RepairOutcome.REDISPATCHED) == 1
+    assert outs.count(RepairOutcome.ALREADY_APPLIED) == 1
+    assert len(outbox) == 1                             # exactly one durable Outbox dispatch intent
+    assert len(rledger) == 1                            # one committed repair id
+    assert ledger.available("t1") == round(100.0 - reserved, 6)   # reserved exactly once
+    assert job.status is JobStatus.QUEUED
+    assert job.repair_history and job.repair_history[0]["was_status"] == "expired"  # EXPIRED preserved
