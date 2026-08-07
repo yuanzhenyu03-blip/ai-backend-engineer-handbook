@@ -28,9 +28,12 @@ WHAT THIS HARNESS PROVIDES (deterministic test doubles + verification helpers):
 FOUR EVIDENCE TIERS (kept explicit everywhere):
   * CONCEPTUAL_STATIC        — design/decision paths described in the runbook + lesson.
   * EXECUTED_LOCAL_RUNTIME   — what the pytest suite executes: deterministic application state-machine
-                               + Adapter-contract + failure-injection control flow over in-memory
+                               + Adapter-contract + failure-injection control flow over in-process
                                doubles (and Day53's REAL pydantic validator for the schema contract).
-  * PRODUCTION               — NOT RUN here.
+                               An in-process fake/double is ALWAYS this tier, never integration.
+  * INTEGRATION_RUNTIME      — real disposable PostgreSQL / Celery broker + Worker / Redis boundaries;
+                               NOT RUN here, distinct from production.
+  * PRODUCTION               — real Provider traffic / production validation; also NOT RUN here.
 
 NOT RUN (no such claim): real PostgreSQL transactions/rollback/isolation, a real Celery broker +
 Worker process + redelivery, a real Redis limiter/circuit, real Worker-kill fault injection, and any
