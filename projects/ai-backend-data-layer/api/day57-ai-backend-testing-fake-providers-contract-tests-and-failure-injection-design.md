@@ -11,20 +11,24 @@ Runnable harness + tests: [`day57_testing_harness.py`](day57_testing_harness.py)
 
 ---
 
-## 0. Evidence label (read first) — three tiers, kept honest
+## 0. Evidence label (read first) — FOUR tiers, kept honest
 
 ```text
-CONCEPTUAL / STATIC DESIGN                 : COMPLETED (this runbook + lesson + the scenario catalog)
-EXECUTED LOCAL RUNTIME                     : RUN (pytest over deterministic in-memory doubles + Day53 real validator)
-Real PostgreSQL transaction/rollback/isolation : NOT RUN
-Real Celery broker redelivery + Worker-kill    : NOT RUN
-Real Redis limiter/circuit coordination         : NOT RUN
-Real Provider traffic / rate limits / cost       : NOT RUN
-PRODUCTION validation                           : NOT RUN
+CONCEPTUAL / STATIC DESIGN                                : COMPLETED (this runbook + lesson + scenario catalog)
+EXECUTED LOCAL RUNTIME (in-process deterministic doubles) : RUN  (pytest + Day53 real validator)
+INTEGRATION RUNTIME (real PostgreSQL)                      : NOT RUN  (real disposable PostgreSQL required)
+INTEGRATION RUNTIME (real Celery broker + Worker-kill)     : NOT RUN  (real broker + Worker process + Fake Provider service required)
+INTEGRATION RUNTIME (real Redis limiter/circuit)           : NOT RUN  (real Redis coordination store required)
+PRODUCTION (real Provider traffic / rate limits / cost)    : NOT RUN  (no production Provider credentials authorized)
 ```
 
-Executed: `python3 -m pytest -q test_day57_testing_harness.py` -> **21 passed** (Python 3.10.12, pydantic 2.5.0,
-pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **463 passed**. These prove the deterministic
+Note the FOUR distinct tiers: real PostgreSQL, real Celery broker/Worker-kill/redelivery, and a real Redis
+limiter/circuit are INTEGRATION RUNTIME (currently NOT RUN) — they are NOT "production". Real Provider traffic and
+production validation are the PRODUCTION tier. An in-process deterministic double is EXECUTED LOCAL RUNTIME and is
+NEVER integration.
+
+Executed: `python3 -m pytest -q test_day57_testing_harness.py` -> **22 passed** (Python 3.10.12, pydantic 2.5.0,
+pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **464 passed**. These prove the deterministic
 application state machine, the Adapter contract, and failure-injection CONTROL FLOW over in-memory doubles; they do NOT
 prove real PostgreSQL rollback/isolation, real Celery broker redelivery, real Worker-kill, a real Redis limiter/circuit,
 or real Provider behavior. **`pytest passed` alone is not audit-grade runtime evidence** — a real integration run must
@@ -153,9 +157,11 @@ This table and migration are NOT implemented; this section is design only and mu
 | Claim | Tier | How shown |
 |-------|------|-----------|
 | Deterministic backoff/jitter; Retry-After is an earliest floor, controlled draws spread (no wake-all) | EXECUTED LOCAL | `test_deterministic_backoff_jitter_retry_after_is_floor_not_wake_all` |
-| Adapter delivers application-owned typed outcomes + execution certainty; no SDK leakage; never writes Job/cost | EXECUTED LOCAL | `test_adapter_classifies_execution_certainty_without_sdk_leakage`, `test_adapter_does_not_touch_job_or_cost` |
+| Adapter delivers application-owned typed outcomes + execution certainty; no raw HTTP status / SDK leakage; never writes Job/cost | EXECUTED LOCAL | `test_adapter_classifies_execution_certainty_without_sdk_leakage`, `test_adapter_does_not_touch_job_or_cost` |
 | Valid JSON violating the bound schema is a contract violation, not success | EXECUTED LOCAL | `test_valid_json_that_violates_bound_schema_is_contract_violation` |
 | Dispatch marker / request-id evidence forces RECONCILE, no second call, reservation HELD | EXECUTED LOCAL | `test_dispatch_marker_forces_reconcile_only_no_second_call`, `test_provider_request_id_evidence_forces_reconcile_only` |
+| End-to-end bare-429 -> Adapter UNKNOWN -> PENDING_RECONCILIATION + HELD + exactly one call + no new permit + reconcile-only redelivery | EXECUTED LOCAL | `test_bare_429_end_to_end_application_recovery_chain` |
+| Controlled Worker-timeout-after-receipt (gated, no sleep) -> PENDING_RECONCILIATION + HELD + no 2nd call | EXECUTED LOCAL | `test_timeout_after_receipt_is_not_proof_of_no_execution` |
 | Controllable Fake Provider gate opens a deterministic timeout window (no sleep); receipt recorded | EXECUTED LOCAL | `test_controllable_fake_provider_gate_opens_a_deterministic_timeout_window`, `test_timeout_after_receipt_is_not_proof_of_no_execution` |
 | Late-result completes only on full identity + schema match; terminal CANCELLED rejects a matching result | EXECUTED LOCAL | `test_late_result_completes_only_on_full_match`, `test_late_result_rejected_*`, `test_terminal_cancelled_job_rejects_matching_late_result` |
 | Limiter outage fails closed: DEFER, zero calls, execution_retry_count unchanged | EXECUTED LOCAL | `test_limiter_outage_fails_closed_defers_zero_calls_unchanged_execution_retry` |
@@ -163,11 +169,11 @@ This table and migration are NOT implemented; this section is design only and mu
 | Admission backpressure: 503 dominates 429 | EXECUTED LOCAL | `test_admission_backpressure_503_dominates_429` |
 | Guarded idempotent repair under concurrency: one Outbox intent per repair id; provider evidence -> RECONCILE_ONLY | EXECUTED LOCAL | `test_repair_is_idempotent_under_concurrency_one_outbox_intent`, `test_repair_with_provider_evidence_is_reconcile_only` |
 | Independent Provider call log survives "Worker loss" | EXECUTED LOCAL | `test_provider_call_log_is_independent_of_job_store` |
-| Honest evidence taxonomy (real infra NOT RUN; repair table design-only) | EXECUTED LOCAL | `test_validation_matrix_marks_real_infra_not_run` |
-| Real PostgreSQL committed rollback + guarded concurrent terminal transition | NOT RUN | needs a real disposable PostgreSQL |
-| Real Celery broker redelivery + Worker-kill (no 2nd call after dispatch marker) | NOT RUN | needs a real broker + Worker process + Fake Provider service |
-| Real Redis limiter/circuit outage + restored-capacity no-herd | NOT RUN | needs a real Redis coordination store |
-| Real Provider traffic / cost / rate limits | NOT RUN | no production Provider credentials authorized |
+| Honest evidence taxonomy: integration (PostgreSQL/Celery/Redis) vs production tiers, all NOT RUN; repair table design-only | EXECUTED LOCAL | `test_validation_matrix_separates_integration_from_production_and_marks_not_run` |
+| Real PostgreSQL committed rollback + guarded concurrent terminal transition | INTEGRATION RUNTIME — NOT RUN | needs a real disposable PostgreSQL |
+| Real Celery broker redelivery + Worker-kill (no 2nd call after dispatch marker) | INTEGRATION RUNTIME — NOT RUN | needs a real broker + Worker process + Fake Provider service |
+| Real Redis limiter/circuit outage + restored-capacity no-herd | INTEGRATION RUNTIME — NOT RUN | needs a real Redis coordination store |
+| Real Provider traffic / cost / rate limits | PRODUCTION — NOT RUN | no production Provider credentials authorized |
 
 ---
 

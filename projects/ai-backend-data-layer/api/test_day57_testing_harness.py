@@ -21,8 +21,9 @@ from day56_provider_resilience import (
 )
 from day57_testing_harness import (
     ControllableFakeProvider, DeterministicRandom, EvidenceTier, FakeClock, LateResult,
-    LateResultOutcome, ProviderAdapter, ProviderCallLog, ScriptedResponse, VALIDATION_MATRIX,
-    attempt_late_completion, not_run_claims,
+    LateResultOutcome, ProviderAdapter, ProviderCallLog, RunStatus, ScriptedResponse,
+    VALIDATION_MATRIX, attempt_late_completion, integration_not_run_claims, not_run_claims,
+    production_not_run_claims, record_unknown_execution_recovery,
 )
 
 VALID_PAYLOAD = {"summary": "ok", "citations": ["a"], "confidence": 0.9}
@@ -76,9 +77,11 @@ def test_adapter_classifies_execution_certainty_without_sdk_leakage():
     assert bare_429.execution_certainty is ExecutionCertainty.UNKNOWN
     assert not_accepted.execution_certainty is ExecutionCertainty.DEFINITELY_NOT_ACCEPTED
     assert with_id.execution_certainty is ExecutionCertainty.MAY_HAVE_EXECUTED
-    assert bare_429.failure_kind == "rate_limited"
-    # only safe metadata is exposed upward — no SDK exception classes / private fields
-    assert set(bare_429.safe_metadata.keys()) == {"http_status"}
+    assert bare_429.failure_kind == "rate_limited"        # app-owned label, not the raw numeric code
+    # NO raw HTTP status / SDK field is surfaced to the Job layer (F4): safe_metadata is empty
+    assert bare_429.safe_metadata == {}
+    assert not hasattr(bare_429, "http_status")
+    assert "http_status" not in bare_429.safe_metadata
 
 
 def test_adapter_does_not_touch_job_or_cost():
@@ -142,20 +145,66 @@ def test_controllable_fake_provider_gate_opens_a_deterministic_timeout_window():
 
 
 def test_timeout_after_receipt_is_not_proof_of_no_execution():
-    # The Fake Provider recorded receipt; a timeout at this point must reconcile with the reservation
-    # HELD, not release + retry. Modeled via the durable dispatch marker driving Day56.
+    # A REAL controlled timeout (no sleep, no hand-faked marker): the Provider RECEIVES the request
+    # but the response is gated shut, so the Worker times out while the call is genuinely in flight.
     clock = FakeClock()
     limiter, ledger, circuit = _ready()
-    log = ProviderCallLog()
-    provider = ControllableFakeProvider([ScriptedResponse(http_status=200, provider_request_id="req-1")],
-                                        call_log=log)
-    provider.call(provider_idempotency_key="pik-1")           # receipt recorded
-    assert log.count == 1
-    att = _attempt(marker=clock.now())                        # request left the process
-    job = _job(clock, ledger, attempt=att)
+    job = _job(clock, ledger, attempt=_attempt())            # no marker yet; not awaiting
+    provider = ControllableFakeProvider([ScriptedResponse(http_status=200, provider_request_id="req-1",
+                                                          payload=dict(VALID_PAYLOAD))],
+                                        auto_release=False)   # response gated -> Worker will time out
+    box = {}
+
+    def worker():
+        box["resp"] = provider.call(provider_idempotency_key="pik-1")
+
+    t = threading.Thread(target=worker)
+    t.start()
+    assert provider.request_received.wait(timeout=2) is True  # the Provider received the request
+    assert provider.calls == 1
+    assert t.is_alive() is True                               # response still gated -> genuine timeout window
+
+    # Worker times out waiting for the response: unknown execution -> recovery persists the marker,
+    # PENDING_RECONCILIATION, and HELD reservation, and makes NO second Provider call.
+    record_unknown_execution_recovery(job, ledger, now=clock.now())
+    assert job.status is JobStatus.PENDING_RECONCILIATION
+    assert job.cost_state is CostState.RECONCILIATION_PENDING  # HELD, never released on unknown execution
+    assert provider.calls == 1                                # no blind second Provider call
+
+    # a redelivery of this Job is reconcile-only and consumes no rate permit
     d = evaluate_dispatch(job, limiter=limiter, ledger=ledger, circuit=circuit, now=clock.now())
     assert d.action is ProviderAction.RECONCILE
-    assert job.cost_state is CostState.RESERVED               # HELD, never released on unknown execution
+    assert limiter.in_flight == 0
+
+    provider.release_response.set()                           # cleanup: let the gated call return + join
+    t.join(timeout=2)
+    assert box["resp"].provider_request_id == "req-1"
+
+
+def test_bare_429_end_to_end_application_recovery_chain():
+    # Full chain (F2): Fake Provider bare 429 -> Adapter UNKNOWN -> application recovery persists
+    # PENDING_RECONCILIATION + HELD reservation -> exactly ONE Provider call -> no ordinary retry gets
+    # a new rate permit -> redelivery is reconcile-only. EXECUTED_LOCAL_RUNTIME (in-memory) only.
+    clock = FakeClock()
+    limiter, ledger, circuit = _ready()
+    job = _job(clock, ledger, attempt=_attempt())            # RUNNING, reserved, no evidence yet
+    provider = ControllableFakeProvider([ScriptedResponse(http_status=429)])   # bare 429: no request id/accepted
+
+    resp = provider.call(provider_idempotency_key="pik-1")   # the one Provider call
+    assert provider.calls == 1
+    outcome = ProviderAdapter().to_outcome(resp)
+    assert outcome.execution_certainty is ExecutionCertainty.UNKNOWN   # bare 429 is not proof of no execution
+
+    record_unknown_execution_recovery(job, ledger, now=clock.now())
+    assert job.status is JobStatus.PENDING_RECONCILIATION
+    assert job.cost_state is CostState.RECONCILIATION_PENDING  # reservation HELD
+    assert provider.calls == 1                                 # still exactly one call
+
+    # redelivery: reconcile-only, and NO ordinary retry receives a new rate permit
+    d = evaluate_dispatch(job, limiter=limiter, ledger=ledger, circuit=circuit, now=clock.now())
+    assert d.action is ProviderAction.RECONCILE
+    assert limiter.in_flight == 0                             # no new rate permit granted
+    assert provider.calls == 1                                # dispatch never made a second call
 
 
 # --- 12. late-result strict identity + schema match ------------------------
@@ -297,12 +346,21 @@ def test_provider_call_log_is_independent_of_job_store():
 
 
 # --- 3/20. honest evidence taxonomy ---------------------------------------
-def test_validation_matrix_marks_real_infra_not_run():
-    claims = not_run_claims()
-    joined = " ".join(claims).lower()
-    assert "postgresql" in joined and "celery" in joined and "redis" in joined and "provider" in joined
-    # at least one executed-local row exists (the deterministic state machine)
-    assert any(r.tier is EvidenceTier.EXECUTED_LOCAL_RUNTIME for r in VALIDATION_MATRIX)
-    # the repair-history table is design-only (conceptual), never claimed as migrated
-    assert any(r.tier is EvidenceTier.CONCEPTUAL_STATIC and "job_repair_history" in r.claim
-               for r in VALIDATION_MATRIX)
+def test_validation_matrix_separates_integration_from_production_and_marks_not_run():
+    # Real PostgreSQL / Celery / Redis are INTEGRATION_RUNTIME and NOT RUN (NOT production).
+    integ = " ".join(integration_not_run_claims()).lower()
+    assert "postgresql" in integ and "celery" in integ and "redis" in integ
+    assert "provider" not in integ                           # real Provider traffic is NOT an integration claim
+    # Real Provider traffic / production validation is the PRODUCTION tier, NOT RUN.
+    prod = " ".join(production_not_run_claims()).lower()
+    assert "provider" in prod
+    # every EXECUTED_LOCAL_RUNTIME row is actually RUN
+    assert all(r.run_status is RunStatus.RUN
+               for r in VALIDATION_MATRIX if r.tier is EvidenceTier.EXECUTED_LOCAL_RUNTIME)
+    # every INTEGRATION_RUNTIME + PRODUCTION row is NOT RUN
+    assert all(r.run_status is RunStatus.NOT_RUN
+               for r in VALIDATION_MATRIX
+               if r.tier in (EvidenceTier.INTEGRATION_RUNTIME, EvidenceTier.PRODUCTION))
+    # the repair-history table is design-only (conceptual), never claimed as migrated/run
+    assert any(r.tier is EvidenceTier.CONCEPTUAL_STATIC and r.run_status is RunStatus.NOT_RUN
+               and "job_repair_history" in r.claim for r in VALIDATION_MATRIX)

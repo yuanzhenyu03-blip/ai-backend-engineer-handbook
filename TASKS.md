@@ -27,9 +27,6 @@ Not created yet — see CURRICULUM.md and ROADMAP.md.
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up (Day58);
 Day57 is finished and recorded as PROJECT_STATUS.md's "Last Completed Lesson".)
 
-(Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up (Day52);
-Day51 is finished and recorded as PROJECT_STATUS.md's "Last Completed Lesson".)
-
 ---
 
 ## Today's Tasks

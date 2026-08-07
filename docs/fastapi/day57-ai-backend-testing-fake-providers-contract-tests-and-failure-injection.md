@@ -12,13 +12,13 @@ Prerequisite: Day56 — Provider Resilience, Rate Limits, Token Cost and Backpre
 Previous Lesson: Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 Next Lesson: Day58 — Observability, Correlation Evidence and Phase 4 Capstone
 Engineering Artifact: projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md
-  + runnable day57_testing_harness.py + test_day57_testing_harness.py (deterministic in-memory verification; 21 passed)
+  + runnable day57_testing_harness.py + test_day57_testing_harness.py (deterministic in-memory verification; 22 passed)
 ```
 
 Main engineering artifact: a deterministic verification harness — a controllable Fake Provider (scripted outcomes,
 independent call log, `request_received` / `release_response` gates), a `FakeClock` + `DeterministicRandom`, an
 application-owned `ProviderAdapter`/`ProviderOutcome`, a strict late-result completion contract, and an explicit
-three-tier `VALIDATION_MATRIX` — that drives the REAL Day56 policy functions and Day53's real validator, plus the
+four-tier `VALIDATION_MATRIX` — that drives the REAL Day56 policy functions and Day53's real validator, plus the
 [design/runbook](../../projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md).
 
 ---
@@ -35,8 +35,9 @@ After this lesson you can:
   `provider_request_id` is not proof of no execution.
 - **Test** the Adapter's application-owned typed outcome, not vendor SDK exception classes or HTTP codes.
 - **Classify** valid JSON that violates the persisted schema contract as a contract violation, not business success.
-- **Separate** three evidence tiers — conceptual/static, executed local/integration runtime, and production — and mark
-  real PostgreSQL/Celery/Redis/Worker-kill/Provider work NOT RUN when it is.
+- **Separate** FOUR evidence tiers — conceptual/static, executed local runtime, integration runtime, and production —
+  keeping real PostgreSQL/Celery/Redis as INTEGRATION RUNTIME (currently NOT RUN, not "production") and real Provider
+  traffic as PRODUCTION (NOT RUN); an in-process double is EXECUTED LOCAL, never integration.
 - **Design** deterministic fault injection (FakeClock, controlled gates) instead of sleeps and random kills.
 - **Verify** deadline behavior with and without external-execution evidence, and idempotent guarded repair by a unique
   repair id.
@@ -85,7 +86,7 @@ Previous Knowledge
         v
 Current Lesson Concept
   deterministic Fake Provider + Adapter contracts + failure injection prove those rules hold under failure,
-  with an explicit three-tier evidence matrix (real infra is NOT RUN unless actually executed)
+  with an explicit four-tier evidence matrix (integration + production are NOT RUN unless actually executed)
         |
         v
 Future Production Usage
@@ -106,7 +107,7 @@ start from a production failure (bare 429)
   -> execution certainty; missing request id != no execution (dispatch marker)
   -> Adapter typed outcome (no SDK leakage)
   -> schema-contract violation != success
-  -> three evidence tiers: conceptual / executed-local / production (NOT RUN)
+  -> four evidence tiers: conceptual/static / executed-local / integration-runtime (NOT RUN) / production (NOT RUN)
   -> deterministic backoff (FakeClock + scripted random)
   -> deadline with/without evidence; limiter outage fail-closed
   -> late-result strict match; terminal-cancel rejects
@@ -121,9 +122,9 @@ start from a production failure (bare 429)
 ```text
 policy (Day56)  ->  repeatable evidence (Day57)
 
-Fake Provider test  = deterministic APPLICATION semantics (fast, small)
-integration test    = real component/lifecycle boundaries (PostgreSQL / broker / Worker / Redis)
-production          = NOT RUN here
+Fake Provider test  = deterministic APPLICATION semantics (EXECUTED LOCAL RUNTIME; fast, small)
+integration test    = real component/lifecycle boundaries (PostgreSQL / broker / Worker / Redis) = INTEGRATION RUNTIME (NOT RUN)
+production          = real Provider traffic / production validation = PRODUCTION (NOT RUN)
 
 business completion  != external execution
 missing request id   != no execution   (dispatch marker covers the crash window)
@@ -192,16 +193,18 @@ private fields, and it never writes Job state or cost. Bind assertions to that s
 governs new calls only. A valid-JSON-but-schema-violating result is a `CONTRACT_VIOLATION` (Day53's real validator) — no
 Result Artifact, not succeeded, no blind second call.
 
-### Concept 6: Three evidence tiers and honest runtime evidence
+### Concept 6: Four evidence tiers and honest runtime evidence
 
 **Tech Lead Question:** Your Day57 suite is green. Is the recovery path validated?
 
 **Student Thinking / Answer:** Correctly identified that Day57's unexecuted matrix is conceptual/static validation and
 that real Provider/production validation cannot be claimed; also that `pytest passed` alone is not enough.
 
-**Tech Lead Review:** Right. Separate conceptual/static, executed local/integration runtime, and production everywhere.
-Real Worker-kill/redelivery needs real PostgreSQL + a supported broker + Worker process + an independent Fake Provider
-service whose call log survives Worker loss. Audit-grade evidence preserves the exact command/revision, the fault point,
+**Tech Lead Review:** Right, and be precise with FOUR tiers: conceptual/static; executed local runtime (in-process
+deterministic doubles); integration runtime (real PostgreSQL, a real Celery broker + Worker-kill/redelivery, a real
+Redis limiter/circuit — currently NOT RUN, and NOT the same as "production"); and production (real Provider traffic /
+production validation, NOT RUN). Real Worker-kill/redelivery needs real PostgreSQL + a supported broker + Worker process
++ an independent Fake Provider service whose call log survives Worker loss. Audit-grade evidence preserves the exact command/revision, the fault point,
 committed-DB queries via a new connection, the cross-process call log, and broker/Worker lifecycle — not just a pass.
 
 ### Concept 7: Deterministic injection + idempotent repair drill
@@ -425,7 +428,7 @@ pytest passed             != audit-grade runtime evidence
 
 - **Most important mental model:** a policy is only real when a repeatable test asserts the fact AND the side effects.
 - **Most important production risk:** a fast fake claiming what only real PostgreSQL/broker/Worker/Redis can prove —
-  keep the three evidence tiers honest.
+  keep the four evidence tiers honest.
 - **Most important trade-off:** controlled gates + FakeClock over sleeps/random kills for deterministic fault injection.
 - **Most important framework connection:** real PostgreSQL is required to prove committed rollback and guarded terminal
   transitions; an ORM mock cannot.
@@ -443,7 +446,7 @@ pytest passed             != audit-grade runtime evidence
 - [ ] Can I explain why a missing request id is not proof of no execution (dispatch marker)?
 - [ ] Can I test the Adapter's typed outcome instead of SDK exceptions?
 - [ ] Can I classify valid JSON that violates the bound schema as a contract violation?
-- [ ] Can I separate conceptual/static, executed local/integration, and production evidence tiers?
+- [ ] Can I separate the four evidence tiers (conceptual/static, executed local, integration runtime, production)?
 - [ ] Can I inject a deterministic timeout window without sleeps?
 - [ ] Can I run the bad-release drill: rollback, bounded set, guarded idempotent repair, one Outbox intent?
 - [ ] Can I answer an interview question about it in English?

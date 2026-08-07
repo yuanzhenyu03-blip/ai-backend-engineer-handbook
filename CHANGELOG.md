@@ -9,6 +9,49 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.128 — Day57 fix (Codex): evidence tiers, bare-429 e2e test, real timeout test, ProviderOutcome contract, stale TASKS note
+
+Date: 2026-08-06
+
+Day: Day57 (review fixes)
+
+Five review findings on the Day57 verification harness/docs. No teaching-spec files were touched.
+
+### Fixed
+
+- **F1 — evidence tiers conflated integration with production.** Added `EvidenceTier.INTEGRATION_RUNTIME` and an
+  explicit `RunStatus` (RUN / NOT_RUN) to `MatrixRow`. Real PostgreSQL, a real Celery broker + Worker-kill/redelivery,
+  and a real Redis limiter/circuit are now `INTEGRATION_RUNTIME` (NOT RUN) — no longer mislabeled `PRODUCTION`. Real
+  Provider traffic / production validation remain `PRODUCTION` (NOT RUN). Added `integration_not_run_claims()` and
+  `production_not_run_claims()`. Reworded every "three evidence tiers" / "executed local/integration" phrase across the
+  lesson, design/runbook, README, CURRICULUM, PROJECT_STATUS, cheat sheet, and interview to FOUR distinct tiers; an
+  in-process double is EXECUTED_LOCAL_RUNTIME, never integration.
+- **F2 — no end-to-end bare-429 semantics test.** Added `record_unknown_execution_recovery` (a minimal application
+  recovery helper) and `test_bare_429_end_to_end_application_recovery_chain`, asserting the full chain: Fake Provider
+  bare 429 -> Adapter UNKNOWN -> job persists PENDING_RECONCILIATION -> reservation HELD -> Provider call count exactly
+  one -> no ordinary retry receives a new rate permit -> redelivery is reconcile-only. Labeled EXECUTED_LOCAL_RUNTIME.
+- **F3 — timeout test did not time out.** Rewrote `test_timeout_after_receipt_is_not_proof_of_no_execution` to use
+  `ControllableFakeProvider(auto_release=False)` with the `request_received`/`release_response` gate (no sleep, no
+  hand-faked marker): the Provider genuinely receives the request while the response is gated shut, the Worker times
+  out, and the recovery asserts PENDING_RECONCILIATION + reservation HELD + no blind second Provider call.
+- **F4 — ProviderOutcome leaked the raw HTTP status.** Removed `http_status` from `ProviderOutcome.safe_metadata`
+  (now `{}`); only application-semantic fields are surfaced (`failure_kind` is an app-owned label, not the raw code). The
+  raw status is consumed inside the Adapter. Updated the test to assert no raw HTTP status is surfaced. The Adapter still
+  never writes Job state or cost. Docs no longer contradict the "no raw HTTP codes" claim.
+- **F5 — stale TASKS.md note.** Removed the contradictory leftover ("Current Lesson = Day52 / Day51 Last Completed"),
+  leaving the single consistent Day58-current / Day57-last-completed description.
+
+### Validation
+
+- Executed: `python3 -m py_compile day57_testing_harness.py test_day57_testing_harness.py`;
+  `python3 -m pytest -q test_day57_testing_harness.py` -> **22 passed** (was 21; the new/updated tests ran green across
+  repeated runs); full `projects/ai-backend-data-layer/api/` suite -> **464 passed** (Python 3.10.12, pydantic 2.5.0,
+  pytest 7.4.3). EXECUTED LOCAL RUNTIME only. NOT RUN (INTEGRATION RUNTIME): real PostgreSQL, real Celery
+  broker/Worker-kill/redelivery, real Redis limiter/circuit. NOT RUN (PRODUCTION): real Provider traffic. A real
+  job_repair_history table/migration is forward-additive design only. Day58 owns observability + the Phase 4 capstone.
+
+---
+
 ## v0.1.127 — Day57: AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 
 Date: 2026-08-06

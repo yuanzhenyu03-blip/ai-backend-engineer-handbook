@@ -61,6 +61,7 @@ from day53_openai_provider_structured_output import (
 )
 from day56_provider_resilience import (
     ExecutionCertainty,
+    JobStatus,
     classify_execution_certainty,
 )
 
@@ -182,14 +183,18 @@ class ControllableFakeProvider:
 # ===========================================================================
 @dataclass(frozen=True)
 class ProviderOutcome:
-    """The stable, application-owned outcome the Adapter delivers to the Job layer. It carries a
-    failure kind, an execution-certainty classification, an optional request id, safe retry info, and
-    safe metadata only — never SDK exception classes, HTTP codes, or private SDK fields."""
+    """The stable, application-owned outcome the Adapter delivers to the Job layer. It carries ONLY
+    application-semantic fields — an application-owned failure kind, an execution-certainty
+    classification, an optional request id, and safe retry info — never SDK exception classes, raw
+    HTTP status codes, or private SDK fields. `failure_kind` is a small application-owned label
+    (e.g. "rate_limited"), not the raw numeric status. `safe_metadata` is reserved for future safe,
+    application-owned diagnostics and is empty by default; the raw HTTP status is consumed INSIDE the
+    Adapter and is deliberately NOT surfaced here."""
     failure_kind: str                          # e.g. "ok" / "rate_limited" / "timeout" / "server_error"
     execution_certainty: ExecutionCertainty
     provider_request_id: Optional[str] = None
     retry_after_seconds: Optional[float] = None
-    safe_metadata: dict = field(default_factory=dict)
+    safe_metadata: dict = field(default_factory=dict)   # app-owned safe fields only; NO raw HTTP status
 
 
 class ProviderAdapter:
@@ -204,11 +209,11 @@ class ProviderAdapter:
             http_status=resp.http_status, provider_request_id=resp.provider_request_id,
             accepted_header=resp.accepted)
         return ProviderOutcome(
-            failure_kind=self._KIND.get(resp.http_status, "server_error"),
+            failure_kind=self._KIND.get(resp.http_status, "server_error"),   # app-owned label, not the raw code
             execution_certainty=certainty,
             provider_request_id=resp.provider_request_id,
             retry_after_seconds=retry_after_seconds,
-            safe_metadata={"http_status": resp.http_status})   # a safe, non-sensitive field only
+            safe_metadata={})   # the raw HTTP status is consumed inside the Adapter, never surfaced
 
 
 # ===========================================================================
@@ -267,39 +272,83 @@ def attempt_late_completion(
 # 6. Evidence taxonomy / validation matrix (honest three tiers)
 # ===========================================================================
 class EvidenceTier(str, Enum):
-    CONCEPTUAL_STATIC = "conceptual_static"
-    EXECUTED_LOCAL_RUNTIME = "executed_local_runtime"
-    PRODUCTION = "production"
+    CONCEPTUAL_STATIC = "conceptual_static"          # design/decision paths only
+    EXECUTED_LOCAL_RUNTIME = "executed_local_runtime"  # in-process deterministic doubles
+    INTEGRATION_RUNTIME = "integration_runtime"      # real PostgreSQL / broker+Worker / Redis (disposable)
+    PRODUCTION = "production"                         # real Provider traffic / production validation
+
+
+class RunStatus(str, Enum):
+    RUN = "run"
+    NOT_RUN = "not_run"
 
 
 @dataclass(frozen=True)
 class MatrixRow:
     claim: str
     tier: EvidenceTier
+    run_status: RunStatus
     note: str
 
 
+# INTEGRATION_RUNTIME (real PostgreSQL / Celery broker+Worker / Redis) is DISTINCT from PRODUCTION
+# (real Provider traffic + production validation). Real infra integration here is NOT RUN; it is NOT
+# production. In-memory deterministic tests are EXECUTED_LOCAL_RUNTIME, NEVER integration.
 VALIDATION_MATRIX: tuple[MatrixRow, ...] = (
     MatrixRow("Deterministic application state machine (dispatch outcomes, certainty, late-result contract)",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, "pytest over in-memory doubles + Day53 real validator"),
-    MatrixRow("Adapter delivers application-owned typed outcomes (no SDK leakage)",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, "ProviderAdapter.to_outcome tests"),
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "pytest over in-memory doubles + Day53 real validator"),
+    MatrixRow("End-to-end bare-429 -> Adapter UNKNOWN -> PENDING_RECONCILIATION + HELD + one call + reconcile-only",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "deterministic Fake Provider + Adapter + Day56"),
+    MatrixRow("Controlled Worker-timeout-after-receipt -> PENDING_RECONCILIATION + HELD + no 2nd call",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "auto_release=False gate, no sleep"),
+    MatrixRow("Adapter delivers application-owned typed outcomes (no raw HTTP status / SDK leakage)",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "ProviderAdapter.to_outcome tests"),
     MatrixRow("Deterministic backoff/jitter with Retry-After floor",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, "FakeClock + DeterministicRandom"),
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "FakeClock + DeterministicRandom"),
     MatrixRow("Repair idempotency (repair_id) + single Outbox intent",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, "drives Day56 repair_redispatch"),
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "drives Day56 repair_redispatch"),
     MatrixRow("Real PostgreSQL committed rollback + guarded concurrent terminal transition",
-              EvidenceTier.PRODUCTION, "NOT RUN — needs a real disposable PostgreSQL"),
+              EvidenceTier.INTEGRATION_RUNTIME, RunStatus.NOT_RUN, "needs a real disposable PostgreSQL"),
     MatrixRow("Real Celery broker redelivery + Worker-kill recovery (no 2nd call after dispatch marker)",
-              EvidenceTier.PRODUCTION, "NOT RUN — needs a real broker + Worker process + Fake Provider service"),
+              EvidenceTier.INTEGRATION_RUNTIME, RunStatus.NOT_RUN, "needs a real broker + Worker process + Fake Provider service"),
     MatrixRow("Real Redis limiter/circuit outage + restored-capacity no-herd",
-              EvidenceTier.PRODUCTION, "NOT RUN — needs a real Redis coordination store"),
+              EvidenceTier.INTEGRATION_RUNTIME, RunStatus.NOT_RUN, "needs a real Redis coordination store"),
     MatrixRow("Real Provider traffic / cost / rate limits",
-              EvidenceTier.PRODUCTION, "NOT RUN — no production Provider credentials authorized"),
+              EvidenceTier.PRODUCTION, RunStatus.NOT_RUN, "no production Provider credentials authorized"),
     MatrixRow("job_repair_history table + migration (forward-additive design)",
-              EvidenceTier.CONCEPTUAL_STATIC, "designed only; not migrated or tested"),
+              EvidenceTier.CONCEPTUAL_STATIC, RunStatus.NOT_RUN, "designed only; not migrated or tested"),
 )
 
 
 def not_run_claims() -> list[str]:
-    return [r.claim for r in VALIDATION_MATRIX if r.tier is EvidenceTier.PRODUCTION]
+    """All claims not yet executed (integration + production + design-only)."""
+    return [r.claim for r in VALIDATION_MATRIX if r.run_status is RunStatus.NOT_RUN]
+
+
+def integration_not_run_claims() -> list[str]:
+    """Real-infrastructure integration claims that are NOT RUN (distinct from production)."""
+    return [r.claim for r in VALIDATION_MATRIX
+            if r.tier is EvidenceTier.INTEGRATION_RUNTIME and r.run_status is RunStatus.NOT_RUN]
+
+
+def production_not_run_claims() -> list[str]:
+    """Production claims that are NOT RUN (real Provider traffic / production validation)."""
+    return [r.claim for r in VALIDATION_MATRIX
+            if r.tier is EvidenceTier.PRODUCTION and r.run_status is RunStatus.NOT_RUN]
+
+
+# ---------------------------------------------------------------------------
+# Application recovery helper (EXECUTED_LOCAL_RUNTIME model, not a DB transaction)
+# ---------------------------------------------------------------------------
+def record_unknown_execution_recovery(job, ledger, *, now) -> None:
+    """The application recovery path for an outcome that MIGHT have executed at the Provider: a bare
+    429 the Adapter classified UNKNOWN, a MAY_HAVE_EXECUTED signal, or a Worker timeout AFTER the
+    Provider received the request. It persists the conservative Day55 dispatch marker (the request
+    left the process), moves the Job to PENDING_RECONCILIATION, and HOLDS the reservation. It makes
+    NO Provider call and issues NO retry — a later redelivery is reconcile-only (Day56
+    `evaluate_dispatch` returns RECONCILE on the marker/evidence). This is an EXECUTED_LOCAL_RUNTIME
+    in-memory model of a step a real deployment performs in ONE PostgreSQL transaction (NOT RUN)."""
+    if job.attempt is not None and job.attempt.provider_dispatch_started_at is None:
+        job.attempt.provider_dispatch_started_at = now
+    job.status = JobStatus.PENDING_RECONCILIATION
+    ledger.hold_for_reconciliation(job)
