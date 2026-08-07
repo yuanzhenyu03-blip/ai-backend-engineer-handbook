@@ -1,0 +1,6 @@
+# Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection.
+# The verification harness + tests are standard-library control flow driving the Day56 policy
+# functions and Day53's REAL pydantic validator (imported). No Celery/Redis/PostgreSQL/Provider is
+# invoked; an in-process double does not prove Worker-loss or broker redelivery (see VALIDATION_MATRIX).
+pydantic==2.5.0
+pytest==7.4.3

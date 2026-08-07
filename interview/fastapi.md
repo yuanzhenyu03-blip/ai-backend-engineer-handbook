@@ -1305,3 +1305,39 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day56), the
 [Day56 design/runbook](../projects/ai-backend-data-layer/api/day56-provider-resilience-rate-limits-token-cost-and-backpressure-design.md),
 the [model](../projects/ai-backend-data-layer/api/day56_provider_resilience.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day56_provider_resilience.py).
+
+## Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
+
+Key vocabulary: fake / deterministic provider, contract test, integration test, failure injection, recovery verification, execution certainty, dispatch marker, reconciliation, held reservation, FakeClock, controlled gate, evidence tier, runtime evidence, idempotent repair, at-least-once delivery.
+
+Useful expressions: "A durable status is not enough — assert the call count and that no retry got a new permit." · "A missing request id is not proof of no execution." · "A fast fake proves application semantics; real infrastructure proves the boundaries."
+
+### Q1 (Beginner) — What is a Fake Provider and why not use the real one in tests?
+
+Strong answer: "A Fake Provider is a deterministic test double with scripted outcomes and controllable timing, so tests are fast and reproducible. The real Provider is nondeterministic, costs money, and rate-limits you; I use it only in narrow, authorized integration checks. A fake proves my application behavior; it does not prove the real infrastructure boundary." (Student refined Fake-vs-integration into "deterministic application semantics vs real infrastructure boundaries.")
+
+### Q2 (Intermediate) — A Provider call times out. Durable outcome and required assertions?
+
+Strong answer: "pending-reconciliation, hold the cost reservation, and the Worker can't retry the Provider call. The test must assert the durable status AND that the Provider call count stayed one and no retry received a new rate permit — a timeout after the Provider received the request is not proof of no execution, so unknown execution reconciles rather than retries." (Student's own: "pending-reconciliation, held the cost reservation, Worker can't retry the Provider call"; the student first said release the reservation after timeout and was corrected to HELD + reconcile.)
+
+### Q3 (Intermediate) — Why is a missing provider_request_id not proof of no execution?
+
+Strong answer: "A Worker can crash after the request leaves the process and before it persists the id. Day55's conservative provider_dispatch_started_at marker covers that window and forces reconcile-only. A provider idempotency key reduces risk but is not durable proof of whether the call happened and is not permission to retry unknown work." (Student proposed an idempotency key; corrected to the dispatch marker.)
+
+### Q4 (Senior) — Design the Provider contract test and the evidence tiers.
+
+Strong answer: "Assert the Adapter's application-owned typed outcome — failure kind, execution certainty, optional request id, safe retry info, safe metadata — not vendor SDK exception classes, HTTP codes, or private fields, and the Adapter must not write Job state or cost. A valid-JSON result that violates the persisted schema is a contract violation, not success. And I separate three evidence tiers: conceptual/static design; executed local or integration runtime; and production. A green in-memory fake test is application evidence only — real PostgreSQL rollback, real broker redelivery, real Worker-kill, and a real Redis limiter are a separate integration tier I mark NOT RUN until it runs. pytest passed is not audit evidence: I preserve the command/revision, the fault point, committed-DB queries via a new connection, the cross-process call log, and broker/Worker lifecycle."
+
+### Q5 (Senior) — Recover a release that classified every bare 429 as definitely-not-accepted.
+
+Strong answer: "Roll the mapping back first to contain future harm — that is not a business-fact rollback. Then build a bounded affected set from the release version, a bounded time window, the incident reason, and Attempt/defer/Event evidence; don't bulk-flip EXPIRED to QUEUED. Any Job with a provider_request_id or a dispatch marker is reconcile-only. Only Jobs with positive proof of no execution and a valid contract, deadline, and budget, with no cancellation intent, may be repaired — a guarded, audited, idempotent repair keyed by a unique repair_id that writes one new Outbox intent. Transport is at-least-once, but guarded execution stops duplicate delivery from becoming duplicate Provider work. Missing evidence alone is not permission to retry." (Student began correctly with rollback + release/time-window affected set + evidence classification + PENDING_RECONCILIATION + HELD reservation; corrected that missing evidence is not permission to retry.)
+
+Production scenario / trade-off prompt: "How do you test a timeout or Worker-kill without flakiness?" — "Controlled gates, not sleeps or random kills: a FakeClock for time and a threading/asyncio Event to open the timeout window deterministically. For a real Worker-kill test I need real PostgreSQL, a supported broker and Worker process, and an independent Fake Provider service whose call log survives the kill, so I can prove redelivery and no second external call after the dispatch marker was persisted."
+
+Validation: deterministic in-memory verification harness driving Day56 functions + Day53's real pydantic validator (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 21 passed; full api suite 463). Proves executed local-runtime application state-machine / Adapter-contract / failure-injection control flow only. NOT real PostgreSQL transaction/rollback/isolation, NOT real Celery broker redelivery, NOT real Worker-kill, NOT a real Redis limiter/circuit, NOT real Provider traffic — all NOT RUN. Day58 observability is not implemented. No secrets, raw prompts, or raw Provider payloads are used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day57), the
+[Day57 lesson](../docs/fastapi/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection.md), the
+[Day57 design/runbook](../projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md),
+the [harness](../projects/ai-backend-data-layer/api/day57_testing_harness.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day57_testing_harness.py).

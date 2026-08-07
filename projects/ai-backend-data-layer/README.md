@@ -4,7 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure** that adds the admission-to-Provider control plane on top of Day55: even a Job holding the guarded claim still needs fleet capacity, an intact worst-case cost reservation, and a healthy Provider circuit before a paid call. A provider-neutral in-memory model (`day56_provider_resilience.py`; standard-library control flow, imports Day54's `IntentKind`) makes FOUR authorities distinct (guarded claim = execution authority for ONE Job; rate permit = fleet capacity now; reservation = tenant affordability; circuit = Provider-health containment) and FIVE dispatch outcomes executable via `evaluate_dispatch` (CALL | DEFER | RECONCILE | TERMINAL | NOOP). It covers: bounded exponential backoff + FULL jitter with Retry-After as an earliest floor (a retry storm is NOT a cache avalanche); a shared rate limiter that caps fleet concurrency and fails CLOSED on outage (emergency fail-open only as explicit policy); a durable no-permit DEFER (next_attempt_at/reason/defer_count/deadline, no Worker sleep, zero execution-retry spend, bounded by the business deadline); a tenant cost ledger that reserves the BOUNDED WORST-CASE at acceptance and settles actual use + releases unused money back to the ledger (not the limiter); admission backpressure BEFORE the durable Job + Outbox commit (tenant 429 vs system 503; never retro-429/503); no silent contract mutation (degradation only if the persisted contract authorizes it, down to a floor); execution-certainty classification (a 429 alone is not proof — unknown / may-have-executed -> RECONCILE, only definitely-not-accepted may defer/retry); a circuit breaker with OPEN defer and HALF_OPEN progressive probes (one success does not release the herd); deadline expiry that releases the reservation only with proof of no execution (else reconcile + hold); and the zero-defer incident recovery (config rollback for future harm only, a bounded evidence-based affected set, per-Job guarded repair via a NEW Outbox dispatch intent, Provider-evidence Jobs RECONCILE_ONLY). **The tests were executed** (Python 3.10.12, pytest 7.4.3 -> 54 passed; full api suite 442) proving APPLICATION CONTROL FLOW only: **a real Celery broker/Worker, a real Redis distributed limiter/circuit, real PostgreSQL, real Provider traffic/rate limits/costs, load, and Worker-kill fault injection are NOT RUN**; Day57 integration/failure-injection and Day58 observability are not implemented. Schema honesty: the `deferred` status, a durable defer record, execution_retry_count vs defer_count, and a tenant cost-reservation ledger are modeled in-memory; a real deployment adds them via a Day48-safe forward additive migration; the limiter/circuit state is transient coordination, not durable tenant truth. Day55 guarded claim/Outbox/P1 marker and Day54 durable intents are reused. No real credentials, raw prompts, Document content, raw Provider payloads, or secrets are persisted or logged.
+Current increment: **Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection** that turns the Day43–Day56 reliability POLICIES into REPEATABLE EVIDENCE. A deterministic verification harness (`day57_testing_harness.py`; standard-library control flow driving the REAL Day56 functions + Day53's real pydantic validator) provides a controllable Fake Provider (scripted outcomes, an independent call log that survives "Worker loss", `request_received`/`release_response` gates via `threading.Event`, execution-certainty evidence), a `FakeClock` + `DeterministicRandom` for reproducible backoff/jitter, an application-owned `ProviderAdapter`/`ProviderOutcome` (no SDK leakage; never writes Job state or cost), a strict `attempt_late_completion` contract, and an explicit three-tier `VALIDATION_MATRIX`. The scenarios prove: a bare-429 -> `PENDING_RECONCILIATION` with the call count still one and no new rate permit; a missing `provider_request_id` is not proof of no execution (Day55 dispatch marker forces RECONCILE); the Adapter delivers a typed outcome + execution certainty (DEFINITELY_NOT_ACCEPTED / MAY_HAVE_EXECUTED / UNKNOWN); a valid-JSON schema violation is a contract violation, not success; deterministic backoff with Retry-After as an earliest floor (no wake-all); a controlled timeout window without sleeps; late-result completion only on full identity + schema match (terminal CANCELLED rejects a matching result); limiter outage fails closed (DEFER, zero calls, execution-retry unchanged); deadline with/without evidence (EXPIRED+release vs PENDING_RECONCILIATION+held); admission 503 dominates 429; and a guarded, idempotent repair under concurrency (a unique `repair_id` -> exactly one Outbox intent; provider-evidence -> RECONCILE_ONLY). **The tests were executed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 21 passed; full api suite 463) proving EXECUTED LOCAL RUNTIME application state-machine / Adapter-contract / failure-injection control flow ONLY: **real PostgreSQL transaction/rollback/isolation, a real Celery broker + Worker-kill/redelivery, a real Redis limiter/circuit, and real Provider traffic are NOT RUN** (encoded in `VALIDATION_MATRIX`/`not_run_claims()`); a real `job_repair_history` table/migration is forward-additive DESIGN only. Day58 owns observability + the Phase 4 capstone. No secrets, raw prompts, or raw Provider payloads are used.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -222,6 +222,39 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 > Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
 > new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
 > No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+---
+
+## Day57 increment — AI backend testing, fake providers, contract tests and failure injection
+
+`api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md` (with a runnable
+`day57_testing_harness.py` and `test_day57_testing_harness.py`) turns the Day43–Day56 policies into repeatable evidence.
+The tests are **executed**, deterministic control flow driving Day56 + Day53's real validator: **Python 3.10.12,
+pydantic 2.5.0, pytest 7.4.3 -> `21 passed`**.
+
+### What the harness contains
+
+| Concern | Contents |
+| --- | --- |
+| Determinism | `FakeClock` + `DeterministicRandom` (reproducible backoff/jitter; Retry-After is an earliest floor, no wake-all). |
+| Fake Provider | `ControllableFakeProvider` (scripted `ScriptedResponse`, `calls` count, `request_received`/`release_response` gates, execution evidence) + an independent `ProviderCallLog` that survives "Worker loss". |
+| Adapter contract | `ProviderAdapter.to_outcome` -> application-owned `ProviderOutcome` (failure kind, execution certainty, request id, safe retry/metadata); no SDK leakage; never writes Job/cost. |
+| Late result | `attempt_late_completion` -> COMPLETED only on non-terminal + awaiting + strict schema + all four ids match; terminal CANCELLED -> `REFUSED_TERMINAL`. |
+| Evidence taxonomy | `EvidenceTier` + `VALIDATION_MATRIX` + `not_run_claims()` — conceptual/static vs executed-local vs production (real infra NOT RUN). |
+| Drives Day56 | dispatch-evidence RECONCILE, limiter-outage fail-closed DEFER, `process_deadline` with/without evidence, `admit_job` 503>429, guarded idempotent `repair_redispatch`. |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pip install -r requirements-day57.txt   # pydantic==2.5.0, pytest==7.4.3 (drives Day56 + Day53 validator)
+python3 -m pytest -q test_day57_testing_harness.py   # 21 passed
+```
+
+Not run (and not claimed): real PostgreSQL transaction/rollback/isolation, a real Celery broker + Worker
+process/redelivery, real Worker-kill fault injection, a real Redis limiter/circuit, and real Provider traffic/cost. A
+real `job_repair_history` table + migration is a forward-additive design, not implemented. Day58 owns structured
+observability + the Phase 4 capstone; neither is implemented here.
 
 ---
 

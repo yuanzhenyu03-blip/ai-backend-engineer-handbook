@@ -9,6 +9,61 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.127 — Day57: AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
+
+Date: 2026-08-06
+
+Day: Day57
+
+Lesson: AI Backend Testing, Fake Providers, Contract Tests and Failure Injection (Phase 4)
+
+Turn the Day43–Day56 AI Job reliability policies into repeatable evidence: a deterministic controllable Fake Provider,
+application-owned Adapter contracts, strict structured-output contract checks, deterministic backoff/jitter, and
+failure-injection scenarios — driving the REAL Day56 functions and Day53's real validator, with an explicit three-tier
+evidence matrix.
+
+### Added
+
+- `docs/fastapi/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection.md` — LESSON_TEMPLATE_v2
+  lesson (exact 16-section order; verbatim CN/EN student answers + corrections; assistant-assisted final Chinese mental
+  model labeled as such).
+- `projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md`
+  — design/runbook with the scenario catalog + a three-tier validation matrix (conceptual/static, executed local,
+  production NOT RUN).
+- `projects/ai-backend-data-layer/api/day57_testing_harness.py` — runnable deterministic verification harness
+  (FakeClock, DeterministicRandom, ControllableFakeProvider + ProviderCallLog, ProviderAdapter/ProviderOutcome,
+  attempt_late_completion, VALIDATION_MATRIX/not_run_claims()); standard-library control flow driving Day56 + Day53's
+  real validator.
+- `projects/ai-backend-data-layer/api/test_day57_testing_harness.py` — 21 tests.
+- `projects/ai-backend-data-layer/api/requirements-day57.txt` — pydantic==2.5.0, pytest==7.4.3.
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `projects/ai-backend-data-layer/README.md` — Day57 appends/increment.
+- `CURRICULUM.md` (Day57 -> Completed), `ROADMAP.md` (Day57 -> Completed), `PROJECT_STATUS.md` (Day57 Last Completed
+  Lesson; Day56 archived; Day58 current), `TASKS.md` (Day57 done; Day58 current).
+
+### Main learning outcome
+
+A reliability policy is only real when a repeatable test asserts the durable fact AND the side effects (call count, no
+new rate permit, reservation held). A fast Fake Provider proves deterministic application semantics; real
+PostgreSQL/broker/Worker/Redis integration proves infrastructure boundaries — keep the three evidence tiers honest and
+mark real infra NOT RUN when it is. A missing provider_request_id is not proof of no execution (the Day55 dispatch
+marker covers the crash window); a valid-JSON schema violation is a contract violation, not success; and a bad-release
+recovery is a guarded, idempotent, evidence-based repair keyed by a unique repair_id, never a blind retry.
+
+### Validation
+
+- Executed: `python3 -m py_compile day57_testing_harness.py test_day57_testing_harness.py`;
+  `python3 -m pytest -q test_day57_testing_harness.py` -> **21 passed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3).
+  Full `projects/ai-backend-data-layer/api/` suite -> **463 passed**. Markdown fences balanced; relative links resolve;
+  no secrets. EXECUTED LOCAL RUNTIME (deterministic application state machine + Adapter contract + failure-injection
+  control flow over in-memory doubles) only — real PostgreSQL transaction/rollback/isolation, a real Celery broker +
+  Worker-kill/redelivery, a real Redis limiter/circuit, and real Provider traffic are NOT RUN. A real job_repair_history
+  table/migration is forward-additive design only. Day58 observability + the Phase 4 capstone are not implemented.
+
+---
+
 ## v0.1.126 — Day56 fix (Codex): late HALF_OPEN probe success must not overwrite a probe failure
 
 Date: 2026-08-06

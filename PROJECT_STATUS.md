@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (In Progress; Day56 completed)
+Phase 4 — Production AI API Engineering (In Progress; Day57 completed)
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection (Phase 4)
+Day58 — Production AI API Capstone, Observability and English Interview (Phase 4)
 
 Status:
 Planned / Not started
 
-(Day56 is complete and recorded under "Last Completed Lesson" below; Day57 is the current focus.
+(Day57 is complete and recorded under "Last Completed Lesson" below; Day58 is the current focus.
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -80,6 +80,7 @@ Planned / Not started
 - ✅ Day54 — AI Streaming, Client Disconnects, Timeouts and Cancellation
 - ✅ Day55 — Celery, Worker Execution and Long-running AI Jobs
 - ✅ Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
+- ✅ Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 
 ---
 
@@ -90,6 +91,32 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
+
+Completed Time:
+2026-08-06
+
+Main Artifact:
+Day57 verification harness (projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md) with a runnable deterministic harness (day57_testing_harness.py; standard-library control flow driving the REAL Day56 policy functions + Day53's real pydantic validator) + test_day57_testing_harness.py: turns the Day43–Day56 reliability policies into REPEATABLE EVIDENCE and injects failures, keeping THREE evidence tiers explicit (conceptual/static; executed local/integration runtime; production) and marking real infrastructure NOT RUN. Harness: a controllable Fake Provider (ControllableFakeProvider — scripted outcomes, cross-call count, an independent ProviderCallLog that survives "Worker loss", request_received/release_response gates via threading.Event so timeout/kill windows are controlled not timed), a FakeClock + DeterministicRandom for reproducible backoff/jitter, an application-owned ProviderAdapter/ProviderOutcome (no SDK leakage; never writes Job/cost), a strict attempt_late_completion late-result contract, and an explicit VALIDATION_MATRIX/not_run_claims() taxonomy. Executed scenarios: bare-429 -> PENDING_RECONCILIATION with call count still ONE + no new rate permit + reservation HELD + reconcile-only redelivery; missing provider_request_id != no execution (Day55 dispatch marker forces RECONCILE); Adapter typed outcome + execution certainty (DEFINITELY_NOT_ACCEPTED may retry, MAY_HAVE_EXECUTED/UNKNOWN reconcile); valid-JSON schema violation = CONTRACT_VIOLATION not success; deterministic backoff with Retry-After as an earliest floor (no wake-all); controlled timeout window with no sleeps; late-result completes only on full identity + strict schema match, terminal CANCELLED rejects a matching result; limiter outage fails closed (DEFER, zero calls, execution_retry unchanged); deadline no-evidence EXPIRED+release vs marker/request PENDING_RECONCILIATION+held; admission 503 dominates 429; guarded idempotent repair under concurrency (unique repair_id -> one Outbox intent, provider-evidence -> RECONCILE_ONLY).
+
+Validation Boundary:
+Day57 has EXECUTED LOCAL RUNTIME evidence only. Executed: python3 -m pytest -q test_day57_testing_harness.py -> 21 passed (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3; standard-library control flow driving Day56 functions + Day53's real validator); full projects/ai-backend-data-layer/api/ suite -> 463 passed. This proves the deterministic application state machine, Adapter contract, and failure-injection CONTROL FLOW over in-memory doubles ONLY. NOT RUN: real PostgreSQL transaction/rollback/isolation and guarded concurrent terminal transitions (an ORM mock cannot prove committed facts); a real Celery broker + Worker process + redelivery + Worker-kill; a real Redis limiter/circuit outage + restored-capacity no-herd; and any real Provider traffic/rate limits/cost. pytest passed alone is NOT audit-grade runtime evidence (a real run must also preserve the exact command/revision, fault point, committed-DB queries via a new connection, the Fake Provider cross-process call log, and broker/Worker lifecycle evidence). A real job_repair_history table + migration is a FORWARD-ADDITIVE design only, not migrated or tested. Day56 policy functions, Day55 dispatch marker, Day54 durable cancellation, and Day53 strict validation are reused. Day58 owns structured observability (structured logs, job_id/trace_id/attempt_id correlation, metrics, traces, runtime evidence) and the Phase 4 capstone — not implemented here. No secrets, raw prompts, or raw Provider payloads are persisted or logged.
+
+Completed Work:
+
+- Day57 classroom learning
+- Day57 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; verbatim CN/EN student answers + corrections preserved; assistant-assisted final Chinese mental model labeled as such)
+- Day57 design/runbook + runnable deterministic verification harness (standard-library control flow driving Day56 + Day53 validator) + tests (executed: 21 passed; full api suite 463) and project README increment
+- Day57 fake-provider/contract-test/failure-injection scenario catalog + three-tier evidence matrix (real infra NOT RUN)
+- Day57 FastAPI cheat sheet append
+- Day57 FastAPI interview notes append
+- Day57 requirements-day57.txt (pydantic + pytest; drives Day56 + Day53 validator)
+- Day57 repository status update
+
+---
+
+## Superseded — Day56 Last Completed Lesson (archived)
 
 Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 
