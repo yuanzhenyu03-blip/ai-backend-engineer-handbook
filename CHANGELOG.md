@@ -9,6 +9,52 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.129 — Day57 fix (Codex): outcome-driven recovery decision, real timeout decision, four-tier terminology
+
+Date: 2026-08-06
+
+Day: Day57 (review round 2)
+
+Three follow-up review findings on the Day57 verification harness/docs. No teaching-spec files were touched.
+
+### Fixed
+
+- **Recovery is now driven by the Adapter `ProviderOutcome`.** Replaced the unconditional
+  `record_unknown_execution_recovery` helper with an application decision boundary,
+  `decide_and_apply_recovery(job, ledger, outcome, now) -> RecoveryDecision`. It reads
+  `outcome.execution_certainty`: `UNKNOWN` / `MAY_HAVE_EXECUTED` -> persist the Day55 dispatch marker, move to
+  `PENDING_RECONCILIATION`, HOLD the reservation, return `RECONCILE`; `DEFINITELY_NOT_ACCEPTED` -> return `SAFE_RETRY`
+  (the normal defer/retry branch) WITHOUT reconciliation, marker, or a held reservation. The bare-429 e2e test now
+  drives the real chain through the outcome (no longer asserts UNKNOWN then discards it), and a new reverse test
+  (`test_definitely_not_accepted_is_not_routed_to_reconciliation`) proves a positively-not-accepted 429 is never
+  mis-routed into reconciliation.
+- **Timeout is a real application decision.** Added `timeout_outcome_if_deadline_exceeded(provider, now, deadline)`:
+  with an injected deadline advanced via `FakeClock` (no sleep), once the Provider has received the request but returned
+  no response by the deadline, the Worker emits a `timeout`/`UNKNOWN` `ProviderOutcome` that is routed through the SAME
+  `decide_and_apply_recovery`. The rewritten test
+  (`test_timeout_after_receipt_drives_recovery_via_application_decision`) proves: Provider received the request, a real
+  timeout semantic outcome, PENDING_RECONCILIATION + HELD, no second Provider call, reconcile-only redelivery; the gate
+  is released and the thread joined in a `finally` (no leak). Thread-alive is no longer used as the timeout proof.
+- **Four-tier terminology consistency.** Updated the harness docstring/section header and remaining Day57 docs so the
+  evidence taxonomy is FOUR tiers everywhere: `CONCEPTUAL_STATIC`, `EXECUTED_LOCAL_RUNTIME`, `INTEGRATION_RUNTIME`,
+  `PRODUCTION`. An in-process fake/double is `EXECUTED_LOCAL_RUNTIME`; real PostgreSQL / Celery / Redis are
+  `INTEGRATION_RUNTIME` (NOT RUN); real Provider traffic is `PRODUCTION` (NOT RUN).
+
+Boundaries preserved: the Adapter never writes Job state or cost; `ProviderOutcome` still surfaces no raw HTTP status /
+SDK fields; in-memory fakes are never called integration or production evidence; no real Provider calls/credentials/raw
+payloads introduced.
+
+### Validation
+
+- Executed: `python3 -m py_compile day57_testing_harness.py test_day57_testing_harness.py`;
+  `python3 -m pytest -q test_day57_testing_harness.py` -> **23 passed** (was 22; the new/rewritten tests ran green
+  across repeated runs); full `projects/ai-backend-data-layer/api/` suite -> **465 passed** (Python 3.10.12, pydantic
+  2.5.0, pytest 7.4.3). EXECUTED_LOCAL_RUNTIME only. NOT RUN — INTEGRATION_RUNTIME: real PostgreSQL, real Celery
+  broker/Worker-kill/redelivery, real Redis limiter/circuit. NOT RUN — PRODUCTION: real Provider traffic. A real
+  job_repair_history table/migration is forward-additive design only.
+
+---
+
 ## v0.1.128 — Day57 fix (Codex): evidence tiers, bare-429 e2e test, real timeout test, ProviderOutcome contract, stale TASKS note
 
 Date: 2026-08-06
@@ -71,7 +117,7 @@ evidence matrix.
   lesson (exact 16-section order; verbatim CN/EN student answers + corrections; assistant-assisted final Chinese mental
   model labeled as such).
 - `projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md`
-  — design/runbook with the scenario catalog + a three-tier validation matrix (conceptual/static, executed local,
+  — design/runbook with the scenario catalog + a four-tier validation matrix (conceptual/static, executed local, integration runtime,
   production NOT RUN).
 - `projects/ai-backend-data-layer/api/day57_testing_harness.py` — runnable deterministic verification harness
   (FakeClock, DeterministicRandom, ControllableFakeProvider + ProviderCallLog, ProviderAdapter/ProviderOutcome,
@@ -90,7 +136,7 @@ evidence matrix.
 
 A reliability policy is only real when a repeatable test asserts the durable fact AND the side effects (call count, no
 new rate permit, reservation held). A fast Fake Provider proves deterministic application semantics; real
-PostgreSQL/broker/Worker/Redis integration proves infrastructure boundaries — keep the three evidence tiers honest and
+PostgreSQL/broker/Worker/Redis integration proves infrastructure boundaries — keep the four evidence tiers honest and
 mark real infra NOT RUN when it is. A missing provider_request_id is not proof of no execution (the Day55 dispatch
 marker covers the crash window); a valid-JSON schema violation is a contract violation, not success; and a bad-release
 recovery is a guarded, idempotent, evidence-based repair keyed by a unique repair_id, never a blind retry.

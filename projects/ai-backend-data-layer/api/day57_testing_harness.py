@@ -23,7 +23,7 @@ WHAT THIS HARNESS PROVIDES (deterministic test doubles + verification helpers):
                                             awaiting reconciliation, strictly schema-valid, and every
                                             identity (job_id + attempt_id + correlation_id +
                                             provider_request_id) matches durable evidence.
-  * VALIDATION_MATRIX                      — the honest three-tier evidence taxonomy.
+  * VALIDATION_MATRIX                      — the honest FOUR-tier evidence taxonomy.
 
 THREE EVIDENCE TIERS (kept explicit everywhere):
   * CONCEPTUAL_STATIC        — design/decision paths described in the runbook + lesson.
@@ -269,7 +269,7 @@ def attempt_late_completion(
 
 
 # ===========================================================================
-# 6. Evidence taxonomy / validation matrix (honest three tiers)
+# 6. Evidence taxonomy / validation matrix (honest FOUR tiers)
 # ===========================================================================
 class EvidenceTier(str, Enum):
     CONCEPTUAL_STATIC = "conceptual_static"          # design/decision paths only
@@ -340,15 +340,47 @@ def production_not_run_claims() -> list[str]:
 # ---------------------------------------------------------------------------
 # Application recovery helper (EXECUTED_LOCAL_RUNTIME model, not a DB transaction)
 # ---------------------------------------------------------------------------
-def record_unknown_execution_recovery(job, ledger, *, now) -> None:
-    """The application recovery path for an outcome that MIGHT have executed at the Provider: a bare
-    429 the Adapter classified UNKNOWN, a MAY_HAVE_EXECUTED signal, or a Worker timeout AFTER the
-    Provider received the request. It persists the conservative Day55 dispatch marker (the request
-    left the process), moves the Job to PENDING_RECONCILIATION, and HOLDS the reservation. It makes
-    NO Provider call and issues NO retry — a later redelivery is reconcile-only (Day56
-    `evaluate_dispatch` returns RECONCILE on the marker/evidence). This is an EXECUTED_LOCAL_RUNTIME
-    in-memory model of a step a real deployment performs in ONE PostgreSQL transaction (NOT RUN)."""
+class RecoveryDecision(str, Enum):
+    RECONCILE = "reconcile"        # UNKNOWN / MAY_HAVE_EXECUTED -> PENDING_RECONCILIATION + HELD
+    SAFE_RETRY = "safe_retry"      # DEFINITELY_NOT_ACCEPTED -> ordinary defer/retry, NOT reconciliation
+
+
+def decide_and_apply_recovery(job, ledger, outcome: "ProviderOutcome", *, now) -> RecoveryDecision:
+    """The application decision/recovery boundary, driven EXPLICITLY by the Adapter's `ProviderOutcome`
+    (never by the test guessing). It reads `outcome.execution_certainty` and routes:
+
+      * DEFINITELY_NOT_ACCEPTED -> the Provider positively did NOT accept the request. This is safe to
+        ordinary-defer/retry: the Job is NOT moved to PENDING_RECONCILIATION, NO dispatch marker is
+        set, and the reservation stays RESERVED. Returns SAFE_RETRY (the normal defer/retry branch).
+      * UNKNOWN or MAY_HAVE_EXECUTED -> the external call may have happened. Persist the conservative
+        Day55 dispatch marker (the request left the process), move the Job to PENDING_RECONCILIATION,
+        and HOLD the reservation. NO Provider call, NO retry -> a later redelivery is reconcile-only
+        (Day56 `evaluate_dispatch` returns RECONCILE on the marker/evidence). Returns RECONCILE.
+
+    EXECUTED_LOCAL_RUNTIME model of a step a real deployment performs in ONE PostgreSQL transaction
+    (INTEGRATION_RUNTIME, NOT RUN). It makes no Provider call and never writes cost beyond holding the
+    existing reservation."""
+    if outcome.execution_certainty is ExecutionCertainty.DEFINITELY_NOT_ACCEPTED:
+        return RecoveryDecision.SAFE_RETRY
     if job.attempt is not None and job.attempt.provider_dispatch_started_at is None:
         job.attempt.provider_dispatch_started_at = now
     job.status = JobStatus.PENDING_RECONCILIATION
     ledger.hold_for_reconciliation(job)
+    return RecoveryDecision.RECONCILE
+
+
+def timeout_outcome_if_deadline_exceeded(provider: "ControllableFakeProvider", *, now, deadline):
+    """Application-owned WORKER timeout decision (injectable deadline; no sleep). If the Provider has
+    RECEIVED the request but has not returned a response by `deadline`, the Worker declares a timeout
+    and emits an application `ProviderOutcome` with `failure_kind='timeout'` and
+    `execution_certainty=UNKNOWN` — a timeout AFTER receipt is NOT proof of no execution. Returns
+    None while the deadline has not passed or the request never reached the Provider (a distinct
+    pre-receipt path). This produces the outcome that `decide_and_apply_recovery` then routes."""
+    if now < deadline:
+        return None
+    if not provider.request_received.is_set():
+        return None
+    if provider.release_response.is_set():
+        return None                            # a response is already available -> not a timeout
+    return ProviderOutcome(failure_kind="timeout", execution_certainty=ExecutionCertainty.UNKNOWN,
+                           provider_request_id=None, retry_after_seconds=None, safe_metadata={})

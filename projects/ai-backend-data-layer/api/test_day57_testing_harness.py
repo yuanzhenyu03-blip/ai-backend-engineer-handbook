@@ -22,8 +22,9 @@ from day56_provider_resilience import (
 from day57_testing_harness import (
     ControllableFakeProvider, DeterministicRandom, EvidenceTier, FakeClock, LateResult,
     LateResultOutcome, ProviderAdapter, ProviderCallLog, RunStatus, ScriptedResponse,
-    VALIDATION_MATRIX, attempt_late_completion, integration_not_run_claims, not_run_claims,
-    production_not_run_claims, record_unknown_execution_recovery,
+    VALIDATION_MATRIX, RecoveryDecision, attempt_late_completion, decide_and_apply_recovery,
+    integration_not_run_claims, not_run_claims, production_not_run_claims,
+    timeout_outcome_if_deadline_exceeded,
 )
 
 VALID_PAYLOAD = {"summary": "ok", "citations": ["a"], "confidence": 0.9}
@@ -144,15 +145,17 @@ def test_controllable_fake_provider_gate_opens_a_deterministic_timeout_window():
     assert result_box["resp"].provider_request_id == "req-1"
 
 
-def test_timeout_after_receipt_is_not_proof_of_no_execution():
-    # A REAL controlled timeout (no sleep, no hand-faked marker): the Provider RECEIVES the request
-    # but the response is gated shut, so the Worker times out while the call is genuinely in flight.
+def test_timeout_after_receipt_drives_recovery_via_application_decision():
+    # A REAL application timeout decision (no sleep): the Provider RECEIVES the request, the response
+    # is gated shut, and an INJECTED deadline (FakeClock) makes the Worker declare a timeout. The
+    # timeout ProviderOutcome is routed through the SAME decide_and_apply_recovery path.
     clock = FakeClock()
     limiter, ledger, circuit = _ready()
-    job = _job(clock, ledger, attempt=_attempt())            # no marker yet; not awaiting
+    job = _job(clock, ledger, attempt=_attempt())            # no marker yet
+    deadline = clock.now() + timedelta(seconds=30)
     provider = ControllableFakeProvider([ScriptedResponse(http_status=200, provider_request_id="req-1",
                                                           payload=dict(VALID_PAYLOAD))],
-                                        auto_release=False)   # response gated -> Worker will time out
+                                        auto_release=False)   # response gated
     box = {}
 
     def worker():
@@ -160,24 +163,32 @@ def test_timeout_after_receipt_is_not_proof_of_no_execution():
 
     t = threading.Thread(target=worker)
     t.start()
-    assert provider.request_received.wait(timeout=2) is True  # the Provider received the request
-    assert provider.calls == 1
-    assert t.is_alive() is True                               # response still gated -> genuine timeout window
+    try:
+        assert provider.request_received.wait(timeout=2) is True   # the Provider received the request
+        assert provider.calls == 1
 
-    # Worker times out waiting for the response: unknown execution -> recovery persists the marker,
-    # PENDING_RECONCILIATION, and HELD reservation, and makes NO second Provider call.
-    record_unknown_execution_recovery(job, ledger, now=clock.now())
-    assert job.status is JobStatus.PENDING_RECONCILIATION
-    assert job.cost_state is CostState.RECONCILIATION_PENDING  # HELD, never released on unknown execution
-    assert provider.calls == 1                                # no blind second Provider call
+        # No response by the injected deadline -> the Worker declares a timeout (application decision).
+        assert timeout_outcome_if_deadline_exceeded(provider, now=clock.now(), deadline=deadline) is None
+        clock.advance(31)                                     # advance PAST the deadline (no sleep)
+        outcome = timeout_outcome_if_deadline_exceeded(provider, now=clock.now(), deadline=deadline)
+        assert outcome is not None                            # a real timeout semantic outcome
+        assert outcome.failure_kind == "timeout"
+        assert outcome.execution_certainty is ExecutionCertainty.UNKNOWN
 
-    # a redelivery of this Job is reconcile-only and consumes no rate permit
-    d = evaluate_dispatch(job, limiter=limiter, ledger=ledger, circuit=circuit, now=clock.now())
-    assert d.action is ProviderAction.RECONCILE
-    assert limiter.in_flight == 0
+        # route the timeout outcome through the SAME application decision/recovery boundary
+        decision = decide_and_apply_recovery(job, ledger, outcome, now=clock.now())
+        assert decision is RecoveryDecision.RECONCILE
+        assert job.status is JobStatus.PENDING_RECONCILIATION
+        assert job.cost_state is CostState.RECONCILIATION_PENDING   # reservation HELD
+        assert provider.calls == 1                           # no blind second Provider call
 
-    provider.release_response.set()                           # cleanup: let the gated call return + join
-    t.join(timeout=2)
+        d = evaluate_dispatch(job, limiter=limiter, ledger=ledger, circuit=circuit, now=clock.now())
+        assert d.action is ProviderAction.RECONCILE          # redelivery is reconcile-only
+        assert limiter.in_flight == 0                        # no new rate permit
+        assert provider.calls == 1
+    finally:
+        provider.release_response.set()                      # release the gate + join safely (no leak)
+        t.join(timeout=2)
     assert box["resp"].provider_request_id == "req-1"
 
 
@@ -195,7 +206,9 @@ def test_bare_429_end_to_end_application_recovery_chain():
     outcome = ProviderAdapter().to_outcome(resp)
     assert outcome.execution_certainty is ExecutionCertainty.UNKNOWN   # bare 429 is not proof of no execution
 
-    record_unknown_execution_recovery(job, ledger, now=clock.now())
+    # the application decision/recovery is DRIVEN BY the Adapter outcome (not discarded)
+    decision = decide_and_apply_recovery(job, ledger, outcome, now=clock.now())
+    assert decision is RecoveryDecision.RECONCILE
     assert job.status is JobStatus.PENDING_RECONCILIATION
     assert job.cost_state is CostState.RECONCILIATION_PENDING  # reservation HELD
     assert provider.calls == 1                                 # still exactly one call
@@ -205,6 +218,25 @@ def test_bare_429_end_to_end_application_recovery_chain():
     assert d.action is ProviderAction.RECONCILE
     assert limiter.in_flight == 0                             # no new rate permit granted
     assert provider.calls == 1                                # dispatch never made a second call
+
+
+def test_definitely_not_accepted_is_not_routed_to_reconciliation():
+    # Reverse test: a Provider 429 the Adapter positively classifies DEFINITELY_NOT_ACCEPTED must NOT
+    # enter the reconciliation path — it is a safe defer/retry, reservation stays RESERVED, no marker.
+    clock = FakeClock()
+    limiter, ledger, circuit = _ready()
+    job = _job(clock, ledger, attempt=_attempt())
+    provider = ControllableFakeProvider([ScriptedResponse(http_status=429, accepted=False)])  # positively not accepted
+    resp = provider.call(provider_idempotency_key="pik-1")
+    outcome = ProviderAdapter().to_outcome(resp)
+    assert outcome.execution_certainty is ExecutionCertainty.DEFINITELY_NOT_ACCEPTED
+
+    decision = decide_and_apply_recovery(job, ledger, outcome, now=clock.now())
+    assert decision is RecoveryDecision.SAFE_RETRY           # normal defer/retry branch, NOT reconciliation
+    assert job.status is not JobStatus.PENDING_RECONCILIATION
+    assert job.attempt.provider_dispatch_started_at is None  # no dispatch marker persisted
+    assert job.cost_state is CostState.RESERVED              # reservation NOT converted to reconciliation-held
+    assert provider.calls == 1
 
 
 # --- 12. late-result strict identity + schema match ------------------------

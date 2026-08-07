@@ -12,7 +12,7 @@ Prerequisite: Day56 — Provider Resilience, Rate Limits, Token Cost and Backpre
 Previous Lesson: Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 Next Lesson: Day58 — Observability, Correlation Evidence and Phase 4 Capstone
 Engineering Artifact: projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md
-  + runnable day57_testing_harness.py + test_day57_testing_harness.py (deterministic in-memory verification; 22 passed)
+  + runnable day57_testing_harness.py + test_day57_testing_harness.py (deterministic in-memory verification; 23 passed)
 ```
 
 Main engineering artifact: a deterministic verification harness — a controllable Fake Provider (scripted outcomes,
@@ -147,8 +147,13 @@ evidence each test actually provides.
 
 **Tech Lead Review:** Correct fact, but a status is not enough. The test must ALSO assert the Provider call count stays
 one and no ordinary retry gets a new rate permit — unknown external execution is not safe retry. Reservation stays HELD;
-redelivery routes to reconciliation. (In the harness, driving Day56 `evaluate_dispatch` on an Attempt with evidence
-returns `RECONCILE` and consumes no permit.)
+redelivery routes to reconciliation. Crucially, that recovery is DRIVEN BY the Adapter's `ProviderOutcome`, not by the
+test guessing: `decide_and_apply_recovery(job, ledger, outcome, now)` routes `UNKNOWN`/`MAY_HAVE_EXECUTED` to
+`RECONCILE` (marker + `PENDING_RECONCILIATION` + HELD) and `DEFINITELY_NOT_ACCEPTED` to `SAFE_RETRY` (normal defer/retry,
+no reconciliation) — a reverse test proves a positively-not-accepted 429 is never mis-routed. A Worker timeout is the
+same path: an injected-deadline decision emits a `timeout`/`UNKNOWN` outcome that flows through
+`decide_and_apply_recovery`. (Driving Day56 `evaluate_dispatch` on the resulting Attempt evidence returns `RECONCILE`
+and consumes no permit.)
 
 ### Concept 2: Fake Provider is not integration
 

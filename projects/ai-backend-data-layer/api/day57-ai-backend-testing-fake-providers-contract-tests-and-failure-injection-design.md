@@ -27,8 +27,8 @@ limiter/circuit are INTEGRATION RUNTIME (currently NOT RUN) — they are NOT "pr
 production validation are the PRODUCTION tier. An in-process deterministic double is EXECUTED LOCAL RUNTIME and is
 NEVER integration.
 
-Executed: `python3 -m pytest -q test_day57_testing_harness.py` -> **22 passed** (Python 3.10.12, pydantic 2.5.0,
-pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **464 passed**. These prove the deterministic
+Executed: `python3 -m pytest -q test_day57_testing_harness.py` -> **23 passed** (Python 3.10.12, pydantic 2.5.0,
+pytest 7.4.3). Full `projects/ai-backend-data-layer/api/` suite -> **465 passed**. These prove the deterministic
 application state machine, the Adapter contract, and failure-injection CONTROL FLOW over in-memory doubles; they do NOT
 prove real PostgreSQL rollback/isolation, real Celery broker redelivery, real Worker-kill, a real Redis limiter/circuit,
 or real Provider behavior. **`pytest passed` alone is not audit-grade runtime evidence** — a real integration run must
@@ -47,6 +47,13 @@ required contract is `PENDING_RECONCILIATION`, reservation HELD, exactly ONE Pro
 reconciliation — never a second call on unknown execution. A durable status alone is insufficient: a test must ALSO
 assert the Provider call count stays 1 and no ordinary retry receives a new rate permit.
 
+The recovery is driven EXPLICITLY by the Adapter's `ProviderOutcome`, not by the test guessing.
+`decide_and_apply_recovery(job, ledger, outcome, now)` reads `outcome.execution_certainty`: `UNKNOWN` or
+`MAY_HAVE_EXECUTED` -> persist the Day55 dispatch marker, move to `PENDING_RECONCILIATION`, HOLD the reservation, return
+`RECONCILE` (a later redelivery is reconcile-only); `DEFINITELY_NOT_ACCEPTED` -> return `SAFE_RETRY` (the normal
+defer/retry branch) WITHOUT reconciliation, WITHOUT a dispatch marker, and with the reservation still `RESERVED`. A
+reverse test proves a positively-not-accepted 429 is never mis-routed into reconciliation.
+
 ---
 
 ## 2. Fake Provider vs integration test (do not confuse them)
@@ -54,7 +61,11 @@ assert the Provider call count stays 1 and no ordinary retry receives a new rate
 A deterministic Fake Provider is an APPLICATION test harness, not a replacement for integration. `ControllableFakeProvider`
 provides scripted outcomes, a cross-call `calls` count, an independent `ProviderCallLog` (that survives "Worker loss"),
 optional `provider_request_id` / `accepted` evidence, and `request_received` / `release_response` gates
-(`threading.Event`) so a timeout/kill window is CONTROLLED, not timed with sleeps. It proves deterministic application
+(`threading.Event`) so a timeout/kill window is CONTROLLED, not timed with sleeps. A Worker timeout is an APPLICATION
+decision, not "the thread is still alive": `timeout_outcome_if_deadline_exceeded(provider, now, deadline)` — with a
+deadline advanced via `FakeClock` — emits a `timeout`/`UNKNOWN` `ProviderOutcome` once the Provider has received the
+request but returned no response by the deadline, and that outcome is routed through the SAME `decide_and_apply_recovery`
+path. It proves deterministic application
 semantics; a real PostgreSQL/broker/Worker/Redis integration proves real transaction, redelivery, process-loss, and
 shared-coordination boundaries.
 
@@ -160,8 +171,9 @@ This table and migration are NOT implemented; this section is design only and mu
 | Adapter delivers application-owned typed outcomes + execution certainty; no raw HTTP status / SDK leakage; never writes Job/cost | EXECUTED LOCAL | `test_adapter_classifies_execution_certainty_without_sdk_leakage`, `test_adapter_does_not_touch_job_or_cost` |
 | Valid JSON violating the bound schema is a contract violation, not success | EXECUTED LOCAL | `test_valid_json_that_violates_bound_schema_is_contract_violation` |
 | Dispatch marker / request-id evidence forces RECONCILE, no second call, reservation HELD | EXECUTED LOCAL | `test_dispatch_marker_forces_reconcile_only_no_second_call`, `test_provider_request_id_evidence_forces_reconcile_only` |
-| End-to-end bare-429 -> Adapter UNKNOWN -> PENDING_RECONCILIATION + HELD + exactly one call + no new permit + reconcile-only redelivery | EXECUTED LOCAL | `test_bare_429_end_to_end_application_recovery_chain` |
-| Controlled Worker-timeout-after-receipt (gated, no sleep) -> PENDING_RECONCILIATION + HELD + no 2nd call | EXECUTED LOCAL | `test_timeout_after_receipt_is_not_proof_of_no_execution` |
+| End-to-end bare-429 -> Adapter `ProviderOutcome(UNKNOWN)` -> `decide_and_apply_recovery` -> PENDING_RECONCILIATION + HELD + exactly one call + no new permit + reconcile-only redelivery | EXECUTED LOCAL | `test_bare_429_end_to_end_application_recovery_chain` |
+| DEFINITELY_NOT_ACCEPTED is NOT routed to reconciliation (safe defer/retry; no marker; reservation stays RESERVED) | EXECUTED LOCAL | `test_definitely_not_accepted_is_not_routed_to_reconciliation` |
+| Controlled Worker-timeout-after-receipt: an injected-deadline timeout `ProviderOutcome` drives the SAME decision -> PENDING_RECONCILIATION + HELD + no 2nd call (gated, no sleep) | EXECUTED LOCAL | `test_timeout_after_receipt_drives_recovery_via_application_decision` |
 | Controllable Fake Provider gate opens a deterministic timeout window (no sleep); receipt recorded | EXECUTED LOCAL | `test_controllable_fake_provider_gate_opens_a_deterministic_timeout_window`, `test_timeout_after_receipt_is_not_proof_of_no_execution` |
 | Late-result completes only on full identity + schema match; terminal CANCELLED rejects a matching result | EXECUTED LOCAL | `test_late_result_completes_only_on_full_match`, `test_late_result_rejected_*`, `test_terminal_cancelled_job_rejects_matching_late_result` |
 | Limiter outage fails closed: DEFER, zero calls, execution_retry_count unchanged | EXECUTED LOCAL | `test_limiter_outage_fails_closed_defers_zero_calls_unchanged_execution_retry` |
