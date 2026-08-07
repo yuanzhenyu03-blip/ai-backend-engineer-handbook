@@ -25,7 +25,7 @@ WHAT THIS HARNESS PROVIDES (deterministic test doubles + verification helpers):
                                             provider_request_id) matches durable evidence.
   * VALIDATION_MATRIX                      — the honest FOUR-tier evidence taxonomy.
 
-THREE EVIDENCE TIERS (kept explicit everywhere):
+FOUR EVIDENCE TIERS (kept explicit everywhere):
   * CONCEPTUAL_STATIC        — design/decision paths described in the runbook + lesson.
   * EXECUTED_LOCAL_RUNTIME   — what the pytest suite executes: deterministic application state-machine
                                + Adapter-contract + failure-injection control flow over in-memory
