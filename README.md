@@ -16,28 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 4 — Production AI API Engineering (In Progress; Day44 completed)
+* Phase 4 — Production AI API Engineering — completed as classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME` artifacts. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration remains **NOT RUN**.
 
 Last completed lesson:
 
-* Day31 — Relational Modeling and Data Integrity
-* Day32 — SQL Joins, Aggregation, and Operational Queries
-* Day33 — PostgreSQL Transactions and Atomic State Changes
-* Day34 — Concurrency Control, MVCC, and Worker Claims
-* Day35 — PostgreSQL Indexes and Query Planning
-* Day36 — Schema Evolution and Safe Migrations
-* Day37 — PostgreSQL Production Reliability
-* Day38 — Redis Foundations and Data Structures
-* Day39 — Redis Cache Design and Consistency
-* Day40 — Redis Messaging and Queue Semantics
-* Day41 — Redis Coordination and Production Safety
-* Day42 — Backend Data Design Capstone (Phase 3 capstone / close)
-* Day43 — AI Backend Product Contract and FastAPI Request Lifecycle (Phase 4 opens)
-* Day44 — Pydantic v2 and Structured AI Input/Output Contracts
+* Day58 — Production AI API Capstone, Observability and English Interview
 
-Next:
+(For the full completed history Day01–Day58, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
-* Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4; Planned / Not started; see `ROADMAP.md`)
+Current / next lesson:
+
+* Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

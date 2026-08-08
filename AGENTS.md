@@ -35,26 +35,36 @@ When generating code:
 
 ## Current Progress
 
-Current Phase:
+Current state:
 
-Phase 4 — Production AI API Engineering (In Progress; Day48 completed)
+- Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
+  artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
+  is NOT RUN.
+- Last Completed Lesson: Day58 — Production AI API Capstone, Observability and English Interview.
+- Current / Next Lesson: Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Planned / Not started).
+- Current phase being entered: Phase 5 — Production Runtime Integration and Browser Tool Engineering.
 
-Last Completed Lesson:
+Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
+permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008 in DECISIONS.md):
 
-Day48 — Alembic and Safe AI Backend Schema Evolution
+```text
+Day59–61 Production Integration Gate
+-> Day62–66 Playwright permissioned queue-backed AI tool
+-> Day67–70 n8n orchestration
+-> Day71–78 LLM Application Engineering
+-> Day79–94 Agent Runtime + MCP
+-> Day95–106 Production RAG
+-> Day107–116 AI Evaluation / Safety / Operations
+-> Day117–130 Final Employment Capstone
+-> Employment Readiness Gate
+```
 
-Next Lesson:
+Notes:
 
-Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4; Planned / Not started; see ROADMAP.md)
-
-Future direction (Day43–Day100, planned only; see ROADMAP.md, CURRICULUM.md, and Decision 006 in
-DECISIONS.md): Phase 4 Production AI API Engineering (FastAPI; deterministic in-process EXECUTED_LOCAL_RUNTIME evidence,
-ends Day58) -> Phase 5 Production Runtime Integration and Browser Tool Engineering (Day59–61 real local
-integration gate, then Playwright as a permissioned browser tool) -> Phase 6 n8n AI Workflow Integration ->
-Phase 7 AI Agent/RAG/MCP/Evaluation (agent runtime framework chosen at Day75) -> Phase 8 Final Capstone,
-Portfolio and Overseas Interview. FastAPI and Playwright are core; n8n is the integration layer;
-AI is in scope from Phase 4. The goal is overseas AI Backend Engineer employment readiness, not a guaranteed
-offer. Day42 closed Phase 3; Day43 opened Phase 4; Day48 is complete; Day49 is next (Planned / Not started).
+- Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
+- Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
+  adapter (not pre-locked; LangGraph is a candidate only).
+- Do not skip Day59. Day59+ has not started and has no runtime evidence yet.
 
 Do not skip ahead unless explicitly instructed.
 

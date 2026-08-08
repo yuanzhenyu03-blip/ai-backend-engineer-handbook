@@ -1560,6 +1560,74 @@ after an explicit Framework / Job-Market Refresh and always lives behind a repla
 
 ---
 
+## Mandatory Runnable Checkpoint Cadence
+
+This is a normative execution constraint for the AI phases (Day71 onward). It does not change any Day Topic;
+it constrains how the Engineering Artifact is exercised.
+
+Rules:
+
+1. Never go more than **4–6 consecutive lessons** without running the cumulative Engineering Artifact at a
+   Runnable Checkpoint.
+2. A Checkpoint is **not** pure review, a documentation summary, or static design — it is an actual run.
+3. It must run the **same Artifact that has been evolving since the start of that Phase**, not a fresh demo.
+4. Every implementation day incrementally modifies that one Artifact; days do not create unrelated,
+   throwaway demos.
+5. Each Checkpoint must save reproducible evidence:
+
+```text
+exact command
+revision / commit
+relevant config
+runtime boundary
+evidence tier
+actual result
+tests
+safe logs / traces / metrics (when applicable)
+failure point (when applicable)
+NOT RUN limitations
+```
+
+6. `pytest passed` does NOT auto-upgrade to `INTEGRATION_RUNTIME` or `PRODUCTION`; it is
+   `EXECUTED_LOCAL_RUNTIME` unless real external processes/infrastructure actually participated with saved
+   evidence.
+7. Anything not actually executed must be marked `NOT RUN`.
+
+Checkpoint plan for Day71–Day130 (planning coordinates; each runs the evolving Phase Artifact, max gap ≤ 6
+lessons):
+
+```text
+Phase 7A (Day71–78):
+- Day74  — runnable contract / tool-calling checkpoint
+- Day78  — LLM Application Runtime capstone checkpoint
+
+Phase 7B (Day79–94):
+- Day83  — framework-agnostic durable Agent checkpoint
+- Day88  — selected-framework adapter checkpoint
+- Day94  — Agent + MCP integration capstone checkpoint
+
+Phase 7C (Day95–106):
+- Day99  — ingestion / embedding / vector-index checkpoint
+- Day103 — retrieval + citation + evaluation checkpoint
+- Day106 — Production RAG capstone checkpoint
+
+Phase 7D (Day107–116):
+- Day110 — dataset + grader + retrieval/answer evaluation checkpoint
+- Day113 — regression + release-gate checkpoint
+- Day116 — incident / rollback / repair capstone checkpoint
+
+Phase 8 (Day117–130):
+- Day120 — backend + Agent/MCP integration checkpoint
+- Day124 — thin vertical path + evaluation-gate checkpoint
+- Day127 — deployed observability / runbook checkpoint
+- Day130 — portfolio and Employment Readiness Gate review
+```
+
+No new lesson numbers are added for Checkpoints; they run on the listed existing Days. This cadence is
+mirrored in summary form in `ROADMAP.md` so CURRICULUM and ROADMAP agree on execution requirements.
+
+---
+
 ## Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Status:
@@ -1595,7 +1663,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day72 stabilized the provider surface; Day73 makes prompts versioned contracts; Day74 makes the
   model's output a validated structure.
 - Day74 — Structured Output, JSON Schema and Function/Tool Calling.
-  Scope: structured output, JSON Schema validation, function/tool-calling schemas.
+  Scope: structured output, JSON Schema validation, function/tool-calling schemas. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day73 versioned the input; Day74 constrains the output with schema and tool calls (reusing Day44
   Pydantic contracts); Day75 makes delivery efficient with streaming/caching/batching.
 - Day75 — Streaming, Caching and Batching for LLM Applications.
@@ -1679,7 +1747,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day81 bounded a single run; Day82 makes agent jobs durable with checkpoint/resume/recovery
   (reusing the Phase 4/5 job lifecycle); Day83 adds human interrupt/approval.
 - Day83 — Human Approval, Interrupt and Escalation Boundaries.
-  Scope: human approval, interrupt, escalation boundaries.
+  Scope: human approval, interrupt, escalation boundaries. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day82 made runs durable; Day83 adds human approval/interrupt/escalation; Day84 separates memory
   from durable business truth.
 - Day84 — Conversation Memory vs Durable Business-state Boundaries.
@@ -1700,7 +1768,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   current, not pre-locked; Day88 selects a framework behind a replaceable adapter.
 - Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.
   Scope: choose an Agent Runtime Framework (candidates include LangGraph / OpenAI Agents SDK / PydanticAI) and
-  implement it behind a replaceable adapter; record the choice as a new Decision.
+  implement it behind a replaceable adapter; record the choice as a new Decision. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day87 refreshed the evidence; Day88 selects and adapter-wraps a framework without locking the
   contracts (recorded as a Decision); Day89 standardizes external tools/resources via MCP.
 - Day89 — MCP Foundations and Protocol Model.
@@ -1786,7 +1854,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day97 scoped and labeled chunks; Day98 selects/version embeddings; Day99 designs the vector
   database and index.
 - Day99 — Vector Database and Vector Index Design.
-  Scope: vector database and index design.
+  Scope: vector database and index design. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day98 produced embeddings; Day99 designs the vector store/index; Day100 adds hybrid retrieval
   and filtering.
 - Day100 — Hybrid Retrieval and Filtering.
@@ -1802,7 +1870,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day101 improved relevance; Day102 grounds answers with citations and source verification; Day103
   measures retrieval and answer quality.
 - Day103 — Retrieval Evaluation and RAG Answer Evaluation.
-  Scope: retrieval evaluation and RAG answer evaluation.
+  Scope: retrieval evaluation and RAG answer evaluation. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day102 grounded answers; Day103 evaluates retrieval and answer quality; Day104 keeps the index
   correct over time.
 - Day104 — Index Update, Delete, Rebuild and Migration.
@@ -1871,7 +1939,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day108 gave exact grading; Day109 adds model-based graders with explicit limits; Day110 applies
   grading to retrieval and answers.
 - Day110 — Retrieval and Answer-quality Evaluation.
-  Scope: retrieval-quality and answer-quality evaluation.
+  Scope: retrieval-quality and answer-quality evaluation. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day109 fixed grader trust; Day110 evaluates retrieval/answer quality (reusing Day103); Day111
   evaluates the agent's process.
 - Day111 — Agent Trajectory and Tool-use Correctness Evaluation.
@@ -1883,7 +1951,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day111 graded normal behavior; Day112 adds adversarial/failure-mode evaluation; Day113 turns
   evaluations into regression and release gates.
 - Day113 — Prompt/Model/Tool Regression and Release Gates.
-  Scope: prompt/model/tool regression suites and release gates.
+  Scope: prompt/model/tool regression suites and release gates. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day112 stressed the system; Day113 adds regression and release gates; Day114 makes cost/latency/
   quality observable in production.
 - Day114 — AI Observability: Cost, Latency, Quality Trade-offs and Model-routing Evidence.
@@ -1952,7 +2020,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day118 defined contracts; Day119 integrates the Phase 4/5 core backend stack; Day120 adds the
   agent runtime and MCP.
 - Day120 — Agent Runtime and MCP Integration.
-  Scope: integrate the agent runtime and MCP client/server.
+  Scope: integrate the agent runtime and MCP client/server. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day119 gave the backend; Day120 integrates the Phase 7B agent runtime and MCP; Day121 grounds it
   with Production RAG.
 - Day121 — Production RAG Integration (ACL, Citations, Retrieval Evaluation).
@@ -1969,7 +2037,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   correlation IDs; Day124 gates release on evaluation.
   Implementation boundary: see "Future Lesson Implementation Boundaries" (Day123) below.
 - Day124 — Evaluation Gate and Release Decision Integration.
-  Scope: integrate the Phase 7D evaluation gate into the release decision.
+  Scope: integrate the Phase 7D evaluation gate into the release decision. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day123 proved one path runs; Day124 integrates the evaluation gate into release decisions;
   Day125 proves resilience under drills.
 - Day125 — Failure Recovery, Load, Security and Data-repair Drills.
@@ -1981,7 +2049,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day125 proved resilience; Day126 deploys with production config and SLOs; Day127 adds
   observability and the operational runbook.
 - Day127 — Observability, Operational Runbook and Cost/Quality Evidence.
-  Scope: observability, operational runbook, cost/quality evidence.
+  Scope: observability, operational runbook, cost/quality evidence. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day126 deployed the system; Day127 adds observability, a runbook, and cost/quality evidence;
   Day128 practices system-design and coding interviews on it.
 - Day128 — AI Backend System Design and Python/SQL Coding Interview.

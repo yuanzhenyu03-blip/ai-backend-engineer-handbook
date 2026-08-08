@@ -394,10 +394,11 @@ Planned / Not started
 
 The Day43-onward curriculum is planned as a single AI Backend product capability chain that is
 competency-gated (completion = passing the Employment Readiness Gate, not reaching a fixed day; current
-planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008 in `DECISIONS.md`). All of the following are **Planned /
-Not started**; no future lesson files or new project directories were created, and nothing below has begun.
+planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008 in `DECISIONS.md`). Phase 4 is listed below as
+the **completed foundation/context**; only **Phase 5 onward is Planned / Not started**. No future lesson files
+or new project directories were created, and nothing in Phase 5+ has begun.
 
-- Phase 4 — Production AI API Engineering (Day43–Day58): runnable FastAPI AI backend (SQLAlchemy/Alembic, Redis/Outbox/Worker, Object Storage, OpenAI-compatible provider, auth/tenant isolation, tests).
+- Phase 4 — Production AI API Engineering (Day43–Day58) — **Completed** as classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME` artifacts (SQLAlchemy/Alembic, Redis/Outbox/Worker, Object Storage, OpenAI-compatible provider, auth/tenant isolation, tests); real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration remains **NOT RUN**. Completed foundation/context, not part of the Planned work below.
 - Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66): Day59–61 real local integration gate (FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry), then an isolated, recoverable, auditable Playwright browser worker exposed as a permissioned AI tool.
 - Phase 6 — n8n AI Workflow Integration (Day67–Day70): workflow integration over correct backends (not a low-code replacement).
 - Phase 7A — LLM Application Engineering (Day71–Day78): replaceable Provider adapter + prompt contracts/versioning + structured output/function calling + streaming/caching/batching + model routing/cost + fake-Provider tests.

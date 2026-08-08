@@ -263,6 +263,27 @@ runtime framework is chosen only after an explicit Framework / Job-Market Refres
 
 ---
 
+# Runnable Checkpoint Cadence (Day71 onward)
+
+Normative execution constraint (details in `CURRICULUM.md`, "Mandatory Runnable Checkpoint Cadence"). Never
+more than 4–6 consecutive lessons without running the cumulative Phase Engineering Artifact at a Runnable
+Checkpoint. A Checkpoint is an actual run of the evolving Artifact (not review/docs/static design) and must
+save: exact command, revision/commit, config, runtime boundary, evidence tier, actual result, tests, safe
+logs/traces/metrics and failure point when applicable, and NOT RUN limitations. `pytest passed` stays
+`EXECUTED_LOCAL_RUNTIME`; it does not auto-upgrade to `INTEGRATION_RUNTIME` or `PRODUCTION`.
+
+```text
+Phase 7A: Day74, Day78
+Phase 7B: Day83, Day88, Day94
+Phase 7C: Day99, Day103, Day106
+Phase 7D: Day110, Day113, Day116
+Phase 8:  Day120, Day124, Day127, Day130
+```
+
+No new lesson numbers are added for Checkpoints; they run on the existing Days above (max gap ≤ 6 lessons).
+
+---
+
 # Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Objective:

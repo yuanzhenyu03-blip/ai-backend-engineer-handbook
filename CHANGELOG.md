@@ -9,6 +9,58 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.136 — Align progress surfaces and enforce runnable checkpoints (review fix)
+
+Date: 2026-08-08
+
+Day: Curriculum review fix (status surfaces + execution constraint); no lesson or code is implemented.
+
+Targeted consistency fix on the Day71–130 expansion commit. No Day01–Day130 Topic changed; Day59–Day130 remain
+`Planned`; no lesson, code, test, or project directory was created; and no Day59+ integration, Provider call,
+or deployment was executed or claimed. Protected files (`prompts/master-prompt.md`,
+`prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`) were not modified.
+
+### Fixed
+
+- **`AGENTS.md` progress surface corrected.** It still declared Phase 4 In Progress, Day48 completed, Day49
+  next, a Day43–Day100 future direction, and the old Day75 framework choice. Now: Phase 4 classroom scope +
+  deterministic `EXECUTED_LOCAL_RUNTIME` complete (real integration NOT RUN); Last Completed = Day58; Current
+  / Next = Day59; entering Phase 5; a competency-gated Day59–130 future direction with the Employment
+  Readiness Gate; Day87 Framework/Job-Market Refresh and Day88 framework selection behind a replaceable
+  adapter; do not skip Day59; Day59+ has no runtime evidence yet.
+- **`README.md` conflicting progress removed.** The top said Phase 4 In Progress / Day44 completed / Day45
+  next and listed a long Day31–Day44 "last completed" block, contradicting the Day59–130 future direction
+  lower down. Now a single Last Completed = Day58 and Current/Next = Day59, with a pointer to `ROADMAP.md` /
+  `PROJECT_STATUS.md` for full history; the competency-gated Day59–130 future direction is retained.
+- **`PROJECT_STATUS.md` Future Roadmap contradiction fixed.** It said "all of the following are Planned / Not
+  started; nothing below has begun" while listing the completed Phase 4. Now Phase 4 is labeled the completed
+  foundation/context (classroom scope + deterministic `EXECUTED_LOCAL_RUNTIME`; real integration/production
+  NOT RUN) and only Phase 5 onward is Planned / Not started. Day59 stays Current, Day58 stays Last Completed.
+- **`docs/README.md` lesson index completed.** The `fastapi/` index stopped at Day48 (marked `# latest`) and
+  omitted Day49–Day58. Added the ten real Day49–Day58 lesson files (verified present in `docs/fastapi/`) and
+  moved `# latest` to Day58. Day59 is not indexed (not published).
+
+### Added
+
+- **Mandatory Runnable Checkpoint Cadence** (normative, searchable) in `CURRICULUM.md`, with a concise mirror
+  in `ROADMAP.md`: at most 4–6 consecutive lessons before running the cumulative Phase Engineering Artifact at
+  a Runnable Checkpoint; each Checkpoint saves exact command / revision / config / runtime boundary / evidence
+  tier / actual result / tests / safe logs-traces-metrics / failure point / NOT RUN limitations; `pytest
+  passed` does not auto-upgrade to `INTEGRATION_RUNTIME` or `PRODUCTION`. Checkpoint days: 74, 78, 83, 88, 94,
+  99, 103, 106, 110, 113, 116, 120, 124, 127, 130 (max gap ≤ 6). Checkpoint markers were added to the relevant
+  Day Scope lines without changing any Topic; no new lesson numbers were added.
+
+### Not done (scope honesty)
+
+- No Day59+ lesson, artifact, test, project directory, or code was created; all future days remain `Planned`.
+- No dependency was installed, no Provider was called, and nothing was deployed. This is a documentation /
+  consistency fix, so only doc and consistency verification was run (no code changed); the Phase 4 503-test
+  suite was not required to run and "not run" is not a failure.
+- Decisions 006/007/008 were not modified; no new Decision was needed (this is an execution/status fix, not a
+  new architecture decision).
+
+---
+
 ## v0.1.135 — Expand the AI backend track beyond the fixed 100-day limit (competency-gated completion)
 
 Date: 2026-08-08

@@ -33,7 +33,17 @@ docs/
 │   ├── day45-dependency-injection-lifespan-configuration-and-ai-provider-adapters.md
 │   ├── day46-sqlalchemy-mapping-for-the-day42-data-model.md
 │   ├── day47-async-sessions-transactions-repository-and-unit-of-work.md
-│   └── day48-alembic-and-safe-ai-backend-schema-evolution.md  # latest
+│   ├── day48-alembic-and-safe-ai-backend-schema-evolution.md
+│   ├── day49-upload-sessions-object-storage-and-artifact-verification.md
+│   ├── day50-idempotent-ai-job-api-and-transactional-outbox-integration.md
+│   ├── day51-authentication-password-security-and-jwt.md
+│   ├── day52-authorization-tenant-isolation-quotas-and-api-security.md
+│   ├── day53-openai-sdk-provider-boundaries-and-structured-output.md
+│   ├── day54-ai-streaming-client-disconnects-timeouts-and-cancellation.md
+│   ├── day55-celery-worker-execution-and-long-running-ai-jobs.md
+│   ├── day56-provider-resilience-rate-limits-token-cost-and-backpressure.md
+│   ├── day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection.md
+│   └── day58-production-ai-api-capstone-observability-and-english-interview.md  # latest
 ├── playwright/
 └── n8n/
 ```
