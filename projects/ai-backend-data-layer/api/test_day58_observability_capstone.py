@@ -8,6 +8,7 @@ VALIDATION_MATRIX_DAY58 / day58_not_run_claims()).
 """
 import pytest
 
+from day56_provider_resilience import ExecutionCertainty
 from day57_testing_harness import EvidenceTier, RunStatus
 from day58_observability_capstone import (
     FORBIDDEN_EVENT_FIELDS, HIGH_CARDINALITY_LABELS, HighCardinalityLabelError,
@@ -15,8 +16,8 @@ from day58_observability_capstone import (
     ObservabilityRecoveryAction, ObservedJob, PROVIDER_CALLS_IN_FLIGHT, PROVIDER_CALL_DURATION_SECONDS,
     PROVIDER_CALL_TOTAL, Span, StructuredEvent, TELEMETRY_EVENTS_DROPPED_TOTAL,
     TELEMETRY_EXPORT_FAILURES_TOTAL, TELEMETRY_EXPORT_QUEUE_DEPTH, TelemetryHealth, TelemetryPipeline,
-    UnsafeTelemetryError, VALIDATION_MATRIX_DAY58, build_observability_affected_set, child_span,
-    classify_observability_recovery, day58_not_run_claims, emit_provider_call_suppressed,
+    UnsafeTelemetryError, VALIDATION_MATRIX_DAY58, LabelValueError, build_observability_affected_set,
+    child_span, classify_observability_recovery, day58_not_run_claims, emit_provider_call_suppressed,
     emit_provider_call_timeout, linked_trace, mark_telemetry_gaps, process_job_with_telemetry,
     start_job_chain, start_trace,
 )
@@ -75,6 +76,26 @@ def test_event_rejects_unrecognized_fields():
                         extra={"mystery": 1})
 
 
+def test_event_extra_cannot_override_canonical_fields():
+    # P1-2: extra must never shadow event_name / any id / provider-model-outcome / duration / reason /
+    # presence flags — that would break audit correlation.
+    for canon in ("job_id", "attempt_id", "trace_id", "event_name", "correlation_id",
+                  "provider", "model", "outcome", "duration_ms", "reason",
+                  "request_id_present", "dispatch_marker_present"):
+        with pytest.raises(UnsafeTelemetryError):
+            StructuredEvent(event_name="x", job_id="j", correlation_id="c", attempt_id="a",
+                            trace_id="t", extra={canon: "OTHER"})
+
+
+def test_serialized_event_canonical_ids_are_not_overridable():
+    ident = start_job_chain("job-1")
+    e = emit_provider_call_timeout(ident, provider="openai", model="gpt-x", duration_ms=10,
+                                   dispatch_marker_present=True)
+    d = e.to_safe_dict()
+    assert d["job_id"] == ident.job_id and d["attempt_id"] == ident.attempt_id
+    assert d["trace_id"] == ident.trace_id and d["event_name"] == "provider.call.timeout"
+
+
 # --- 3. metric contract + cardinality --------------------------------------
 def test_metric_rejects_high_cardinality_labels():
     for bad in ("job_id", "attempt_id", "trace_id"):
@@ -108,6 +129,26 @@ def test_metric_requires_exact_label_set():
         m.inc(PROVIDER_CALL_TOTAL, {"provider": "openai"})         # missing model/outcome
 
 
+def test_metric_rejects_uncontrolled_label_values():
+    # P2-2: low cardinality also requires CONTROLLED values, not just controlled names.
+    m = MetricRegistry()
+    with pytest.raises(LabelValueError):                            # unknown provider (not in allowlist)
+        m.inc(PROVIDER_CALL_TOTAL, {"provider": "evil-corp", "model": "gpt-x", "outcome": "timeout"})
+    with pytest.raises(LabelValueError):                            # unknown outcome
+        m.inc(PROVIDER_CALL_TOTAL, {"provider": "openai", "model": "gpt-x", "outcome": "weird-value"})
+    with pytest.raises(LabelValueError):                            # overlong model value (unbounded input)
+        m.observe(PROVIDER_CALL_DURATION_SECONDS, 0.1, {"provider": "openai", "model": "x" * 200})
+    with pytest.raises(LabelValueError):                            # model shape violation
+        m.observe(PROVIDER_CALL_DURATION_SECONDS, 0.1, {"provider": "openai", "model": "bad model!"})
+
+
+def test_metric_accepts_controlled_label_values():
+    m = MetricRegistry()
+    m.inc(PROVIDER_CALL_TOTAL, {"provider": "openai", "model": "gpt-4o-mini", "outcome": "ok"})
+    assert m.counter_value(PROVIDER_CALL_TOTAL,
+                           {"provider": "openai", "model": "gpt-4o-mini", "outcome": "ok"}) == 1.0
+
+
 # --- 4. trace model + span links -------------------------------------------
 def test_child_span_shares_parent_trace():
     attempt = start_trace("worker.attempt")
@@ -138,6 +179,17 @@ def test_exporter_outage_does_not_fail_job_or_authorize_retry():
     assert m.counter_value(TELEMETRY_EXPORT_FAILURES_TOTAL) == 5.0  # health exposed via metrics
     assert m.counter_value(TELEMETRY_EVENTS_DROPPED_TOTAL) == 3.0   # 5 events, buffer bound 2 -> 3 dropped
     assert m.gauge_value(TELEMETRY_EXPORT_QUEUE_DEPTH) == 2.0
+    assert pipe.buffered_count == 2                                # 2 events retained in the buffer
+
+    # P2-1: exporter recovers -> buffered events are drained to the sink, queue depth resets to 0,
+    # and the dropped counter stays accurate (dropped events are gone, not resurrected).
+    drained = pipe.recover()
+    assert drained == 2
+    assert pipe.buffered_count == 0
+    assert len(pipe.exported) == 2                                 # the 2 buffered events were exported
+    assert m.gauge_value(TELEMETRY_EXPORT_QUEUE_DEPTH) == 0.0      # queue depth reset
+    assert m.counter_value(TELEMETRY_EVENTS_DROPPED_TOTAL) == 3.0  # dropped metric still accurate
+    assert pipe.health() is TelemetryHealth.HEALTHY               # exporter is up again
 
 
 def test_healthy_exporter_reports_healthy_and_no_drops():
@@ -188,9 +240,33 @@ def test_provider_request_id_evidence_is_reconcile_only():
     assert classify_observability_recovery(j) is ObservabilityRecoveryAction.RECONCILE_ONLY
 
 
-def test_proven_no_execution_job_may_requeue():
-    j = ObservedJob("job-clean", "queued", False, None, "bad-obs-2", 5)
-    assert classify_observability_recovery(j) is ObservabilityRecoveryAction.REQUEUE_ORDINARY
+def test_absence_of_evidence_alone_does_not_authorize_requeue():
+    # P1-1: no marker, no request id, and NO positive certainty -> still reconcile-only.
+    # Missing evidence is NOT proof of no execution (Day57); it may not authorize an ordinary requeue.
+    j = ObservedJob("job-x", "queued", False, None, "bad-obs-2", 5, execution_certainty=None)
+    assert classify_observability_recovery(j) is ObservabilityRecoveryAction.RECONCILE_ONLY
+
+
+def test_unknown_or_may_have_executed_certainty_stays_reconcile_only():
+    for cert in (ExecutionCertainty.UNKNOWN, ExecutionCertainty.MAY_HAVE_EXECUTED):
+        j = ObservedJob("job-u", "queued", False, None, "bad-obs-2", 5, execution_certainty=cert)
+        assert classify_observability_recovery(j) is ObservabilityRecoveryAction.RECONCILE_ONLY
+
+
+def test_positive_definitely_not_accepted_is_eligible_for_day56_guarded_recovery():
+    # Only a POSITIVE DEFINITELY_NOT_ACCEPTED certainty is eligible for guarded recovery — and Day58
+    # does not itself requeue: it hands the Job to Day56's guarded recovery (which re-checks
+    # contract/deadline/budget/cancel eligibility before any dispatch).
+    j = ObservedJob("job-clean", "queued", False, None, "bad-obs-2", 5,
+                    execution_certainty=ExecutionCertainty.DEFINITELY_NOT_ACCEPTED)
+    assert classify_observability_recovery(j) is ObservabilityRecoveryAction.ELIGIBLE_FOR_GUARDED_RECOVERY
+
+
+def test_evidence_overrides_even_definitely_not_accepted():
+    # A dispatch marker outranks certainty: even DEFINITELY_NOT_ACCEPTED with a marker is reconcile-only.
+    j = ObservedJob("job-m", "queued", True, None, "bad-obs-2", 5,
+                    execution_certainty=ExecutionCertainty.DEFINITELY_NOT_ACCEPTED)
+    assert classify_observability_recovery(j) is ObservabilityRecoveryAction.RECONCILE_ONLY
 
 
 # --- 7. evidence taxonomy honesty ------------------------------------------

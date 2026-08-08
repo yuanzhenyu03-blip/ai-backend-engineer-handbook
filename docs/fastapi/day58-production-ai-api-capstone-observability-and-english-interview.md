@@ -12,7 +12,7 @@ Prerequisite: Day57 — AI Backend Testing, Fake Providers, Contract Tests and F
 Previous Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Next Lesson: Day59 — Playwright Runtime Model: Browser, Context, Page and Async Lifecycle (Phase 5)
 Engineering Artifact: projects/ai-backend-data-layer/api/day58-production-ai-api-capstone-observability-and-english-interview-design.md
-  + runnable day58_observability_capstone.py + test_day58_observability_capstone.py (in-process deterministic model; 21 passed)
+  + runnable day58_observability_capstone.py + test_day58_observability_capstone.py (in-process deterministic model; 28 passed)
 ```
 
 Main engineering artifact: a deterministic in-process observability model — the five-identity lifecycle contract, a
@@ -161,8 +161,8 @@ across processes and retries without conflating them.
 timeout/unknown outcome — NOT proof the Provider did not execute. A later reconciliation Attempt that refuses to call
 the Provider emits `provider.call.suppressed` with `reason=prior_attempt_may_have_executed` and
 `dispatch_marker_present=True`. Neither event ever carries a raw prompt, raw response, or secret — the `StructuredEvent`
-contract rejects those (`UnsafeTelemetryError`). Prompt/output minimization is a tenant-data boundary, not a logging
-preference.
+contract rejects those (`UnsafeTelemetryError`), and its `extra` field may never shadow a canonical id/name/field, so
+audit correlation cannot be corrupted. Prompt/output minimization is a tenant-data boundary, not a logging preference.
 
 ### Concept 3: Metrics and cardinality
 
@@ -174,7 +174,10 @@ preference.
 **Tech Lead Review:** `provider_calls_in_flight` is a GAUGE — it rises at call start and falls at completion/timeout. A
 Counter is cumulative (query its RATE, not the raw total); a Histogram captures a distribution including tail latency.
 `job_id`/`attempt_id`/`trace_id` must NEVER be metric labels — they explode cardinality (`MetricSpec` raises
-`HighCardinalityLabelError`). And `jobs_pending_reconciliation` is a Gauge for the backlog. Alert on a COMBINATION —
+`HighCardinalityLabelError`). Low cardinality also depends on VALUES, not just names: `provider`/`outcome` come from a
+controlled allowlist and `model` from a bounded shape (`validate_label_values` raises `LabelValueError` on uncontrolled
+or overlong values), so unbounded user input can't silently blow up the time series. And `jobs_pending_reconciliation`
+is a Gauge for the backlog. Alert on a COMBINATION —
 timeout rate + in-flight saturation + sustained reconciliation backlog — so one transient timeout does not page.
 
 ### Concept 4: Traces and async causality
@@ -198,7 +201,9 @@ preceding causal trace — never a child of an already-ended HTTP span. Link onl
 `provider_dispatch_started_at` (persisted before the call) forces reconciliation and the reservation stays HELD. An
 exporter outage must NOT turn an accepted Job into FAILED or authorize retry: keep core processing, buffer telemetry to
 a bound then drop, and expose health via `telemetry_export_failures_total`, `telemetry_events_dropped_total`,
-`telemetry_export_queue_depth`. (`process_job_with_telemetry` returns the unchanged durable status.)
+`telemetry_export_queue_depth`. When the exporter recovers, `recover()` drains the buffered events (FIFO) to an
+observable sink and resets the queue-depth gauge to 0 — events already dropped stay dropped. (`process_job_with_telemetry`
+returns the unchanged durable status.)
 
 ### Concept 6: Bad-observability-release rollback
 
@@ -212,8 +217,11 @@ gaps, do not fabricate -> do not overwrite valid Job/Attempt/reservation facts."
 **Tech Lead Review:** Technically strong. Roll back the OBSERVABILITY release/config first (stop further correlation
 loss + cardinality damage) — never the durable Job/Attempt/marker/reservation/Outbox facts (this is an observability
 failure, not a business-state failure). Bound the affected set by release + time window, reconstruct from durable facts,
-mark telemetry gaps honestly, and keep a marker-backed `PENDING_RECONCILIATION` Job reconciliation-only — never an
-ordinary requeue.
+mark telemetry gaps honestly, and keep a marker-backed `PENDING_RECONCILIATION` Job reconciliation-only. Absence of a
+marker/request id is NOT proof of no execution: an ordinary requeue needs a POSITIVE `DEFINITELY_NOT_ACCEPTED` certainty
+(Day56), and even then Day58 only marks the Job `ELIGIBLE_FOR_GUARDED_RECOVERY` — it hands it to Day56's existing guarded
+recovery (contract/deadline/budget/cancel re-check), never requeuing on its own; `UNKNOWN`/`MAY_HAVE_EXECUTED`/missing
+certainty stay reconcile-only.
 
 ---
 
@@ -225,8 +233,8 @@ Identity lifecycle
 ✅ job_id/correlation_id are stable; a new Attempt gets a new attempt_id and normally a new trace_id; request_id is per HTTP request.
 
 Missing evidence as proof
-❌ No dispatch marker / provider_request_id means the Provider did not execute, so it is safe to retry.
-✅ Missing request evidence is not evidence of non-execution. A durable dispatch marker forces reconciliation, no second call.
+❌ No dispatch marker / provider_request_id means the Provider did not execute, so it is safe to retry/requeue.
+✅ Missing request evidence is not evidence of non-execution. A durable dispatch marker forces reconciliation; an ordinary requeue needs a POSITIVE DEFINITELY_NOT_ACCEPTED certainty and Day56's guarded eligibility re-check, never absence alone.
 
 Metric semantics
 ❌ provider_calls_in_flight is a Counter.
@@ -410,7 +418,7 @@ traces                   = spans of one execution; child span for the Provider c
 durable truth            = PostgreSQL Job/Attempt/marker/reservation/Outbox; outranks telemetry
 missing telemetry        = observability GAP, never proof of no execution
 exporter outage          = keep core processing, never FAIL a Job; expose health metrics
-observability rollback   = roll back config, NOT DB facts; bound the set; mark gaps; marker-backed = reconcile-only
+observability rollback   = roll back config, NOT DB facts; bound the set; mark gaps; absence != requeue (only positive DEFINITELY_NOT_ACCEPTED is eligible for Day56 guarded recovery)
 evidence tiers           = CONCEPTUAL_STATIC / EXECUTED_LOCAL_RUNTIME / INTEGRATION_RUNTIME / PRODUCTION
 ```
 

@@ -9,6 +9,61 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.131 — Day58 fix (Codex): evidence-gated requeue, extra-override guard, telemetry drain, label-value contract
+
+Date: 2026-08-07
+
+Day: Day58 (review fixes)
+
+Four Day58 review findings on the observability capstone model, plus a completion-wording clarification. No teaching-spec
+files were touched; Day56/Day57 behavior is unchanged (their ExecutionCertainty + guarded-recovery semantics are reused).
+
+### Fixed
+
+- **P1-1 — missing evidence must not authorize an ordinary requeue.** `classify_observability_recovery` previously
+  returned `REQUEUE_ORDINARY` whenever a Job had no dispatch marker and no `provider_request_id`, treating ABSENCE as
+  proof of no execution — contradicting Day57. Now: any marker/request-id evidence or a `pending_reconciliation` status
+  is `RECONCILE_ONLY`; absence of evidence with `UNKNOWN`/`MAY_HAVE_EXECUTED`/missing certainty is `RECONCILE_ONLY`; and
+  only a POSITIVE Day56 `DEFINITELY_NOT_ACCEPTED` certainty returns the new `ELIGIBLE_FOR_GUARDED_RECOVERY` — which hands
+  the Job to Day56's EXISTING guarded recovery path (contract/deadline/budget/cancel re-check), rather than Day58
+  fabricating a requeue. `ObservedJob` gained a durable `execution_certainty` field; the module reuses Day56
+  `ExecutionCertainty` + `can_ordinary_retry`.
+- **P1-2 — StructuredEvent.extra could override canonical fields.** `extra` may no longer shadow any canonical event
+  field (event_name, ids, provider/model/outcome, duration, reason, presence flags) — a collision raises
+  `UnsafeTelemetryError` — and `to_safe_dict` never lets `extra` overwrite a canonical value; only explicitly-allowlisted
+  safe extension keys are accepted. Raw-prompt/response/key/secret/document rejection is preserved.
+- **P2-1 — TelemetryPipeline never drained buffered events on recovery.** Added `recover()`: on exporter recovery it
+  drains buffered events (FIFO) to an observable `exported` sink and resets `telemetry_export_queue_depth` to 0; events
+  already dropped during the outage stay dropped (the dropped counter remains accurate). A still-down exporter keeps
+  buffering. This is a minimal deterministic flush, not a real OpenTelemetry exporter.
+- **P2-2 — low-cardinality contract only checked label NAMES.** Added `validate_label_values` (run on every metric op):
+  `provider`/`outcome` must be from a controlled allowlist, `model` must match a bounded shape, and every value is
+  length/type-checked (`LabelValueError` otherwise) — so uncontrolled input can't silently explode cardinality.
+
+### Completion wording
+
+- Clarified `ROADMAP.md`, `PROJECT_STATUS.md`, and `TASKS.md` so Phase 4 / Day58 "Completed" reads as CLASSROOM SCOPE +
+  deterministic EXECUTED_LOCAL_RUNTIME artifacts — NOT a real runnable FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery
+  integration or Provider production capstone, which remain NOT RUN. No classroom records were altered or fabricated.
+
+### Added
+
+- 7 regression tests: absence-without-certainty and UNKNOWN/MAY_HAVE_EXECUTED stay reconcile-only; positive
+  DEFINITELY_NOT_ACCEPTED is eligible for guarded recovery; a marker overrides even DEFINITELY_NOT_ACCEPTED; `extra`
+  cannot override any canonical field + serialized canonical ids are stable; telemetry recovery drains the buffer and
+  resets queue depth with the dropped metric accurate; uncontrolled label values (unknown provider/outcome, overlong /
+  bad-shape model) are rejected while controlled values still work.
+
+### Validation
+
+- Executed: `python3 -m py_compile day58_observability_capstone.py test_day58_observability_capstone.py`;
+  `python3 -m pytest -q test_day58_observability_capstone.py` -> **28 passed** (was 21); full
+  `projects/ai-backend-data-layer/api/` suite -> **493 passed** (Python 3.10.12, pytest 7.4.3). EXECUTED_LOCAL_RUNTIME
+  only — a real FastAPI runtime + OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, and real Provider
+  traffic remain NOT RUN (INTEGRATION_RUNTIME + PRODUCTION).
+
+---
+
 ## v0.1.130 — Day58: Production AI API Capstone, Observability and English Interview (Phase 4 capstone)
 
 Date: 2026-08-07

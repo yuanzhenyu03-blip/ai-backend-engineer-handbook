@@ -24,8 +24,8 @@ INTEGRATION RUNTIME (real PostgreSQL / Redis / Celery)     : NOT RUN
 PRODUCTION (real Provider traffic / prod observability)    : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day58_observability_capstone.py` -> **21 passed** (Python 3.10.12, pytest 7.4.3).
-Full `projects/ai-backend-data-layer/api/` suite -> **486 passed**. These prove the identity/lifecycle rules, the safe
+Executed: `python3 -m pytest -q test_day58_observability_capstone.py` -> **28 passed** (Python 3.10.12, pytest 7.4.3).
+Full `projects/ai-backend-data-layer/api/` suite -> **493 passed**. These prove the identity/lifecycle rules, the safe
 structured-event contract, the low-cardinality metric label contract, trace/span-link modeling, the telemetry-exporter
 -failure policy, and the observability-release rollback drill over an in-process deterministic model. They do NOT prove
 a real FastAPI runtime, a real OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, or real Provider
@@ -57,7 +57,10 @@ trace; `request_id` identifies one HTTP request.
 
 `StructuredEvent` allows ONLY safe fields (`event_name`, `job_id`, `correlation_id`, `attempt_id`, `trace_id`,
 `provider`, `model`, `outcome`, `duration_ms`, `request_id_present`, `dispatch_marker_present`, `reason`) and REJECTS
-forbidden raw/secret fields (`prompt`, `provider_response`, `api_key`, `document`, ...) with `UnsafeTelemetryError`.
+forbidden raw/secret fields (`prompt`, `provider_response`, `api_key`, `document`, ...) with `UnsafeTelemetryError`. The
+`extra` field may NEVER shadow a canonical field (any id, `event_name`, provider/model/outcome, duration, reason, or a
+presence flag) — a collision raises `UnsafeTelemetryError`, and `to_safe_dict` never lets `extra` overwrite a canonical
+value — so audit correlation cannot be corrupted; only explicitly-allowlisted safe extension keys are accepted.
 
 - `provider.call.timeout` (`emit_provider_call_timeout`) = the application's OBSERVED timeout/unknown outcome. It is NOT
   proof the Provider did not execute.
@@ -79,9 +82,11 @@ Gauge     provider_calls_in_flight{provider,model}              -> rises at call
 Gauge     jobs_pending_reconciliation{provider,model}           -> reconciliation backlog rises and falls
 ```
 
-`MetricSpec.__post_init__` REJECTS `job_id` / `attempt_id` / `trace_id` / `request_id` / `correlation_id` as labels
-(`HighCardinalityLabelError`) — those belong in logs/traces, not metric labels, because they create high-cardinality
-time series. Alerting should COMBINE timeout rate + in-flight saturation + a sustained reconciliation backlog, so one
+Low cardinality depends on label NAMES **and** VALUES. `MetricSpec.__post_init__` REJECTS `job_id` / `attempt_id` /
+`trace_id` / `request_id` / `correlation_id` as label NAMES (`HighCardinalityLabelError`); and `validate_label_values`
+(run on every metric op) REJECTS uncontrolled VALUES (`LabelValueError`) — `provider` and `outcome` must be from a
+controlled allowlist, `model` must match a bounded shape, and every value is length/type-checked — so an unbounded
+value from user input cannot silently explode cardinality. Alerting should COMBINE timeout rate + in-flight saturation + a sustained reconciliation backlog, so one
 transient timeout does not page.
 
 ---
@@ -114,7 +119,10 @@ Provider call.
 
 `TelemetryPipeline`: if the exporter is DOWN, core Job processing CONTINUES and no accepted Job becomes FAILED
 (`process_job_with_telemetry` returns the unchanged durable status). Events buffer up to a bound then drop; health is
-exposed via `telemetry_export_failures_total`, `telemetry_events_dropped_total`, and `telemetry_export_queue_depth`. An
+exposed via `telemetry_export_failures_total`, `telemetry_events_dropped_total`, and `telemetry_export_queue_depth`. When
+the exporter RECOVERS, `recover()` DRAINS the buffered events (FIFO) to an observable sink and resets the queue-depth
+gauge to 0; events already dropped during the outage stay dropped (the dropped counter remains accurate). This is a
+minimal, deterministic flush — NOT a real OpenTelemetry exporter (INTEGRATION_RUNTIME, NOT RUN). An
 explicit regulatory/product policy MAY choose a stricter availability/audit trade-off, but it must never be the
 ACCIDENTAL consequence of an exporter failure.
 
@@ -134,7 +142,12 @@ A bad observability release removed `attempt_id` from Worker logs and added `job
    fabricate missing historical logs/traces.
 4. A `PENDING_RECONCILIATION` Job whose telemetry is incomplete but whose DATABASE has a dispatch marker (or a
    `provider_request_id`) stays **reconciliation-only** (`classify_observability_recovery` -> `RECONCILE_ONLY`) — it must
-   NOT be requeued for an ordinary Provider call. Only proven-no-execution Jobs may `REQUEUE_ORDINARY`.
+   NOT be requeued for an ordinary Provider call. **Absence of a marker/request id is NOT proof of no execution** (Day57):
+   an ordinary requeue is permitted ONLY with a POSITIVE `DEFINITELY_NOT_ACCEPTED` execution certainty (Day56), and even
+   then Day58 does not itself requeue — `classify_observability_recovery` returns `ELIGIBLE_FOR_GUARDED_RECOVERY`, meaning
+   the Job may enter Day56's EXISTING guarded recovery path (which re-checks contract / deadline / budget / cancellation
+   before any dispatch). `UNKNOWN` / `MAY_HAVE_EXECUTED` / missing certainty stay `RECONCILE_ONLY`. This lightweight model
+   does not own the Day56 eligibility facts and does not fabricate a new business state machine.
 
 ---
 
@@ -147,7 +160,7 @@ A bad observability release removed `attempt_id` from Worker logs and added `job
 | Low-cardinality metric contract; Counter/Gauge/Histogram semantics; exact label set | EXECUTED LOCAL | `test_metric_rejects_high_cardinality_labels`, `test_day58_metric_types_are_correct`, `test_metric_registry_counter_gauge_histogram`, `test_metric_requires_exact_label_set` |
 | Trace child span shares trace; async retry uses a span link to the immediate prior (no fake nesting) | EXECUTED LOCAL | `test_child_span_shares_parent_trace`, `test_async_retry_uses_span_link_to_immediate_prior_not_nesting` |
 | Exporter outage does not FAIL a Job or authorize retry; health metrics; healthy path no drops | EXECUTED LOCAL | `test_exporter_outage_does_not_fail_job_or_authorize_retry`, `test_healthy_exporter_reports_healthy_and_no_drops` |
-| Rollback restores observability config only; bounded affected set + marked gaps; marker/request-id -> reconcile-only; proven-no-execution -> requeue | EXECUTED LOCAL | `test_rollback_restores_observability_config_only`, `test_affected_set_bounded_by_release_and_window_and_gaps_marked`, `test_marker_backed_reconciliation_job_is_never_requeued`, `test_provider_request_id_evidence_is_reconcile_only`, `test_proven_no_execution_job_may_requeue` |
+| Rollback restores observability config only; bounded affected set + marked gaps; marker/request-id/uncertainty -> reconcile-only; ONLY positive DEFINITELY_NOT_ACCEPTED -> eligible for Day56 guarded recovery (absence != proof) | EXECUTED LOCAL | `test_rollback_restores_observability_config_only`, `test_affected_set_bounded_by_release_and_window_and_gaps_marked`, `test_marker_backed_reconciliation_job_is_never_requeued`, `test_provider_request_id_evidence_is_reconcile_only`, `test_absence_of_evidence_alone_does_not_authorize_requeue`, `test_unknown_or_may_have_executed_certainty_stays_reconcile_only`, `test_positive_definitely_not_accepted_is_eligible_for_day56_guarded_recovery`, `test_evidence_overrides_even_definitely_not_accepted` |
 | Honest evidence taxonomy (integration + production NOT RUN) | EXECUTED LOCAL | `test_validation_matrix_marks_integration_and_production_not_run` |
 | Real FastAPI + OpenTelemetry exporter pipeline | INTEGRATION RUNTIME — NOT RUN | needs a real FastAPI app + OTel collector |
 | Real PostgreSQL/Redis/Celery integration with committed correlation evidence | INTEGRATION RUNTIME — NOT RUN | needs real disposable PostgreSQL/Redis/broker + Worker |

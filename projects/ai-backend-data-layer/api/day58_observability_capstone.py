@@ -41,6 +41,7 @@ only safe identifiers and bounded, low-cardinality fields.
 
 from __future__ import annotations
 
+import re
 import uuid
 from dataclasses import dataclass, field
 from enum import Enum
@@ -48,7 +49,7 @@ from typing import Optional
 
 # Reuse Day57's evidence taxonomy (four tiers) and Day56's execution-certainty vocabulary.
 from day57_testing_harness import EvidenceTier, MatrixRow, RunStatus
-from day56_provider_resilience import ExecutionCertainty
+from day56_provider_resilience import ExecutionCertainty, can_ordinary_retry
 
 
 def _new_id(prefix: str) -> str:
@@ -104,6 +105,11 @@ SAFE_EVENT_FIELDS = frozenset(
     {"event_name", "job_id", "correlation_id", "attempt_id", "trace_id", "provider", "model",
      "outcome", "duration_ms", "request_id_present", "dispatch_marker_present", "reason"}
 )
+# CANONICAL fields are the event's own declared fields; `extra` may NEVER shadow them (that would
+# corrupt audit correlation). Legitimate extension keys must be added deliberately to the allowlist
+# below (empty by default), so `extra` can only ever carry EXPLICITLY-allowed safe extension fields.
+CANONICAL_EVENT_FIELDS = frozenset(SAFE_EVENT_FIELDS)
+SAFE_EXTENSION_FIELDS = frozenset()
 
 
 class UnsafeTelemetryError(ValueError):
@@ -130,9 +136,15 @@ class StructuredEvent:
         bad = set(self.extra) & FORBIDDEN_EVENT_FIELDS
         if bad:
             raise UnsafeTelemetryError(f"forbidden raw/secret fields in event: {sorted(bad)}")
-        unknown = set(self.extra) - SAFE_EVENT_FIELDS
+        # `extra` may NOT override any canonical event field (event_name, ids, provider/model/outcome,
+        # duration, reason, presence flags) — that would break audit correlation.
+        collide = set(self.extra) & CANONICAL_EVENT_FIELDS
+        if collide:
+            raise UnsafeTelemetryError(f"extra may not override canonical event fields: {sorted(collide)}")
+        # Anything else must be an EXPLICITLY-allowed safe extension key.
+        unknown = set(self.extra) - SAFE_EXTENSION_FIELDS
         if unknown:
-            raise UnsafeTelemetryError(f"unrecognized event fields (must be explicitly safe): {sorted(unknown)}")
+            raise UnsafeTelemetryError(f"extra may only contain explicitly-allowed safe extension fields: {sorted(unknown)}")
 
     def to_safe_dict(self) -> dict:
         d = {"event_name": self.event_name, "job_id": self.job_id,
@@ -144,7 +156,11 @@ class StructuredEvent:
                 d[k] = v
         d["request_id_present"] = self.request_id_present
         d["dispatch_marker_present"] = self.dispatch_marker_present
-        d.update(self.extra)
+        # `extra` is validated to be disjoint from canonical fields, so it can never overwrite a
+        # canonical id/name; add only the (allowlisted) extension keys.
+        for k, v in self.extra.items():
+            if k not in d:
+                d[k] = v
         return d
 
 
@@ -183,9 +199,38 @@ class MetricType(str, Enum):
 # Labels that would explode cardinality — they belong in logs/traces, never on a metric.
 HIGH_CARDINALITY_LABELS = frozenset({"job_id", "attempt_id", "trace_id", "request_id", "correlation_id"})
 
+# Low cardinality depends on label NAMES *and* VALUES: even provider/model/outcome must come from
+# controlled config, not unbounded user input. These allowlists/shape rules are illustrative
+# controlled configuration (NOT credentials or a vendor policy) and bound the value space.
+ALLOWED_PROVIDER_VALUES = frozenset({"openai", "anthropic", "azure_openai", "fake"})
+ALLOWED_OUTCOME_VALUES = frozenset(
+    {"ok", "timeout", "rate_limited", "server_error", "suppressed", "invalid", "cancelled",
+     "definitely_not_accepted", "may_have_executed", "unknown"})
+MODEL_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,64}$")   # controlled shape for a model label
+MAX_LABEL_VALUE_LEN = 64
+
 
 class HighCardinalityLabelError(ValueError):
     """Raised when a metric is declared with a per-Job/per-Attempt/per-trace label."""
+
+
+class LabelValueError(ValueError):
+    """Raised when a label VALUE is not from the controlled allowlist / shape (would risk high
+    cardinality or unbounded input)."""
+
+
+def validate_label_values(labels: dict) -> None:
+    for k, v in labels.items():
+        if not isinstance(v, str):
+            raise LabelValueError(f"label {k!r} value must be a string, got {type(v).__name__}")
+        if not (0 < len(v) <= MAX_LABEL_VALUE_LEN):
+            raise LabelValueError(f"label {k!r} value length must be 1..{MAX_LABEL_VALUE_LEN}: {v!r}")
+        if k == "provider" and v not in ALLOWED_PROVIDER_VALUES:
+            raise LabelValueError(f"provider {v!r} is not in the controlled allowlist {sorted(ALLOWED_PROVIDER_VALUES)}")
+        if k == "outcome" and v not in ALLOWED_OUTCOME_VALUES:
+            raise LabelValueError(f"outcome {v!r} is not in the controlled allowlist")
+        if k == "model" and not MODEL_LABEL_PATTERN.match(v):
+            raise LabelValueError(f"model {v!r} does not match the controlled shape [A-Za-z0-9._-]{{1,64}}")
 
 
 @dataclass
@@ -226,6 +271,7 @@ class MetricRegistry:
         extra = set(labels) - set(spec.labels)
         if missing or extra:
             raise ValueError(f"{spec.name}: label set must be exactly {spec.labels}")
+        validate_label_values(labels)          # low cardinality also requires controlled VALUES
         return (spec.name,) + tuple(labels[k] for k in spec.labels)
 
     def inc(self, spec: MetricSpec, labels: Optional[dict] = None, amount: float = 1.0) -> None:
@@ -307,10 +353,12 @@ class TelemetryPipeline:
         self.buffer_bound = buffer_bound
         self.exporter_up = True
         self._buffer: list[StructuredEvent] = []
+        self.exported: list[StructuredEvent] = []   # observable sink: events actually exported
 
     def export(self, event: StructuredEvent) -> None:
         if self.exporter_up:
-            return                          # exported successfully (modeled as a no-op sink)
+            self.exported.append(event)     # recorded to the sink so "exported" is verifiable
+            return
         # Exporter down: buffer up to the bound, else drop. NEVER raise into core processing.
         self.metrics.inc(TELEMETRY_EXPORT_FAILURES_TOTAL)
         if len(self._buffer) < self.buffer_bound:
@@ -318,6 +366,24 @@ class TelemetryPipeline:
         else:
             self.metrics.inc(TELEMETRY_EVENTS_DROPPED_TOTAL)
         self.metrics.set_gauge(TELEMETRY_EXPORT_QUEUE_DEPTH, float(len(self._buffer)))
+
+    def recover(self) -> int:
+        """Exporter RECOVERED: mark it up and DRAIN the buffered events to the sink in FIFO order,
+        then reset the queue-depth gauge to 0. Returns the number of events drained. Events already
+        DROPPED during the outage are gone (the dropped counter stays accurate); a still-down
+        exporter keeps buffering — only `recover()` drains. This is a minimal, deterministic flush,
+        NOT a real OpenTelemetry exporter (INTEGRATION_RUNTIME, NOT RUN)."""
+        self.exporter_up = True
+        drained = 0
+        while self._buffer:
+            self.exported.append(self._buffer.pop(0))
+            drained += 1
+        self.metrics.set_gauge(TELEMETRY_EXPORT_QUEUE_DEPTH, 0.0)
+        return drained
+
+    @property
+    def buffered_count(self) -> int:
+        return len(self._buffer)
 
     def health(self) -> TelemetryHealth:
         return TelemetryHealth.HEALTHY if self.exporter_up else TelemetryHealth.DEGRADED
@@ -359,7 +425,12 @@ class ObservabilityRelease:
 
 @dataclass
 class ObservedJob:
-    """A durable Job fact snapshot (PostgreSQL is the source of truth), plus a telemetry-gap flag."""
+    """A durable Job fact snapshot (PostgreSQL is the source of truth), plus a telemetry-gap flag.
+
+    `execution_certainty` is the durable, Adapter-owned classification of the prior attempt's outcome
+    (Day56 `ExecutionCertainty`). Absence of a marker/request id is NOT proof of no execution — only a
+    POSITIVE `DEFINITELY_NOT_ACCEPTED` may leave the reconciliation-only path (see
+    `classify_observability_recovery`)."""
     job_id: str
     status: str
     dispatch_marker_present: bool
@@ -367,6 +438,7 @@ class ObservedJob:
     release_version: str
     accepted_at_index: int                 # stands in for a durable acceptance timestamp/order
     telemetry_complete: bool = True
+    execution_certainty: Optional[ExecutionCertainty] = None
 
 
 def build_observability_affected_set(jobs: list[ObservedJob], *, release_version: str,
@@ -384,19 +456,31 @@ def mark_telemetry_gaps(jobs: list[ObservedJob], affected: list[str]) -> dict[st
 
 
 class ObservabilityRecoveryAction(str, Enum):
-    RECONCILE_ONLY = "reconcile_only"      # dispatch marker / evidence -> never an ordinary requeue
-    REQUEUE_ORDINARY = "requeue_ordinary"  # only proven-no-execution Jobs (no marker, no request id)
+    RECONCILE_ONLY = "reconcile_only"                     # any evidence/uncertainty -> never a requeue
+    ELIGIBLE_FOR_GUARDED_RECOVERY = "eligible_for_guarded_recovery"  # POSITIVE not-accepted; hand to Day56
 
 
 def classify_observability_recovery(job: ObservedJob) -> ObservabilityRecoveryAction:
-    """A PENDING_RECONCILIATION Job whose telemetry is incomplete but whose DATABASE has a dispatch
-    marker remains reconciliation-only — it must NOT be requeued for an ordinary Provider call. The
-    observability gap does not change durable safety."""
+    """Classify what recovery an observability-incident Job may undergo — reusing Day56 execution
+    certainty, NEVER inferring "no execution" from ABSENCE of evidence.
+
+    * ANY external-execution evidence (a dispatch marker or a `provider_request_id`) -> RECONCILE_ONLY.
+    * A durable `pending_reconciliation` status is itself unknown external execution -> RECONCILE_ONLY.
+    * Absence of a marker/request id is NOT proof of no execution (Day57). An ordinary requeue is
+      permitted ONLY with a POSITIVE `DEFINITELY_NOT_ACCEPTED` execution certainty from the Adapter —
+      and even then Day58 does NOT itself requeue: it returns ELIGIBLE_FOR_GUARDED_RECOVERY, meaning
+      the Job may enter Day56's EXISTING guarded recovery path, which re-checks contract / deadline /
+      budget / cancellation eligibility before any dispatch. This lightweight model does not own those
+      Day56 eligibility facts and does not fabricate a new business state machine.
+    * UNKNOWN / MAY_HAVE_EXECUTED / missing certainty -> RECONCILE_ONLY (conservative default)."""
     if job.dispatch_marker_present or job.provider_request_id is not None:
         return ObservabilityRecoveryAction.RECONCILE_ONLY
     if job.status == "pending_reconciliation":
         return ObservabilityRecoveryAction.RECONCILE_ONLY
-    return ObservabilityRecoveryAction.REQUEUE_ORDINARY
+    if (job.execution_certainty is ExecutionCertainty.DEFINITELY_NOT_ACCEPTED
+            and can_ordinary_retry(job.execution_certainty)):
+        return ObservabilityRecoveryAction.ELIGIBLE_FOR_GUARDED_RECOVERY
+    return ObservabilityRecoveryAction.RECONCILE_ONLY
 
 
 # ===========================================================================
@@ -407,14 +491,14 @@ VALIDATION_MATRIX_DAY58: tuple[MatrixRow, ...] = (
               EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "pytest over in-process identity model"),
     MatrixRow("Structured event safe-field contract (no raw prompts/responses/secrets; suppressed reason)",
               EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "StructuredEvent validation tests"),
-    MatrixRow("Low-cardinality metric label contract (Counter/Gauge/Histogram; reject job_id/attempt_id/trace_id labels)",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "MetricSpec / MetricRegistry tests"),
+    MatrixRow("Low-cardinality metric contract: reject high-cardinality label NAMES and uncontrolled label VALUES (allowlist/shape)",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "MetricSpec / MetricRegistry / validate_label_values tests"),
     MatrixRow("Trace/span-link modeling (child span shares trace; async link to immediate prior)",
               EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "Span / link tests"),
-    MatrixRow("Telemetry exporter outage does not FAIL a Job or authorize retry; health metrics",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "TelemetryPipeline tests"),
-    MatrixRow("Observability-release rollback: config only, not DB facts; marker-backed job stays reconcile-only",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "rollback drill tests"),
+    MatrixRow("Telemetry exporter outage does not FAIL a Job or authorize retry; recovery drains the buffer + resets queue depth",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "TelemetryPipeline outage + recover() tests"),
+    MatrixRow("Observability-release rollback: config only, not DB facts; absence of evidence stays reconcile-only, only POSITIVE DEFINITELY_NOT_ACCEPTED is eligible for Day56 guarded recovery",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "rollback + recovery-classification tests"),
     MatrixRow("Real FastAPI runtime + real OpenTelemetry exporter pipeline",
               EvidenceTier.INTEGRATION_RUNTIME, RunStatus.NOT_RUN, "needs a real FastAPI app + OTel collector"),
     MatrixRow("Real PostgreSQL/Redis/Celery integration with committed correlation evidence",
