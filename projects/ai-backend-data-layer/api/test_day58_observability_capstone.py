@@ -386,3 +386,17 @@ def test_duration_ms_must_be_a_bounded_nonnegative_int():
         _evt(duration_ms=10 ** 12)                        # absurdly large
     with pytest.raises(UnsafeTelemetryError):
         _evt(duration_ms="8000")                          # wrong type
+
+
+# --- presence flags must be a strict bool (audit semantics) ---
+def test_presence_flags_must_be_strict_bool():
+    _evt(request_id_present=True, dispatch_marker_present=False)   # valid bools -> ok
+    _evt(request_id_present=False, dispatch_marker_present=True)   # valid bools -> ok
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(request_id_present="false")                          # string is not a bool
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(dispatch_marker_present=1)                           # int 1 is not a bool
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(request_id_present=0)                                # int 0 is not a bool
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(dispatch_marker_present=None)                        # None is not a bool

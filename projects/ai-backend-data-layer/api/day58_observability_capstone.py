@@ -228,6 +228,12 @@ class StructuredEvent:
         if self.reason is not None and self.reason not in ALLOWED_EVENT_REASONS:
             raise UnsafeTelemetryError(
                 f"reason must be one of the finite allowlist {sorted(ALLOWED_EVENT_REASONS)}, not free text")
+        # presence flags: STRICT bool (never a string / 0 / 1 / None / other truthy-falsy value), so
+        # the emitted structured log preserves exact audit semantics.
+        for name in ("request_id_present", "dispatch_marker_present"):
+            v = getattr(self, name)
+            if type(v) is not bool:
+                raise UnsafeTelemetryError(f"{name} must be a strict bool (True/False), got {type(v).__name__}")
 
     def to_safe_dict(self) -> dict:
         d = {"event_name": self.event_name, "job_id": self.job_id,
