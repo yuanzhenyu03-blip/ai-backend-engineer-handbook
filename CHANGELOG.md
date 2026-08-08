@@ -9,6 +9,54 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.134 — Review fix: clarify Day61 Provider evidence and Phase 5 validation tiers
+
+Date: 2026-08-08
+
+Day: Curriculum review fix (Day58 connection/count + Phase 5 Day61); no lesson or code is implemented.
+
+Small review fix on the Day59–Day90 rebalance commit. Only `CURRICULUM.md` and `CHANGELOG.md` changed;
+Day43–Day58 and Day91–Day100 topics/status are unchanged, no Day59–Day100 Topic changed, no future lesson,
+artifact, project directory, or code was created, and no Day59–61 integration, real Provider call, or
+production validation was executed or claimed.
+
+### Fixed
+
+- **Day61 Provider evidence boundary.** Day61 Scope, Connection, and the Phase 5 Objective / Deliverable /
+  Validation Requirement now make explicit that the "real Provider adapter" integration is the adapter driven
+  over REAL HTTP by a SEPARATE deterministic fake HTTP Provider process — proving Provider-adapter / HTTP /
+  timeout / correlation / response-handling integration as local `INTEGRATION_RUNTIME`, but NOT proving real
+  model Provider traffic, rate limits, cost, or production behavior. A real or paid model Provider call runs
+  ONLY with explicit user authorization, user-supplied credentials kept out of the repo/logs/evidence pack, a
+  defined cost/scope, results marked separately, and is never called Production Validation; otherwise the real
+  model Provider stays `NOT RUN`. "Independent Provider evidence" is defined as the fake HTTP Provider's safe
+  request log / call count / idempotency keys / response results — never prompts, full responses, API keys,
+  `Authorization` headers, or tenant data. Day61 Topic is unchanged.
+- **Day58 → Day59 connection corrected.** The Day58 Connection said Phase 5 (Day59) makes the backend a
+  callable browser-automation capability; it now points to the new Day59 — Real FastAPI + PostgreSQL + Alembic
+  Integration Runtime (Day59–61 Production Integration Gate), and notes Playwright begins only at Day62. Day58
+  Topic, Completed status, and classroom content are unchanged.
+- **Day58 canonical test count corrected in `CURRICULUM.md`.** The Day58 Status recorded 37 passed / full API
+  suite 502; the re-verified real result at HEAD is `test_day58_observability_capstone.py` -> 38 passed and
+  the full `projects/ai-backend-data-layer/api/` suite -> 503 passed, now consistent with `PROJECT_STATUS.md`,
+  `TASKS.md`, and the latest commit evidence. Historical intermediate counts in older changelog entries (e.g.
+  review round 2 = 37/502) are left intact.
+- **Full four-tier evidence taxonomy** enumerated in the Phase 5 Validation Requirement:
+  `CONCEPTUAL_STATIC`, `EXECUTED_LOCAL_RUNTIME`, `INTEGRATION_RUNTIME`, `PRODUCTION`, each defined, with an
+  explicit rule that an in-process fake / mock / double is ALWAYS `EXECUTED_LOCAL_RUNTIME` and NEVER
+  `INTEGRATION_RUNTIME`, and that a separate fake HTTP Provider proves network/adapter integration but not
+  real model Provider behavior.
+
+### Not done (scope honesty)
+
+- No Day59+ lesson, artifact, test, or project code was created; future days remain `Planned`.
+- No new project directories were created.
+- No Day59–61 integration runtime, no real/paid Provider request, and no production validation was executed
+  or claimed. `PROJECT_STATUS.md` and `TASKS.md` were not changed (the real Day58 counts they already record
+  are unchanged); Decision 007 was not modified (nothing in it contradicts this fix).
+
+---
+
 ## v0.1.133 — Curriculum rebalance: Day59–Day90 re-scoped after the Phase 4 evidence audit
 
 Date: 2026-08-08
