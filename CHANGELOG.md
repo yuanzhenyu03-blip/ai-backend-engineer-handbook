@@ -9,6 +9,68 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.133 — Curriculum rebalance: Day59–Day90 re-scoped after the Phase 4 evidence audit
+
+Date: 2026-08-08
+
+Day: Curriculum planning (Day59–Day90); no lesson is implemented.
+
+Planning-and-status change only. Phase 4 (Day43–Day58) delivered deterministic in-process
+EXECUTED_LOCAL_RUNTIME models with real tests, but every real runtime integration was honestly recorded as
+NOT RUN. Day59–Day90 is re-scoped so the backend is run for real before new capability is layered on, and the
+target-role Agent/RAG/MCP/Evaluation skills get proper room. Day43–Day58 and Day91–Day100 are unchanged; the
+existing Future Lesson Implementation Boundaries are preserved. No future lesson files, no new project
+directories, and no Day59+ code were created; no production validation was executed or claimed.
+
+### Changed
+
+- **Day59–Day90 rebalanced** in `CURRICULUM.md` and `ROADMAP.md` into: Phase 5 — Production Runtime
+  Integration and Browser Tool Engineering (Day59–66); Phase 6 — n8n AI Workflow Integration (Day67–70);
+  Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day71–90). Phase 8 (Day91–100) unchanged. Phase 4
+  still ends at Day58 (Day59–61 are NOT retconned into Phase 4).
+- **Day59–61 Production Integration Gate** added: inherits the Phase 4 models/tests and executes the
+  previously NOT-RUN real local integration (real FastAPI + PostgreSQL/Alembic + Redis/Celery broker/Worker +
+  Object Storage + Provider adapter + OpenTelemetry exporter), producing local INTEGRATION_RUNTIME evidence.
+- **Playwright compressed 10 -> 5 days** (Day62–66) as a permissioned, queue-backed browser tool reusing the
+  Phase 3–4 lifecycle/isolation/security/evidence disciplines.
+- **n8n compressed 6 -> 4 days** (Day67–70) as an orchestration layer over correct backends; durable truth
+  stays in PostgreSQL.
+- **Agent/RAG/MCP/Evaluation expanded 16 -> 20 days** (Day71–90): prompt contracts, framework-agnostic agent
+  loop, MCP, RAG, memory, security, durability, multi-agent, and automated evaluation with runtime traces.
+- **Day75 Framework Decision Gate**: the agent runtime framework (LangGraph / OpenAI Agents SDK / PydanticAI)
+  is chosen at Day75 behind a replaceable adapter, not pre-locked; Domain/Tool/Memory/Job/Provider contracts
+  stay framework-agnostic.
+- **New `DECISIONS.md` Decision 007** records the rebalance (context, evidence gap, options, decision,
+  rationale for retaining-but-compressing Playwright, compressing n8n, expanding Agent/RAG/MCP/Evaluation,
+  adding the Day59–61 gate, deferring the framework choice to Day75, consequences, validation honesty). Old
+  decisions are unchanged.
+- **Knowledge Chain** (`ROADMAP.md`) and phase overviews (`README.md`, `AGENTS.md`, `PROJECT_STATUS.md`)
+  updated to the new Day58 evidence -> Day59–61 real integration gate -> Day62–66 browser tool -> Day67–70
+  n8n -> Day71–90 agent/MCP/RAG/evaluation -> Day91–100 capstone chain.
+- **`CURRICULUM.md` Day94 connection** updated to reference the new Phase 5–7 scopes; Day94 Topic is
+  unchanged, and all Future Lesson Implementation Boundaries (Day50, Day54, Day91, Day94, Day95) are preserved.
+- **Current Lesson** advanced to Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5)
+  in `PROJECT_STATUS.md` and `TASKS.md`; Last Completed Lesson stays Day58.
+
+### Fixed
+
+- **Day58 test-count fact corrected for consistency.** The Day58 canonical evidence in `PROJECT_STATUS.md`
+  and `TASKS.md` said 37 passed / full api suite 502; the real current result at HEAD `cde890c` (verified by
+  execution) is **38 passed** for `test_day58_observability_capstone.py` and **503 passed** for the full
+  `projects/ai-backend-data-layer/api/` suite (the strict-bool review-round-3 fix added one test). Status
+  files now record the consistent real numbers; historical review-round bullets keep their accurate
+  intermediate counts and a round-3 bullet was added.
+
+### Not done (scope honesty)
+
+- No Day59+ lesson, artifact, test, or project code was generated; future days remain `Planned`.
+- No new project directories were created; existing directories are reused.
+- No real FastAPI/PostgreSQL/Redis/Celery/Object-Storage/Provider/OpenTelemetry integration was executed by
+  this change, and no production validation was executed or claimed. Day59–61 will produce that integration
+  evidence only when actually run and saved.
+
+---
+
 ## v0.1.132 — Day58 fix (Codex): separate HTTP/Worker identity contexts, finite model registry, canonical value validation
 
 Date: 2026-08-07

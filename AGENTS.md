@@ -48,9 +48,11 @@ Next Lesson:
 Day49 — Upload Sessions, Object Storage and Artifact Verification (Phase 4; Planned / Not started; see ROADMAP.md)
 
 Future direction (Day43–Day100, planned only; see ROADMAP.md, CURRICULUM.md, and Decision 006 in
-DECISIONS.md): Phase 4 Production AI API Engineering (FastAPI) -> Phase 5 Playwright Browser Automation and
-Agent Tools -> Phase 6 n8n Workflow Orchestration -> Phase 7 AI Agent/RAG/MCP/Evaluation -> Phase 8 Final
-Capstone, Portfolio and Overseas Interview. FastAPI and Playwright are core; n8n is the integration layer;
+DECISIONS.md): Phase 4 Production AI API Engineering (FastAPI; deterministic in-process EXECUTED_LOCAL_RUNTIME evidence,
+ends Day58) -> Phase 5 Production Runtime Integration and Browser Tool Engineering (Day59–61 real local
+integration gate, then Playwright as a permissioned browser tool) -> Phase 6 n8n AI Workflow Integration ->
+Phase 7 AI Agent/RAG/MCP/Evaluation (agent runtime framework chosen at Day75) -> Phase 8 Final Capstone,
+Portfolio and Overseas Interview. FastAPI and Playwright are core; n8n is the integration layer;
 AI is in scope from Phase 4. The goal is overseas AI Backend Engineer employment readiness, not a guaranteed
 offer. Day42 closed Phase 3; Day43 opened Phase 4; Day48 is complete; Day49 is next (Planned / Not started).
 

@@ -42,8 +42,8 @@ Next:
 Future direction (Day43–Day100, planned — see `ROADMAP.md` and `CURRICULUM.md`):
 
 * Phase 4 — Production AI API Engineering (FastAPI, SQLAlchemy/Alembic, Redis/Outbox/Worker, OpenAI-compatible provider)
-* Phase 5 — Playwright Browser Automation and Agent Tools
-* Phase 6 — n8n AI Workflow Orchestration
+* Phase 5 — Production Runtime Integration and Browser Tool Engineering
+* Phase 6 — n8n AI Workflow Integration
 * Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering
 * Phase 8 — Final Capstone, Portfolio and Overseas Interview
 

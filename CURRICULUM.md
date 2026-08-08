@@ -1349,114 +1349,144 @@ validation are only claimed when actually run and recorded.
 
 ---
 
-## Phase 5 — Playwright Browser Automation and Agent Tools (Day59–Day68)
+## Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Status:
 Planned
 
 Objective:
-Build Playwright into an isolated, recoverable, auditable Browser Worker and Agent Tool — not a fragile
-click script. It becomes a durable, queue-backed capability the AI backend can call as a tool.
+Close the Phase 4 evidence gap first, then add a browser capability. Day59–Day61 are a **Production
+Integration Gate**: they inherit the Phase 4 models and tests and turn the deterministic in-process
+EXECUTED_LOCAL_RUNTIME evidence into real local INTEGRATION_RUNTIME evidence (real FastAPI process, real
+PostgreSQL/Alembic, real Redis/Celery broker and Worker, real Object Storage, real Provider adapter, real
+OpenTelemetry exporter). Day62–Day66 then build Playwright into an isolated, recoverable, auditable browser
+worker exposed as a permissioned AI tool — not a fragile click script. Phase 4 still ends at Day58; Day59–61
+do not retcon into Phase 4.
 
 Knowledge connection:
 
 ```text
-FastAPI Production AI API
-    -> Playwright Browser Automation / Agent Tool (isolated, recoverable, auditable)
+Day58 deterministic local Phase 4 evidence (real integration honestly NOT RUN)
+    -> Day59–61 real local integration gate (FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry)
+    -> Day62–66 Playwright as a permissioned, queue-backed AI browser tool
 ```
 
-Reused project directories: `projects/playwright-login/`, `projects/playwright-scraper/`, and
-`projects/fastapi-playwright/` (the Browser Automation Worker integrated with the Phase 4 API).
+Reused project directories: `projects/ai-backend-data-layer/` (the Phase 4 backend now run for real),
+`projects/playwright-login/`, `projects/playwright-scraper/`, and `projects/fastapi-playwright/` (the browser
+worker integrated with the Phase 4 API).
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day59 — Playwright Runtime Model: Browser, Context, Page and Async Lifecycle.
-  Scope: the runtime object model and async lifecycle.
-  Connection: builds on the Day58 Production AI API capstone by adding a Playwright runtime model as a callable capability; Day60 makes its interactions reliable.
-- Day60 — Locator, Auto-waiting and Reliable Interaction.
-  Scope: locators, auto-waiting, deterministic interaction over brittle selectors.
-  Connection: adds reliable locator/auto-waiting interaction to the Day59 runtime; Day61 isolates authenticated browser contexts per tenant/session.
-- Day61 — Authentication, Storage State and Browser Context Isolation.
-  Scope: storage state, per-tenant/session context isolation.
-  Connection: adds storage-state and per-tenant context isolation to reliable interaction; Day62 extracts structured output from dynamic pages.
-- Day62 — Dynamic-page Extraction and Structured Output.
-  Scope: extracting structured output from dynamic pages.
-  Connection: turns isolated browsing into structured extraction; Day63 captures network events, downloads/uploads, and artifact evidence.
-- Day63 — Network Events, Downloads, Uploads and Artifact Evidence.
-  Scope: network interception, downloads/uploads, artifact evidence into Object Storage.
-  Connection: adds network/download/upload artifact evidence into the Day49 Object-Storage boundary; Day64 makes it robust with timeouts, retries, and diagnostics.
-- Day64 — Timeouts, Retries, Diagnostics, Screenshots and Error Recovery.
-  Scope: timeout/retry policy, diagnostics, screenshots/traces, recovery.
-  Connection: adds timeout/retry/diagnostic/screenshot recovery to extraction and evidence; Day65 secures the browser against SSRF, credential, and prompt-injection risks.
-- Day65 — Browser Security, SSRF, Credentials, Website Policy and Prompt-injection Boundaries.
-  Scope: SSRF/credential handling, website policy/authorization, prompt-injection boundaries (no bypass of security controls, captchas, or anti-automation).
-  Connection: adds browser security, website-policy authorization, and prompt-injection boundaries; Day66 runs it as a durable, queue-backed worker.
-- Day66 — Queue-backed Browser Worker and Durable Job Integration.
-  Scope: a durable, queue-backed browser worker integrated with the Day40/Day55 job lifecycle.
-  Connection: turns the secured browser into a durable, queue-backed worker on the Day40/Day55 job lifecycle; Day67 exposes it as a permissioned agent tool.
-- Day67 — Playwright as an AI Agent Tool.
-  Scope: expose browser automation as a constrained, permissioned agent tool.
-  Connection: exposes the browser worker as a constrained, permissioned agent tool; Day68 integrates it with the FastAPI backend and closes the phase.
-- Day68 — FastAPI + Playwright Production Capstone and English Interview.
-  Scope: integrate API + browser worker; phase-level English interview.
-  Connection: integrates the API and browser worker into a capstone and runs the phase English interview; Phase 6 (Day69) orchestrates these backends with n8n.
+- Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration.
+  Scope: run the Phase 4 API as a real FastAPI process against a real PostgreSQL database with real Alembic
+  migrations; capture committed-DB evidence read back from a new connection.
+  Connection: Day58 proved the Job state machine only in-process (real FastAPI/PostgreSQL integration was
+  honestly NOT RUN); Day59 executes that first real local integration and produces committed-DB runtime
+  evidence; Day60 extends the real run to the Outbox/broker/Worker path.
+- Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration.
+  Scope: run the Day50 Outbox relay with a real Redis/Celery broker and a real Worker process; prove
+  redelivery, idempotent processing, and Worker-kill recovery.
+  Connection: Day59 gave a real API+DB runtime but the broker/Worker path was still NOT RUN; Day60 executes
+  the real Outbox -> broker -> Worker chain with redelivery/recovery evidence; Day61 completes the gate with
+  storage, provider, and telemetry.
+- Day61 — Object Storage, Provider Adapter and OpenTelemetry End-to-End Evidence.
+  Scope: run real Object Storage, the real Provider adapter, and a real OpenTelemetry exporter end-to-end;
+  capture correlated logs/metrics/traces for one real Job.
+  Connection: Day60 closed the broker/Worker gap but storage/provider/telemetry integration was still NOT
+  RUN; Day61 finishes the Production Integration Gate with real correlated end-to-end evidence; Day62 begins
+  adding the browser as a new callable capability.
+- Day62 — Playwright Runtime, Locators and Reliable Async Interaction.
+  Scope: the Playwright runtime object model (Browser/Context/Page), async lifecycle, locators and
+  auto-waiting for deterministic interaction over brittle selectors.
+  Connection: the Day59–61 gate proved the backend runs for real but it has no browser capability; Day62 adds
+  a reliable Playwright runtime as a new tool surface; Day63 isolates authenticated browser contexts per
+  tenant.
+- Day63 — Browser Authentication, Storage State and Tenant Isolation.
+  Scope: login flows, storage state, and per-tenant/session `BrowserContext` isolation.
+  Connection: Day62's runtime can interact but has no authenticated, isolated sessions; Day63 adds
+  storage-state and per-tenant context isolation reusing the Phase 4 tenant boundary; Day64 extracts
+  structured data and evidence from those sessions.
+- Day64 — Dynamic Extraction, Network Events and Artifact Evidence.
+  Scope: structured extraction from dynamic pages, network interception, downloads/uploads, and artifacts
+  saved into the real Day61 Object-Storage boundary.
+  Connection: Day63 gave isolated authenticated sessions but no captured output; Day64 turns them into
+  structured extraction and artifact evidence in Object Storage; Day65 hardens the browser against failures
+  and abuse.
+- Day65 — Browser Failure Recovery and Security Boundaries.
+  Scope: timeout/retry policy, diagnostics, screenshots/traces, SSRF/credential handling, website
+  policy/authorization, and prompt-injection boundaries (no bypass of security controls, captchas, or
+  anti-automation).
+  Connection: Day64 could extract but was fragile and unbounded; Day65 adds failure recovery and security
+  boundaries; Day66 runs it as a durable, permissioned worker on the job lifecycle.
+- Day66 — Queue-backed Playwright Worker as a Permissioned AI Tool.
+  Scope: run the browser as a durable, queue-backed worker on the Day50/Day60 job lifecycle, exposed as a
+  constrained, permissioned AI tool.
+  Connection: Day65 secured the browser but not as a durable backend capability; Day66 makes it a
+  queue-backed, permissioned tool the AI backend can call; Phase 6 (Day67) orchestrates these backends with
+  n8n.
 
 Phase deliverable:
 
 ```text
-An isolated, recoverable, auditable Playwright Browser Worker + Agent Tool integrated with the FastAPI backend.
+Real local INTEGRATION_RUNTIME evidence for the Phase 4 backend
+(FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry)
++ an isolated, recoverable, auditable Playwright browser worker exposed as a permissioned AI tool.
 ```
 
 Validation requirement:
-Do not teach bypassing website security controls, captchas, or anti-automation protection. Emphasize
-authorization, website policy, security, and isolation. Runtime/production evidence is claimed only when
-actually executed and saved.
+Day59–61 produce EXECUTED local INTEGRATION_RUNTIME evidence (real processes/DB/broker/storage/exporter), not
+PRODUCTION validation; a real run must save the exact command/revision/config/time window, fault point,
+committed-DB queries from a NEW connection, broker/Worker lifecycle, and independent Provider evidence. Do not
+teach bypassing website security controls, captchas, or anti-automation. Claim runtime/integration/production
+evidence only when actually executed and saved.
 
 ---
 
-## Phase 6 — n8n AI Workflow Orchestration (Day69–Day74)
+## Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Status:
 Planned
 
 Objective:
-Use n8n to orchestrate the existing API and AI capabilities — as an integration/workflow layer, not a
-low-code replacement for backend correctness.
+Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
+integration/workflow layer — not a low-code replacement for backend correctness. Durable truth stays in
+PostgreSQL.
 
 Knowledge connection:
 
 ```text
-Playwright Browser Automation / Agent Tool
-    -> n8n Workflow Integration (orchestration over correct backends)
+Real backend + permissioned browser tool (Phase 5)
+    -> n8n workflow integration (orchestration over correct backends, idempotent long jobs, human approval, audit)
 ```
 
 Reused project directory: `projects/n8n-workflows/` (workflow-integration evidence).
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day69 — n8n Workflow Model, Triggers, Nodes and Responsibility Boundaries.
-  Scope: workflow model and where responsibility stays in the backend, not the low-code layer.
-  Connection: builds on the Day68 FastAPI+Playwright capstone by adding n8n as an orchestration layer with clear responsibility boundaries; Day70 wires triggers and authenticated integration.
-- Day70 — Webhooks, Schedules, FastAPI Integration and Authentication.
-  Scope: webhook/schedule triggers, authenticated FastAPI integration.
-  Connection: adds webhook/schedule triggers and authenticated FastAPI integration to the workflow model; Day71 handles long-running AI jobs via polling/callback correlation.
-- Day71 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency.
-  Scope: polling/callback correlation and idempotency for long AI jobs.
-  Connection: adds polling/callback correlation and idempotency for long AI jobs; Day72 inserts human approval and AI-assisted steps.
-- Day72 — Human Approval and AI-assisted Business Workflows.
-  Scope: human-in-the-loop approval and AI-assisted workflows.
-  Connection: adds human-in-the-loop approval and AI-assisted workflows; Day73 hardens retry, error workflows, secrets, and audit.
-- Day73 — Retry, Error Workflow, Secrets, Audit and Production Operations.
-  Scope: retry/error workflows, secrets handling, audit, operations.
-  Connection: adds retry/error workflows, secrets handling, and audit/operations; Day74 integrates the workflow layer into a capstone.
-- Day74 — n8n + FastAPI + AI Workflow Capstone and Interview.
-  Scope: integrate workflows with the backend; phase-level interview.
-  Connection: integrates n8n + FastAPI + AI workflows into a capstone and runs the phase interview; Phase 7 (Day75) builds the AI agent backend these workflows will call.
+- Day67 — n8n Workflow Model, Triggers, FastAPI Integration and Responsibility Boundaries.
+  Scope: workflow model, triggers/nodes, authenticated FastAPI integration, and where responsibility stays in
+  the backend rather than the low-code layer.
+  Connection: Phase 5 produced real backends and a browser tool but no orchestration across them; Day67 adds
+  n8n as an orchestration layer with clear responsibility boundaries; Day68 handles long-running AI jobs.
+- Day68 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency.
+  Scope: polling/callback patterns, correlation-ID propagation, and idempotency for long AI jobs.
+  Connection: Day67 could trigger the backend but not manage long async jobs safely; Day68 adds
+  polling/callback correlation and idempotency reusing the Phase 4/5 job lifecycle; Day69 adds human approval
+  and hardening.
+- Day69 — Human Approval, Retry, Secrets, Audit and Error Workflows.
+  Scope: human-in-the-loop approval, retry/error workflows, secrets handling, and audit.
+  Connection: Day68 handled long jobs but had no human gate or hardening; Day69 adds approval, retry/error
+  workflows, secrets, and audit; Day70 integrates it all into a workflow capstone.
+- Day70 — n8n + FastAPI + AI Tool Integration Capstone and Interview.
+  Scope: integrate workflows with the real backend and browser tool; phase-level English interview.
+  Connection: Day69 completed workflow hardening; Day70 integrates n8n + FastAPI + AI tools into a capstone
+  and runs the phase interview; Phase 7 (Day71) builds the AI agent backend these workflows will call.
 
 Phase deliverable:
 
 ```text
-n8n workflows that orchestrate the FastAPI AI backend and browser tools, with idempotent long-job handling and audit.
+n8n workflows orchestrating the real FastAPI AI backend and permissioned browser tool, with idempotent
+long-job handling, human approval, and audit.
 ```
 
 Validation requirement:
@@ -1465,86 +1495,131 @@ evidence only when executed and saved.
 
 ---
 
-## Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day75–Day90)
+## Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day71–Day90)
 
 Status:
 Planned
 
 Objective:
-Build a testable, constrained, recoverable Production AI Agent Backend: tool calling, MCP, RAG, vector
-retrieval, memory, security boundaries, and automated evaluation with runtime traces.
+Build a testable, constrained, recoverable Production AI Agent Backend: prompt contracts, tool calling, a
+framework-agnostic agent loop, MCP, RAG, vector retrieval, memory, security boundaries, durability,
+multi-agent orchestration, and automated evaluation with runtime traces. The agent runtime framework is
+deliberately chosen at **Day75**, not pre-locked; the Domain/Tool/Memory/Job/Provider contracts stay
+framework-agnostic and the chosen framework sits behind a replaceable adapter.
 
 Knowledge connection:
 
 ```text
-n8n Workflow Integration
-    -> AI Agent + Tool Calling + MCP + RAG + Memory + Evaluation (production-grade, evaluated)
+Real backend + browser tool + n8n workflows
+    -> AI Agent (prompt contracts + tools + framework-agnostic agent loop)
+    -> MCP + RAG + memory + security + durability + multi-agent
+    -> automated evaluation + AI observability (production-grade, evaluated)
 ```
 
-Reused project directory: `projects/ai-agent/` (Agent, RAG, Tool Calling, MCP, Memory, Evaluation).
+Reused project directory: `projects/ai-agent/` (Agent, Tool Calling, MCP, RAG, Memory, Evaluation).
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day75 — LLM Application Architecture, Tokens, Context and Model Failure Modes.
-  Scope: architecture, token/context limits, model failure modes.
-  Connection: builds on the Day74 workflow capstone by establishing LLM application architecture, token/context limits, and model failure modes; Day76 formalizes prompt contracts and function calling.
-- Day76 — Prompt Contracts, Structured Output and Function Calling.
-  Scope: prompt contracts, structured output, function calling.
-  Connection: adds prompt contracts, structured output, and function calling; Day77 builds the tool registry, schemas, and permission boundaries.
-- Day77 — Tool Registry, Tool Schemas, Permissions and Execution Boundaries.
+- Day71 — LLM Application Architecture, Tokens, Context and Model Failure Modes.
+  Scope: LLM application architecture, token/context limits, model failure modes.
+  Connection: Phase 6 could orchestrate backends but had no agent reasoning layer; Day71 establishes LLM
+  application architecture and failure modes; Day72 makes model output a reliable contract.
+- Day72 — Prompt Contracts, Structured Output and Function Calling.
+  Scope: prompt contracts, structured output, function-calling schemas.
+  Connection: Day71 framed model limits but not reliable outputs; Day72 adds prompt contracts, structured
+  output, and function calling; Day73 turns callable functions into a permissioned tool registry.
+- Day73 — Tool Registry, Tool Schemas, Permissions and Execution Boundaries.
   Scope: tool registry/schemas, permissions, execution sandboxing boundaries.
-  Connection: adds a permissioned tool registry with execution boundaries; Day78 drives it with an agent loop, state, and termination/retry.
-- Day78 — Agent Loop, State, Termination, Retry and Error Handling.
-  Scope: agent loop, state, termination/retry, error handling.
-  Connection: adds the agent loop, state, termination, and error handling; Day79 introduces MCP as a standard tool/resource boundary.
-- Day79 — MCP Foundations: Client, Server, Resources and Tools.
+  Connection: Day72 could call functions but without governance; Day73 adds a permissioned tool registry with
+  execution boundaries (reusing the Day66 permissioned browser tool); Day74 drives tools with an agent loop.
+- Day74 — Agent Loop, State, Termination, Retry and Error Handling.
+  Scope: a framework-agnostic minimal agent loop first — state, termination, retry, error handling.
+  Connection: Day73 had tools but no controller; Day74 adds a minimal framework-agnostic agent loop; Day75
+  then chooses the runtime framework behind a replaceable adapter.
+- Day75 — Agent Runtime Framework Decision and Replaceable Adapter Boundary.
+  Scope: compare LangGraph / OpenAI Agents SDK / PydanticAI against the Day74 loop and record the choice as a
+  new Decision, behind a replaceable adapter; keep Domain/Tool/Memory/Job/Provider contracts
+  framework-agnostic.
+  Connection: Day74's hand-built loop proves the mechanics but is not the long-term runtime; Day75 selects a
+  framework behind an adapter boundary (recorded as a new Decision) without locking the contracts; Day76
+  standardizes tools/resources via MCP.
+- Day76 — MCP Foundations: Client, Server, Resources and Tools.
   Scope: MCP client/server, resources, tools.
-  Connection: adds MCP client/server, resources, and tools; Day80 secures MCP with auth, authorization, and operations.
-- Day80 — MCP Authentication, Authorization, Security and Production Operations.
+  Connection: Day75 fixed the agent runtime but tools were still ad hoc; Day76 adds MCP client/server,
+  resources, and tools as a standard boundary; Day77 secures MCP for production.
+- Day77 — MCP Authentication, Authorization, Security and Production Operations.
   Scope: MCP auth/authorization, security, operations.
-  Connection: adds MCP authentication, authorization, and production operations; Day81 begins RAG ingestion with provenance.
-- Day81 — RAG Ingestion: Parsing, Chunking, Metadata and Provenance.
-  Scope: ingestion, chunking, metadata, provenance.
-  Connection: adds RAG ingestion, chunking, metadata, and provenance; Day82 builds embeddings and the vector index.
-- Day82 — Embeddings, Vector Database and Index Design.
+  Connection: Day76 exposed MCP but not safely; Day77 adds MCP authentication, authorization, and production
+  operations; Day78 begins feeding the agent real knowledge via RAG ingestion.
+- Day78 — RAG Ingestion: Parsing, Chunking, Metadata and Provenance.
+  Scope: ingestion, parsing, chunking, metadata, provenance.
+  Connection: Day77 secured tools but the agent had no grounded knowledge; Day78 adds RAG ingestion with
+  provenance; Day79 makes it retrievable via embeddings and an index.
+- Day79 — Embeddings, Vector Database and Index Design.
   Scope: embeddings, vector store, index design.
-  Connection: adds embeddings, the vector database, and index design; Day83 improves retrieval quality.
-- Day83 — Retrieval Quality: Hybrid Search, Filtering and Re-ranking.
-  Scope: hybrid search, filtering, re-ranking.
-  Connection: adds hybrid search, filtering, and re-ranking; Day84 grounds answers with citations and hallucination boundaries.
-- Day84 — Grounding, Citations, Hallucination Boundaries and Source Verification.
+  Connection: Day78 produced chunks with provenance but no retrieval; Day79 adds embeddings, a vector
+  database, and index design; Day80 improves retrieval quality.
+- Day80 — Retrieval Quality: Hybrid Search, Filtering and Re-ranking.
+  Scope: hybrid search, metadata filtering, re-ranking.
+  Connection: Day79 could retrieve but not well; Day80 adds hybrid search, filtering, and re-ranking; Day81
+  grounds answers in the retrieved sources.
+- Day81 — Grounding, Citations, Hallucination Boundaries and Source Verification.
   Scope: grounding, citations, hallucination boundaries, source verification.
-  Connection: adds grounding, citations, and source verification; Day85 adds conversation and durable memory boundaries.
-- Day85 — Conversation Memory and Durable Memory Boundaries.
-  Scope: conversation vs durable memory boundaries.
-  Connection: adds conversation vs durable memory boundaries; Day86 secures the agent against injection, tool abuse, and exfiltration.
-- Day86 — Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
-  Scope: prompt injection, tool abuse, exfiltration, sandboxing.
-  Connection: adds prompt-injection, tool-abuse, exfiltration, and sandboxing defenses; Day87 makes agent jobs durable and recoverable.
-- Day87 — Durable Agent Jobs, Checkpoints, Recovery and Human Escalation.
+  Connection: Day80 improved retrieval but answers could still be ungrounded; Day81 adds grounding,
+  citations, and source verification; Day82 gives the agent memory boundaries.
+- Day82 — Conversation Memory, Durable Memory and Business-state Boundaries.
+  Scope: conversation vs durable memory vs business-state boundaries.
+  Connection: Day81 grounded single answers but had no memory; Day82 adds conversation/durable memory with
+  explicit business-state boundaries (durable truth stays in PostgreSQL); Day83 secures the agent against
+  abuse.
+- Day83 — Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
+  Scope: prompt injection, tool abuse, data exfiltration, sandboxing.
+  Connection: Day82 added memory but widened the attack surface; Day83 adds injection/tool-abuse/exfiltration
+  defenses and sandboxing; Day84 makes agent jobs durable and recoverable.
+- Day84 — Durable Agent Jobs, Checkpoints, Recovery and Human Escalation.
   Scope: durable agent jobs, checkpoints, recovery, human escalation.
-  Connection: adds durable agent jobs, checkpoints, recovery, and human escalation; Day88 measures quality with evaluation datasets and graders.
-- Day88 — Evaluation Datasets, Golden Sets, Graders, Trials and Traces.
-  Scope: eval datasets/golden sets, graders, trials, traces.
-  Connection: adds evaluation datasets, golden sets, graders, trials, and traces; Day89 turns evaluation into observability and release gates.
-- Day89 — AI Observability, Cost, Model Routing, Regression and Release Gates.
-  Scope: observability, cost, model routing, regression, release gates.
-  Connection: adds AI observability, cost/model routing, regression, and release gates; Day90 integrates the agent backend and closes the phase.
+  Connection: Day83 secured a single run but not long/durable ones; Day84 adds durable agent jobs,
+  checkpoints, recovery, and human escalation reusing the Phase 4/5 job lifecycle; Day85 coordinates multiple
+  agents.
+- Day85 — Multi-agent Orchestration, Handoffs and Coordination Boundaries.
+  Scope: multi-agent orchestration, handoffs, coordination boundaries.
+  Connection: Day84 hardened one agent; Day85 adds multi-agent orchestration and handoffs with clear
+  coordination boundaries; Day86 starts measuring quality with evaluation datasets.
+- Day86 — Evaluation Datasets, Golden Sets and Graders.
+  Scope: evaluation datasets, golden sets, graders.
+  Connection: Day85 built capability but no measurement; Day86 adds evaluation datasets, golden sets, and
+  graders; Day87 extends evaluation to agent trajectories and failure modes.
+- Day87 — Agent Trajectory, Tool-use and Failure-mode Evaluation.
+  Scope: trajectory evaluation, tool-use correctness, failure-mode evaluation.
+  Connection: Day86 graded outputs but not process; Day87 adds trajectory, tool-use, and failure-mode
+  evaluation; Day88 turns evaluation signals into runtime observability.
+- Day88 — AI Observability, Cost, Model Routing and Runtime Traces.
+  Scope: AI observability, cost, model routing, runtime traces.
+  Connection: Day87 measured offline but not in production; Day88 adds AI observability, cost/model routing,
+  and runtime traces (reusing the Day61 telemetry pipeline); Day89 turns observability into release gates.
+- Day89 — Regression, Release Gates, Load, Security and Runtime Evidence.
+  Scope: regression suites, release gates, load, security, runtime evidence.
+  Connection: Day88 gave live signals but no gating; Day89 adds regression, release gates, load, and security
+  with runtime evidence; Day90 integrates the whole agent backend.
 - Day90 — Production AI Agent Backend Capstone and English Interview.
   Scope: integrate the agent backend; phase-level English interview.
-  Connection: integrates the AI agent backend into a capstone and runs the phase English interview; Phase 8 (Day91) assembles everything into the final capstone and portfolio.
+  Connection: Day89 completed gating and evidence; Day90 integrates the AI agent backend into a capstone and
+  runs the phase English interview; Phase 8 (Day91) assembles everything into the final capstone and
+  employment evidence.
 
 Phase deliverable:
 
 ```text
 AI Agent Backend
-+ Tool Calling + MCP + RAG + Vector Retrieval + Memory
-+ Security Boundaries + Automated Evaluation + Runtime traces
++ Prompt Contracts + Tool Calling + framework-agnostic Agent Loop (framework chosen at Day75)
++ MCP + RAG + Vector Retrieval + Memory + Security Boundaries + Durability + Multi-agent
++ Automated Evaluation + AI Observability + Runtime traces
 ```
 
 Validation requirement:
 Do not claim Agent, RAG, or MCP are production-validated unless actually executed with saved evidence and
-evaluation traces. Distinguish conceptual/static review from runtime evidence.
+evaluation traces. The Day75 framework decision is recorded as a new Decision and kept behind a replaceable
+adapter; contracts stay framework-agnostic. Distinguish conceptual/static review from runtime evidence.
 
 ---
 
@@ -1580,7 +1655,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: integrates the core backend stack from Phases 3-4; Day94 adds the agent, retrieval, tools, browser worker, and workflows from Phases 5-7.
 - Day94 — Agent + RAG + MCP + Playwright + n8n Integration.
   Scope: integrate agent, retrieval, tools, browser worker, workflows.
-  Connection: integrates agent + RAG + MCP + Playwright + n8n; Day95 proves it under failure, load, security, and data-repair drills.
+  Connection: integrates the real backend + permissioned browser tool (Phase 5), n8n workflows (Phase 6), and the agent + RAG + MCP backend (Phase 7) into one vertical path; Day95 proves it under failure, load, security, and data-repair drills.
   Implementation boundary: see "Future Lesson Implementation Boundaries" (Day94) below.
 - Day95 — Failure Recovery, Load, Security and Data-repair Drills.
   Scope: failure recovery, load, security, data-repair drills.

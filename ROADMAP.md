@@ -198,81 +198,91 @@ real OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, and real 
 
 ---
 
-# Phase 5 — Playwright Browser Automation and Agent Tools (Day59–Day68)
+# Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Objective:
-Build Playwright into an isolated, recoverable, auditable Browser Worker and Agent Tool the AI backend can
-call — not a fragile click script. Do not teach bypassing website security, captchas, or anti-automation.
+Close the Phase 4 evidence gap first (Day59–61 Production Integration Gate: turn the deterministic in-process
+evidence into real local integration for FastAPI + PostgreSQL/Alembic + Redis/Celery + Object Storage +
+Provider + OpenTelemetry), then build Playwright into an isolated, recoverable, auditable browser worker
+exposed as a permissioned AI tool. Do not teach bypassing website security, captchas, or anti-automation.
+Phase 4 still ends at Day58; Day59–61 do not retcon into Phase 4.
 
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
-| Day59 | Playwright Runtime Model: Browser, Context, Page and Async Lifecycle | Planned |
-| Day60 | Locator, Auto-waiting and Reliable Interaction | Planned |
-| Day61 | Authentication, Storage State and Browser Context Isolation | Planned |
-| Day62 | Dynamic-page Extraction and Structured Output | Planned |
-| Day63 | Network Events, Downloads, Uploads and Artifact Evidence | Planned |
-| Day64 | Timeouts, Retries, Diagnostics, Screenshots and Error Recovery | Planned |
-| Day65 | Browser Security, SSRF, Credentials, Website Policy and Prompt-injection Boundaries | Planned |
-| Day66 | Queue-backed Browser Worker and Durable Job Integration | Planned |
-| Day67 | Playwright as an AI Agent Tool | Planned |
-| Day68 | FastAPI + Playwright Production Capstone and English Interview | Planned |
+| Day59 | Real FastAPI Runtime, PostgreSQL and Alembic Integration | Planned |
+| Day60 | Outbox, Redis/Celery Broker and Worker Recovery Integration | Planned |
+| Day61 | Object Storage, Provider Adapter and OpenTelemetry End-to-End Evidence | Planned |
+| Day62 | Playwright Runtime, Locators and Reliable Async Interaction | Planned |
+| Day63 | Browser Authentication, Storage State and Tenant Isolation | Planned |
+| Day64 | Dynamic Extraction, Network Events and Artifact Evidence | Planned |
+| Day65 | Browser Failure Recovery and Security Boundaries | Planned |
+| Day66 | Queue-backed Playwright Worker as a Permissioned AI Tool | Planned |
 
 Deliverables:
 
-- An isolated, recoverable, auditable Playwright Browser Worker + Agent Tool integrated with the FastAPI backend.
+- Real local INTEGRATION_RUNTIME evidence for the Phase 4 backend (FastAPI + PostgreSQL + Redis/Celery +
+  Object Storage + Provider + OpenTelemetry) + an isolated, recoverable, auditable Playwright browser worker
+  exposed as a permissioned AI tool.
 
 ---
 
-# Phase 6 — n8n AI Workflow Orchestration (Day69–Day74)
+# Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Objective:
-Use n8n to orchestrate the existing API and AI capabilities as an integration/workflow layer — not a
-low-code replacement for backend correctness. Durable truth stays in PostgreSQL.
+Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
+integration/workflow layer — not a low-code replacement for backend correctness. Durable truth stays in
+PostgreSQL.
 
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
-| Day69 | n8n Workflow Model, Triggers, Nodes and Responsibility Boundaries | Planned |
-| Day70 | Webhooks, Schedules, FastAPI Integration and Authentication | Planned |
-| Day71 | Long-running AI Jobs: Polling, Callback, Correlation and Idempotency | Planned |
-| Day72 | Human Approval and AI-assisted Business Workflows | Planned |
-| Day73 | Retry, Error Workflow, Secrets, Audit and Production Operations | Planned |
-| Day74 | n8n + FastAPI + AI Workflow Capstone and Interview | Planned |
+| Day67 | n8n Workflow Model, Triggers, FastAPI Integration and Responsibility Boundaries | Planned |
+| Day68 | Long-running AI Jobs: Polling, Callback, Correlation and Idempotency | Planned |
+| Day69 | Human Approval, Retry, Secrets, Audit and Error Workflows | Planned |
+| Day70 | n8n + FastAPI + AI Tool Integration Capstone and Interview | Planned |
 
 Deliverables:
 
-- n8n workflows orchestrating the FastAPI AI backend and browser tools, with idempotent long-job handling and audit.
+- n8n workflows orchestrating the real FastAPI AI backend and permissioned browser tool, with idempotent
+  long-job handling, human approval, and audit.
 
 ---
 
-# Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day75–Day90)
+# Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day71–Day90)
 
 Objective:
-Build a testable, constrained, recoverable Production AI Agent Backend: tool calling, MCP, RAG, vector
-retrieval, memory, security boundaries, and automated evaluation with runtime traces.
+Build a testable, constrained, recoverable Production AI Agent Backend: prompt contracts, tool calling, a
+framework-agnostic agent loop, MCP, RAG, vector retrieval, memory, security boundaries, durability,
+multi-agent orchestration, and automated evaluation with runtime traces. The agent runtime framework is
+chosen at Day75 (behind a replaceable adapter), not pre-locked.
 
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
-| Day75 | LLM Application Architecture, Tokens, Context and Model Failure Modes | Planned |
-| Day76 | Prompt Contracts, Structured Output and Function Calling | Planned |
-| Day77 | Tool Registry, Tool Schemas, Permissions and Execution Boundaries | Planned |
-| Day78 | Agent Loop, State, Termination, Retry and Error Handling | Planned |
-| Day79 | MCP Foundations: Client, Server, Resources and Tools | Planned |
-| Day80 | MCP Authentication, Authorization, Security and Production Operations | Planned |
-| Day81 | RAG Ingestion: Parsing, Chunking, Metadata and Provenance | Planned |
-| Day82 | Embeddings, Vector Database and Index Design | Planned |
-| Day83 | Retrieval Quality: Hybrid Search, Filtering and Re-ranking | Planned |
-| Day84 | Grounding, Citations, Hallucination Boundaries and Source Verification | Planned |
-| Day85 | Conversation Memory and Durable Memory Boundaries | Planned |
-| Day86 | Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing | Planned |
-| Day87 | Durable Agent Jobs, Checkpoints, Recovery and Human Escalation | Planned |
-| Day88 | Evaluation Datasets, Golden Sets, Graders, Trials and Traces | Planned |
-| Day89 | AI Observability, Cost, Model Routing, Regression and Release Gates | Planned |
+| Day71 | LLM Application Architecture, Tokens, Context and Model Failure Modes | Planned |
+| Day72 | Prompt Contracts, Structured Output and Function Calling | Planned |
+| Day73 | Tool Registry, Tool Schemas, Permissions and Execution Boundaries | Planned |
+| Day74 | Agent Loop, State, Termination, Retry and Error Handling | Planned |
+| Day75 | Agent Runtime Framework Decision and Replaceable Adapter Boundary | Planned |
+| Day76 | MCP Foundations: Client, Server, Resources and Tools | Planned |
+| Day77 | MCP Authentication, Authorization, Security and Production Operations | Planned |
+| Day78 | RAG Ingestion: Parsing, Chunking, Metadata and Provenance | Planned |
+| Day79 | Embeddings, Vector Database and Index Design | Planned |
+| Day80 | Retrieval Quality: Hybrid Search, Filtering and Re-ranking | Planned |
+| Day81 | Grounding, Citations, Hallucination Boundaries and Source Verification | Planned |
+| Day82 | Conversation Memory, Durable Memory and Business-state Boundaries | Planned |
+| Day83 | Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing | Planned |
+| Day84 | Durable Agent Jobs, Checkpoints, Recovery and Human Escalation | Planned |
+| Day85 | Multi-agent Orchestration, Handoffs and Coordination Boundaries | Planned |
+| Day86 | Evaluation Datasets, Golden Sets and Graders | Planned |
+| Day87 | Agent Trajectory, Tool-use and Failure-mode Evaluation | Planned |
+| Day88 | AI Observability, Cost, Model Routing and Runtime Traces | Planned |
+| Day89 | Regression, Release Gates, Load, Security and Runtime Evidence | Planned |
 | Day90 | Production AI Agent Backend Capstone and English Interview | Planned |
 
 Deliverables:
 
-- An AI Agent Backend with Tool Calling, MCP, RAG, Vector Retrieval, Memory, security boundaries, automated
-  evaluation, and runtime traces.
+- An AI Agent Backend with Prompt Contracts, Tool Calling, a framework-agnostic Agent Loop (framework chosen
+  at Day75), MCP, RAG, Vector Retrieval, Memory, security boundaries, durability, multi-agent orchestration,
+  automated evaluation, and runtime traces.
 
 ---
 
@@ -310,11 +320,12 @@ Deliverables:
 
 ```text
 Day42 Data Ownership and Failure Contracts
-    -> FastAPI Production AI API (Phase 4)
-    -> Playwright Browser Automation / Agent Tool (Phase 5)
-    -> n8n Workflow Integration (Phase 6)
-    -> AI Agent + Tool Calling + MCP + RAG + Memory + Evaluation (Phase 7)
-    -> Final Production Capstone (Phase 8)
+    -> FastAPI Production AI API — deterministic in-process EXECUTED_LOCAL_RUNTIME evidence (Phase 4, ends Day58)
+    -> Real local integration gate — FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry (Phase 5, Day59–61)
+    -> Playwright browser automation as a permissioned, queue-backed AI tool (Phase 5, Day62–66)
+    -> n8n Workflow Integration — orchestration over correct backends (Phase 6, Day67–70)
+    -> AI Agent + MCP + RAG + Memory + Security + Evaluation (Phase 7, Day71–90; agent runtime framework chosen at Day75)
+    -> Final Production Capstone + employment evidence (Phase 8, Day91–100)
     -> Portfolio + Overseas Interview
 ```
 
