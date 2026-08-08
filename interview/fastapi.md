@@ -1341,3 +1341,43 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day57), the
 [Day57 design/runbook](../projects/ai-backend-data-layer/api/day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection-design.md),
 the [harness](../projects/ai-backend-data-layer/api/day57_testing_harness.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day57_testing_harness.py).
+
+## Day58 — Production AI API Capstone, Observability and English Interview
+
+Key vocabulary: structured log, metric, trace, span, span link, correlation, job_id / attempt_id / correlation_id / request_id / trace_id, cardinality, Counter / Gauge / Histogram, reconciliation backlog, dispatch marker, telemetry exporter, evidence tier, runtime evidence.
+
+Useful expressions: "Observability is evidence around durable state, not a retry authority." · "job_id/attempt_id/trace_id go in logs/traces, never in metric labels." · "Missing telemetry is a gap, not proof of no execution."
+
+### Q1 (Beginner) — What is the difference between a metric, a log, and a trace in an AI job backend?
+
+Student answer: "log in worker, metric is trend, trace is process link" (correct direction). Strong answer: "Logs record detailed events from the API, relay, workers, and provider adapter. Metrics show aggregated trends, such as timeout rate or reconciliation backlog. Traces show the causal path of one execution across components, and span links connect asynchronous work."
+
+### Q2 (Intermediate) — A Provider call times out after the dispatch marker is persisted. What should the next Worker attempt do, and what observability evidence should it produce?
+
+Student answer: "pending_reconciliation" (correct state, incomplete). Strong answer: "The next Worker attempt must enter reconciliation only and must not call the Provider again, because the dispatch marker means the previous call may have executed. It keeps the reservation held and emits structured logs with the job ID, correlation ID, attempt ID, trace ID, and the reason `prior_attempt_may_have_executed`. The new trace links to the previous attempt trace. Metrics show the reconciliation backlog, while PostgreSQL remains the source of truth."
+
+### Q3 (Intermediate) — Where do job_id/attempt_id/trace_id belong, and is provider_calls_in_flight a Counter or a Gauge?
+
+Strong answer: "job_id, attempt_id, and trace_id belong in logs and traces, never in metric labels — as labels they create high-cardinality time series that blow up storage and queries. provider_calls_in_flight is a Gauge: it rises when a call starts and falls at completion or timeout. provider_call_total is a Counter — I query its rate, not the raw cumulative value — and provider_call_duration_seconds is a Histogram for tail latency." (Student correctly placed provider/model/outcome in labels; initially chose Counter for in-flight, corrected to Gauge.)
+
+### Q4 (Senior) — A release adds job_id to provider_call_total labels and removes attempt_id from Worker logs, during a Provider timeout incident. Describe your rollback and recovery plan.
+
+Student answer (technically strong): "Rollback observability release -> halt further missing-association and high-cardinality damage -> scope by release version and time window -> reconstruct affected items from durable PostgreSQL facts -> mark telemetry gaps, don't fabricate -> don't overwrite valid Job/Attempt/reservation facts." Strong answer: "First, I roll back the observability release to stop further impact from missing correlations and high-cardinality metrics. I define a bounded impact window using the release version and timestamps, then reconstruct the affected jobs from durable PostgreSQL Job, Attempt, dispatch-marker, and reservation facts. I explicitly mark the telemetry gap and never fabricate missing logs or traces. I do not overwrite valid Job, Attempt, or reservation facts, because this is an observability failure, not a business-state failure."
+
+### Common Weak Answer
+
+"Add job_id to every metric and log so we can slice per Job; if telemetry is down, fail the jobs so we don't lose data."
+
+### Strong Answer
+
+"Keep job_id/attempt_id/trace_id in logs and traces, not metric labels, to avoid a cardinality blowup. If the exporter is down, keep core processing and never fail an accepted Job — telemetry is evidence around durable state, not a retry-authority. Durable PostgreSQL facts, not telemetry, decide reconciliation."
+
+Production scenario / trace prompt: "API acceptance, the Outbox Relay, and two Worker attempts — one trace or many?" — "Many. Each durable asynchronous boundary is a separate trace. A Provider Adapter call is a child span of the current Attempt trace. A later attempt is a new trace that links to the immediate preceding attempt's trace with a span link — not a child of an already-ended HTTP span. job_id and correlation_id give stable end-to-end continuity, so I don't fan every retry out to every historical trace."
+
+Validation: in-process deterministic observability model (Python 3.10.12, pytest 7.4.3 -> 21 passed; full api suite 486); imports Day57 EvidenceTier + Day56 ExecutionCertainty. Proves executed local-runtime identity/event/metric/trace/telemetry-policy/rollback control flow only. NOT RUN: real FastAPI runtime + OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, real Provider traffic/production. No secrets, raw prompts, raw Provider responses, or tenant documents are used.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day58), the
+[Day58 lesson](../docs/fastapi/day58-production-ai-api-capstone-observability-and-english-interview.md), the
+[Day58 design/runbook](../projects/ai-backend-data-layer/api/day58-production-ai-api-capstone-observability-and-english-interview-design.md),
+the [model](../projects/ai-backend-data-layer/api/day58_observability_capstone.py), and the
+[tests](../projects/ai-backend-data-layer/api/test_day58_observability_capstone.py).

@@ -4,7 +4,7 @@ The evolving Phase 3 engineering artifact, reused by Phase 4 as the durable foun
 It turns the Day28 conceptual ownership rule — **PostgreSQL owns durable Job truth** — into a failure-aware
 data layer (Day29-Day42) and, from Day43, the HTTP API contract that exposes it — one lesson at a time.
 
-Current increment: **Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection** that turns the Day43–Day56 reliability POLICIES into REPEATABLE EVIDENCE. A deterministic verification harness (`day57_testing_harness.py`; standard-library control flow driving the REAL Day56 functions + Day53's real pydantic validator) provides a controllable Fake Provider (scripted outcomes, an independent call log that survives "Worker loss", `request_received`/`release_response` gates via `threading.Event`, execution-certainty evidence), a `FakeClock` + `DeterministicRandom` for reproducible backoff/jitter, an application-owned `ProviderAdapter`/`ProviderOutcome` (no SDK leakage; never writes Job state or cost), a strict `attempt_late_completion` contract, and an explicit four-tier `VALIDATION_MATRIX` (conceptual/static, executed-local, integration-runtime NOT RUN, production NOT RUN). The scenarios prove: a bare-429 -> `PENDING_RECONCILIATION` with the call count still one and no new rate permit; a missing `provider_request_id` is not proof of no execution (Day55 dispatch marker forces RECONCILE); the Adapter delivers a typed outcome + execution certainty (DEFINITELY_NOT_ACCEPTED / MAY_HAVE_EXECUTED / UNKNOWN); a valid-JSON schema violation is a contract violation, not success; deterministic backoff with Retry-After as an earliest floor (no wake-all); a controlled timeout window without sleeps; late-result completion only on full identity + schema match (terminal CANCELLED rejects a matching result); limiter outage fails closed (DEFER, zero calls, execution-retry unchanged); deadline with/without evidence (EXPIRED+release vs PENDING_RECONCILIATION+held); admission 503 dominates 429; and a guarded, idempotent repair under concurrency (a unique `repair_id` -> exactly one Outbox intent; provider-evidence -> RECONCILE_ONLY). **The tests were executed** (Python 3.10.12, pydantic 2.5.0, pytest 7.4.3 -> 23 passed; full api suite 465) proving EXECUTED LOCAL RUNTIME application state-machine / Adapter-contract / failure-injection control flow ONLY: **real PostgreSQL transaction/rollback/isolation, a real Celery broker + Worker-kill/redelivery, a real Redis limiter/circuit, and real Provider traffic are NOT RUN** (encoded in `VALIDATION_MATRIX`/`not_run_claims()`); a real `job_repair_history` table/migration is forward-additive DESIGN only. Day58 owns observability + the Phase 4 capstone. No secrets, raw prompts, or raw Provider payloads are used.
+Current increment: **Day58 — Production AI API Capstone, Observability and English Interview** (Phase 4 capstone) that makes the distributed AI Job execution EXPLAINABLE and AUDITABLE without letting telemetry become a retry authority. A deterministic in-process model (`day58_observability_capstone.py`; standard-library control flow, imports Day57's `EvidenceTier` + Day56's `ExecutionCertainty`) covers: the five-identity lifecycle contract (`job_id` and `correlation_id` STABLE across retries; a new durable Attempt gets a new `attempt_id`/`trace_id`; `request_id` is per HTTP request); a safe `StructuredEvent` contract that rejects raw prompts/responses/secrets and emits `provider.call.timeout` (observed outcome) vs `provider.call.suppressed` (`reason=prior_attempt_may_have_executed`); a `MetricRegistry` enforcing the low-cardinality label contract (Counter `provider_call_total{provider,model,outcome}`, Histogram `provider_call_duration_seconds`, Gauges `provider_calls_in_flight` + `jobs_pending_reconciliation`) that REJECTS `job_id`/`attempt_id`/`trace_id` as labels; trace/span-link modeling (a Provider call is a child span; a later async Attempt links to the immediate prior trace, not fake synchronous nesting); a telemetry-exporter-failure policy that keeps core processing, never turns an accepted Job into FAILED, buffers/degrades, and exposes `telemetry_export_failures_total`/`telemetry_events_dropped_total`/`telemetry_export_queue_depth`; and the bad-observability-release rollback drill (roll back config not DB facts, bound the affected set by release+window, mark telemetry gaps honestly, keep a marker-backed `PENDING_RECONCILIATION` Job reconciliation-only). **The tests were executed** (Python 3.10.12, pytest 7.4.3 -> 21 passed; full api suite 486) proving EXECUTED_LOCAL_RUNTIME identity/event/metric/trace/telemetry-policy/rollback control flow ONLY: **a real FastAPI runtime + OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, and real Provider traffic are NOT RUN** (INTEGRATION_RUNTIME + PRODUCTION per `VALIDATION_MATRIX_DAY58`/`day58_not_run_claims()`). Observability is evidence AROUND durable state, never a retry authority; missing telemetry is a gap, not proof of no execution. Day59 (Phase 5) reuses this backend as a callable browser-automation capability. No secrets, raw prompts, raw Provider responses, or tenant documents are used.
 (See the Day50 note below for the prior increment.)
 
 Prior increment (Day43): **the AI Job API contract** (Phase 4 opens) that exposes the Day42 durable
@@ -222,6 +222,39 @@ python3 -m pytest -q test_day51_authentication_jwt.py
 > Provider; Day55 real Celery. Schema honesty: a `password_hash` column and the per-device `AuthSession` table are
 > new facts modeled in-memory; the real schema needs a Day48-safe forward additive migration (not implemented here).
 > No plaintext passwords, refresh tokens, JWTs, or operational signing keys are committed.
+
+---
+
+## Day58 increment — Production AI API capstone, observability and English interview
+
+`api/day58-production-ai-api-capstone-observability-and-english-interview-design.md` (with a runnable
+`day58_observability_capstone.py` and `test_day58_observability_capstone.py`) closes Phase 4 by making the distributed
+execution explainable and auditable around durable state. The tests are **executed**, standard-library control flow
+(imports Day57 `EvidenceTier` + Day56 `ExecutionCertainty`): **Python 3.10.12, pytest 7.4.3 -> `21 passed`**.
+
+### What the model contains
+
+| Concern | Contents |
+| --- | --- |
+| Identities | `IdentityLifecycle` (job_id/correlation_id stable; attempt_id/trace_id per Attempt; request_id per request); `new_attempt` / `new_http_request`. |
+| Structured events | `StructuredEvent` (safe fields only; rejects raw prompt/response/secret + unknown fields); `emit_provider_call_timeout`, `emit_provider_call_suppressed` (reason `prior_attempt_may_have_executed`). |
+| Metrics | `MetricSpec`/`MetricRegistry` (Counter/Gauge/Histogram) enforcing the low-cardinality contract; `HighCardinalityLabelError` on job_id/attempt_id/trace_id labels. |
+| Traces | `start_trace` / `child_span` (shares trace_id) / `linked_trace` (span link to the immediate prior async trace). |
+| Telemetry policy | `TelemetryPipeline` (bounded buffer, drop, health metrics); `process_job_with_telemetry` never changes the durable status on exporter outage. |
+| Rollback drill | `ObservabilityRelease.rollback` (config only); `build_observability_affected_set` + `mark_telemetry_gaps`; `classify_observability_recovery` (marker/request-id -> RECONCILE_ONLY). |
+| Evidence taxonomy | `VALIDATION_MATRIX_DAY58` / `day58_not_run_claims()` — executed-local RUN; FastAPI/OTel + PostgreSQL/Redis/Celery integration + real Provider NOT RUN. |
+
+### Run the tests
+
+```text
+cd projects/ai-backend-data-layer/api
+python3 -m pytest -q test_day58_observability_capstone.py   # 21 passed
+```
+
+Not run (and not claimed): a real FastAPI runtime + OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration
+with committed correlation evidence, real Worker-kill/redelivery, and real Provider traffic/production observability.
+Day59 (Phase 5) reuses the Phase 4 backend as a callable browser-automation capability and must retain correlation
+through the Browser/Context/Page lifecycle.
 
 ---
 

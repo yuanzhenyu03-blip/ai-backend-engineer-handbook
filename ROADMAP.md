@@ -184,7 +184,7 @@ lifecycles) are recorded in `CURRICULUM.md` under "Future Lesson Implementation 
 | Day55 | Celery, Worker Execution and Long-running AI Jobs | ✅ Completed |
 | Day56 | Provider Resilience, Rate Limits, Token Cost and Backpressure | ✅ Completed |
 | Day57 | AI Backend Testing, Fake Providers, Contract Tests and Failure Injection | ✅ Completed |
-| Day58 | Production AI API Capstone, Observability and English Interview | Planned |
+| Day58 | Production AI API Capstone, Observability and English Interview | ✅ Completed |
 
 Deliverables:
 

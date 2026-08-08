@@ -1,0 +1,5 @@
+# Day58 — Production AI API Capstone, Observability and English Interview.
+# The observability capstone model + tests are Python standard library only; the module imports
+# Day57's EvidenceTier/MatrixRow/RunStatus and Day56's ExecutionCertainty (already in this project).
+# No FastAPI runtime, no OpenTelemetry exporter, no PostgreSQL/Redis/Celery, no Provider is invoked.
+pytest==7.4.3

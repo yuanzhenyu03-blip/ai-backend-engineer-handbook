@@ -9,6 +9,58 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.130 — Day58: Production AI API Capstone, Observability and English Interview (Phase 4 capstone)
+
+Date: 2026-08-07
+
+Day: Day58
+
+Lesson: Production AI API Capstone, Observability and English Interview (Phase 4)
+
+Close Phase 4 by making the distributed AI Job execution explainable and auditable around durable state: correlation
+identities, safe structured events, low-cardinality metrics, span-linked traces, a telemetry-exporter-failure policy,
+and an observability-release rollback drill — with an explicit four-tier evidence matrix.
+
+### Added
+
+- `docs/fastapi/day58-production-ai-api-capstone-observability-and-english-interview.md` — LESSON_TEMPLATE_v2 lesson
+  (exact 16-section order; verbatim CN/EN student answers + corrections + mental-model evolution; assistant-assisted
+  final Chinese mental model labeled as such).
+- `projects/ai-backend-data-layer/api/day58-production-ai-api-capstone-observability-and-english-interview-design.md` —
+  design/runbook (core principle, five identities, event/metric/trace contracts, telemetry policy, rollback drill,
+  four-tier evidence matrix, reviewable evidence pack).
+- `projects/ai-backend-data-layer/api/day58_observability_capstone.py` — runnable deterministic in-process model
+  (IdentityLifecycle, StructuredEvent, MetricSpec/MetricRegistry, Span/child_span/linked_trace, TelemetryPipeline,
+  ObservabilityRelease + rollback drill, VALIDATION_MATRIX_DAY58); imports Day57 EvidenceTier + Day56 ExecutionCertainty.
+- `projects/ai-backend-data-layer/api/test_day58_observability_capstone.py` — 21 tests.
+- `projects/ai-backend-data-layer/api/requirements-day58.txt` — pytest.
+
+### Updated
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `projects/ai-backend-data-layer/README.md` — Day58 appends/increment.
+- `CURRICULUM.md` (Day58 -> Completed), `ROADMAP.md` (Day58 -> Completed), `PROJECT_STATUS.md` (Day58 Last Completed
+  Lesson; Day57 archived; Phase 4 COMPLETE; Day59/Phase 5 current), `TASKS.md` (Day58 done; Day59 current).
+
+### Main learning outcome
+
+Observability is a correlated, safe, aggregatable, reviewable evidence system AROUND durable state — never a retry
+authority. job_id/correlation_id stay stable while attempt_id/trace_id are per Attempt and request_id is per HTTP
+request; safe structured events never carry raw prompts/responses/secrets; job_id/attempt_id/trace_id go in logs/traces,
+never in metric labels; async causality uses span links, not fake nesting; a telemetry exporter outage keeps core
+processing and never fails an accepted Job; and an observability-release rollback touches config, not durable Job facts,
+keeping marker-backed Jobs reconciliation-only. Phase 4 (Day43-Day58) is complete.
+
+### Validation
+
+- Executed: `python3 -m py_compile day58_observability_capstone.py test_day58_observability_capstone.py`;
+  `python3 -m pytest -q test_day58_observability_capstone.py` -> **21 passed** (Python 3.10.12, pytest 7.4.3). Full
+  `projects/ai-backend-data-layer/api/` suite -> **486 passed**. Markdown fences balanced; relative links resolve; no
+  secrets. EXECUTED_LOCAL_RUNTIME (in-process deterministic model) only — a real FastAPI runtime + OpenTelemetry
+  exporter, real PostgreSQL/Redis/Celery integration, and real Provider traffic are NOT RUN (INTEGRATION_RUNTIME +
+  PRODUCTION). Day59 (Phase 5) reuses the Phase 4 backend as a callable browser-automation capability.
+
+---
+
 ## v0.1.129 — Day57 fix (Codex): outcome-driven recovery decision, real timeout decision, four-tier terminology
 
 Date: 2026-08-06
