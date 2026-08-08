@@ -1541,187 +1541,463 @@ evidence only when executed and saved.
 
 ---
 
-## Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day71–Day90)
+## Planning Horizon and Completion Model (Day71 onward)
+
+```text
+The roadmap is competency-gated, not day-count-gated.
+The published lesson numbers are planning coordinates, not a promise that the course must end at a fixed number.
+```
+
+From Day71 onward the AI Backend track is an **AI Backend Employment Track**. Completion is defined by passing
+the **Employment Readiness Gate** (see below), not by reaching a fixed final day. The current planning horizon
+runs to **Day130**, but Day130 is only the present planning coordinate — NOT a permanent cap. If the
+Employment Readiness Gate is not yet met, Planned lessons may be added, split, merged, or renumbered based on
+real job requirements, AI ecosystem changes, a learner's real weak points, and project/interview feedback.
+Completed lessons (Day01–Day58) stay stable; only `Planned` lessons may be renumbered or adjusted. The AI core
+(LLM Application, Agent Runtime, MCP, Production RAG, Evaluation, AI Safety, AI Operations) must not be
+compressed just to keep a tidy final number. The agent runtime framework is not pre-locked; it is chosen only
+after an explicit Framework / Job-Market Refresh and always lives behind a replaceable adapter boundary.
+
+---
+
+## Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Status:
 Planned
 
 Objective:
-Build a testable, constrained, recoverable Production AI Agent Backend: prompt contracts, tool calling, a
-framework-agnostic agent loop, MCP, RAG, vector retrieval, memory, security boundaries, durability,
-multi-agent orchestration, and automated evaluation with runtime traces. The agent runtime framework is
-deliberately chosen at **Day75**, not pre-locked; the Domain/Tool/Memory/Job/Provider contracts stay
-framework-agnostic and the chosen framework sits behind a replaceable adapter.
+Evolve a single Provider call (Day53–58) into a complete, testable LLM Application Runtime: architecture,
+token/context/sampling limits and failure modes, a replaceable Provider Adapter, prompt contracts and
+versioning, structured output and function calling, streaming/caching/batching, model routing/fallback with
+latency and cost engineering, and fake-Provider contract/regression tests.
 
 Knowledge connection:
 
 ```text
-Real backend + browser tool + n8n workflows
-    -> AI Agent (prompt contracts + tools + framework-agnostic agent loop)
-    -> MCP + RAG + memory + security + durability + multi-agent
-    -> automated evaluation + AI observability (production-grade, evaluated)
+Day53–58 Provider call + Streaming + Resilience + Testing + Observability
+    -> a complete LLM Application Runtime (contracts, routing, cost, tests) behind a replaceable Provider Adapter
 ```
 
-Reused project directory: `projects/ai-agent/` (Agent, Tool Calling, MCP, RAG, Memory, Evaluation).
+Reused project directory: `projects/ai-agent/` (LLM application runtime foundations).
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day71 — LLM Application Architecture, Tokens, Context and Model Failure Modes.
-  Scope: LLM application architecture, token/context limits, model failure modes.
-  Connection: Phase 6 could orchestrate backends but had no agent reasoning layer; Day71 establishes LLM
-  application architecture and failure modes; Day72 makes model output a reliable contract.
-- Day72 — Prompt Contracts, Structured Output and Function Calling.
-  Scope: prompt contracts, structured output, function-calling schemas.
-  Connection: Day71 framed model limits but not reliable outputs; Day72 adds prompt contracts, structured
-  output, and function calling; Day73 turns callable functions into a permissioned tool registry.
-- Day73 — Tool Registry, Tool Schemas, Permissions and Execution Boundaries.
-  Scope: tool registry/schemas, permissions, execution sandboxing boundaries.
-  Connection: Day72 could call functions but without governance; Day73 adds a permissioned tool registry with
-  execution boundaries (reusing the Day66 permissioned browser tool); Day74 drives tools with an agent loop.
-- Day74 — Agent Loop, State, Termination, Retry and Error Handling.
-  Scope: a framework-agnostic minimal agent loop first — state, termination, retry, error handling.
-  Connection: Day73 had tools but no controller; Day74 adds a minimal framework-agnostic agent loop; Day75
-  then chooses the runtime framework behind a replaceable adapter.
-- Day75 — Agent Runtime Framework Decision and Replaceable Adapter Boundary.
-  Scope: compare LangGraph / OpenAI Agents SDK / PydanticAI against the Day74 loop and record the choice as a
-  new Decision, behind a replaceable adapter; keep Domain/Tool/Memory/Job/Provider contracts
-  framework-agnostic.
-  Connection: Day74's hand-built loop proves the mechanics but is not the long-term runtime; Day75 selects a
-  framework behind an adapter boundary (recorded as a new Decision) without locking the contracts; Day76
-  standardizes tools/resources via MCP.
-- Day76 — MCP Foundations: Client, Server, Resources and Tools.
-  Scope: MCP client/server, resources, tools.
-  Connection: Day75 fixed the agent runtime but tools were still ad hoc; Day76 adds MCP client/server,
-  resources, and tools as a standard boundary; Day77 secures MCP for production.
-- Day77 — MCP Authentication, Authorization, Security and Production Operations.
-  Scope: MCP auth/authorization, security, operations.
-  Connection: Day76 exposed MCP but not safely; Day77 adds MCP authentication, authorization, and production
-  operations; Day78 begins feeding the agent real knowledge via RAG ingestion.
-- Day78 — RAG Ingestion: Parsing, Chunking, Metadata and Provenance.
-  Scope: ingestion, parsing, chunking, metadata, provenance.
-  Connection: Day77 secured tools but the agent had no grounded knowledge; Day78 adds RAG ingestion with
-  provenance; Day79 makes it retrievable via embeddings and an index.
-- Day79 — Embeddings, Vector Database and Index Design.
-  Scope: embeddings, vector store, index design.
-  Connection: Day78 produced chunks with provenance but no retrieval; Day79 adds embeddings, a vector
-  database, and index design; Day80 improves retrieval quality.
-- Day80 — Retrieval Quality: Hybrid Search, Filtering and Re-ranking.
-  Scope: hybrid search, metadata filtering, re-ranking.
-  Connection: Day79 could retrieve but not well; Day80 adds hybrid search, filtering, and re-ranking; Day81
-  grounds answers in the retrieved sources.
-- Day81 — Grounding, Citations, Hallucination Boundaries and Source Verification.
-  Scope: grounding, citations, hallucination boundaries, source verification.
-  Connection: Day80 improved retrieval but answers could still be ungrounded; Day81 adds grounding,
-  citations, and source verification; Day82 gives the agent memory boundaries.
-- Day82 — Conversation Memory, Durable Memory and Business-state Boundaries.
-  Scope: conversation vs durable memory vs business-state boundaries.
-  Connection: Day81 grounded single answers but had no memory; Day82 adds conversation/durable memory with
-  explicit business-state boundaries (durable truth stays in PostgreSQL); Day83 secures the agent against
-  abuse.
-- Day83 — Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
-  Scope: prompt injection, tool abuse, data exfiltration, sandboxing.
-  Connection: Day82 added memory but widened the attack surface; Day83 adds injection/tool-abuse/exfiltration
-  defenses and sandboxing; Day84 makes agent jobs durable and recoverable.
-- Day84 — Durable Agent Jobs, Checkpoints, Recovery and Human Escalation.
-  Scope: durable agent jobs, checkpoints, recovery, human escalation.
-  Connection: Day83 secured a single run but not long/durable ones; Day84 adds durable agent jobs,
-  checkpoints, recovery, and human escalation reusing the Phase 4/5 job lifecycle; Day85 coordinates multiple
-  agents.
-- Day85 — Multi-agent Orchestration, Handoffs and Coordination Boundaries.
-  Scope: multi-agent orchestration, handoffs, coordination boundaries.
-  Connection: Day84 hardened one agent; Day85 adds multi-agent orchestration and handoffs with clear
-  coordination boundaries; Day86 starts measuring quality with evaluation datasets.
-- Day86 — Evaluation Datasets, Golden Sets and Graders.
-  Scope: evaluation datasets, golden sets, graders.
-  Connection: Day85 built capability but no measurement; Day86 adds evaluation datasets, golden sets, and
-  graders; Day87 extends evaluation to agent trajectories and failure modes.
-- Day87 — Agent Trajectory, Tool-use and Failure-mode Evaluation.
-  Scope: trajectory evaluation, tool-use correctness, failure-mode evaluation.
-  Connection: Day86 graded outputs but not process; Day87 adds trajectory, tool-use, and failure-mode
-  evaluation; Day88 turns evaluation signals into runtime observability.
-- Day88 — AI Observability, Cost, Model Routing and Runtime Traces.
-  Scope: AI observability, cost, model routing, runtime traces.
-  Connection: Day87 measured offline but not in production; Day88 adds AI observability, cost/model routing,
-  and runtime traces (reusing the Day61 telemetry pipeline); Day89 turns observability into release gates.
-- Day89 — Regression, Release Gates, Load, Security and Runtime Evidence.
-  Scope: regression suites, release gates, load, security, runtime evidence.
-  Connection: Day88 gave live signals but no gating; Day89 adds regression, release gates, load, and security
-  with runtime evidence; Day90 integrates the whole agent backend.
-- Day90 — Production AI Agent Backend Capstone and English Interview.
-  Scope: integrate the agent backend; phase-level English interview.
-  Connection: Day89 completed gating and evidence; Day90 integrates the AI agent backend into a capstone and
-  runs the phase English interview; Phase 8 (Day91) assembles everything into the final capstone and
-  employment evidence.
+- Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes.
+  Scope: application architecture, token/context windows, sampling, and model failure modes.
+  Connection: Phase 6 orchestrated backends but had no LLM application layer; Day71 frames the architecture
+  and failure modes on top of the Day53 Provider boundary; Day72 makes the Provider itself replaceable.
+- Day72 — Provider Capabilities and the Replaceable Provider Adapter.
+  Scope: provider capability differences behind one stable, replaceable Provider Adapter contract.
+  Connection: Day71 named the failure modes; Day72 hides provider differences behind a replaceable adapter
+  (extending Day53); Day73 makes the prompt a versioned contract.
+- Day73 — Prompt Contracts, Prompt Versioning and Compatibility.
+  Scope: prompt-as-contract, versioning, and backward/forward compatibility.
+  Connection: Day72 stabilized the provider surface; Day73 makes prompts versioned contracts; Day74 makes the
+  model's output a validated structure.
+- Day74 — Structured Output, JSON Schema and Function/Tool Calling.
+  Scope: structured output, JSON Schema validation, function/tool-calling schemas.
+  Connection: Day73 versioned the input; Day74 constrains the output with schema and tool calls (reusing Day44
+  Pydantic contracts); Day75 makes delivery efficient with streaming/caching/batching.
+- Day75 — Streaming, Caching and Batching for LLM Applications.
+  Scope: token/progress streaming, response caching, request batching.
+  Connection: Day74 fixed output shape; Day75 adds streaming/caching/batching (extending Day54 streaming);
+  Day76 chooses between models under latency/cost pressure.
+- Day76 — Model Routing, Fallback, Latency and Cost Engineering.
+  Scope: model routing, fallback policy, latency and cost engineering.
+  Connection: Day75 optimized one path; Day76 routes across models with fallback and cost/latency budgets
+  (reusing Day56 resilience); Day77 proves all of it with deterministic tests.
+- Day77 — Fake Provider, Contract Tests and LLM Regression Tests.
+  Scope: fake-Provider contract tests and LLM regression tests (deterministic, no real Provider calls).
+  Connection: Day76 built routing/cost behavior; Day77 pins it with fake-Provider contract and regression
+  tests (extending Day57); Day78 integrates the phase into an LLM Application Runtime.
+- Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview.
+  Scope: integrate the LLM application runtime; runnable checkpoint; phase-level English interview.
+  Connection: Day77 completed the tests; Day78 integrates the LLM Application Runtime as a runnable checkpoint
+  and runs the phase interview; Phase 7B builds the agent runtime that drives this application.
 
 Phase deliverable:
 
 ```text
-AI Agent Backend
-+ Prompt Contracts + Tool Calling + framework-agnostic Agent Loop (framework chosen at Day75)
-+ MCP + RAG + Vector Retrieval + Memory + Security Boundaries + Durability + Multi-agent
-+ Automated Evaluation + AI Observability + Runtime traces
+A testable LLM Application Runtime: replaceable Provider Adapter + prompt contracts/versioning
++ structured output/function calling + streaming/caching/batching + model routing/fallback/cost
++ fake-Provider contract and regression tests.
 ```
 
 Validation requirement:
-Do not claim Agent, RAG, or MCP are production-validated unless actually executed with saved evidence and
-evaluation traces. The Day75 framework decision is recorded as a new Decision and kept behind a replaceable
-adapter; contracts stay framework-agnostic. Distinguish conceptual/static review from runtime evidence.
+Deterministic fake-Provider tests are `EXECUTED_LOCAL_RUNTIME`, not real Provider or `PRODUCTION` evidence. A
+real or paid Provider call runs only with explicit user authorization, securely supplied credentials kept out
+of the repo/logs/evidence pack, and a defined cost/scope; otherwise it stays `NOT RUN`. Claim
+runtime/integration/production evidence only when actually executed and saved.
 
 ---
 
-## Phase 8 — Final Capstone, Portfolio and Overseas Interview (Day91–Day100)
+## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
 Planned
 
 Objective:
-Convert all capabilities into deployable, demonstrable, interview-ready employment evidence.
+Build a framework-agnostic Agent Runtime — agent loop, tool registry/permissions, state machine, termination
+and budgets, durable jobs with checkpoint/resume/recovery, human approval, memory vs business-state
+boundaries, multi-agent coordination, and agent security — then run a Framework / Job-Market Refresh, choose
+an Agent Runtime Framework, and implement it behind a replaceable adapter. Then engineer MCP client/server,
+resource/tool/prompt boundaries, authentication/authorization/tenant isolation, and remote-MCP lifecycle.
+
+```text
+First understand and implement the stable Agent Runtime contracts.
+Then choose a framework based on current ecosystem and job evidence.
+The framework is replaceable infrastructure, not the business model.
+```
 
 Knowledge connection:
 
 ```text
-AI Agent Backend
-    -> Final Production Capstone
-    -> Portfolio + Overseas Interview
+LLM Application Runtime (Phase 7A)
+    -> framework-agnostic Agent Runtime (loop, tools, state, durability, memory, security)
+    -> Framework/Job-Market Refresh -> chosen framework behind a replaceable adapter
+    -> MCP client/server + auth + tenant isolation + remote lifecycle
+```
+
+Reused project directory: `projects/ai-agent/` (agent runtime, tools, MCP).
+
+Per-day topics (Topic + concise scope; each Status: Planned):
+
+- Day79 — Framework-agnostic Agent Loop and Control Flow.
+  Scope: a minimal, framework-agnostic agent loop and control flow.
+  Connection: Phase 7A produced a reliable LLM application but no autonomous controller; Day79 builds the
+  framework-agnostic loop; Day80 gives it a governed tool registry.
+- Day80 — Tool Registry, Tool Schema and Permission Model.
+  Scope: tool registry, tool schemas, and a permission model.
+  Connection: Day79 had a loop but ungoverned tools; Day80 adds a permissioned tool registry (reusing the
+  Day66 permissioned browser tool); Day81 bounds the loop with a state machine and budgets.
+- Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets.
+  Scope: agent state machine, termination, loop detection, step/token/cost budgets.
+  Connection: Day80 governed tools; Day81 bounds the loop with termination/loop-detection and budgets; Day82
+  makes agent jobs durable and recoverable.
+- Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery.
+  Scope: durable agent jobs, checkpoints, resume, recovery.
+  Connection: Day81 bounded a single run; Day82 makes agent jobs durable with checkpoint/resume/recovery
+  (reusing the Phase 4/5 job lifecycle); Day83 adds human interrupt/approval.
+- Day83 — Human Approval, Interrupt and Escalation Boundaries.
+  Scope: human approval, interrupt, escalation boundaries.
+  Connection: Day82 made runs durable; Day83 adds human approval/interrupt/escalation; Day84 separates memory
+  from durable business truth.
+- Day84 — Conversation Memory vs Durable Business-state Boundaries.
+  Scope: conversation/durable memory vs business-state boundaries (durable truth stays in PostgreSQL).
+  Connection: Day83 added human control; Day84 draws the memory-vs-business-state boundary; Day85 coordinates
+  multiple agents.
+- Day85 — Multi-agent Handoff and Coordination Boundaries.
+  Scope: multi-agent handoff and coordination boundaries.
+  Connection: Day84 bounded one agent's memory; Day85 adds multi-agent handoff/coordination; Day86 secures the
+  whole agent surface.
+- Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
+  Scope: prompt injection, tool abuse, data exfiltration, sandboxing.
+  Connection: Day85 widened the surface; Day86 adds agent security defenses; Day87 refreshes framework and
+  job-market evidence before any framework is chosen.
+- Day87 — Agent Framework and Job-Market Refresh Checkpoint.
+  Scope: refresh the current Agent framework ecosystem and real job-market requirements before committing.
+  Connection: Days 79–86 defined stable contracts; Day87 refreshes ecosystem/job evidence so the choice is
+  current, not pre-locked; Day88 selects a framework behind a replaceable adapter.
+- Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.
+  Scope: choose an Agent Runtime Framework (candidates include LangGraph / OpenAI Agents SDK / PydanticAI) and
+  implement it behind a replaceable adapter; record the choice as a new Decision.
+  Connection: Day87 refreshed the evidence; Day88 selects and adapter-wraps a framework without locking the
+  contracts (recorded as a Decision); Day89 standardizes external tools/resources via MCP.
+- Day89 — MCP Foundations and Protocol Model.
+  Scope: MCP protocol model and responsibilities.
+  Connection: Day88 fixed the runtime; Day89 introduces MCP as the standard tool/resource boundary; Day90
+  builds the MCP client.
+- Day90 — MCP Client Engineering.
+  Scope: MCP client engineering and integration with the agent runtime.
+  Connection: Day89 modeled the protocol; Day90 builds the MCP client; Day91 builds the MCP server side.
+- Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries.
+  Scope: MCP server; Resources/Tools/Prompts responsibility boundaries.
+  Connection: Day90 built the client; Day91 builds the server with clear Resource/Tool/Prompt boundaries;
+  Day92 secures it with auth and tenant isolation.
+- Day92 — MCP Authentication, Authorization and Tenant Isolation.
+  Scope: MCP authentication, authorization, tenant isolation.
+  Connection: Day91 exposed server capabilities; Day92 adds MCP auth/authorization/tenant isolation (reusing
+  Day51/Day52); Day93 hardens the remote lifecycle.
+- Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability.
+  Scope: remote MCP lifecycle — timeout, retry, versioning, observability.
+  Connection: Day92 secured MCP; Day93 hardens the remote lifecycle (timeout/retry/versioning/observability);
+  Day94 integrates agent + MCP into a capstone.
+- Day94 — Agent + MCP Integration Capstone and English Interview.
+  Scope: integrate the agent runtime with MCP client/server; runnable checkpoint; phase-level English
+  interview.
+  Connection: Day93 completed remote MCP; Day94 integrates agent + MCP into a runnable capstone and runs the
+  phase interview; Phase 7C grounds the agent with a Production RAG subsystem.
+
+Phase deliverable:
+
+```text
+A framework-agnostic Agent Runtime (loop, tools, state, budgets, durability, human approval, memory boundary,
+multi-agent, security) + a chosen framework behind a replaceable adapter + MCP client/server with auth,
+tenant isolation, and a hardened remote lifecycle.
+```
+
+Validation requirement:
+Understand and implement the stable Agent Runtime contracts BEFORE choosing a framework; do not pre-lock
+LangGraph or any single framework — the Day88 choice follows the Day87 refresh and lives behind a replaceable
+adapter (recorded as a Decision). Avoid framework-API tutorialization; teach durable state, tool contracts,
+permissions, termination/budgets, and security. Do not claim Agent/MCP are integration- or production-
+validated without executed, saved evidence; an in-process fake/mock/double is never `INTEGRATION_RUNTIME`.
+
+---
+
+## Phase 7C — Production RAG Engineering (Day95–Day106)
+
+Status:
+Planned
+
+Objective:
+Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
+chunking experiments, metadata/tenant/ACL/provenance, embedding selection/versioning, vector index design,
+hybrid retrieval/filtering, query rewriting/re-ranking, grounding/citations/source verification, retrieval and
+answer evaluation, index update/delete/rebuild/migration, and RAG security — not a "chunk + vector search"
+demo.
+
+Knowledge connection:
+
+```text
+Agent Runtime + MCP (Phase 7B)
+    -> Production RAG subsystem (ACL + provenance + hybrid retrieval + grounding + citations + evaluation)
+    -> grounded, permission-filtered, evaluable knowledge for the agent
+```
+
+Reused project directory: `projects/ai-agent/` (RAG subsystem).
+
+Per-day topics (Topic + concise scope; each Status: Planned):
+
+- Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle.
+  Scope: ingestion pipeline, parsing, document lifecycle.
+  Connection: Phase 7B gave the agent tools but no grounded knowledge; Day95 builds ingestion/parsing and the
+  document lifecycle; Day96 experiments with chunking.
+- Day96 — Chunking Strategy and Experiments.
+  Scope: chunking strategies and measurable experiments.
+  Connection: Day95 ingested documents; Day96 experiments with chunking strategies; Day97 attaches
+  metadata/tenant/ACL/provenance.
+- Day97 — Metadata, Tenant, ACL and Provenance.
+  Scope: metadata, tenant scoping, ACL, provenance.
+  Connection: Day96 produced chunks; Day97 adds metadata/tenant/ACL/provenance (reusing Day52 tenant
+  boundaries); Day98 selects and versions embeddings.
+- Day98 — Embedding Model Selection and Versioning.
+  Scope: embedding model selection and versioning.
+  Connection: Day97 scoped and labeled chunks; Day98 selects/version embeddings; Day99 designs the vector
+  database and index.
+- Day99 — Vector Database and Vector Index Design.
+  Scope: vector database and index design.
+  Connection: Day98 produced embeddings; Day99 designs the vector store/index; Day100 adds hybrid retrieval
+  and filtering.
+- Day100 — Hybrid Retrieval and Filtering.
+  Scope: hybrid (dense + lexical) retrieval and metadata/ACL filtering.
+  Connection: Day99 built the index; Day100 adds hybrid retrieval with ACL filtering; Day101 improves ordering
+  with query rewriting and re-ranking.
+- Day101 — Query Rewriting and Re-ranking.
+  Scope: query rewriting and re-ranking.
+  Connection: Day100 retrieved candidates; Day101 rewrites queries and re-ranks; Day102 grounds answers with
+  citations.
+- Day102 — Grounding, Citations and Source Verification.
+  Scope: grounding, citations, source verification.
+  Connection: Day101 improved relevance; Day102 grounds answers with citations and source verification; Day103
+  measures retrieval and answer quality.
+- Day103 — Retrieval Evaluation and RAG Answer Evaluation.
+  Scope: retrieval evaluation and RAG answer evaluation.
+  Connection: Day102 grounded answers; Day103 evaluates retrieval and answer quality; Day104 keeps the index
+  correct over time.
+- Day104 — Index Update, Delete, Rebuild and Migration.
+  Scope: index update, delete, rebuild, migration.
+  Connection: Day103 measured quality; Day104 adds index update/delete/rebuild/migration; Day105 defends RAG
+  against injection and leakage.
+- Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries.
+  Scope: prompt injection via documents, poisoned documents, data-leakage boundaries.
+  Connection: Day104 kept the index correct; Day105 adds RAG security boundaries; Day106 integrates the
+  Production RAG subsystem.
+- Day106 — Production RAG Capstone and English Interview.
+  Scope: integrate the RAG subsystem; runnable checkpoint; phase-level English interview.
+  Connection: Day105 secured RAG; Day106 integrates the Production RAG subsystem as a runnable checkpoint and
+  runs the phase interview; Phase 7D makes evaluation, safety, and operations an engineering system.
+
+Phase deliverable:
+
+```text
+A runnable, evaluable Production RAG subsystem: ingestion/parsing + chunking + metadata/tenant/ACL/provenance
++ embeddings/index + hybrid retrieval/filtering + query rewriting/re-ranking + grounding/citations
++ retrieval/answer evaluation + index migration + RAG security boundaries.
+```
+
+Validation requirement:
+RAG must enforce tenant/ACL filtering and provenance; answers must be grounded with verifiable citations. A
+RAG run over local/disposable infrastructure is `INTEGRATION_RUNTIME` only when real processes/stores
+participate with saved, reproducible evidence; an in-process fake/mock is `EXECUTED_LOCAL_RUNTIME`. No
+production claim without executed evidence.
+
+---
+
+## Phase 7D — AI Evaluation, Safety and Operations (Day107–Day116)
+
+Status:
+Planned
+
+Objective:
+Turn evaluation, safety, and operations into an executable engineering system: datasets/golden sets,
+deterministic and model-based graders (and their limits), retrieval/answer/trajectory/tool-use evaluation,
+adversarial and failure-mode evaluation, regression and release gates, AI observability with cost/latency/
+quality trade-offs and model-routing evidence, load and security testing, and a production incident/rollback/
+repair exercise.
+
+Knowledge connection:
+
+```text
+LLM App + Agent + RAG capabilities
+    -> executable Evaluation + Safety + Operations (graders, release gates, observability, incident drills)
+    -> release decisions backed by runtime evidence
+```
+
+Reused project directory: `projects/ai-agent/` (evaluation, safety, operations).
+
+Per-day topics (Topic + concise scope; each Status: Planned):
+
+- Day107 — Evaluation Datasets and Golden Sets.
+  Scope: evaluation datasets and golden sets.
+  Connection: Phase 7C could answer but not prove quality at scale; Day107 builds datasets/golden sets; Day108
+  scores them with deterministic graders.
+- Day108 — Deterministic Graders.
+  Scope: deterministic, reproducible graders.
+  Connection: Day107 built datasets; Day108 adds deterministic graders; Day109 adds model-based graders and
+  their limits.
+- Day109 — Model-based Graders and Their Limits.
+  Scope: model-based graders and their failure modes/limits.
+  Connection: Day108 gave exact grading; Day109 adds model-based graders with explicit limits; Day110 applies
+  grading to retrieval and answers.
+- Day110 — Retrieval and Answer-quality Evaluation.
+  Scope: retrieval-quality and answer-quality evaluation.
+  Connection: Day109 fixed grader trust; Day110 evaluates retrieval/answer quality (reusing Day103); Day111
+  evaluates the agent's process.
+- Day111 — Agent Trajectory and Tool-use Correctness Evaluation.
+  Scope: agent trajectory evaluation and tool-use correctness.
+  Connection: Day110 graded outputs; Day111 evaluates trajectory and tool-use correctness; Day112 probes
+  adversarial and failure modes.
+- Day112 — Adversarial and Failure-mode Evaluation.
+  Scope: adversarial and failure-mode evaluation.
+  Connection: Day111 graded normal behavior; Day112 adds adversarial/failure-mode evaluation; Day113 turns
+  evaluations into regression and release gates.
+- Day113 — Prompt/Model/Tool Regression and Release Gates.
+  Scope: prompt/model/tool regression suites and release gates.
+  Connection: Day112 stressed the system; Day113 adds regression and release gates; Day114 makes cost/latency/
+  quality observable in production.
+- Day114 — AI Observability: Cost, Latency, Quality Trade-offs and Model-routing Evidence.
+  Scope: AI observability, cost/latency/quality trade-offs, model-routing evidence.
+  Connection: Day113 gated releases; Day114 adds AI observability and routing evidence (reusing the Day61
+  telemetry pipeline); Day115 tests load and security.
+- Day115 — Load Testing and AI Security Testing.
+  Scope: load testing and AI security testing.
+  Connection: Day114 gave live signals; Day115 adds load and AI security testing; Day116 rehearses production
+  incidents and repair.
+- Day116 — Production Incident, Rollback and Repair Exercise, Capstone and English Interview.
+  Scope: production incident/rollback/repair exercise; runnable checkpoint; phase-level English interview.
+  Connection: Day115 found limits; Day116 rehearses incident/rollback/repair and runs the phase interview;
+  Phase 8 assembles everything into the Final Employment Capstone.
+
+Phase deliverable:
+
+```text
+An executable AI Evaluation/Safety/Operations system: datasets/golden sets + deterministic and model-based
+graders + retrieval/answer/trajectory/tool-use evaluation + adversarial/failure-mode evaluation
++ regression/release gates + AI observability (cost/latency/quality, routing evidence) + load/security testing
++ an incident/rollback/repair exercise.
+```
+
+Validation requirement:
+Evaluation is an executable engineering system, not a concept overview; graders/gates must run and save
+evidence. Distinguish `EXECUTED_LOCAL_RUNTIME` grader runs from real `INTEGRATION_RUNTIME`/`PRODUCTION`
+evidence; `pytest passed` is not integration or production evidence. No production claim without executed,
+saved evidence.
+
+---
+
+## Phase 8 — Final Employment Capstone (Day117–Day130)
+
+Status:
+Planned
+
+Objective:
+Assemble all capabilities into one deployable, demonstrable AI Backend and convert it into employment
+evidence, then review readiness against the Employment Readiness Gate. The capstone is a thin vertical loop
+integrating existing components — not a one-day re-implementation of everything.
+
+Knowledge connection:
+
+```text
+LLM App + Agent + MCP + Production RAG + Evaluation/Safety/Ops + Phase 4/5/6 backend
+    -> Final Employment Capstone (thin vertical loop, deployed, evaluated, observable)
+    -> Portfolio + interviews + real job applications (Employment Readiness Gate)
 ```
 
 Reused project directory: `projects/final-capstone/` (the final integrated project).
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day91 — Product Requirements, Architecture Review and Scope Control.
-  Scope: requirements, architecture review, scope control.
-  Connection: builds on the Day90 agent-backend capstone by defining final-capstone product requirements, architecture review, and scope control; Day92 turns them into a skeleton, contracts, and threat model.
-  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day91) below.
-- Day92 — Final Capstone Skeleton, Contracts and Threat Model.
+- Day117 — Product Requirements, Architecture Review and Scope Control.
+  Scope: product requirements, architecture review, scope control.
+  Connection: builds on the Phase 7D capstone by defining final-capstone requirements, architecture, and
+  scope; Day118 turns them into a skeleton, contracts, and threat model.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day117) below.
+- Day118 — Final Capstone Skeleton, Contracts and Threat Model.
   Scope: skeleton, contracts, threat model.
-  Connection: adds the capstone skeleton, contracts, and threat model; Day93 integrates the core FastAPI+PostgreSQL+Redis+Object-Storage stack.
-- Day93 — FastAPI + PostgreSQL + Redis + Object Storage Integration.
+  Connection: Day117 set scope; Day118 adds the skeleton, contracts, and threat model; Day119 integrates the
+  core backend stack.
+- Day119 — FastAPI + PostgreSQL + Redis/Celery + Object Storage Integration.
   Scope: integrate the core backend stack.
-  Connection: integrates the core backend stack from Phases 3-4; Day94 adds the agent, retrieval, tools, browser worker, and workflows from Phases 5-7.
-- Day94 — Agent + RAG + MCP + Playwright + n8n Integration.
-  Scope: integrate agent, retrieval, tools, browser worker, workflows.
-  Connection: integrates the real backend + permissioned browser tool (Phase 5), n8n workflows (Phase 6), and the agent + RAG + MCP backend (Phase 7) into one vertical path; Day95 proves it under failure, load, security, and data-repair drills.
-  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day94) below.
-- Day95 — Failure Recovery, Load, Security and Data-repair Drills.
-  Scope: failure recovery, load, security, data-repair drills.
-  Connection: adds failure-recovery, load, security, and data-repair drills; Day96 deploys to the cloud with managed services and production config.
-  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day95) below.
-- Day96 — Cloud Deployment, Managed Services and Production Configuration.
-  Scope: cloud deployment, managed services, production config.
-  Connection: adds cloud deployment, managed services, and production configuration; Day97 produces the evaluation report, observability, SLOs, and runbook.
-- Day97 — Evaluation Report, Observability, SLO and Operational Runbook.
-  Scope: evaluation report, observability, SLOs, runbook.
-  Connection: adds the evaluation report, observability, SLOs, and operational runbook; Day98 practices system-design and coding interviews on the finished system.
-- Day98 — AI Backend System Design and Python/SQL Coding Interview.
-  Scope: system-design + Python/SQL coding interview practice.
-  Connection: turns the finished system into AI backend system-design and Python/SQL coding interview practice; Day99 builds the English project story, behavioral answers, and resume.
-- Day99 — English Project Story, Behavioral Interview, Resume and Open-source Evidence.
+  Connection: Day118 defined contracts; Day119 integrates the Phase 4/5 core backend stack; Day120 adds the
+  agent runtime and MCP.
+- Day120 — Agent Runtime and MCP Integration.
+  Scope: integrate the agent runtime and MCP client/server.
+  Connection: Day119 gave the backend; Day120 integrates the Phase 7B agent runtime and MCP; Day121 grounds it
+  with Production RAG.
+- Day121 — Production RAG Integration (ACL, Citations, Retrieval Evaluation).
+  Scope: integrate the Production RAG subsystem with ACL, citations, and retrieval evaluation.
+  Connection: Day120 added the agent; Day121 integrates Phase 7C RAG with ACL/citations/evaluation; Day122
+  adds the permissioned browser tool and human-approval workflow.
+- Day122 — Playwright Permissioned Tool and n8n Human-approval Integration.
+  Scope: integrate the Phase 5 permissioned browser tool and Phase 6 n8n human-approval workflow.
+  Connection: Day121 grounded the agent; Day122 integrates the browser tool and n8n approval; Day123 runs one
+  thin end-to-end vertical loop.
+- Day123 — Thin Vertical Integration Loop (End-to-end).
+  Scope: one bounded, complete vertical user path across all integrated components.
+  Connection: Day122 wired the components; Day123 runs one thin end-to-end vertical loop with preserved
+  correlation IDs; Day124 gates release on evaluation.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day123) below.
+- Day124 — Evaluation Gate and Release Decision Integration.
+  Scope: integrate the Phase 7D evaluation gate into the release decision.
+  Connection: Day123 proved one path runs; Day124 integrates the evaluation gate into release decisions;
+  Day125 proves resilience under drills.
+- Day125 — Failure Recovery, Load, Security and Data-repair Drills.
+  Scope: representative failure-recovery, load, security, and data-repair drills.
+  Connection: Day124 gated releases; Day125 runs representative resilience drills; Day126 deploys to the cloud.
+  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day125) below.
+- Day126 — Cloud Deployment, Managed Services, Production Configuration and SLOs.
+  Scope: cloud deployment, managed services, production configuration, SLOs.
+  Connection: Day125 proved resilience; Day126 deploys with production config and SLOs; Day127 adds
+  observability and the operational runbook.
+- Day127 — Observability, Operational Runbook and Cost/Quality Evidence.
+  Scope: observability, operational runbook, cost/quality evidence.
+  Connection: Day126 deployed the system; Day127 adds observability, a runbook, and cost/quality evidence;
+  Day128 practices system-design and coding interviews on it.
+- Day128 — AI Backend System Design and Python/SQL Coding Interview.
+  Scope: AI backend system-design + Python/SQL coding interview practice.
+  Connection: Day127 finished operations; Day128 turns the system into system-design and Python/SQL interview
+  practice; Day129 builds the English story, behavioral answers, and resume.
+- Day129 — English Project Story, Behavioral Interview, Resume and Open-source Evidence.
   Scope: project story, behavioral interview, resume, open-source evidence.
-  Connection: builds the English project story, behavioral interview, resume, and open-source evidence; Day100 runs the final mock interview and portfolio review.
-- Day100 — Final Mock Interview, Portfolio Review and Job-application Readiness.
-  Scope: final mock interview, portfolio review, application readiness.
-  Connection: consolidates everything into a final mock interview, portfolio review, and job-application readiness for overseas AI Backend Engineer roles — the endpoint is the portfolio and the job application itself, not a Day101.
+  Connection: Day128 built interview skills; Day129 builds the English story, behavioral answers, resume, and
+  open-source evidence; Day130 reviews overall employment readiness.
+- Day130 — Final Mock Interview, Portfolio Review and Employment Readiness Gate Review.
+  Scope: final mock interview, portfolio review, and an Employment Readiness Gate review.
+  Connection: consolidates everything into a final mock interview, portfolio review, and an Employment
+  Readiness Gate review; if the Gate is not yet met, additional Planned lessons are added rather than declaring
+  completion at a fixed day. (Note: real trial job applications may begin earlier — see the Employment
+  Readiness Gate — once the Agent + MCP evidence in Phase 7B is complete.)
 
 Final Capstone must include:
 
@@ -1736,20 +2012,55 @@ Phase deliverable:
 
 ```text
 A deployable, demonstrable Production AI Backend capstone + a complete GitHub portfolio + English
-system-design/behavioral/resume readiness for overseas AI Backend Engineer applications.
+system-design/behavioral/resume readiness, reviewed against the Employment Readiness Gate for
+Junior/Developing AI Backend Engineer, AI Startup Backend Engineer, and LLM/RAG/Agent-product Backend roles.
 ```
 
 Validation requirement:
 Portfolio and capstone completion require real, saved evidence (runnable code, tests, evaluation report,
 failure/recovery drills, deployment and observability evidence). No production-grade claim without executed
-evidence.
+evidence. Reaching Day130 does not by itself mean "complete" — completion is passing the Employment Readiness
+Gate.
 
 ---
 
-## Employment-Readiness Boundary (Day43–Day100)
+## Employment Readiness Gate
+
+Completion of the AI Backend Employment Track is defined by passing this Gate, NOT by reaching a fixed final
+day. At minimum the Gate requires:
+
+```text
+1.  A real, runnable, deployable AI Backend.
+2.  Real FastAPI / PostgreSQL / Redis-Celery / Object Storage integration evidence.
+3.  An Agent Runtime with explicit state, termination, permission, checkpoint and recovery semantics.
+4.  A run MCP Client/Server integration.
+5.  A Production RAG with ACL, citations and retrieval evaluation.
+6.  Tool permissions and prompt-injection defenses.
+7.  Evaluation datasets, graders and a release gate.
+8.  AI latency / cost / quality evidence.
+9.  Observability, failure, rollback and repair evidence.
+10. A reproducible README and run commands.
+11. Python and SQL interview capability.
+12. Backend / AI system-design capability.
+13. English project explanation and behavioral interview stories.
+14. Portfolio and resume evidence.
+15. Real job applications submitted, with Planned lessons added based on feedback.
+```
+
+Trial application checkpoint: once the Agent + MCP evidence in Phase 7B is complete (the first sufficiently
+complete project evidence), the learner MAY begin trial job applications — they need not wait for the Final
+Capstone to touch the market. Feedback then feeds back into Planned lessons.
+
+Honesty boundary: the curriculum improves job competitiveness but does not promise an offer; target roles are
+Junior / Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent
+products; completing the curriculum is not fabricated as Senior/Staff production experience.
+
+---
+
+## Employment-Readiness Boundary (Day43 onward, competency-gated)
 
 This curriculum builds the core capabilities and portfolio evidence of an AI Backend Engineer, but it does
-not guarantee a job, and 100 days of training is not equivalent to years of production experience.
+not guarantee a job, and this training is not equivalent to years of production experience.
 
 Target roles:
 
@@ -1761,7 +2072,7 @@ Backend Engineer working on LLM / RAG / Agent products
 
 Completing the curriculum does not by itself demonstrate Senior or Staff level.
 
-## Cross-cutting Employment Training (Day43–Day100)
+## Cross-cutting Employment Training (Day43 onward)
 
 Phases 4–8 carry a continuous employment-readiness thread (integrated, not mechanical per-day inflation):
 Python coding practice, SQL practice, English technical explanation, system-design communication, runtime
@@ -1772,7 +2083,7 @@ guarantees an offer" model.
 
 ---
 
-## Cross-cutting Engineering Discipline (Day43–Day100)
+## Cross-cutting Engineering Discipline (Day43 onward)
 
 Baseline tests, structured logging, correlation IDs (`job_id` / `trace_id` / `attempt_id`), and validation
 evidence begin on **Day43** and evolve with **every** Engineering Artifact. Testing and observability are
@@ -1804,7 +2115,7 @@ days, not only Phase 4.)
 
 ---
 
-## Future Lesson Implementation Boundaries (Day50, Day54, Day91, Day94, Day95)
+## Future Lesson Implementation Boundaries (Day50, Day54, Day117, Day123, Day125)
 
 These are confirmed implementation boundaries recorded ahead of time so a future teaching chat, lacking the
 current context, does not mis-scope, over-implement, or over-claim validation. They constrain scope and
@@ -1878,12 +2189,12 @@ cancel request
 Do not lock a specific implementation, but keep the **durable, auditable, guarded, cooperative** constraints.
 Day54 Topic is unchanged.
 
-### Day94 — a thin end-to-end vertical integration loop
+### Day123 — a thin end-to-end vertical integration loop
 
-Day94 is an **integration day** for components already built in Phases 5–7, not a development day that
+Day123 is an **integration day** for components already built in Phases 5–7D, not a development day that
 re-implements Agent, RAG, MCP, Playwright, or n8n.
 
-Day94 integrates and validates one bounded but complete vertical user path, e.g.:
+Day123 integrates and validates one bounded but complete vertical user path, e.g.:
 
 ```text
 user submits a research task
@@ -1898,12 +2209,12 @@ user submits a research task
 Acceptance focus: one full path really runs; correlation IDs are preserved; component failures have a clear
 state and recovery path; result / citations / Artifact / audit evidence are traceable; and mock vs static
 validation vs local runtime vs integration runtime vs production validation are clearly distinguished. Do not
-chase five disconnected demos, and do not re-implement previously completed components in Day94. Day94 Topic
+chase five disconnected demos, and do not re-implement previously completed components in Day123. Day123 Topic
 is unchanged.
 
-### Day95 — representative drills, not exhaustive failure enumeration
+### Day125 — representative drills, not exhaustive failure enumeration
 
-Day95 still covers `failure recovery`, `load`, `security`, and `data repair`, but with a **limited,
+Day125 still covers `failure recovery`, `load`, `security`, and `data repair`, but with a **limited,
 representative** drill set — it does not exhaustively enumerate every production failure in one day. Each
 category picks representative scenarios that prove the core mental model, and preferentially saves:
 
@@ -1918,21 +2229,21 @@ unvalidated limitations
 which class it is: static / local runtime / integration runtime / production validation
 ```
 
-A limited scope must not be described as "comprehensive production validation." Day95 Topic is unchanged.
+A limited scope must not be described as "comprehensive production validation." Day125 Topic is unchanged.
 
-### Day91 — when the Final Capstone README is updated
+### Day117 — when the Final Capstone README is updated
 
-`projects/final-capstone/README.md` may remain an early placeholder until Day91. It must **not** be rewritten
+`projects/final-capstone/README.md` may remain an early placeholder until Day117. It must **not** be rewritten
 into a fictional completed capstone before then.
 
 ```text
-When Day91 confirms the formal Product Requirements, Architecture, and Scope,
+When Day117 confirms the formal Product Requirements, Architecture, and Scope,
 it must simultaneously update projects/final-capstone/README.md so the README becomes the entry point to the
 final Capstone's real scope, run instructions, validation evidence, and limitations.
 ```
 
-Before Day91, that README is a placeholder and must not be treated as the latest complete implementation
-evidence. Day91 Topic is unchanged.
+Before Day117, that README is a placeholder and must not be treated as the latest complete implementation
+evidence. Day117 Topic is unchanged.
 
 ---
 

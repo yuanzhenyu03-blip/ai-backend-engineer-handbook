@@ -9,6 +9,53 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.135 — Expand the AI backend track beyond the fixed 100-day limit (competency-gated completion)
+
+Date: 2026-08-08
+
+Day: Curriculum planning (Day71 onward); no lesson or code is implemented.
+
+Planning-and-status change only. The post-Day70 curriculum becomes an **AI Backend Employment Track** whose
+completion condition is the **Employment Readiness Gate**, not a fixed final day. Day01–Day58 (Completed),
+Day59 (current/next), Day58 (Last Completed), and Day59–Day70 (Topics/order/scope) are all unchanged. No
+future lesson, artifact, project directory, or code was created, and no Day59+ runtime, test, Provider call,
+or deployment was executed or claimed.
+
+### Changed
+
+- **Removed the fixed 100-day cap.** `CURRICULUM.md` and `ROADMAP.md` now state the roadmap is
+  competency-gated, not day-count-gated; lesson numbers are planning coordinates, and completion is defined by
+  the Employment Readiness Gate. Current planning horizon ~Day130 (not a permanent cap).
+- **Expanded Day71+ AI mainline** into four phases (Day59–Day70 unchanged):
+  Phase 7A LLM Application Engineering (Day71–78), Phase 7B Agent Runtime and MCP Engineering (Day79–94),
+  Phase 7C Production RAG Engineering (Day95–106), Phase 7D AI Evaluation/Safety/Operations (Day107–116),
+  Phase 8 Final Employment Capstone (Day117–130). CURRICULUM and ROADMAP topics are identical for all
+  Day71–130.
+- **Framework / Job-Market Refresh** added at **Day87** with framework selection at **Day88** behind a
+  replaceable adapter; LangGraph stays a candidate, not the permanent only answer. Stable Agent Runtime
+  contracts are taught before any framework is chosen.
+- **Employment Readiness Gate** added (15-item completion condition) plus a trial-application checkpoint once
+  the Phase 7B Agent + MCP evidence exists; the curriculum improves competitiveness but does not promise an
+  offer.
+- **Future Lesson Implementation Boundaries migrated** from Day91/Day94/Day95 to Day117/Day123/Day125 with no
+  dangling references to the old numbers; Day50/Day54 boundaries unchanged.
+- **New `DECISIONS.md` Decision 008** records why the fixed 100-day cap was removed, why the AI mainline was
+  expanded, why completion is competency/employment-gated, why the framework choice is deferred to the Day87
+  refresh, and what stays fixed. Decisions 006/007 are unchanged historical text.
+- **`README.md` and `PROJECT_STATUS.md`** phase overviews updated to the new phases/horizon and the
+  competency-gated completion model.
+
+### Not done (scope honesty)
+
+- No Day59+ lesson, artifact, test, project directory, or code was created; all future days remain `Planned`.
+- No dependency was installed; no real/paid Provider was called; no deployment was run; no integration or
+  production evidence was executed or claimed.
+- Day01–Day58 completed lessons, Day59–Day70 topics/order, the teaching prompts, and the lesson template were
+  not modified. This is a documentation/consistency change, so only doc and consistency verification was run
+  (no code changed); the Phase 4 503-test suite was not required to run and "not run" is not a failure.
+
+---
+
 ## v0.1.134 — Review fix: clarify Day61 Provider evidence and Phase 5 validation tiers
 
 Date: 2026-08-08

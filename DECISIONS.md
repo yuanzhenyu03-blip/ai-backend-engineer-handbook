@@ -267,3 +267,89 @@ This is a curriculum-planning and status decision only. Day59–61 will produce 
 INTEGRATION_RUNTIME evidence when actually run and saved; it is not PRODUCTION validation. The deterministic
 Day43–58 tests remain EXECUTED_LOCAL_RUNTIME evidence and are not relabeled as integration or production
 evidence.
+
+---
+
+## Decision 008 — AI Backend Employment Track: Competency-Gated Completion, Not a Fixed 100-Day Cap
+
+Status: Accepted
+
+Date: 2026-08-08
+
+### Context
+
+The curriculum was planned as a fixed 100-day arc ending at Day100. As the AI core took shape (LLM
+application, agent runtime, MCP, production RAG, evaluation, AI safety and operations), a fixed Day100
+endpoint forced these — the actual target-role skills — into a compressed 20-day window. Keeping a tidy final
+number would mean under-teaching the exact capabilities employers ask for.
+
+### Decision
+
+Convert the post-Day70 curriculum into an **AI Backend Employment Track** whose completion condition is
+passing the **Employment Readiness Gate**, not reaching a fixed day. Lesson numbers are planning coordinates,
+not a promise that the course ends at a fixed number. The current planning horizon is ~Day130 (Phase 7A LLM
+Application Day71–78; Phase 7B Agent Runtime and MCP Day79–94; Phase 7C Production RAG Day95–106; Phase 7D AI
+Evaluation/Safety/Operations Day107–116; Phase 8 Final Employment Capstone Day117–130), but Day130 is a
+planning coordinate, not a permanent cap: if the Gate is not yet met, Planned lessons may be added, split,
+merged, or renumbered based on real job requirements, AI-ecosystem changes, learner weak points, and
+project/interview feedback.
+
+### Why remove the fixed 100-day cap
+
+A day-count target optimizes for a tidy number; an employment-readiness target optimizes for demonstrable
+capability. The endpoint that matters for the learner is a portfolio and job applications, not Day100.
+
+### Why expand the AI mainline
+
+LLM application, agent runtime, MCP, production RAG, and AI evaluation/safety/operations are the concrete
+Junior/Developing AI Backend Engineer skills. They need real room (≈46 planned days across Phases 7A–7D)
+rather than a compressed 20-day block, so each is a runnable, tested, evaluated subsystem instead of a survey.
+
+### Why competency-gated / employment-gated completion
+
+Completion is defined by the Employment Readiness Gate: a real deployable AI backend; real
+FastAPI/PostgreSQL/Redis-Celery/Object Storage integration evidence; an agent runtime with explicit
+state/termination/permission/checkpoint/recovery; a run MCP client/server; a production RAG with
+ACL/citations/retrieval evaluation; tool permissions and prompt-injection defenses; evaluation
+datasets/graders/release gate; AI latency/cost/quality evidence; observability/failure/rollback/repair
+evidence; a reproducible README; Python/SQL and system-design interview capability; English project and
+behavioral stories; portfolio/resume evidence; and real job applications with feedback feeding back into
+Planned lessons. Trial applications may begin once the Phase 7B Agent + MCP evidence exists — the learner need
+not wait for the Final Capstone to touch the market.
+
+### Why the framework choice is deferred to a refresh checkpoint
+
+The agent-runtime ecosystem moves quickly. The stable Agent Runtime contracts (loop, tool contracts, state,
+budgets, durability, security) are taught and implemented first (Day79–86); a **Framework / Job-Market
+Refresh** runs at **Day87**; the framework is chosen at **Day88** based on then-current ecosystem and job
+evidence and implemented behind a **replaceable adapter**. LangGraph remains a candidate at the refresh but is
+NOT written as the permanent, only answer. The framework is replaceable infrastructure, not the business
+model. (This continues Decision 007's Day75 framework-deferral intent under the new numbering.)
+
+### What stays fixed
+
+- Day01–Day58 remain Completed; their Topics, order, teaching content, and completion facts are unchanged.
+- Day59 remains the current / next lesson; Day58 remains the Last Completed Lesson.
+- Day59–Day70 Topics, order, scope, and phase responsibilities are unchanged (Day59–61 Production Integration
+  Gate; Day62–66 Playwright permissioned queue-backed browser tool; Day67–70 n8n workflow/orchestration).
+- PostgreSQL continues to hold durable business truth; the four-tier evidence taxonomy
+  (`CONCEPTUAL_STATIC` / `EXECUTED_LOCAL_RUNTIME` / `INTEGRATION_RUNTIME` / `PRODUCTION`) is unchanged; an
+  in-process fake/mock/double is never `INTEGRATION_RUNTIME`; a real/paid Provider runs only under explicit
+  user authorization and otherwise stays NOT RUN.
+- Day58 canonical tests remain 38 passed / full API suite 503 passed.
+
+### Consequence
+
+- `CURRICULUM.md` and `ROADMAP.md` re-scope Day71+ into Phases 7A–7D and Phase 8 (horizon ~Day130), add a
+  Planning Horizon and Completion Model note and an Employment Readiness Gate, and migrate the Future Lesson
+  Implementation Boundaries from Day91/94/95 to Day117/123/125. Day01–58 and Day59–70 are unchanged.
+- Future days remain `Planned`. No future lesson files, project directories, or Day59+ code are created; no
+  Day59+ runtime/test/provider/deployment is executed or claimed.
+- Decisions 006 and 007 are unchanged historical text; this is the next-numbered Decision.
+
+### Validation honesty
+
+This is a curriculum-planning and status change only. No integration, provider, or production run was
+executed. The curriculum improves job competitiveness but does not promise an offer; target roles are Junior /
+Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent products;
+completion is not fabricated as Senior/Staff production experience.

@@ -4,7 +4,7 @@
 
 Become an overseas AI Backend Engineer capable of building production-ready AI systems, passing technical interviews, and contributing to real-world backend projects.
 
-Estimated Duration: 100 Days
+Estimated Duration: competency-gated (current planning horizon ~Day130; not a fixed cap — see Planning Horizon and Completion Model)
 
 ---
 
@@ -247,76 +247,211 @@ Deliverables:
 
 ---
 
-# Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day71–Day90)
+# Planning Horizon and Completion Model (Day71 onward)
 
-Objective:
-Build a testable, constrained, recoverable Production AI Agent Backend: prompt contracts, tool calling, a
-framework-agnostic agent loop, MCP, RAG, vector retrieval, memory, security boundaries, durability,
-multi-agent orchestration, and automated evaluation with runtime traces. The agent runtime framework is
-chosen at Day75 (behind a replaceable adapter), not pre-locked.
+```text
+The roadmap is competency-gated, not day-count-gated.
+The published lesson numbers are planning coordinates, not a promise that the course must end at a fixed number.
+```
 
-| Day | Topic | Status |
-|------|-------------------------------|-----------|
-| Day71 | LLM Application Architecture, Tokens, Context and Model Failure Modes | Planned |
-| Day72 | Prompt Contracts, Structured Output and Function Calling | Planned |
-| Day73 | Tool Registry, Tool Schemas, Permissions and Execution Boundaries | Planned |
-| Day74 | Agent Loop, State, Termination, Retry and Error Handling | Planned |
-| Day75 | Agent Runtime Framework Decision and Replaceable Adapter Boundary | Planned |
-| Day76 | MCP Foundations: Client, Server, Resources and Tools | Planned |
-| Day77 | MCP Authentication, Authorization, Security and Production Operations | Planned |
-| Day78 | RAG Ingestion: Parsing, Chunking, Metadata and Provenance | Planned |
-| Day79 | Embeddings, Vector Database and Index Design | Planned |
-| Day80 | Retrieval Quality: Hybrid Search, Filtering and Re-ranking | Planned |
-| Day81 | Grounding, Citations, Hallucination Boundaries and Source Verification | Planned |
-| Day82 | Conversation Memory, Durable Memory and Business-state Boundaries | Planned |
-| Day83 | Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing | Planned |
-| Day84 | Durable Agent Jobs, Checkpoints, Recovery and Human Escalation | Planned |
-| Day85 | Multi-agent Orchestration, Handoffs and Coordination Boundaries | Planned |
-| Day86 | Evaluation Datasets, Golden Sets and Graders | Planned |
-| Day87 | Agent Trajectory, Tool-use and Failure-mode Evaluation | Planned |
-| Day88 | AI Observability, Cost, Model Routing and Runtime Traces | Planned |
-| Day89 | Regression, Release Gates, Load, Security and Runtime Evidence | Planned |
-| Day90 | Production AI Agent Backend Capstone and English Interview | Planned |
-
-Deliverables:
-
-- An AI Agent Backend with Prompt Contracts, Tool Calling, a framework-agnostic Agent Loop (framework chosen
-  at Day75), MCP, RAG, Vector Retrieval, Memory, security boundaries, durability, multi-agent orchestration,
-  automated evaluation, and runtime traces.
+From Day71 the track is an AI Backend Employment Track. Completion is passing the Employment Readiness Gate,
+not reaching a fixed day. The current planning horizon is Day130 — a planning coordinate, not a permanent cap;
+if the Gate is not met, Planned lessons may be added, split, merged, or renumbered from real job requirements,
+ecosystem changes, learner weak points, and interview feedback. Completed lessons (Day01–Day58) stay fixed;
+only Planned lessons may be renumbered. The AI core is not compressed to keep a tidy number, and the agent
+runtime framework is chosen only after an explicit Framework / Job-Market Refresh, behind a replaceable adapter.
 
 ---
 
-# Phase 8 — Final Capstone, Portfolio and Overseas Interview (Day91–Day100)
+# Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Objective:
-Convert all capabilities into deployable, demonstrable, interview-ready employment evidence.
+Evolve a single Provider call (Day53–58) into a complete, testable LLM Application Runtime: architecture,
+tokens/context/sampling and failure modes, a replaceable Provider Adapter, prompt contracts/versioning,
+structured output/function calling, streaming/caching/batching, model routing/fallback/cost, and
+fake-Provider contract/regression tests.
 
-Implementation boundaries (Day91 updates `projects/final-capstone/README.md` and is placeholder-until-then;
-Day94 is a thin end-to-end vertical integration of already-built components, not a re-implementation day;
-Day95 uses limited, representative drills rather than exhaustive failure enumeration) are recorded in
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day71 | LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes | Planned |
+| Day72 | Provider Capabilities and the Replaceable Provider Adapter | Planned |
+| Day73 | Prompt Contracts, Prompt Versioning and Compatibility | Planned |
+| Day74 | Structured Output, JSON Schema and Function/Tool Calling | Planned |
+| Day75 | Streaming, Caching and Batching for LLM Applications | Planned |
+| Day76 | Model Routing, Fallback, Latency and Cost Engineering | Planned |
+| Day77 | Fake Provider, Contract Tests and LLM Regression Tests | Planned |
+| Day78 | LLM Application Runtime Capstone, Checkpoint and English Interview | Planned |
+
+Deliverables:
+
+- A testable LLM Application Runtime behind a replaceable Provider Adapter, with prompt contracts, structured
+  output/function calling, streaming/caching/batching, model routing/cost, and fake-Provider tests.
+
+---
+
+# Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
+
+Objective:
+Build a framework-agnostic Agent Runtime (loop, tools/permissions, state machine, budgets, durable jobs,
+human approval, memory vs business-state, multi-agent, security), then run a Framework / Job-Market Refresh,
+choose a framework behind a replaceable adapter, and engineer MCP client/server, auth/tenant isolation, and
+the remote-MCP lifecycle. Understand the stable contracts first; the framework is replaceable infrastructure,
+not the business model. Do not pre-lock LangGraph.
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day79 | Framework-agnostic Agent Loop and Control Flow | Planned |
+| Day80 | Tool Registry, Tool Schema and Permission Model | Planned |
+| Day81 | Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets | Planned |
+| Day82 | Durable Agent Jobs, Checkpoint, Resume and Recovery | Planned |
+| Day83 | Human Approval, Interrupt and Escalation Boundaries | Planned |
+| Day84 | Conversation Memory vs Durable Business-state Boundaries | Planned |
+| Day85 | Multi-agent Handoff and Coordination Boundaries | Planned |
+| Day86 | Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing | Planned |
+| Day87 | Agent Framework and Job-Market Refresh Checkpoint | Planned |
+| Day88 | Agent Runtime Framework Selection Behind a Replaceable Adapter | Planned |
+| Day89 | MCP Foundations and Protocol Model | Planned |
+| Day90 | MCP Client Engineering | Planned |
+| Day91 | MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries | Planned |
+| Day92 | MCP Authentication, Authorization and Tenant Isolation | Planned |
+| Day93 | Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability | Planned |
+| Day94 | Agent + MCP Integration Capstone and English Interview | Planned |
+
+Deliverables:
+
+- A framework-agnostic Agent Runtime + a chosen framework behind a replaceable adapter + MCP client/server
+  with auth, tenant isolation, and a hardened remote lifecycle. Framework / Job-Market Refresh at Day87;
+  framework selection at Day88.
+
+---
+
+# Phase 7C — Production RAG Engineering (Day95–Day106)
+
+Objective:
+Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
+chunking, metadata/tenant/ACL/provenance, embeddings/index, hybrid retrieval/filtering, query
+rewriting/re-ranking, grounding/citations, retrieval/answer evaluation, index migration, and RAG security —
+not a chunk-and-search demo.
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day95 | RAG Ingestion Pipeline, Parsing and Document Lifecycle | Planned |
+| Day96 | Chunking Strategy and Experiments | Planned |
+| Day97 | Metadata, Tenant, ACL and Provenance | Planned |
+| Day98 | Embedding Model Selection and Versioning | Planned |
+| Day99 | Vector Database and Vector Index Design | Planned |
+| Day100 | Hybrid Retrieval and Filtering | Planned |
+| Day101 | Query Rewriting and Re-ranking | Planned |
+| Day102 | Grounding, Citations and Source Verification | Planned |
+| Day103 | Retrieval Evaluation and RAG Answer Evaluation | Planned |
+| Day104 | Index Update, Delete, Rebuild and Migration | Planned |
+| Day105 | RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries | Planned |
+| Day106 | Production RAG Capstone and English Interview | Planned |
+
+Deliverables:
+
+- A runnable, evaluable Production RAG subsystem: ingestion/parsing + chunking + metadata/tenant/ACL/provenance
+  + embeddings/index + hybrid retrieval/filtering + query rewriting/re-ranking + grounding/citations +
+  retrieval/answer evaluation + index migration + RAG security boundaries.
+
+---
+
+# Phase 7D — AI Evaluation, Safety and Operations (Day107–Day116)
+
+Objective:
+Turn evaluation, safety, and operations into an executable engineering system: datasets/golden sets,
+deterministic and model-based graders, retrieval/answer/trajectory/tool-use evaluation, adversarial and
+failure-mode evaluation, regression/release gates, AI observability (cost/latency/quality, routing evidence),
+load/security testing, and a production incident/rollback/repair exercise.
+
+| Day | Topic | Status |
+|------|-------------------------------|-----------|
+| Day107 | Evaluation Datasets and Golden Sets | Planned |
+| Day108 | Deterministic Graders | Planned |
+| Day109 | Model-based Graders and Their Limits | Planned |
+| Day110 | Retrieval and Answer-quality Evaluation | Planned |
+| Day111 | Agent Trajectory and Tool-use Correctness Evaluation | Planned |
+| Day112 | Adversarial and Failure-mode Evaluation | Planned |
+| Day113 | Prompt/Model/Tool Regression and Release Gates | Planned |
+| Day114 | AI Observability: Cost, Latency, Quality Trade-offs and Model-routing Evidence | Planned |
+| Day115 | Load Testing and AI Security Testing | Planned |
+| Day116 | Production Incident, Rollback and Repair Exercise, Capstone and English Interview | Planned |
+
+Deliverables:
+
+- An executable AI Evaluation/Safety/Operations system: datasets/golden sets + deterministic and model-based
+  graders + retrieval/answer/trajectory/tool-use evaluation + adversarial/failure-mode evaluation +
+  regression/release gates + AI observability + load/security testing + an incident/rollback/repair exercise.
+
+---
+
+# Phase 8 — Final Employment Capstone (Day117–Day130)
+
+Objective:
+Assemble all capabilities into one deployable, demonstrable AI Backend, convert it into employment evidence,
+and review readiness against the Employment Readiness Gate. The capstone is a thin vertical integration loop,
+not a one-day re-implementation.
+
+Implementation boundaries (Day117 updates `projects/final-capstone/README.md` and is placeholder-until-then;
+Day123 is a thin end-to-end vertical integration of already-built components, not a re-implementation day;
+Day125 uses limited, representative drills rather than exhaustive failure enumeration) are recorded in
 `CURRICULUM.md` under "Future Lesson Implementation Boundaries."
 
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
-| Day91 | Product Requirements, Architecture Review and Scope Control | Planned |
-| Day92 | Final Capstone Skeleton, Contracts and Threat Model | Planned |
-| Day93 | FastAPI + PostgreSQL + Redis + Object Storage Integration | Planned |
-| Day94 | Agent + RAG + MCP + Playwright + n8n Integration | Planned |
-| Day95 | Failure Recovery, Load, Security and Data-repair Drills | Planned |
-| Day96 | Cloud Deployment, Managed Services and Production Configuration | Planned |
-| Day97 | Evaluation Report, Observability, SLO and Operational Runbook | Planned |
-| Day98 | AI Backend System Design and Python/SQL Coding Interview | Planned |
-| Day99 | English Project Story, Behavioral Interview, Resume and Open-source Evidence | Planned |
-| Day100 | Final Mock Interview, Portfolio Review and Job-application Readiness | Planned |
+| Day117 | Product Requirements, Architecture Review and Scope Control | Planned |
+| Day118 | Final Capstone Skeleton, Contracts and Threat Model | Planned |
+| Day119 | FastAPI + PostgreSQL + Redis/Celery + Object Storage Integration | Planned |
+| Day120 | Agent Runtime and MCP Integration | Planned |
+| Day121 | Production RAG Integration (ACL, Citations, Retrieval Evaluation) | Planned |
+| Day122 | Playwright Permissioned Tool and n8n Human-approval Integration | Planned |
+| Day123 | Thin Vertical Integration Loop (End-to-end) | Planned |
+| Day124 | Evaluation Gate and Release Decision Integration | Planned |
+| Day125 | Failure Recovery, Load, Security and Data-repair Drills | Planned |
+| Day126 | Cloud Deployment, Managed Services, Production Configuration and SLOs | Planned |
+| Day127 | Observability, Operational Runbook and Cost/Quality Evidence | Planned |
+| Day128 | AI Backend System Design and Python/SQL Coding Interview | Planned |
+| Day129 | English Project Story, Behavioral Interview, Resume and Open-source Evidence | Planned |
+| Day130 | Final Mock Interview, Portfolio Review and Employment Readiness Gate Review | Planned |
 
 Deliverables:
 
 - A deployable Production AI Backend capstone, a complete GitHub portfolio, and English system-design/
-  behavioral/resume readiness for overseas AI Backend Engineer applications.
+  behavioral/resume readiness, reviewed against the Employment Readiness Gate. Reaching Day130 is not itself
+  completion — passing the Gate is.
 
 ---
 
-# Knowledge Chain (Day42 → Day100)
+# Employment Readiness Gate
+
+Completion is defined by passing this Gate, NOT by reaching a fixed final day. At minimum:
+
+```text
+1.  A real, runnable, deployable AI Backend.
+2.  Real FastAPI / PostgreSQL / Redis-Celery / Object Storage integration evidence.
+3.  An Agent Runtime with explicit state, termination, permission, checkpoint and recovery semantics.
+4.  A run MCP Client/Server integration.
+5.  A Production RAG with ACL, citations and retrieval evaluation.
+6.  Tool permissions and prompt-injection defenses.
+7.  Evaluation datasets, graders and a release gate.
+8.  AI latency / cost / quality evidence.
+9.  Observability, failure, rollback and repair evidence.
+10. A reproducible README and run commands.
+11. Python and SQL interview capability.
+12. Backend / AI system-design capability.
+13. English project explanation and behavioral interview stories.
+14. Portfolio and resume evidence.
+15. Real job applications submitted, with Planned lessons added based on feedback.
+```
+
+Trial applications may begin once the Agent + MCP evidence in Phase 7B is complete — not only after the Final
+Capstone. The curriculum improves competitiveness but does not promise an offer; target roles are
+Junior/Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent
+products; completion is not fabricated as Senior/Staff production experience.
+
+---
+
+# Knowledge Chain (Day42 → current horizon Day130, competency-gated)
 
 ```text
 Day42 Data Ownership and Failure Contracts
@@ -324,9 +459,12 @@ Day42 Data Ownership and Failure Contracts
     -> Real local integration gate — FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry (Phase 5, Day59–61)
     -> Playwright browser automation as a permissioned, queue-backed AI tool (Phase 5, Day62–66)
     -> n8n Workflow Integration — orchestration over correct backends (Phase 6, Day67–70)
-    -> AI Agent + MCP + RAG + Memory + Security + Evaluation (Phase 7, Day71–90; agent runtime framework chosen at Day75)
-    -> Final Production Capstone + employment evidence (Phase 8, Day91–100)
-    -> Portfolio + Overseas Interview
+    -> LLM Application Runtime (Phase 7A, Day71–78)
+    -> Agent Runtime + MCP (Phase 7B, Day79–94; Framework/Job-Market Refresh at Day87, framework chosen Day88 behind a replaceable adapter)
+    -> Production RAG (Phase 7C, Day95–106)
+    -> AI Evaluation, Safety and Operations (Phase 7D, Day107–116)
+    -> Final Employment Capstone + employment evidence (Phase 8, Day117–130)
+    -> Portfolio + real job applications (Employment Readiness Gate; horizon extends if the Gate is not yet met)
 ```
 
 FastAPI and Playwright are the core engineering skills; n8n is the integration layer and does not replace
@@ -338,7 +476,7 @@ AI Research and Automation Platform** — reusing the existing project directori
 # Employment-Readiness Boundary
 
 This curriculum builds core AI Backend capabilities and portfolio evidence but does **not** guarantee a job,
-and 100 days of training is not equivalent to years of production experience. Target roles are Junior /
+and this training is not equivalent to years of production experience. Target roles are Junior /
 Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent products.
 Completion does not by itself demonstrate Senior or Staff level. Phases 4–8 carry a cross-cutting
 employment-readiness thread (Python/SQL practice, English technical explanation, system-design communication,

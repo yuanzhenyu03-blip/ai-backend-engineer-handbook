@@ -39,13 +39,19 @@ Next:
 
 * Day45 — Dependency Injection, Lifespan, Configuration and AI Provider Adapters (Phase 4; Planned / Not started; see `ROADMAP.md`)
 
-Future direction (Day43–Day100, planned — see `ROADMAP.md` and `CURRICULUM.md`):
+Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 
 * Phase 4 — Production AI API Engineering (FastAPI, SQLAlchemy/Alembic, Redis/Outbox/Worker, OpenAI-compatible provider)
-* Phase 5 — Production Runtime Integration and Browser Tool Engineering
-* Phase 6 — n8n AI Workflow Integration
-* Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering
-* Phase 8 — Final Capstone, Portfolio and Overseas Interview
+* Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
+* Phase 6 — n8n AI Workflow Integration (Day67–Day70)
+* Phase 7A — LLM Application Engineering (Day71–Day78)
+* Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94; Framework/Job-Market Refresh at Day87, framework chosen Day88 behind a replaceable adapter)
+* Phase 7C — Production RAG Engineering (Day95–Day106)
+* Phase 7D — AI Evaluation, Safety and Operations (Day107–Day116)
+* Phase 8 — Final Employment Capstone (Day117–Day130)
+
+The roadmap is competency-gated, not day-count-gated: the lesson numbers are planning coordinates, and
+completion is defined by passing the Employment Readiness Gate, not by reaching a fixed final day.
 
 The final goal remains becoming an overseas AI Backend Engineer with a runnable, deployable, verifiable
 portfolio. This builds capability and evidence; it does not guarantee a job.

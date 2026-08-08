@@ -390,17 +390,21 @@ Planned / Not started
 
 ---
 
-## Future Roadmap (Day43–Day100 planned)
+## Future Roadmap (Day43 onward, planned; competency-gated, current horizon ~Day130)
 
-The Day43–Day100 curriculum was planned ahead of Day42 as a single AI Backend product capability chain
-(see `CURRICULUM.md`, `ROADMAP.md`, and Decision 006 in `DECISIONS.md`). All of the following are **Planned /
+The Day43-onward curriculum is planned as a single AI Backend product capability chain that is
+competency-gated (completion = passing the Employment Readiness Gate, not reaching a fixed day; current
+planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008 in `DECISIONS.md`). All of the following are **Planned /
 Not started**; no future lesson files or new project directories were created, and nothing below has begun.
 
 - Phase 4 — Production AI API Engineering (Day43–Day58): runnable FastAPI AI backend (SQLAlchemy/Alembic, Redis/Outbox/Worker, Object Storage, OpenAI-compatible provider, auth/tenant isolation, tests).
 - Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66): Day59–61 real local integration gate (FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry), then an isolated, recoverable, auditable Playwright browser worker exposed as a permissioned AI tool.
 - Phase 6 — n8n AI Workflow Integration (Day67–Day70): workflow integration over correct backends (not a low-code replacement).
-- Phase 7 — AI Agent, RAG, MCP and Evaluation Engineering (Day71–Day90): prompt contracts + tool calling + framework-agnostic agent loop (framework chosen at Day75) + MCP + RAG + memory + security + durability + multi-agent + evaluation with runtime traces.
-- Phase 8 — Final Capstone, Portfolio and Overseas Interview (Day91–Day100): deployable capstone, portfolio, and English system-design/behavioral/resume readiness.
+- Phase 7A — LLM Application Engineering (Day71–Day78): replaceable Provider adapter + prompt contracts/versioning + structured output/function calling + streaming/caching/batching + model routing/cost + fake-Provider tests.
+- Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94): framework-agnostic agent runtime (loop, tools/permissions, state/budgets, durability, human approval, memory boundary, multi-agent, security); Framework/Job-Market Refresh at Day87; framework chosen Day88 behind a replaceable adapter; MCP client/server + auth + tenant isolation + remote lifecycle.
+- Phase 7C — Production RAG Engineering (Day95–Day106): ingestion/parsing + chunking + metadata/tenant/ACL/provenance + embeddings/index + hybrid retrieval/filtering + query rewriting/re-ranking + grounding/citations + retrieval/answer evaluation + index migration + RAG security.
+- Phase 7D — AI Evaluation, Safety and Operations (Day107–Day116): datasets/golden sets + deterministic and model-based graders + retrieval/answer/trajectory/tool-use evaluation + adversarial/failure-mode evaluation + regression/release gates + AI observability + load/security testing + incident/rollback/repair exercise.
+- Phase 8 — Final Employment Capstone (Day117–Day130): thin vertical integration loop, deployment, observability, drills, portfolio, and English system-design/behavioral/resume readiness, reviewed against the Employment Readiness Gate.
 
 Employment-readiness boundary: the curriculum builds core AI Backend capability and portfolio evidence but
 does not guarantee a job; target roles are Junior / Developing AI Backend Engineer, AI Startup Backend
