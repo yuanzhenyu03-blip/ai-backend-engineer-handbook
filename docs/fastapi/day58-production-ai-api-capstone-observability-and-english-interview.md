@@ -12,7 +12,7 @@ Prerequisite: Day57 — AI Backend Testing, Fake Providers, Contract Tests and F
 Previous Lesson: Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 Next Lesson: Day59 — Playwright Runtime Model: Browser, Context, Page and Async Lifecycle (Phase 5)
 Engineering Artifact: projects/ai-backend-data-layer/api/day58-production-ai-api-capstone-observability-and-english-interview-design.md
-  + runnable day58_observability_capstone.py + test_day58_observability_capstone.py (in-process deterministic model; 28 passed)
+  + runnable day58_observability_capstone.py + test_day58_observability_capstone.py (in-process deterministic model; 37 passed)
 ```
 
 Main engineering artifact: a deterministic in-process observability model — the five-identity lifecycle contract, a
@@ -140,10 +140,13 @@ same business path.
 
 **Student Answer:** all identifiers stay the same across the retry.
 
-**Tech Lead Review:** Correlation does NOT mean identical lifecycle. `job_id` and `correlation_id` stay STABLE (business
-continuity); a new durable Attempt gets a NEW `attempt_id` and normally a NEW `trace_id`; a new HTTP request gets a NEW
-`request_id`. `trace_id` is one distributed trace, not business truth. (`IdentityLifecycle.new_attempt()` vs
-`new_http_request()`.)
+**Tech Lead Review:** Correlation does NOT mean identical lifecycle — and a Worker Attempt and an HTTP request are
+DIFFERENT contexts. `job_id` and `correlation_id` stay STABLE (business continuity). A durable Worker Attempt
+(`IdentityLifecycle`) gets a NEW `attempt_id` and normally a NEW `trace_id` (`new_attempt()`); it has no `request_id`. An
+inbound HTTP request (a separate `HttpRequestContext` via `http_request()` / `start_http_request()`) gets a NEW
+`request_id` AND a NEW `trace_id`, and NO `attempt_id` — a status/poll must not masquerade as a Worker Attempt or
+silently reuse its trace (legit continuity is an EXPLICIT traceparent link). `trace_id` is one distributed trace, not
+business truth.
 
 **Engineering Thinking:** You need distinct BUSINESS, EXECUTION, REQUEST, and TELEMETRY identities so evidence can join
 across processes and retries without conflating them.
@@ -175,8 +178,9 @@ audit correlation cannot be corrupted. Prompt/output minimization is a tenant-da
 Counter is cumulative (query its RATE, not the raw total); a Histogram captures a distribution including tail latency.
 `job_id`/`attempt_id`/`trace_id` must NEVER be metric labels — they explode cardinality (`MetricSpec` raises
 `HighCardinalityLabelError`). Low cardinality also depends on VALUES, not just names: `provider`/`outcome` come from a
-controlled allowlist and `model` from a bounded shape (`validate_label_values` raises `LabelValueError` on uncontrolled
-or overlong values), so unbounded user input can't silently blow up the time series. And `jobs_pending_reconciliation`
+controlled allowlist and `model` from a FINITE controlled registry (`validate_label_values` raises `LabelValueError`
+otherwise) — a regex alone allows unbounded distinct models, so unknown/user model aliases are normalized to a bounded
+bucket (`normalize_model_label` -> `__other__`) before labeling; unbounded user input can't blow up the time series. And `jobs_pending_reconciliation`
 is a Gauge for the backlog. Alert on a COMBINATION —
 timeout rate + in-flight saturation + sustained reconciliation backlog — so one transient timeout does not page.
 
@@ -230,7 +234,7 @@ certainty stay reconcile-only.
 ```text
 Identity lifecycle
 ❌ All identifiers (including trace_id and request_id) stay unchanged across retries because they correlate one path.
-✅ job_id/correlation_id are stable; a new Attempt gets a new attempt_id and normally a new trace_id; request_id is per HTTP request.
+✅ job_id/correlation_id are stable; a Worker Attempt gets a new attempt_id + trace_id; an HTTP request is a separate context with a new request_id + new trace_id and NO attempt_id (no silent trace reuse).
 
 Missing evidence as proof
 ❌ No dispatch marker / provider_request_id means the Provider did not execute, so it is safe to retry/requeue.
@@ -410,8 +414,8 @@ RUN 限制。」)
 
 ```text
 job_id / correlation_id  = STABLE business continuity
-attempt_id / trace_id    = one execution attempt / one trace (new per Attempt)
-request_id               = one HTTP request
+attempt_id / trace_id    = one Worker Attempt / its trace (IdentityLifecycle; new per Attempt)
+request_id / trace_id    = one HTTP request (a SEPARATE HttpRequestContext; new request_id + new trace_id, NO attempt_id, no silent trace reuse)
 logs                     = safe individual events (correlation IDs, no raw prompts/secrets)
 metrics                  = low-cardinality trends (provider/model/outcome); Counter=rate, Gauge=current, Histogram=distribution
 traces                   = spans of one execution; child span for the Provider call; Span Link across async boundaries

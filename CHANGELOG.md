@@ -9,6 +9,54 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.132 — Day58 fix (Codex): separate HTTP/Worker identity contexts, finite model registry, canonical value validation
+
+Date: 2026-08-07
+
+Day: Day58 (review round 2)
+
+Three review findings on the Day58 observability capstone model. No teaching-spec files were touched; Day56/Day57
+behavior is unchanged (their vocabulary/semantics are reused).
+
+### Fixed
+
+- **P1 — a new HTTP request must not reuse the old Attempt/Trace.** `new_http_request()` used to mint only a new
+  `request_id` while reusing `attempt_id` and `trace_id`, letting one object masquerade as two lifecycles. Now
+  `IdentityLifecycle` is strictly the durable WORKER ATTEMPT context (`job_id`/`correlation_id` stable,
+  `attempt_id`/`trace_id` per Attempt, NO `request_id`), and an inbound HTTP request is a SEPARATE `HttpRequestContext`
+  (`job_id`/`correlation_id` + a NEW `request_id` AND a NEW `trace_id`, NO `attempt_id`) via
+  `IdentityLifecycle.http_request()` / `start_http_request()`. A status/poll never inherits or silently reuses a Worker
+  Attempt's trace; legitimate continuity is an EXPLICIT `parent_trace` (traceparent link). Worker Attempt events carry
+  `request_id_present=False`.
+- **P2 — `model` metric label must be from a finite controlled set.** A regex alone allowed unbounded distinct
+  regex-valid models (still high cardinality). `model` values must now be in a FINITE controlled registry
+  (`ALLOWED_MODEL_VALUES`) or be normalized to a single bounded bucket via `normalize_model_label` (-> `__other__`;
+  trade-off: unknown models aggregate). `validate_label_values` rejects anything else (`LabelValueError`).
+- **P2 — StructuredEvent must validate canonical VALUES, not just field names.** Safety no longer relies on the caller:
+  `event_name` and ids have bounded shapes (no spaces/newlines/secret-like values), `provider`/`model`/`outcome` must be
+  from the controlled allowlists/registry, `duration_ms` must be a bounded non-negative int, and `reason` must be from a
+  FINITE enum (`ALLOWED_EVENT_REASONS`, e.g. `prior_attempt_may_have_executed`) — never free text. A raw prompt / raw
+  response / api key / bearer token / overlong or secret-like value placed in ANY canonical field is rejected with
+  `UnsafeTelemetryError`.
+
+### Added
+
+- 11 regression tests: an HTTP request gets a new request_id + new trace_id and is not a Worker Attempt; a standalone
+  status/poll has only business + request/trace context; an explicit parent_trace link works; a new Worker Attempt after
+  an HTTP request still has its own ids; 50 distinct regex-valid random models are rejected as labels while controlled
+  models + the normalized bucket work; and canonical values are validated (free-text `reason`, secret-like/overlong ids,
+  uncontrolled provider/model/outcome, bad `duration_ms` all rejected).
+
+### Validation
+
+- Executed: `python3 -m py_compile day58_observability_capstone.py test_day58_observability_capstone.py`;
+  `python3 -m pytest -q test_day58_observability_capstone.py` -> **37 passed** (was 28); full
+  `projects/ai-backend-data-layer/api/` suite -> **502 passed** (Python 3.10.12, pytest 7.4.3). EXECUTED_LOCAL_RUNTIME
+  only — a real FastAPI runtime + OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, and real Provider
+  traffic remain NOT RUN (INTEGRATION_RUNTIME + PRODUCTION).
+
+---
+
 ## v0.1.131 — Day58 fix (Codex): evidence-gated requeue, extra-override guard, telemetry drain, label-value contract
 
 Date: 2026-08-07

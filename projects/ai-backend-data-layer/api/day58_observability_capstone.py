@@ -12,9 +12,10 @@ CORE PRINCIPLE (kept everywhere):
     unknown external work. Missing telemetry is an observability GAP, never proof of no execution.
 
 WHAT THIS MODULE PROVIDES (in-process deterministic model):
-  * IdentityLifecycle          — the five identities and their stability rules (job_id /
-                                 correlation_id stable; attempt_id + trace_id per execution; request_id
-                                 per HTTP request).
+  * IdentityLifecycle          — a durable Worker Attempt context (job_id / correlation_id STABLE;
+                                 attempt_id + trace_id per Attempt). An HTTP request is a SEPARATE
+                                 `HttpRequestContext` (job_id / correlation_id + a per-request
+                                 request_id + a per-request trace_id; NO attempt_id).
   * StructuredEvent + emit_*   — safe structured events (event_name, job_id, correlation_id,
                                  attempt_id, trace_id, provider, model, outcome, bounded duration,
                                  request-id presence, dispatch-marker presence). NEVER raw
@@ -61,35 +62,61 @@ def _new_id(prefix: str) -> str:
 # ===========================================================================
 @dataclass
 class IdentityLifecycle:
-    """The identity bundle for a Job's execution chain. `job_id` and `correlation_id` are STABLE
-    across retries (business continuity); a new durable Attempt gets a NEW `attempt_id` and normally
-    a NEW `trace_id`; each HTTP request gets a NEW `request_id`. `trace_id` is one distributed trace,
-    NOT business truth."""
+    """A durable WORKER ATTEMPT context — one concrete execution attempt. `job_id` and
+    `correlation_id` are STABLE across retries (business continuity); a new durable Attempt gets a NEW
+    `attempt_id` and normally a NEW `trace_id`. This is NOT an HTTP request: it has no `request_id`.
+    An inbound HTTP request is a separate `HttpRequestContext` (see `http_request()` /
+    `start_http_request`)."""
     job_id: str                       # durable business identity (stable)
     correlation_id: str               # stable business-chain association (stable)
-    attempt_id: str                   # one concrete execution attempt (per Attempt)
+    attempt_id: str                   # one concrete Worker execution attempt (per Attempt)
     trace_id: str                     # one distributed execution trace (per Attempt, normally)
-    request_id: Optional[str] = None  # one short-lived HTTP request identity (per request)
-
-    def new_http_request(self) -> "IdentityLifecycle":
-        """A new HTTP request: only request_id changes; everything else is unchanged."""
-        return IdentityLifecycle(job_id=self.job_id, correlation_id=self.correlation_id,
-                                 attempt_id=self.attempt_id, trace_id=self.trace_id,
-                                 request_id=_new_id("req"))
 
     def new_attempt(self) -> "IdentityLifecycle":
         """A new durable Attempt: job_id + correlation_id STAY; a new attempt_id and (normally) a new
-        trace_id are minted; request_id is cleared (an Attempt is not an HTTP request)."""
+        trace_id are minted. An Attempt is not an HTTP request."""
         return IdentityLifecycle(job_id=self.job_id, correlation_id=self.correlation_id,
-                                 attempt_id=_new_id("att"), trace_id=_new_id("trace"),
-                                 request_id=None)
+                                 attempt_id=_new_id("att"), trace_id=_new_id("trace"))
+
+    def http_request(self, *, parent_trace: "Optional[SpanContext]" = None) -> "HttpRequestContext":
+        """An inbound HTTP request against THIS Job (e.g. a status/poll). It shares job_id +
+        correlation_id but gets a NEW request_id and a NEW trace_id, and carries NO attempt_id — it
+        does NOT masquerade as this (or any) Worker Attempt. To legitimately continue a distributed
+        trace, pass an explicit `parent_trace` (traceparent); an old Worker trace is NEVER silently
+        reused."""
+        return HttpRequestContext(job_id=self.job_id, correlation_id=self.correlation_id,
+                                  request_id=_new_id("req"), trace_id=_new_id("trace"),
+                                  parent_trace=parent_trace)
+
+
+@dataclass
+class HttpRequestContext:
+    """ONE inbound HTTP request against a Job (e.g. a status/poll). `job_id` + `correlation_id` bridge
+    business continuity; `request_id` and `trace_id` are per-request. It has NO `attempt_id` — an HTTP
+    request is not a durable Worker execution. `parent_trace`, when present, is an EXPLICIT traceparent
+    to link to (never a silent reuse of an old Worker trace)."""
+    job_id: str
+    correlation_id: str
+    request_id: str
+    trace_id: str
+    parent_trace: "Optional[SpanContext]" = None
 
 
 def start_job_chain(job_id: Optional[str] = None) -> IdentityLifecycle:
+    """Start a Worker Attempt context (the first durable Attempt of a Job)."""
     job_id = job_id or _new_id("job")
     return IdentityLifecycle(job_id=job_id, correlation_id=_new_id("cor"),
-                             attempt_id=_new_id("att"), trace_id=_new_id("trace"),
-                             request_id=_new_id("req"))
+                             attempt_id=_new_id("att"), trace_id=_new_id("trace"))
+
+
+def start_http_request(job_id: Optional[str] = None, correlation_id: Optional[str] = None, *,
+                       parent_trace: "Optional[SpanContext]" = None) -> "HttpRequestContext":
+    """Start an inbound HTTP request context (e.g. a status/poll for an existing Job). A fresh
+    request_id and trace_id are minted; there is NO attempt_id."""
+    return HttpRequestContext(job_id=job_id or _new_id("job"),
+                              correlation_id=correlation_id or _new_id("cor"),
+                              request_id=_new_id("req"), trace_id=_new_id("trace"),
+                              parent_trace=parent_trace)
 
 
 # ===========================================================================
@@ -110,6 +137,26 @@ SAFE_EVENT_FIELDS = frozenset(
 # below (empty by default), so `extra` can only ever carry EXPLICITLY-allowed safe extension fields.
 CANONICAL_EVENT_FIELDS = frozenset(SAFE_EVENT_FIELDS)
 SAFE_EXTENSION_FIELDS = frozenset()
+
+# --- Canonical VALUE contracts: safety cannot rely on the caller's discipline, so every canonical
+# value is type/length/format/allowlist-checked. `reason` is a finite enum (never free text like a
+# raw prompt). Bounded shapes + allowlists also reject secret-like / payload values. ---
+EVENT_NAME_PATTERN = re.compile(r"^[a-z][a-z0-9]*(\.[a-z0-9_]+)*$")   # e.g. provider.call.timeout
+ID_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9:_.\-]{0,127}$")  # ids: bounded, no spaces/newlines
+MAX_EVENT_NAME_LEN = 64
+MAX_DURATION_MS = 24 * 60 * 60 * 1000                                 # 24h upper bound (bounded)
+ALLOWED_EVENT_REASONS = frozenset({"prior_attempt_may_have_executed"})  # finite enum, NOT free text
+# Reject obvious secret / bearer / key material appearing in ANY canonical string value.
+_SECRETISH = re.compile(
+    r"(sk-[A-Za-z0-9]{8,}|BEGIN [A-Z ]*PRIVATE KEY|bearer\s+\S|authorization|password\s*[:=]|\bxox[bp]-)",
+    re.IGNORECASE)
+
+
+def _reject_if_secretish(field: str, value: str) -> None:
+    if "\n" in value or "\r" in value:
+        raise UnsafeTelemetryError(f"canonical field {field!r} must not contain newlines")
+    if _SECRETISH.search(value):
+        raise UnsafeTelemetryError(f"canonical field {field!r} looks like a secret/credential/payload")
 
 
 class UnsafeTelemetryError(ValueError):
@@ -145,6 +192,42 @@ class StructuredEvent:
         unknown = set(self.extra) - SAFE_EXTENSION_FIELDS
         if unknown:
             raise UnsafeTelemetryError(f"extra may only contain explicitly-allowed safe extension fields: {sorted(unknown)}")
+        self._validate_canonical_values()
+
+    def _validate_canonical_values(self) -> None:
+        """Validate every CANONICAL field's VALUE (type / length / format / controlled set). Safety
+        must NOT rely on the caller choosing not to pass a raw prompt or secret."""
+        # event_name: bounded lowercase dotted shape.
+        if not (isinstance(self.event_name, str) and len(self.event_name) <= MAX_EVENT_NAME_LEN
+                and EVENT_NAME_PATTERN.match(self.event_name)):
+            raise UnsafeTelemetryError(f"invalid event_name {self.event_name!r}")
+        # ids: bounded, no spaces/newlines, not secret-like.
+        for name in ("job_id", "correlation_id", "attempt_id", "trace_id"):
+            v = getattr(self, name)
+            if not (isinstance(v, str) and ID_VALUE_PATTERN.match(v)):
+                raise UnsafeTelemetryError(f"invalid {name} value (bounded id required): {v!r}")
+            _reject_if_secretish(name, v)
+        # provider / model / outcome: from the controlled allowlists (values, not free text).
+        if self.provider is not None:
+            _reject_if_secretish("provider", str(self.provider))
+            if self.provider not in ALLOWED_PROVIDER_VALUES:
+                raise UnsafeTelemetryError(f"provider {self.provider!r} is not in the controlled allowlist")
+        if self.model is not None:
+            _reject_if_secretish("model", str(self.model))
+            if self.model not in ALLOWED_MODEL_VALUES and self.model != MODEL_OTHER_BUCKET:
+                raise UnsafeTelemetryError(
+                    f"model {self.model!r} is not in the controlled registry (normalize via normalize_model_label)")
+        if self.outcome is not None and self.outcome not in ALLOWED_OUTCOME_VALUES:
+            raise UnsafeTelemetryError(f"outcome {self.outcome!r} is not in the controlled allowlist")
+        # duration_ms: non-negative bounded int.
+        if self.duration_ms is not None:
+            if not isinstance(self.duration_ms, int) or isinstance(self.duration_ms, bool) \
+                    or not (0 <= self.duration_ms <= MAX_DURATION_MS):
+                raise UnsafeTelemetryError(f"duration_ms must be an int in [0, {MAX_DURATION_MS}]: {self.duration_ms!r}")
+        # reason: a FINITE enum, never free text (a raw prompt would be rejected here).
+        if self.reason is not None and self.reason not in ALLOWED_EVENT_REASONS:
+            raise UnsafeTelemetryError(
+                f"reason must be one of the finite allowlist {sorted(ALLOWED_EVENT_REASONS)}, not free text")
 
     def to_safe_dict(self) -> dict:
         d = {"event_name": self.event_name, "job_id": self.job_id,
@@ -172,7 +255,7 @@ def emit_provider_call_timeout(ident: IdentityLifecycle, *, provider: str, model
                            correlation_id=ident.correlation_id, attempt_id=ident.attempt_id,
                            trace_id=ident.trace_id, provider=provider, model=model,
                            outcome="timeout", duration_ms=duration_ms,
-                           request_id_present=ident.request_id is not None,
+                           request_id_present=False,   # a Worker Attempt event is not an HTTP request
                            dispatch_marker_present=dispatch_marker_present)
 
 
@@ -206,8 +289,25 @@ ALLOWED_PROVIDER_VALUES = frozenset({"openai", "anthropic", "azure_openai", "fak
 ALLOWED_OUTCOME_VALUES = frozenset(
     {"ok", "timeout", "rate_limited", "server_error", "suppressed", "invalid", "cancelled",
      "definitely_not_accepted", "may_have_executed", "unknown"})
-MODEL_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,64}$")   # controlled shape for a model label
+# `model` must come from a FINITE controlled registry (a configuration snapshot), not merely match a
+# regex — an unbounded number of regex-valid model strings would still explode cardinality. Unknown /
+# user-supplied model aliases are normalized to a single bounded bucket via `normalize_model_label`.
+# These are illustrative controlled config values, NOT credentials or account data.
+ALLOWED_MODEL_VALUES = frozenset(
+    {"gpt-x", "gpt-4o", "gpt-4o-mini", "gpt-4.1", "gpt-4.1-mini", "o3", "o4-mini",
+     "claude-3-5-sonnet", "claude-3-5-haiku", "fake-model"})
+MODEL_OTHER_BUCKET = "__other__"                                # bounded bucket for unknown models
+MODEL_LABEL_PATTERN = re.compile(r"^[A-Za-z0-9._\-]{1,64}$")   # secondary shape guard
 MAX_LABEL_VALUE_LEN = 64
+
+
+def normalize_model_label(model: str) -> str:
+    """Map a possibly-unbounded model value to a bounded label: return it only if it is in the
+    controlled `ALLOWED_MODEL_VALUES` registry, otherwise the single `MODEL_OTHER_BUCKET`. Trade-off:
+    unknown/user-defined model aliases lose per-model granularity in metrics (they aggregate into one
+    bucket) in exchange for a guaranteed-bounded time series. Use this BEFORE labeling a metric when
+    the model value may come from uncontrolled input."""
+    return model if model in ALLOWED_MODEL_VALUES else MODEL_OTHER_BUCKET
 
 
 class HighCardinalityLabelError(ValueError):
@@ -229,8 +329,10 @@ def validate_label_values(labels: dict) -> None:
             raise LabelValueError(f"provider {v!r} is not in the controlled allowlist {sorted(ALLOWED_PROVIDER_VALUES)}")
         if k == "outcome" and v not in ALLOWED_OUTCOME_VALUES:
             raise LabelValueError(f"outcome {v!r} is not in the controlled allowlist")
-        if k == "model" and not MODEL_LABEL_PATTERN.match(v):
-            raise LabelValueError(f"model {v!r} does not match the controlled shape [A-Za-z0-9._-]{{1,64}}")
+        if k == "model" and v not in ALLOWED_MODEL_VALUES and v != MODEL_OTHER_BUCKET:
+            raise LabelValueError(
+                f"model {v!r} is not in the controlled registry {sorted(ALLOWED_MODEL_VALUES)} "
+                f"(normalize unknown models to {MODEL_OTHER_BUCKET!r} via normalize_model_label first)")
 
 
 @dataclass
@@ -487,12 +589,12 @@ def classify_observability_recovery(job: ObservedJob) -> ObservabilityRecoveryAc
 # 7. Day58 validation matrix (four tiers; integration + production NOT RUN)
 # ===========================================================================
 VALIDATION_MATRIX_DAY58: tuple[MatrixRow, ...] = (
-    MatrixRow("Identity/lifecycle stability rules (job_id/correlation_id stable; attempt_id/trace_id per attempt; request_id per request)",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "pytest over in-process identity model"),
-    MatrixRow("Structured event safe-field contract (no raw prompts/responses/secrets; suppressed reason)",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "StructuredEvent validation tests"),
-    MatrixRow("Low-cardinality metric contract: reject high-cardinality label NAMES and uncontrolled label VALUES (allowlist/shape)",
-              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "MetricSpec / MetricRegistry / validate_label_values tests"),
+    MatrixRow("Identity/lifecycle: Worker Attempt context (attempt_id/trace_id) vs a SEPARATE HTTP request context (request_id/trace_id, no attempt_id, no silent trace reuse)",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "IdentityLifecycle / HttpRequestContext tests"),
+    MatrixRow("Structured event contract validates canonical VALUES (id shape, provider/model/outcome allowlists, finite reason enum, secret rejection), not just field names",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "StructuredEvent value-validation tests"),
+    MatrixRow("Low-cardinality metric contract: reject high-cardinality label NAMES and uncontrolled VALUES; model must be from a FINITE registry (or normalized to a bounded bucket)",
+              EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "MetricRegistry / validate_label_values / normalize_model_label tests"),
     MatrixRow("Trace/span-link modeling (child span shares trace; async link to immediate prior)",
               EvidenceTier.EXECUTED_LOCAL_RUNTIME, RunStatus.RUN, "Span / link tests"),
     MatrixRow("Telemetry exporter outage does not FAIL a Job or authorize retry; recovery drains the buffer + resets queue depth",

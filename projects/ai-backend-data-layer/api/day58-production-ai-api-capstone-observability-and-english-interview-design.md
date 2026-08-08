@@ -24,8 +24,8 @@ INTEGRATION RUNTIME (real PostgreSQL / Redis / Celery)     : NOT RUN
 PRODUCTION (real Provider traffic / prod observability)    : NOT RUN
 ```
 
-Executed: `python3 -m pytest -q test_day58_observability_capstone.py` -> **28 passed** (Python 3.10.12, pytest 7.4.3).
-Full `projects/ai-backend-data-layer/api/` suite -> **493 passed**. These prove the identity/lifecycle rules, the safe
+Executed: `python3 -m pytest -q test_day58_observability_capstone.py` -> **37 passed** (Python 3.10.12, pytest 7.4.3).
+Full `projects/ai-backend-data-layer/api/` suite -> **502 passed**. These prove the identity/lifecycle rules, the safe
 structured-event contract, the low-cardinality metric label contract, trace/span-link modeling, the telemetry-exporter
 -failure policy, and the observability-release rollback drill over an in-process deterministic model. They do NOT prove
 a real FastAPI runtime, a real OpenTelemetry exporter, real PostgreSQL/Redis/Celery integration, or real Provider
@@ -46,10 +46,16 @@ trace_id       = one distributed execution trace        (NEW per Attempt, normal
 request_id     = one short-lived HTTP request identity  (NEW per HTTP request)
 ```
 
-`IdentityLifecycle.new_attempt()` keeps `job_id` + `correlation_id`, mints a new `attempt_id` + `trace_id`, and clears
-`request_id`. `new_http_request()` changes only `request_id`. Correlation does NOT mean identical lifecycle: `job_id` /
-`correlation_id` bridge business continuity; `attempt_id` identifies an execution decision; `trace_id` identifies one
-trace; `request_id` identifies one HTTP request.
+A durable Worker Attempt and an inbound HTTP request are MODELED SEPARATELY so one object never masquerades as two
+lifecycles. `IdentityLifecycle` is the Worker Attempt context (`job_id`, `correlation_id`, `attempt_id`, `trace_id`, NO
+`request_id`); `IdentityLifecycle.new_attempt()` keeps `job_id` + `correlation_id` and mints a new `attempt_id` +
+`trace_id`. An HTTP request is a separate `HttpRequestContext` (`job_id`, `correlation_id`, `request_id`, `trace_id`, NO
+`attempt_id`): `IdentityLifecycle.http_request()` / `start_http_request()` share the business ids but mint a NEW
+`request_id` AND a NEW `trace_id` — an HTTP request (e.g. a status/poll) does NOT inherit or silently reuse a Worker
+Attempt's `attempt_id` or `trace_id`. Legitimate distributed-trace continuity is an EXPLICIT `parent_trace` (traceparent
+link), never a silent reuse. Correlation does NOT mean identical lifecycle: `job_id` / `correlation_id` bridge business
+continuity; `attempt_id` identifies a durable Worker execution; `trace_id` identifies one trace; `request_id` identifies
+one HTTP request.
 
 ---
 
@@ -58,9 +64,13 @@ trace; `request_id` identifies one HTTP request.
 `StructuredEvent` allows ONLY safe fields (`event_name`, `job_id`, `correlation_id`, `attempt_id`, `trace_id`,
 `provider`, `model`, `outcome`, `duration_ms`, `request_id_present`, `dispatch_marker_present`, `reason`) and REJECTS
 forbidden raw/secret fields (`prompt`, `provider_response`, `api_key`, `document`, ...) with `UnsafeTelemetryError`. The
-`extra` field may NEVER shadow a canonical field (any id, `event_name`, provider/model/outcome, duration, reason, or a
-presence flag) — a collision raises `UnsafeTelemetryError`, and `to_safe_dict` never lets `extra` overwrite a canonical
-value — so audit correlation cannot be corrupted; only explicitly-allowlisted safe extension keys are accepted.
+`extra` field may NEVER shadow a canonical field, and `to_safe_dict` never lets `extra` overwrite a canonical value.
+Safety does NOT rely on the caller's discipline: every CANONICAL VALUE is validated — `event_name` and ids have bounded
+shapes (no spaces/newlines/secret-like values), `provider`/`model`/`outcome` must be from the controlled allowlists/
+registry, `duration_ms` must be a bounded non-negative int, and `reason` must be from a FINITE enum
+(`ALLOWED_EVENT_REASONS`, e.g. `prior_attempt_may_have_executed`) — NEVER free text. Any raw prompt, raw Provider
+response, api key, bearer/authorization token, or overlong/secret-like value passed into a canonical field (e.g. into
+`reason`, `provider`, or an id) is REJECTED with `UnsafeTelemetryError`.
 
 - `provider.call.timeout` (`emit_provider_call_timeout`) = the application's OBSERVED timeout/unknown outcome. It is NOT
   proof the Provider did not execute.
@@ -85,8 +95,11 @@ Gauge     jobs_pending_reconciliation{provider,model}           -> reconciliatio
 Low cardinality depends on label NAMES **and** VALUES. `MetricSpec.__post_init__` REJECTS `job_id` / `attempt_id` /
 `trace_id` / `request_id` / `correlation_id` as label NAMES (`HighCardinalityLabelError`); and `validate_label_values`
 (run on every metric op) REJECTS uncontrolled VALUES (`LabelValueError`) — `provider` and `outcome` must be from a
-controlled allowlist, `model` must match a bounded shape, and every value is length/type-checked — so an unbounded
-value from user input cannot silently explode cardinality. Alerting should COMBINE timeout rate + in-flight saturation + a sustained reconciliation backlog, so one
+controlled allowlist, and `model` must be from a FINITE controlled registry (`ALLOWED_MODEL_VALUES`), NOT merely match a
+regex (an unbounded number of regex-valid model strings would still explode cardinality). Uncontrolled/user-supplied
+model aliases are normalized to a single bounded bucket (`normalize_model_label` -> `__other__`) BEFORE labeling —
+trade-off: unknown models lose per-model granularity (they aggregate) in exchange for a guaranteed-bounded time series.
+Never use a full deployment URL, a user-defined alias, or raw user input as a label. Alerting should COMBINE timeout rate + in-flight saturation + a sustained reconciliation backlog, so one
 transient timeout does not page.
 
 ---
@@ -155,9 +168,9 @@ A bad observability release removed `attempt_id` from Worker logs and added `job
 
 | Claim | Tier | How shown |
 |-------|------|-----------|
-| Identity/lifecycle stability (job_id/correlation_id stable; attempt_id/trace_id per attempt; request_id per request) | EXECUTED LOCAL | `test_new_attempt_keeps_business_ids_changes_attempt_and_trace`, `test_new_http_request_only_changes_request_id` |
-| Safe structured-event contract; timeout vs suppressed(reason=prior_attempt_may_have_executed); rejects raw/secret + unknown fields | EXECUTED LOCAL | `test_timeout_event_carries_safe_fields_only`, `test_suppressed_event_reason_is_prior_attempt_may_have_executed`, `test_event_rejects_forbidden_raw_and_secret_fields`, `test_event_rejects_unrecognized_fields` |
-| Low-cardinality metric contract; Counter/Gauge/Histogram semantics; exact label set | EXECUTED LOCAL | `test_metric_rejects_high_cardinality_labels`, `test_day58_metric_types_are_correct`, `test_metric_registry_counter_gauge_histogram`, `test_metric_requires_exact_label_set` |
+| Identity/lifecycle: Worker Attempt (attempt_id/trace_id) vs a SEPARATE HTTP request context (new request_id + new trace_id, no attempt_id, no silent trace reuse, explicit parent_trace) | EXECUTED LOCAL | `test_new_attempt_keeps_business_ids_changes_attempt_and_trace`, `test_http_request_gets_new_request_and_trace_and_no_attempt`, `test_standalone_http_status_request_has_only_business_and_request_context`, `test_http_request_can_explicitly_link_a_parent_trace`, `test_new_worker_attempt_after_http_request_still_has_own_ids` |
+| Structured-event contract validates canonical VALUES (id shape, provider/model/outcome allowlists, finite reason enum, secret/overlong rejection) + extra can't shadow canonical | EXECUTED LOCAL | `test_timeout_event_carries_safe_fields_only`, `test_suppressed_event_reason_is_prior_attempt_may_have_executed`, `test_event_rejects_forbidden_raw_and_secret_fields`, `test_event_rejects_unrecognized_fields`, `test_reason_must_be_from_finite_allowlist_not_free_text`, `test_canonical_id_fields_reject_secretish_and_overlong_values`, `test_provider_and_model_and_outcome_values_must_be_controlled`, `test_duration_ms_must_be_a_bounded_nonnegative_int`, `test_event_extra_cannot_override_canonical_fields` |
+| Low-cardinality metric contract: Counter/Gauge/Histogram; reject high-cardinality NAMES + uncontrolled VALUES; `model` from a FINITE registry (or normalized bucket) | EXECUTED LOCAL | `test_metric_rejects_high_cardinality_labels`, `test_day58_metric_types_are_correct`, `test_metric_registry_counter_gauge_histogram`, `test_metric_requires_exact_label_set`, `test_metric_rejects_uncontrolled_label_values`, `test_metric_accepts_controlled_label_values`, `test_random_regex_valid_models_are_rejected_as_labels`, `test_controlled_models_and_normalized_bucket_work_as_labels` |
 | Trace child span shares trace; async retry uses a span link to the immediate prior (no fake nesting) | EXECUTED LOCAL | `test_child_span_shares_parent_trace`, `test_async_retry_uses_span_link_to_immediate_prior_not_nesting` |
 | Exporter outage does not FAIL a Job or authorize retry; health metrics; healthy path no drops | EXECUTED LOCAL | `test_exporter_outage_does_not_fail_job_or_authorize_retry`, `test_healthy_exporter_reports_healthy_and_no_drops` |
 | Rollback restores observability config only; bounded affected set + marked gaps; marker/request-id/uncertainty -> reconcile-only; ONLY positive DEFINITELY_NOT_ACCEPTED -> eligible for Day56 guarded recovery (absence != proof) | EXECUTED LOCAL | `test_rollback_restores_observability_config_only`, `test_affected_set_bounded_by_release_and_window_and_gaps_marked`, `test_marker_backed_reconciliation_job_is_never_requeued`, `test_provider_request_id_evidence_is_reconcile_only`, `test_absence_of_evidence_alone_does_not_authorize_requeue`, `test_unknown_or_may_have_executed_certainty_stays_reconcile_only`, `test_positive_definitely_not_accepted_is_eligible_for_day56_guarded_recovery`, `test_evidence_overrides_even_definitely_not_accepted` |

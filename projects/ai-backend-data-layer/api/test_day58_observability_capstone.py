@@ -19,7 +19,8 @@ from day58_observability_capstone import (
     UnsafeTelemetryError, VALIDATION_MATRIX_DAY58, LabelValueError, build_observability_affected_set,
     child_span, classify_observability_recovery, day58_not_run_claims, emit_provider_call_suppressed,
     emit_provider_call_timeout, linked_trace, mark_telemetry_gaps, process_job_with_telemetry,
-    start_job_chain, start_trace,
+    start_job_chain, start_http_request, start_trace, HttpRequestContext, IdentityLifecycle,
+    ALLOWED_MODEL_VALUES, MODEL_OTHER_BUCKET, normalize_model_label,
 )
 
 
@@ -29,15 +30,47 @@ def test_new_attempt_keeps_business_ids_changes_attempt_and_trace():
     b = a.new_attempt()
     assert b.job_id == a.job_id and b.correlation_id == a.correlation_id     # stable business chain
     assert b.attempt_id != a.attempt_id and b.trace_id != a.trace_id         # new execution identity
-    assert b.request_id is None                                              # an Attempt is not an HTTP request
+    assert not hasattr(b, "request_id")                                     # a Worker Attempt has no HTTP request_id
 
 
-def test_new_http_request_only_changes_request_id():
-    a = start_job_chain("job-1")
-    b = a.new_http_request()
-    assert (b.job_id, b.correlation_id, b.attempt_id, b.trace_id) == \
-           (a.job_id, a.correlation_id, a.attempt_id, a.trace_id)
-    assert b.request_id != a.request_id
+def test_http_request_gets_new_request_and_trace_and_no_attempt():
+    # P1: an HTTP request (e.g. a status/poll) shares business ids but gets a NEW request_id AND a NEW
+    # trace_id, and does NOT masquerade as any Worker Attempt (no attempt_id, old trace not reused).
+    worker = start_job_chain("job-1")
+    req = worker.http_request()
+    assert isinstance(req, HttpRequestContext)
+    assert req.job_id == worker.job_id and req.correlation_id == worker.correlation_id   # stable business chain
+    assert req.trace_id != worker.trace_id                                  # NOT the old Worker trace
+    assert not hasattr(req, "attempt_id")                                   # not a Worker Attempt
+    assert req.parent_trace is None                                         # no silent trace reuse
+    # two successive HTTP requests get distinct request_id AND distinct trace_id
+    req2 = worker.http_request()
+    assert req2.request_id != req.request_id and req2.trace_id != req.trace_id
+
+
+def test_standalone_http_status_request_has_only_business_and_request_context():
+    # A pure status/poll (no worker attempt in scope): job_id/correlation_id + fresh request/trace only.
+    req = start_http_request("job-1")
+    assert req.job_id == "job-1"
+    assert req.request_id and req.trace_id
+    assert not hasattr(req, "attempt_id")
+
+
+def test_http_request_can_explicitly_link_a_parent_trace():
+    # Legitimate traceparent propagation is EXPLICIT (a parent/link), never a silent reuse.
+    worker = start_job_chain("job-1")
+    upstream = start_trace("api.acceptance")
+    req = worker.http_request(parent_trace=upstream.context)
+    assert req.trace_id != upstream.context.trace_id                        # its own trace
+    assert req.parent_trace == upstream.context                            # explicit link to the parent
+
+
+def test_new_worker_attempt_after_http_request_still_has_own_ids():
+    worker_a = start_job_chain("job-1")
+    _ = worker_a.http_request()                                            # an HTTP poll happens in between
+    worker_b = worker_a.new_attempt()
+    assert worker_b.attempt_id != worker_a.attempt_id and worker_b.trace_id != worker_a.trace_id
+    assert worker_b.job_id == worker_a.job_id and worker_b.correlation_id == worker_a.correlation_id
 
 
 # --- 2. structured event contract ------------------------------------------
@@ -48,7 +81,8 @@ def test_timeout_event_carries_safe_fields_only():
     d = e.to_safe_dict()
     assert e.event_name == "provider.call.timeout" and d["outcome"] == "timeout"
     assert d["job_id"] == ident.job_id and d["attempt_id"] == ident.attempt_id
-    assert d["dispatch_marker_present"] is True and d["request_id_present"] is True
+    assert d["dispatch_marker_present"] is True
+    assert d["request_id_present"] is False                # a Worker Attempt event is not an HTTP request
     # a timeout event is the OBSERVED outcome, never proof of non-execution — no raw payload leaks
     assert not (set(d) & FORBIDDEN_EVENT_FIELDS)
 
@@ -283,3 +317,72 @@ def test_validation_matrix_marks_integration_and_production_not_run():
 
 def test_high_cardinality_label_set_documents_the_forbidden_labels():
     assert {"job_id", "attempt_id", "trace_id"} <= HIGH_CARDINALITY_LABELS
+
+
+# --- P2: model label must come from a finite controlled registry (not just regex) ---
+def test_random_regex_valid_models_are_rejected_as_labels():
+    # Many DISTINCT but regex-valid model strings would still explode cardinality -> rejected.
+    m = MetricRegistry()
+    for i in range(50):
+        rnd = f"gpt-random-{i:04d}"                       # matches [A-Za-z0-9._-]{1,64} but uncontrolled
+        assert rnd not in ALLOWED_MODEL_VALUES
+        with pytest.raises(LabelValueError):
+            m.observe(PROVIDER_CALL_DURATION_SECONDS, 0.1, {"provider": "openai", "model": rnd})
+
+
+def test_controlled_models_and_normalized_bucket_work_as_labels():
+    m = MetricRegistry()
+    m.observe(PROVIDER_CALL_DURATION_SECONDS, 0.1, {"provider": "openai", "model": "gpt-4o-mini"})
+    # unknown model normalized to the bounded bucket, which is an accepted label value
+    assert normalize_model_label("some-user-alias-xyz") == MODEL_OTHER_BUCKET
+    assert normalize_model_label("gpt-4o-mini") == "gpt-4o-mini"
+    m.observe(PROVIDER_CALL_DURATION_SECONDS, 0.2,
+              {"provider": "openai", "model": normalize_model_label("some-user-alias-xyz")})
+    assert m.histogram_values(PROVIDER_CALL_DURATION_SECONDS,
+                              {"provider": "openai", "model": MODEL_OTHER_BUCKET}) == [0.2]
+
+
+# --- P2: StructuredEvent canonical VALUES are validated (not just extra keys) ---
+def _evt(**kw):
+    base = dict(event_name="provider.call.timeout", job_id="job-1", correlation_id="cor-1",
+                attempt_id="att-1", trace_id="trace-1")
+    base.update(kw)
+    return StructuredEvent(**base)
+
+
+def test_reason_must_be_from_finite_allowlist_not_free_text():
+    _evt(reason="prior_attempt_may_have_executed")        # allowed enum value -> ok
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(reason="here is the user's raw prompt: summarize this secret document")
+
+
+def test_canonical_id_fields_reject_secretish_and_overlong_values():
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(trace_id="sk-ABCDEF0123456789")              # secret-like value in an id
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(job_id="x" * 200)                            # overlong id
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(correlation_id="has spaces and\nnewline")    # bad id shape / newline
+
+
+def test_provider_and_model_and_outcome_values_must_be_controlled():
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(provider="Bearer sk-secret-token")           # secret-like provider
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(provider="evil-corp")                        # provider not in allowlist
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(model="totally-unbounded-user-model")        # model not in the controlled registry
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(outcome="free text outcome")                 # outcome not in allowlist
+    # a controlled, safe event is accepted
+    _evt(provider="openai", model="gpt-x", outcome="timeout",
+         reason="prior_attempt_may_have_executed", duration_ms=8000)
+
+
+def test_duration_ms_must_be_a_bounded_nonnegative_int():
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(duration_ms=-5)
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(duration_ms=10 ** 12)                        # absurdly large
+    with pytest.raises(UnsafeTelemetryError):
+        _evt(duration_ms="8000")                          # wrong type
