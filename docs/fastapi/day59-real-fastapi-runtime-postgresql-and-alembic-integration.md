@@ -23,7 +23,7 @@ migrations — rather than a deterministic in-process model.
 > `upload_sessions.session_status='verified'` Document verification; the `Idempotency-Key`
 > header; a fingerprint that covers ordered `document_ids`; conflict re-read). The
 > repository updating agent re-ran only `py_compile` and the standard-library pure-logic
-> tests (**10 passed**, `EXECUTED_LOCAL_RUNTIME`). The real Uvicorn + PostgreSQL + Alembic
+> tests (**12 passed**, `EXECUTED_LOCAL_RUNTIME`). The real Uvicorn + PostgreSQL + Alembic
 > **INTEGRATION_RUNTIME for the corrected code was NOT re-run** by the updating agent and
 > is not claimed as verified for the current code — see the design/runbook.
 
@@ -216,8 +216,14 @@ Student Thinking / Answer: initially **yes, revalidate**; corrected to: exact re
 returns the original Job; a new logical submission uses a new key. The student also
 correctly said an original Job **cannot be retargeted** to a later-uploaded Document.
 
-Tech Lead Review: Idempotency state is checked BEFORE revalidating mutable Document
-state. A verified Document means acceptance-time metadata/provenance + object
+Tech Lead Review: Document input ORDER is a persisted business fact — each
+`app.job_documents` row is written with `document_role='input'` and `input_order=1..n` in
+the client's order (never `set()`/`dict.fromkeys()`), so a later Worker can reconstruct the
+sequence from PostgreSQL. Duplicate `document_ids` are a malformed command (they collide on
+the `(job_id, document_id)` primary key and make `input_order` ambiguous) and are rejected
+with `422` before the transaction, writing no Job/Outbox/links. Idempotency state is
+checked BEFORE revalidating mutable Document state. A verified Document means
+acceptance-time metadata/provenance + object
 verification succeeded — it does NOT promise future Object Storage readability. A later
 Worker handles unavailable bytes via an explicit recovery/failure path and never
 silently replaces a paid/auditable Job input. New input = new upload/verification, new

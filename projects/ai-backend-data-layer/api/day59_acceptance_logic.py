@@ -58,6 +58,24 @@ def compute_request_fingerprint(
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def has_duplicate_document_ids(document_ids: Sequence[str]) -> bool:
+    """True if ``document_ids`` contains a repeated id.
+
+    Duplicate documents are a MALFORMED command: they would collide on the
+    ``app.job_documents`` primary key ``(job_id, document_id)`` and make ``input_order``
+    ambiguous, so the route rejects them with a ``422`` BEFORE opening the acceptance
+    transaction (no Job / Outbox / links are written). The ``set`` here is used ONLY to
+    DETECT a repeat — the caller never reorders or de-duplicates the client's list, whose
+    order is a persisted business fact (``input_order = 1..n``).
+    """
+    seen: set[str] = set()
+    for document_id in document_ids:
+        if document_id in seen:
+            return True
+        seen.add(document_id)
+    return False
+
+
 class IdempotencyDecision(str, Enum):
     RETURN_ORIGINAL = "return_original"  # exact retry: same tenant/key/fingerprint
     CONFLICT_409 = "conflict_409"        # same tenant/key, DIFFERENT fingerprint

@@ -66,6 +66,14 @@ the Outbox intent for a later Relay (Day60).
   it belongs to this tenant AND its upload session is verified — `app.documents` joined to
   `app.upload_sessions` on `(tenant_id, upload_session_id)` where
   `session_status = 'verified'`. There is NO `documents.verified_at` column.
+- Document input ORDER is a persisted business fact, not just a fingerprint input: each
+  `app.job_documents` row is written with `document_role = 'input'` and
+  `input_order = 1..n` in the client's order, so a later Worker can reconstruct the input
+  sequence from PostgreSQL. The client's list is written verbatim — never `set()` or
+  `dict.fromkeys()`.
+- Duplicate `document_ids` in one request are a MALFORMED command (they collide on the
+  `job_documents` primary key and make `input_order` ambiguous): the route rejects them
+  with `422` BEFORE opening the transaction, so no Job / Outbox / links are written.
 - Idempotency state is checked BEFORE revalidating mutable Document state: an exact
   retry returns the original Job even if the referenced object later became unavailable.
 - A verified Document means acceptance-time metadata/provenance + object verification
@@ -159,9 +167,7 @@ below.
 [INTEGRATION_RUNTIME] valid atomic acceptance: independent query Job=1, dispatch intent=1, Document link=1
 [INTEGRATION_RUNTIME] exact-key replay returns the original Job
 [INTEGRATION_RUNTIME] same key + different payload -> 409
-[INTEGRATION_RUNTIME] same key + different Document -> 409 (fingerprint covers documents)
 [INTEGRATION_RUNTIME] invalid/nonexistent Document -> 422 with independent Job=0, Outbox=0, link=0
-[INTEGRATION_RUNTIME] concurrent same-key + different payload -> one 202, one 409
 [INTEGRATION_RUNTIME] two concurrent same-key requests -> one acceptance + one replay; independent 1/1/1
 ```
 
@@ -170,13 +176,28 @@ were diagnosed from a fresh connection, and were fixed before the successful rer
 
 **INTEGRATION_RUNTIME NOT RERUN.** Re-run by the repository updating agent (Day59 review
 fix): `py_compile` of the changed Python files and the standard-library
-`test_day59_acceptance_logic.py` (**10 passed**, `EXECUTED_LOCAL_RUNTIME` — pure decision
+`test_day59_acceptance_logic.py` (**12 passed**, `EXECUTED_LOCAL_RUNTIME` — pure decision
 logic: fingerprint shape/determinism, fingerprint covers ordered documents, replay vs 409
 vs fresh, readiness gate). The updating agent has NO Docker/PostgreSQL available and did
 NOT re-run the integration matrix against the corrected acceptance path. The corrected
-route must be re-run (raw baseline -> stamp -> upgrade `0008` -> the acceptance/replay/409/
-422/concurrent matrix, verified from a fresh connection) before its `INTEGRATION_RUNTIME`
-is claimed for the current code. The pure-logic pass is NOT PostgreSQL integration evidence.
+route must be re-run before its `INTEGRATION_RUNTIME` is claimed for the current code. The
+pure-logic pass is NOT PostgreSQL integration evidence.
+
+Required integration rerun matrix (NOT RERUN — must be executed against the CORRECTED code
+and verified from a fresh connection before any of these is claimed as evidence):
+
+```text
+[NOT RERUN] raw Day42 baseline -> Alembic stamp -> upgrade through 0008; /readyz revision gate (wrong -> 503)
+[NOT RERUN] valid atomic acceptance -> independent query Job=1, dispatch Outbox=1, links=n
+[NOT RERUN] job_documents rows carry document_role='input' and input_order=1..n IN THE CLIENT'S ORDER
+[NOT RERUN] exact-key replay (same documents + payload) returns the original Job
+[NOT RERUN] same key + different payload -> 409
+[NOT RERUN] same key + different Document (or different document order) -> 409
+[NOT RERUN] duplicate document_id in one request -> 422 with independent Job=0, Outbox=0, links=0
+[NOT RERUN] invalid/wrong-tenant/unverified Document -> 422 with independent Job=0, Outbox=0, links=0
+[NOT RERUN] two concurrent same-key + same payload -> one acceptance + one replay; independent 1/1/n
+[NOT RERUN] two concurrent same-key + different payload -> one 202 and one 409
+```
 
 ## NOT RUN (explicitly not claimed for Day59)
 

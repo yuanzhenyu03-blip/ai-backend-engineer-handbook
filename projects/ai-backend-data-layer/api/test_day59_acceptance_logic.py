@@ -7,7 +7,7 @@ document_ids + business_input), idempotency classification (exact replay vs 409 
 fresh), and the readiness gate.
 
 They do NOT prove real PostgreSQL UNIQUE / partial unique index / ``ON CONFLICT`` /
-transaction / Document-verification behavior — that is INTEGRATION_RUNTIME and is
+transaction / `input_order` persistence / Document-verification behavior — that is INTEGRATION_RUNTIME and is
 described (with its NOT-RERUN status) in the Day59 design/runbook. A pure-logic test
 must never be presented as PostgreSQL integration evidence.
 """
@@ -19,6 +19,7 @@ from day59_acceptance_logic import (
     classify_idempotency,
     compute_request_fingerprint,
     evaluate_readiness,
+    has_duplicate_document_ids,
 )
 
 
@@ -78,6 +79,22 @@ def test_fingerprint_excludes_idempotency_key_and_tenant():
 
 def test_fresh_key_accepts_new():
     assert classify_idempotency(None, fp("t1", "k2", ["d1"], {})) is IdempotencyDecision.ACCEPT_NEW
+
+
+def test_duplicate_document_ids_detected():
+    # Pure detection only: this asserts the malformed-command signal that drives the
+    # route's 422. It does NOT prove the PostgreSQL rejection, the job_documents
+    # input_order write, the transaction, or concurrency (that is INTEGRATION_RUNTIME).
+    assert has_duplicate_document_ids(["d1", "d2", "d1"]) is True
+    assert has_duplicate_document_ids(["d1", "d2", "d3"]) is False
+    assert has_duplicate_document_ids(["d1"]) is False
+
+
+def test_fingerprint_order_matches_persisted_input_order_intent():
+    # Order carries business meaning and is persisted as input_order=1..n; different
+    # order is a different command fingerprint (pure logic; not the DB write itself).
+    assert fp("t", "k", ["d1", "d2", "d3"], {}) != fp("t", "k", ["d3", "d2", "d1"], {})
+    assert fp("t", "k", ["d1", "d2", "d3"], {}) == fp("t", "k", ["d1", "d2", "d3"], {})
 
 
 def test_readiness_requires_db_and_matching_revision():

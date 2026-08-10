@@ -9,6 +9,48 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.139 — Day59 review round 2: persist Document input order; correct runtime-evidence claims
+
+Date: 2026-08-10
+
+Day: Day59 (Phase 5). Remaining P1 review fixes to the acceptance boundary. No expansion into Day60/Day61
+(no Redis, Celery, Worker, Object Storage, Provider, OpenTelemetry, real JWT/JWKS, or production secret
+manager). Published Alembic revisions and protected files are unchanged.
+
+### Fixed
+
+- **P1 — Document input order is now a durable PostgreSQL fact.** The ordered `document_ids` already fed the
+  request fingerprint, but `app.job_documents` rows were inserted without the real schema's `input_order` /
+  `document_role` columns (and via `dict.fromkeys()`), so a later Worker could not reconstruct the input
+  order. Each link row is now written with `document_role = 'input'` and `input_order = 1..n` in the client's
+  order, and the client's list is written verbatim (no `set()` / `dict.fromkeys()`).
+- **P1 — duplicate `document_ids` rejected.** A repeated Document id is a malformed command (it collides on
+  the `app.job_documents` primary key and makes `input_order` ambiguous). It is now rejected with `422`
+  BEFORE the acceptance transaction, so no Job / Outbox / links are written. Added the pure helper
+  `has_duplicate_document_ids` (detection only — it never reorders or de-duplicates the client's list).
+- **P1 — corrected runtime-evidence claims.** The previous round listed `same key + different Document -> 409`
+  and `concurrent same key + different payload -> one 202/one 409` under "genuinely executed in class"; those
+  were NOT part of the original classroom run. They are removed from the executed-in-class block and placed in
+  a new **Required integration rerun matrix (NOT RERUN)** in the design/runbook, alongside independent readback
+  of `document_role='input'` / `input_order=1..n` and the duplicate-`422` case. The lesson, project README,
+  cheat sheet, interview notes, and status files were synced so none claims these as executed or as verified
+  for the current code.
+
+### Tests / evidence
+
+- `test_day59_acceptance_logic.py` expanded and re-run by the updating agent: **12 passed**
+  (`EXECUTED_LOCAL_RUNTIME` pure decision logic — added: duplicate-id detection, and order-sensitive
+  fingerprint matching the persisted `input_order` intent). `py_compile` passes on all changed Python. These
+  are pure-logic tests: they do NOT prove PostgreSQL `input_order` persistence, transactions, or concurrency.
+- **INTEGRATION_RUNTIME NOT RERUN.** The corrected acceptance path (including `input_order`/`document_role`
+  writes and duplicate rejection) has NOT been re-run against real PostgreSQL; the updating agent has no
+  Docker/PostgreSQL. The design/runbook's Required integration rerun matrix lists exactly what must be executed
+  before the current code's `INTEGRATION_RUNTIME` may be claimed. A pure-logic pass is not PostgreSQL
+  integration evidence. No database URL, password, token, tenant fixture, container id, or `.venv` is
+  committed.
+
+---
+
 ## v0.1.138 — Day59 review fix: acceptance-boundary correctness (P0/P1)
 
 Date: 2026-08-10

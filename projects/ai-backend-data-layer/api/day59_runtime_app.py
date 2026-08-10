@@ -60,6 +60,7 @@ from day59_acceptance_logic import (
     classify_idempotency,
     compute_request_fingerprint,
     evaluate_readiness,
+    has_duplicate_document_ids,
 )
 
 # The API build declares the schema revision it REQUIRES. Readiness fails if the live
@@ -161,9 +162,8 @@ async def _all_documents_verified_and_owned(
 ) -> bool:
     """A Document is acceptable only if it belongs to this tenant AND its upload session
     is verified. There is NO `documents.verified_at`; verification lives in
-    `upload_sessions.session_status = 'verified'` (Day49/Day42 schema). Distinct ids are
-    compared so a duplicate id cannot inflate the count."""
-    distinct_ids = list(dict.fromkeys(document_ids))
+    `upload_sessions.session_status = 'verified'` (Day49/Day42 schema). Duplicate ids are
+    already rejected (422) before this runs, so the count is compared to the full list."""
     verified = (
         await session.execute(
             text(
@@ -175,10 +175,10 @@ async def _all_documents_verified_and_owned(
                 "  AND d.document_id = ANY(:ids) "
                 "  AND u.session_status = 'verified'"
             ),
-            {"t": tenant_id, "ids": distinct_ids},
+            {"t": tenant_id, "ids": list(document_ids)},
         )
     ).scalar_one()
-    return verified == len(distinct_ids)
+    return verified == len(document_ids)
 
 
 @app.post("/v1/jobs", status_code=202)
@@ -195,6 +195,12 @@ async def accept_job(
     # write (Day43). A missing OR blank header is a 400.
     if idempotency_key is None or not idempotency_key.strip():
         raise HTTPException(status_code=400, detail="missing Idempotency-Key header")
+
+    # Duplicate document_ids are a MALFORMED command (they collide on the job_documents
+    # PK and make input_order ambiguous). Reject with 422 BEFORE the transaction so no
+    # Job / Outbox / links are written. Client order is preserved (never de-duplicated).
+    if has_duplicate_document_ids(body.document_ids):
+        raise HTTPException(status_code=422, detail="duplicate document_id in request")
 
     # The fingerprint covers the COMPLETE logical command, including ordered documents.
     # Day50 contract: the fingerprint is the behavior-relevant command (documents +
@@ -254,14 +260,18 @@ async def accept_job(
                     status_code=422, detail="unverified or wrong-tenant document"
                 )
 
-            # Job–Document links (dedup while preserving order; PK is (job_id, document_id)).
-            for document_id in dict.fromkeys(body.document_ids):
+            # Job–Document links in the CLIENT'S ORDER: document_role='input' and
+            # input_order=1..n make the input sequence a durable PostgreSQL fact a later
+            # Worker can reconstruct. No set()/dict.fromkeys(): duplicates were already
+            # rejected (422) above, so the client's list is written verbatim and in order.
+            for input_order, document_id in enumerate(body.document_ids, start=1):
                 await session.execute(
                     text(
-                        "INSERT INTO app.job_documents (tenant_id, job_id, document_id) "
-                        "VALUES (:t, :j, :d)"
+                        "INSERT INTO app.job_documents "
+                        "(tenant_id, job_id, document_id, document_role, input_order) "
+                        "VALUES (:t, :j, :d, 'input', :ord)"
                     ),
-                    {"t": tenant_id, "j": job_id, "d": document_id},
+                    {"t": tenant_id, "j": job_id, "d": document_id, "ord": input_order},
                 )
 
             # Exactly one dispatch Outbox intent (0008 partial unique index enforces one).
