@@ -1,0 +1,25 @@
+# Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration.
+# Python 3.10+ is REQUIRED (existing ORM code uses PEP 604 `X | Y` union syntax;
+# Python 3.9 fails to import it — diagnosed in class, then rerun on Python 3.11).
+#
+# Two clearly separated scopes:
+#
+# 1) EXECUTED_LOCAL_RUNTIME unit tests (no database, no Docker) — needs only pytest:
+#      cd projects/ai-backend-data-layer/api
+#      python3 -m pip install pytest==7.4.3
+#      python3 -m py_compile day59_acceptance_logic.py day59_runtime_app.py \
+#          day48_alembic/versions/0008_day59_acceptance.py day48_alembic/env.py
+#      python3 -m pytest -q test_day59_acceptance_logic.py
+#
+# 2) INTEGRATION_RUNTIME (OPT-IN; a disposable local PostgreSQL, e.g. a `--rm` Docker
+#    container) — needs the full runtime stack below. See the Day59 design/runbook for
+#    the exact raw-baseline -> Alembic stamp -> upgrade -> fresh-connection steps. The
+#    disposable database URL/credentials are supplied via env vars at run time and are
+#    NEVER committed to the repository.
+fastapi==0.110.0
+uvicorn==0.29.0
+sqlalchemy==2.0.29
+asyncpg==0.29.0
+alembic==1.13.1
+pydantic==2.5.0
+pytest==7.4.3

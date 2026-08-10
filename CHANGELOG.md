@@ -9,6 +9,73 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.137 — Day59: Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5 opens)
+
+Date: 2026-08-10
+
+Day: Day59 (Phase 5 — Production Runtime Integration and Browser Tool Engineering; Production Integration Gate).
+
+Day59 turns the Day43–Day58 acceptance contract into bounded, reviewable local `INTEGRATION_RUNTIME` evidence.
+This is the first lesson in the track that runs the API as a real FastAPI/Uvicorn process against a real
+PostgreSQL with real Alembic migrations. Protected files (`prompts/master-prompt.md`,
+`prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md`) were not modified.
+
+### Added
+
+- `docs/fastapi/day59-real-fastapi-runtime-postgresql-and-alembic-integration.md` — new 16-section
+  LESSON_TEMPLATE_v2 lesson (Status Completed) with real short CN/EN student answers, reasonable errors and
+  corrections, a Mental Model Evolution section, and the assistant-assisted final Chinese mental model.
+- `projects/ai-backend-data-layer/api/day59_runtime_app.py` — local-only FastAPI composition (`/livez`,
+  `/readyz` gated on the expected Alembic revision, POST `/v1/jobs` atomic acceptance, tenant-scoped GET)
+  reusing the Day47 async engine/session boundaries; the HTTP transaction never calls a
+  Broker/Worker/Provider/Object Storage.
+- `projects/ai-backend-data-layer/api/day59_acceptance_logic.py` + `test_day59_acceptance_logic.py` — pure
+  standard-library acceptance logic (request fingerprint, idempotency classification, readiness gate) with
+  unit tests (executed by the updating agent: 7 passed, `EXECUTED_LOCAL_RUNTIME`).
+- `projects/ai-backend-data-layer/api/day48_alembic/versions/0008_day59_acceptance.py` — forward ADDITIVE
+  migration: nullable `app.jobs.request_fingerprint` + SHA-256-shape CHECK + a partial unique index allowing
+  one `job.dispatch_requested` Outbox intent per Job.
+- `projects/ai-backend-data-layer/api/requirements-day59.txt` — Python 3.10+; pins only real deps; separates
+  the stdlib unit-test scope from the opt-in Docker/PostgreSQL integration scope.
+- `projects/ai-backend-data-layer/api/day59-real-fastapi-runtime-postgresql-and-alembic-integration-design.md`
+  — design/runbook: boundaries, prerequisites, a safe disposable local run, captured evidence, and NOT RUN
+  limits.
+
+### Changed
+
+- `projects/ai-backend-data-layer/api/day48_alembic/env.py` — added a controlled, auditable ONLINE-only
+  version-table width repair that widens `alembic_version.version_num` to `varchar(128)` ONLY when the column
+  already exists and is too small (published revisions 0001–0007 are unchanged; the repair never runs in
+  FastAPI and never touches application data).
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day59 rapid-recall and Beginner/Intermediate/Senior
+  interview appends.
+- `projects/ai-backend-data-layer/README.md` — concise Day59 current increment; Day58 demoted to prior; a
+  stale "Day59 = browser automation" sentence corrected.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `docs/README.md` — Day59 marked Completed;
+  Phase 5 In Progress; Current Lesson advanced to Day60; Last Completed Lesson is now Day59 (Day58 archived);
+  docs index `# latest` moved to Day59.
+
+### Validation (performed by the updating agent)
+
+- Markdown: 16-section order and internal links checked.
+- YAML: none changed.
+- Code: `py_compile` on `day59_runtime_app.py`, `day59_acceptance_logic.py`, `0008_day59_acceptance.py`, and
+  `day48_alembic/env.py`; `pytest test_day59_acceptance_logic.py` → 7 passed (`EXECUTED_LOCAL_RUNTIME`).
+- Links / Secrets: no committed database URL/password, test token, tenant/user fixture value, container id, or
+  `.venv`.
+
+### NOT RUN (not claimed for Day59)
+
+- The real Uvicorn + PostgreSQL 16 + Alembic integration was executed in a disposable local environment
+  DURING CLASS; the updating agent did NOT re-run it (only `py_compile` + the stdlib tests). `pytest passed`
+  never auto-upgrades to `INTEGRATION_RUNTIME`/`PRODUCTION`.
+- Real Redis/Celery broker/Relay/Worker + worker-kill/redelivery (Day60); real Object Storage/presigned/
+  checksum, real Provider HTTP traffic/cost, real OpenTelemetry exporter (Day61); real JWT/JWKS or a
+  production secret manager; production migration lock/load/zero-downtime; multi-replica deployment; load
+  testing; production validation.
+
+---
+
 ## v0.1.136 — Align progress surfaces and enforce runnable checkpoints (review fix)
 
 Date: 2026-08-08

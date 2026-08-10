@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 4 — Production AI API Engineering (Day43-Day58: classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts COMPLETE; real runnable FastAPI + OpenTelemetry exporter + PostgreSQL/Redis/Celery integration + Provider production NOT RUN). Next: Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59+)
+Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration is COMPLETE (real local INTEGRATION_RUNTIME executed in a disposable local environment during class; the updating agent re-ran only py_compile + the stdlib acceptance-logic tests). Day60 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5)
+Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration (Phase 5)
 
 Status:
 Planned / Not started
 
-(Day58 is complete and recorded under "Last Completed Lesson" below; Day59 is the current focus. Phase 4 is COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
+(Day59 is complete and recorded under "Last Completed Lesson" below; Day60 is the current focus. Phase 4 is COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -82,6 +82,7 @@ Planned / Not started
 - ✅ Day56 — Provider Resilience, Rate Limits, Token Cost and Backpressure
 - ✅ Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 - ✅ Day58 — Production AI API Capstone, Observability and English Interview (Phase 4 capstone)
+- ✅ Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5; Production Integration Gate)
 
 ---
 
@@ -92,6 +93,31 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5; Production Integration Gate)
+
+Completed Time:
+2026-08-10
+
+Main Artifact:
+Day59 real local FastAPI + PostgreSQL + Alembic acceptance integration. A local-only composition artifact `day59_runtime_app.py` (FastAPI `/livez`, `/readyz` gated on the expected Alembic revision `0008_day59_acceptance`, POST `/v1/jobs` atomic acceptance, tenant-scoped GET `/v1/jobs/{job_id}`) reuses the Day47 async engine/session boundaries; a pure standard-library `day59_acceptance_logic.py` (request fingerprint, idempotency classification, readiness gate) with `test_day59_acceptance_logic.py`; a forward ADDITIVE migration `0008_day59_acceptance` (nullable `app.jobs.request_fingerprint` + SHA-256-shape CHECK + a partial unique index allowing one `job.dispatch_requested` Outbox intent per Job); a controlled ONLINE-only `day48_alembic/env.py` version-table width repair; `requirements-day59.txt`; and the design/runbook. Core rule: `202` = ONE committed acceptance bundle (queued Job + request_fingerprint + one dispatch Outbox intent + Document links) verified from a NEW connection; the HTTP transaction never calls a Broker/Worker/Provider/Object Storage.
+
+Validation Boundary:
+Day59 has real local INTEGRATION_RUNTIME evidence executed in a DISPOSABLE local environment during class: Python 3.11 compile; a real Uvicorn process + a real PostgreSQL 16 container; raw Day42 baseline -> Alembic stamp `0001_baseline` -> controlled upgrade through `0008_day59_acceptance`; `/readyz` matching revision (wrong revision -> 503); a valid atomic acceptance (independent fresh-connection query Job=1, dispatch intent=1, Document link=1); exact-key replay returns the original Job; same key + different payload -> 409; an invalid/nonexistent Document -> 422 with an independent Job=0/Outbox=0/link=0 query; and two concurrent same-key requests -> one acceptance + one replay with an independent 1/1/1 query. A prior `alembic_version` width failure and an async SQL parameter-type failure were diagnosed from a fresh connection and fixed before the successful reruns. The repository updating agent re-ran ONLY `py_compile` of the four changed Python files and the standard-library `test_day59_acceptance_logic.py` (7 passed, EXECUTED_LOCAL_RUNTIME); it did NOT re-run the Docker/PostgreSQL integration, so that integration evidence is the classroom's, not re-executed by the agent. NOT RUN (later lessons): real Redis/Celery broker/Relay/Worker, worker-kill/redelivery (Day60); real Object Storage/presigned/checksum, real HTTP Provider traffic/cost, real OpenTelemetry exporter (Day61); real JWT/JWKS or a production secret manager; production migration lock/load/zero-downtime; multi-replica deployment; load testing; production validation. `pytest passed` never auto-upgrades to INTEGRATION_RUNTIME/PRODUCTION. No secrets, local database URLs/passwords, test tokens, tenant/user fixture values, `.venv`, or container IDs are committed.
+
+Completed Work:
+
+- Day59 classroom learning (acceptance boundary; fresh-connection evidence; real migration diagnosis; readiness vs liveness; idempotency + request fingerprint; Document lifecycle; premature-202 containment and API-vs-schema rollback)
+- Day59 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; real short CN/EN student answers + reasonable errors + corrections + Mental Model Evolution preserved; assistant-assisted final Chinese mental model labeled as such)
+- Day59 design/runbook + local-only FastAPI composition artifact (`day59_runtime_app.py`) + pure acceptance-logic module (`day59_acceptance_logic.py`) + stdlib tests (`test_day59_acceptance_logic.py`, executed: 7 passed) + forward additive `0008_day59_acceptance` migration + controlled `env.py` version-table repair + `requirements-day59.txt`
+- Day59 FastAPI cheat sheet append
+- Day59 FastAPI interview append (Beginner/Intermediate/Senior real record)
+- Day59 project README increment
+- Day59 repository status update (Phase 5 Production Integration Gate opens; Day59 completed, Day60 current)
+
+---
+
+## Superseded — Day58 Last Completed Lesson (archived)
 
 Day58 — Production AI API Capstone, Observability and English Interview (Phase 4 capstone)
 

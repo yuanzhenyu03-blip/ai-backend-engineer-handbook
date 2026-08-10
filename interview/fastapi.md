@@ -1383,3 +1383,37 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day58), the
 [Day58 design/runbook](../projects/ai-backend-data-layer/api/day58-production-ai-api-capstone-observability-and-english-interview-design.md),
 the [model](../projects/ai-backend-data-layer/api/day58_observability_capstone.py), and the
 [tests](../projects/ai-backend-data-layer/api/test_day58_observability_capstone.py).
+
+## Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration
+
+### Key Vocabulary
+
+acceptance boundary · commit-before-202 · idempotency key vs durable job_id · request fingerprint · Outbox intent · Alembic stamp · expand/contract (additive) migration · readiness vs liveness · committed-state evidence · fresh connection · disposable environment
+
+### Beginner Question
+
+Q: What is the difference between a verified Document and object availability at Worker execution?
+
+Strong Answer: "Verified means that at acceptance time the Document's metadata and provenance were checked and the object was verified, so the Job referencing it was accepted. It does not guarantee the object stays readable. When a Worker later runs, the bytes may be unavailable; the Worker handles that through an explicit recovery or failure path and must not retarget the Job to a newly uploaded Document. New input means a new upload, a new idempotency key, and a new Job."
+
+### Intermediate Question
+
+Q: A client retries with the exact same idempotency key. What must the API do, and why not revalidate the Document?
+
+Strong Answer: "Return the original accepted Job without revalidating later mutable input or storage state. Idempotency is decided from durable facts before touching mutable Document state, so an exact retry is deterministic even if the referenced object later became unavailable. The durable job_id is the accepted fact; the idempotency key is only the command dedup key, and the request fingerprint separates an exact retry (return the original Job) from the same key reused for a different logical request (409)."
+
+### Senior Question
+
+Q: A faulty release returned `202` before committing and then crashed. How do you respond?
+
+Strong Answer: "Contain first — withdraw or circuit-break the faulty API release so it stops accepting traffic. Preserve evidence: deployment version, time window, request and trace ids, authenticated tenant, idempotency key, the exception, and whether the transaction committed or rolled back. Then query committed facts from a fresh connection: if the Job and its Outbox intent exist, the request really succeeded; if not, nothing was accepted and no background process may fabricate one. On an explicit later retry with the same key, return the committed Job if it exists, otherwise run a new atomic acceptance — but never call that a replay of a prior success. Because the Day59 `0008` migration is additive, an API rollback is safer than an immediate schema downgrade; a real schema repair would be a later forward migration."
+
+### Common Weak Answer
+
+"The client saw a `202`, so the Job must exist — I'll create one to match." This fabricates success, corrupts the audit trail, and confuses a visible response with a durable committed fact.
+
+Validation: exercised in a disposable local environment (Python 3.11; real Uvicorn + PostgreSQL 16; raw Day42 baseline → Alembic stamp → upgrade through `0008_day59_acceptance`; readiness/atomic acceptance/replay/409/422/concurrent-same-key with independent fresh-connection queries). The repository agent re-ran only `py_compile` + the standard-library `test_day59_acceptance_logic.py` (7 passed, EXECUTED_LOCAL_RUNTIME); it did not re-run the Docker/PostgreSQL integration. NOT RUN: real Redis/Celery broker/Relay/Worker, Object Storage, Provider HTTP, OpenTelemetry exporter, production JWT/secret manager, zero-downtime migration, load/production validation. No secrets, local URLs/passwords, tokens, or tenant fixture values are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day59), the
+[Day59 lesson](../docs/fastapi/day59-real-fastapi-runtime-postgresql-and-alembic-integration.md), and the
+[Day59 design/runbook](../projects/ai-backend-data-layer/api/day59-real-fastapi-runtime-postgresql-and-alembic-integration-design.md).

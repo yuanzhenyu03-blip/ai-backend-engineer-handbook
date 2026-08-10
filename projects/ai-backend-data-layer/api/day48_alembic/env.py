@@ -91,6 +91,40 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+# Day59 addition — controlled, auditable version-table WIDTH repair.
+#
+# WHY: Alembic's default ``alembic_version.version_num`` is ``varchar(32)``. Some of
+# this repository's published revision ids are longer than 32 characters (e.g.
+# ``0007_merge_reconciliation_polling`` is 33), so a stamp/upgrade to them fails and
+# the migration transaction rolls back, leaving the recorded revision unchanged.
+#
+# SCOPE (deliberately narrow): this runs ONLY in ONLINE migration mode, ONLY widens
+# the version-table column, and ONLY when the column already exists and is too small.
+# It NEVER runs inside the FastAPI app, NEVER rewrites application data, and NEVER
+# shrinks the column. If ``alembic_version`` does not exist yet, Alembic creates it and
+# this repair is a no-op.
+_MIN_VERSION_NUM_WIDTH = 128
+
+
+def _widen_alembic_version_if_needed(connection) -> None:
+    from sqlalchemy import text
+
+    width = connection.execute(
+        text(
+            "SELECT character_maximum_length FROM information_schema.columns "
+            "WHERE table_name = 'alembic_version' AND column_name = 'version_num'"
+        )
+    ).scalar()
+    # width is None when the table/column does not exist yet (fresh DB) -> no-op.
+    if width is not None and width < _MIN_VERSION_NUM_WIDTH:
+        connection.execute(
+            text(
+                "ALTER TABLE alembic_version "
+                f"ALTER COLUMN version_num TYPE varchar({_MIN_VERSION_NUM_WIDTH})"
+            )
+        )
+
+
 def run_migrations_online() -> None:
     from sqlalchemy import create_engine, pool
 
@@ -99,6 +133,9 @@ def run_migrations_online() -> None:
     # ONLINE: require a real external URL; the ini placeholder is NOT a fallback.
     connectable = create_engine(_resolved_url(allow_placeholder=False), poolclass=pool.NullPool)
     with connectable.connect() as connection:
+        # Controlled control-plane repair BEFORE migration work; committed on its own.
+        _widen_alembic_version_if_needed(connection)
+        connection.commit()
         context.configure(
             connection=connection,
             target_metadata=Base.metadata,
