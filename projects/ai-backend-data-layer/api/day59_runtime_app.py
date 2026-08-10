@@ -20,11 +20,25 @@ STRICT BOUNDARIES (do not relax):
     Alembic revision. A ready process on the WRONG revision returns 503 — it must not
     silently accept traffic.
 
-Evidence tier: running this under Uvicorn + PostgreSQL + Alembic is INTEGRATION_RUNTIME
-and was executed in a DISPOSABLE local environment during the Day59 class. The updating
-repository agent re-ran only ``py_compile`` and the standard-library
-``test_day59_acceptance_logic.py`` suite; it did NOT re-run the Docker/PostgreSQL
-integration. See the design/runbook for the exact commands and NOT RUN limits.
+Acceptance transaction shape (single short Unit of Work; NO autobegin-then-begin):
+  A request opens ONE explicit ``async with session.begin()`` and inside it uses
+  ``INSERT INTO app.jobs ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING
+  RETURNING job_id`` as the atomic create-or-return (Day43 contract: not
+  SELECT-then-INSERT). If a row is returned it is a FRESH acceptance and the same
+  transaction validates the referenced Documents (rolling everything back on failure so
+  an invalid Document leaves Job=0 / Outbox=0 / link=0) and writes the Job–Document
+  links + exactly one dispatch Outbox intent. If NO row is returned the key already has
+  a committed Job: re-read its ``request_fingerprint`` and classify — same fingerprint
+  is an idempotent replay, a different fingerprint is a 409 — without revalidating
+  mutable Document state and without swallowing an unrelated integrity error.
+
+Evidence tier: running this under Uvicorn + PostgreSQL + Alembic is INTEGRATION_RUNTIME.
+After the Day59 review fixes (autobegin/ON CONFLICT, real Document verification via
+``upload_sessions.session_status='verified'``, ``Idempotency-Key`` header, fingerprint
+covering ``document_ids``, conflict re-read) the corrected acceptance path has NOT been
+re-run against real PostgreSQL by the updating agent — INTEGRATION_RUNTIME NOT RERUN.
+Only ``py_compile`` and the standard-library ``test_day59_acceptance_logic.py`` were
+executed. See the design/runbook for the exact commands and NOT RUN limits.
 """
 
 from __future__ import annotations
@@ -34,10 +48,9 @@ from contextlib import asynccontextmanager
 from typing import Any, Optional
 from urllib.parse import urlparse
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Response
+from fastapi import FastAPI, Header, HTTPException, Response
 from pydantic import BaseModel, Field
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from day47_async_uow import create_engine, create_session_factory
@@ -93,14 +106,14 @@ app = FastAPI(title="Day59 Local Runtime (integration seam)", lifespan=lifespan)
 
 
 class JobAcceptRequest(BaseModel):
-    idempotency_key: str = Field(min_length=1, max_length=200)
-    document_ids: list[str] = Field(default_factory=list)
+    # The idempotency key travels in the `Idempotency-Key` HEADER (Day43 contract), NOT
+    # in the body. `document_ids` must have at least one entry — an empty list may not
+    # create a Job. Order is preserved (it feeds the request fingerprint).
+    document_ids: list[str] = Field(min_length=1)
     business_input: dict[str, Any] = Field(default_factory=dict)
 
 
-def _resolve_tenant(
-    app: FastAPI, x_integration_tenant: Optional[str]
-) -> str:
+def _resolve_tenant(app: FastAPI, x_integration_tenant: Optional[str]) -> str:
     """Resolve the authenticated tenant.
 
     The header seam is honored ONLY when the local integration seam is enabled; it is a
@@ -116,10 +129,6 @@ def _resolve_tenant(
         status_code=401,
         detail="production identity (Day51 JWT + Day52 membership) is not part of Day59",
     )
-
-
-async def _get_session(app: FastAPI) -> AsyncSession:
-    return app.state.session_factory()
 
 
 @app.get("/livez")
@@ -147,106 +156,122 @@ async def readyz(response: Response) -> dict[str, str]:
     return {"status": "ready", "revision": EXPECTED_ALEMBIC_REVISION}
 
 
+async def _all_documents_verified_and_owned(
+    session: AsyncSession, tenant_id: str, document_ids: list[str]
+) -> bool:
+    """A Document is acceptable only if it belongs to this tenant AND its upload session
+    is verified. There is NO `documents.verified_at`; verification lives in
+    `upload_sessions.session_status = 'verified'` (Day49/Day42 schema). Distinct ids are
+    compared so a duplicate id cannot inflate the count."""
+    distinct_ids = list(dict.fromkeys(document_ids))
+    verified = (
+        await session.execute(
+            text(
+                "SELECT count(*) FROM app.documents d "
+                "JOIN app.upload_sessions u "
+                "  ON u.tenant_id = d.tenant_id "
+                " AND u.upload_session_id = d.upload_session_id "
+                "WHERE d.tenant_id = :t "
+                "  AND d.document_id = ANY(:ids) "
+                "  AND u.session_status = 'verified'"
+            ),
+            {"t": tenant_id, "ids": distinct_ids},
+        )
+    ).scalar_one()
+    return verified == len(distinct_ids)
+
+
 @app.post("/v1/jobs", status_code=202)
 async def accept_job(
     body: JobAcceptRequest,
     response: Response,
+    idempotency_key: Optional[str] = Header(default=None, alias="Idempotency-Key"),
     x_integration_tenant: Optional[str] = Header(default=None),
 ) -> dict[str, Any]:
+    # Identity first (401 if the seam is disabled or the tenant header is absent).
     tenant_id = _resolve_tenant(app, x_integration_tenant)
-    fingerprint = compute_request_fingerprint(
-        tenant_id, body.idempotency_key, body.business_input
-    )
+
+    # Contract: an expensive POST without an Idempotency-Key is rejected BEFORE any
+    # write (Day43). A missing OR blank header is a 400.
+    if idempotency_key is None or not idempotency_key.strip():
+        raise HTTPException(status_code=400, detail="missing Idempotency-Key header")
+
+    # The fingerprint covers the COMPLETE logical command, including ordered documents.
+    # Day50 contract: the fingerprint is the behavior-relevant command (documents +
+    # business_input); the Idempotency-Key is the dedup key, never part of the digest.
+    fingerprint = compute_request_fingerprint(body.document_ids, body.business_input)
 
     session = app.state.session_factory()
     async with session:
-        # 1) Check durable idempotency facts BEFORE revalidating mutable Document state.
-        existing = (
-            await session.execute(
-                text(
-                    "SELECT job_id, request_fingerprint FROM app.jobs "
-                    "WHERE tenant_id = :t AND idempotency_key = :k"
-                ),
-                {"t": tenant_id, "k": body.idempotency_key},
-            )
-        ).first()
+        # ONE short, explicit Unit of Work (no autobegin then begin()).
+        async with session.begin():
+            # Atomic create-or-return (Day43): the UNIQUE(tenant_id, idempotency_key)
+            # constraint is the idempotency mechanism, not a SELECT-then-INSERT.
+            inserted = (
+                await session.execute(
+                    text(
+                        "INSERT INTO app.jobs "
+                        "(tenant_id, idempotency_key, request_fingerprint, job_status) "
+                        "VALUES (:t, :k, :fp, 'queued') "
+                        "ON CONFLICT (tenant_id, idempotency_key) DO NOTHING "
+                        "RETURNING job_id"
+                    ),
+                    {"t": tenant_id, "k": idempotency_key, "fp": fingerprint},
+                )
+            ).first()
 
-        if existing is not None:
-            decision = classify_idempotency(existing.request_fingerprint, fingerprint)
-            if decision is IdempotencyDecision.RETURN_ORIGINAL:
-                response.status_code = 202
-                return {"job_id": str(existing.job_id), "idempotent_replay": True}
-            if decision is IdempotencyDecision.CONFLICT_409:
+            if inserted is None:
+                # The key already has a committed Job (this or a concurrent request won
+                # the race). Re-read its fingerprint and classify — NEVER assume replay.
+                existing = (
+                    await session.execute(
+                        text(
+                            "SELECT job_id, request_fingerprint FROM app.jobs "
+                            "WHERE tenant_id = :t AND idempotency_key = :k"
+                        ),
+                        {"t": tenant_id, "k": idempotency_key},
+                    )
+                ).first()
+                decision = classify_idempotency(
+                    existing.request_fingerprint if existing else None, fingerprint
+                )
+                if decision is IdempotencyDecision.RETURN_ORIGINAL:
+                    response.status_code = 202
+                    return {"job_id": str(existing.job_id), "idempotent_replay": True}
+                # Different fingerprint for the same key -> 409 (exact retry only).
                 raise HTTPException(
                     status_code=409,
                     detail="idempotency key reused for a different request",
                 )
 
-        # 2) Validate referenced Documents are verified AND owned by this tenant.
-        #    A wrong/unverified Document -> 422 and NO acceptance facts are written.
-        if body.document_ids:
-            verified = (
-                await session.execute(
-                    text(
-                        "SELECT count(*) FROM app.documents "
-                        "WHERE tenant_id = :t AND document_id = ANY(:ids) "
-                        "AND verified_at IS NOT NULL"
-                    ),
-                    {"t": tenant_id, "ids": body.document_ids},
-                )
-            ).scalar_one()
-            if verified != len(set(body.document_ids)):
+            # FRESH acceptance. Validate Documents INSIDE the same transaction so an
+            # invalid/wrong-tenant Document rolls the whole thing back -> Job=0/Outbox=0/link=0.
+            job_id = inserted.job_id
+            if not await _all_documents_verified_and_owned(
+                session, tenant_id, body.document_ids
+            ):
                 raise HTTPException(
                     status_code=422, detail="unverified or wrong-tenant document"
                 )
 
-        # 3) One SHORT transaction: queued Job + fingerprint + Document links + exactly
-        #    one dispatch Outbox intent. No Broker/Worker/Provider/Object-Storage call.
-        try:
-            async with session.begin():
-                job_id = (
-                    await session.execute(
-                        text(
-                            "INSERT INTO app.jobs (tenant_id, idempotency_key, "
-                            "request_fingerprint, job_status) "
-                            "VALUES (:t, :k, :fp, 'queued') RETURNING job_id"
-                        ),
-                        {"t": tenant_id, "k": body.idempotency_key, "fp": fingerprint},
-                    )
-                ).scalar_one()
-
-                for document_id in set(body.document_ids):
-                    await session.execute(
-                        text(
-                            "INSERT INTO app.job_documents (tenant_id, job_id, document_id) "
-                            "VALUES (:t, :j, :d)"
-                        ),
-                        {"t": tenant_id, "j": job_id, "d": document_id},
-                    )
-
+            # Job–Document links (dedup while preserving order; PK is (job_id, document_id)).
+            for document_id in dict.fromkeys(body.document_ids):
                 await session.execute(
                     text(
-                        "INSERT INTO app.outbox_events (job_id, event_type, payload) "
-                        "VALUES (:j, :etype, '{}'::jsonb)"
+                        "INSERT INTO app.job_documents (tenant_id, job_id, document_id) "
+                        "VALUES (:t, :j, :d)"
                     ),
-                    {"j": job_id, "etype": DISPATCH_EVENT_TYPE},
+                    {"t": tenant_id, "j": job_id, "d": document_id},
                 )
-        except IntegrityError:
-            # A concurrent same-key request won the UNIQUE(tenant_id, idempotency_key)
-            # race: return the already-committed Job instead of a second acceptance.
-            row = (
-                await session.execute(
-                    text(
-                        "SELECT job_id FROM app.jobs "
-                        "WHERE tenant_id = :t AND idempotency_key = :k"
-                    ),
-                    {"t": tenant_id, "k": body.idempotency_key},
-                )
-            ).first()
-            if row is None:
-                raise
-            response.status_code = 202
-            return {"job_id": str(row.job_id), "idempotent_replay": True}
+
+            # Exactly one dispatch Outbox intent (0008 partial unique index enforces one).
+            await session.execute(
+                text(
+                    "INSERT INTO app.outbox_events (job_id, event_type, payload) "
+                    "VALUES (:j, :etype, '{}'::jsonb)"
+                ),
+                {"j": job_id, "etype": DISPATCH_EVENT_TYPE},
+            )
 
     return {"job_id": str(job_id), "idempotent_replay": False}
 

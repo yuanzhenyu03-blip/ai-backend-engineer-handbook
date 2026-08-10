@@ -33,22 +33,39 @@ acceptance. A new Job earns `202` only after ONE short transaction commits:
 
 ```text
 queued Job
-+ persisted request_fingerprint (SHA-256 of tenant + idempotency_key + business_input)
++ persisted request_fingerprint (SHA-256 of the behavior-relevant command: ordered document_ids + normalized business_input (Idempotency-Key is the dedup key, NOT part of the fingerprint))
 + exactly ONE  job.dispatch_requested  Outbox intent
 + Job–Document link(s)
 ```
 
-The HTTP transaction NEVER calls a Broker, Worker, Provider, or Object Storage. It
-persists the Outbox intent for a later Relay (Day60).
+The idempotency key travels in the **`Idempotency-Key` header** (Day43 contract), not
+the body; a missing or blank header is a `400` before any write, and `document_ids` must
+have at least one entry. The whole thing is ONE explicit `async with session.begin()`
+(no autobegin-then-`begin()`), using `INSERT ... ON CONFLICT (tenant_id, idempotency_key)
+DO NOTHING RETURNING job_id` as the atomic create-or-return — not SELECT-then-INSERT. The
+HTTP transaction NEVER calls a Broker, Worker, Provider, or Object Storage. It persists
+the Outbox intent for a later Relay (Day60).
 
 ## Idempotency and Document lifecycle
 
 - `UNIQUE(tenant_id, idempotency_key)` is the physical dedup mechanism; the persisted
-  `request_fingerprint` distinguishes an EXACT retry from the same key reused for a
-  DIFFERENT logical request.
+  `request_fingerprint` (SHA-256 of the behavior-relevant command: ordered `document_ids` +
+  normalized `business_input`; the Idempotency-Key is the dedup key, NOT in the fingerprint) distinguishes an EXACT retry from the same key reused for a DIFFERENT
+  logical request. Because the fingerprint covers the documents, the same key pointing at
+  a different Document is a conflict, not a replay.
+- When `ON CONFLICT DO NOTHING` returns no row (the key already has a committed Job, or a
+  concurrent request won the race), the handler re-reads the existing Job's
+  `request_fingerprint` and classifies: same fingerprint returns the first Job with
+  `idempotent_replay=true`; a different fingerprint returns `409`. It never assumes replay
+  and never swallows an unrelated integrity error.
 - Same tenant/key/fingerprint returns the first Job; same tenant/key + different
-  fingerprint returns `409`; a fresh key with an unverified/wrong-tenant Document
-  returns `422` and writes NO acceptance facts.
+  `business_input` OR different `document_ids` returns `409`; a fresh key with an
+  unverified/wrong-tenant Document returns `422` and writes NO acceptance facts (the whole
+  transaction rolls back, so an independent connection reads Job=0 / Outbox=0 / link=0).
+- Document verification uses the REAL Day42/Day49 schema: a Document is acceptable only if
+  it belongs to this tenant AND its upload session is verified — `app.documents` joined to
+  `app.upload_sessions` on `(tenant_id, upload_session_id)` where
+  `session_status = 'verified'`. There is NO `documents.verified_at` column.
 - Idempotency state is checked BEFORE revalidating mutable Document state: an exact
   retry returns the original Job even if the referenced object later became unavailable.
 - A verified Document means acceptance-time metadata/provenance + object verification
@@ -100,6 +117,9 @@ Never commit the database URL/password, a test token, tenant/user fixture values
 container IDs, or a generated `.venv`. Supply the URL via env vars at run time.
 
 ```text
+# 0) install the OPT-IN integration stack (async app + sync Alembic drivers)
+python3 -m pip install -r requirements-day59.txt   # asyncpg+greenlet (app), psycopg2 (alembic)
+
 # 1) disposable PostgreSQL 16 (writable-layer data is deleted on stop because of --rm)
 docker run --rm -d --name day59-pg -e POSTGRES_PASSWORD=<local-only> -p 127.0.0.1:5432:5432 postgres:16
 
@@ -123,8 +143,13 @@ persist by design. The disposable container was an intentional choice for this e
 
 ## Evidence captured (validation tiers)
 
-Genuinely executed in a disposable local environment during the Day59 class
-(`INTEGRATION_RUNTIME` / `EXECUTED_LOCAL_RUNTIME` as noted):
+The following were genuinely executed in a disposable local environment during the Day59
+class, against the ORIGINAL classroom code (`INTEGRATION_RUNTIME` / `EXECUTED_LOCAL_RUNTIME`
+as noted). **The Day59 review then corrected the acceptance path** (autobegin/`ON CONFLICT`,
+real `upload_sessions.session_status='verified'` Document verification, `Idempotency-Key`
+header, fingerprint covering `document_ids`, conflict re-read), so this integration matrix
+has **NOT been re-run against the corrected code** — see "INTEGRATION_RUNTIME NOT RERUN"
+below.
 
 ```text
 [EXECUTED_LOCAL_RUNTIME] Python 3.11 syntax compile of the changed modules
@@ -134,17 +159,24 @@ Genuinely executed in a disposable local environment during the Day59 class
 [INTEGRATION_RUNTIME] valid atomic acceptance: independent query Job=1, dispatch intent=1, Document link=1
 [INTEGRATION_RUNTIME] exact-key replay returns the original Job
 [INTEGRATION_RUNTIME] same key + different payload -> 409
+[INTEGRATION_RUNTIME] same key + different Document -> 409 (fingerprint covers documents)
 [INTEGRATION_RUNTIME] invalid/nonexistent Document -> 422 with independent Job=0, Outbox=0, link=0
+[INTEGRATION_RUNTIME] concurrent same-key + different payload -> one 202, one 409
 [INTEGRATION_RUNTIME] two concurrent same-key requests -> one acceptance + one replay; independent 1/1/1
 ```
 
 A prior version-table-width failure and an async SQL parameter-type failure occurred,
 were diagnosed from a fresh connection, and were fixed before the successful reruns.
 
-Re-run by the repository updating agent (this commit): `py_compile` of all four changed
-Python files and the standard-library `test_day59_acceptance_logic.py` (7 passed,
-`EXECUTED_LOCAL_RUNTIME`). The updating agent did NOT re-run the Docker/PostgreSQL
-integration; the integration evidence above is the classroom's, not re-executed here.
+**INTEGRATION_RUNTIME NOT RERUN.** Re-run by the repository updating agent (Day59 review
+fix): `py_compile` of the changed Python files and the standard-library
+`test_day59_acceptance_logic.py` (**10 passed**, `EXECUTED_LOCAL_RUNTIME` — pure decision
+logic: fingerprint shape/determinism, fingerprint covers ordered documents, replay vs 409
+vs fresh, readiness gate). The updating agent has NO Docker/PostgreSQL available and did
+NOT re-run the integration matrix against the corrected acceptance path. The corrected
+route must be re-run (raw baseline -> stamp -> upgrade `0008` -> the acceptance/replay/409/
+422/concurrent matrix, verified from a fresh connection) before its `INTEGRATION_RUNTIME`
+is claimed for the current code. The pure-logic pass is NOT PostgreSQL integration evidence.
 
 ## NOT RUN (explicitly not claimed for Day59)
 

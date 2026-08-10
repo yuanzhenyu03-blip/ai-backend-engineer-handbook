@@ -4,22 +4,30 @@
 #
 # Two clearly separated scopes:
 #
-# 1) EXECUTED_LOCAL_RUNTIME unit tests (no database, no Docker) — needs only pytest:
+# 1) EXECUTED_LOCAL_RUNTIME unit tests (no database, no Docker) — needs only pytest.
+#    `py_compile` does not execute imports, so it works without the runtime stack:
 #      cd projects/ai-backend-data-layer/api
 #      python3 -m pip install pytest==7.4.3
 #      python3 -m py_compile day59_acceptance_logic.py day59_runtime_app.py \
+#          test_day59_acceptance_logic.py \
 #          day48_alembic/versions/0008_day59_acceptance.py day48_alembic/env.py
 #      python3 -m pytest -q test_day59_acceptance_logic.py
 #
 # 2) INTEGRATION_RUNTIME (OPT-IN; a disposable local PostgreSQL, e.g. a `--rm` Docker
-#    container) — needs the full runtime stack below. See the Day59 design/runbook for
-#    the exact raw-baseline -> Alembic stamp -> upgrade -> fresh-connection steps. The
-#    disposable database URL/credentials are supplied via env vars at run time and are
-#    NEVER committed to the repository.
+#    container) — needs the FULL runtime stack below. Driver split (matches the runbook):
+#      * the FastAPI app uses an ASYNC URL `postgresql+asyncpg://...` -> asyncpg + greenlet
+#        (SQLAlchemy's async bridge requires greenlet).
+#      * Alembic (`day48_alembic/env.py` run_migrations_online) uses a SYNC URL
+#        `postgresql://...` via `DAY48_ALEMBIC_DATABASE_URL` -> the psycopg2 driver.
+#    See the Day59 design/runbook for the exact raw-baseline -> stamp -> upgrade ->
+#    fresh-connection steps. The disposable database URL/credentials are supplied via env
+#    vars at run time and are NEVER committed to the repository.
 fastapi==0.110.0
 uvicorn==0.29.0
 sqlalchemy==2.0.29
 asyncpg==0.29.0
+greenlet==3.0.3
+psycopg2-binary==2.9.9
 alembic==1.13.1
 pydantic==2.5.0
 pytest==7.4.3

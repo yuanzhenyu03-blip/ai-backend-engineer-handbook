@@ -18,6 +18,15 @@ in the whole track that runs the Day43–Day58 API contract as **real local
 INTEGRATION_RUNTIME** — a real FastAPI/Uvicorn process, a real PostgreSQL, real Alembic
 migrations — rather than a deterministic in-process model.
 
+> Evidence honesty (Day59 review fix): the acceptance path was corrected after class
+> (single `session.begin()` + `INSERT ... ON CONFLICT` create-or-return; real
+> `upload_sessions.session_status='verified'` Document verification; the `Idempotency-Key`
+> header; a fingerprint that covers ordered `document_ids`; conflict re-read). The
+> repository updating agent re-ran only `py_compile` and the standard-library pure-logic
+> tests (**10 passed**, `EXECUTED_LOCAL_RUNTIME`). The real Uvicorn + PostgreSQL + Alembic
+> **INTEGRATION_RUNTIME for the corrected code was NOT re-run** by the updating agent and
+> is not claimed as verified for the current code — see the design/runbook.
+
 ---
 
 ## 2. Learning Objectives
@@ -99,7 +108,7 @@ Acceptance boundary  ->  fresh-connection evidence  ->  real migration diagnosis
               ==  queued Job + request_fingerprint + one job.dispatch_requested Outbox intent + Document link(s)
 
 A log / a Session / an HTTP response  !=  proof of acceptance
-Missing/визible signal                !=  durable fact
+Missing/visible signal                !=  durable fact
 ```
 
 Acceptance is a committed database fact you can re-read from another connection — nothing
@@ -191,8 +200,11 @@ identity; gave **"unique(idempotency key, tenant_id)"** as the mechanism.
 Tech Lead Review: The unique constraint is the correct **mechanism**. Refined: the
 durable **`job_id`** is the accepted fact; the idempotency key is the **command
 deduplication key**. `UNIQUE(tenant_id, idempotency_key)` physically dedups; the
-persisted **`request_fingerprint`** (SHA-256 of tenant + key + normalized input)
-distinguishes an exact retry from the same key reused for a different logical request.
+persisted **`request_fingerprint`** (SHA-256 of the behavior-relevant command:
+ordered `document_ids` + normalized `business_input`; the Idempotency-Key is the dedup
+key and is NOT part of the fingerprint — Day50 contract) distinguishes an exact retry from the same key reused for a
+different logical request — because it covers the documents, the same key pointing at a
+different Document is a `409`, not a replay.
 Same tenant/key/fingerprint → return the first Job (student correctly said the same key
 should return the first Job). Same key, different fingerprint → `409`.
 
@@ -444,7 +456,7 @@ success and corrupts the audit trail.
 202 Accepted        = one committed transaction (Job + fingerprint + one dispatch Outbox intent + Document links)
 proof of acceptance = read committed state from a NEW connection, never a live Session
 job_id              = the durable accepted fact; idempotency_key = the command dedup key
-request_fingerprint = SHA-256(tenant + key + input); exact retry -> original Job; different -> 409
+request_fingerprint = SHA-256(ordered document_ids + business_input); Idempotency-Key = dedup key, NOT in fingerprint (Day50); exact retry -> original Job; different payload OR document -> 409
 readiness           = DB reachable AND schema at the expected Alembic revision (else 503)
 migrations          = raw baseline -> stamp -> controlled upgrade; diagnose from committed state
 0008                = additive expand; API rollback safer than immediate downgrade
@@ -476,7 +488,7 @@ Assistant-assisted final Chinese mental model (confirmed by the student):
 Day59 的“接受”只有一个真相：一次提交成功、并且能从一个新连接独立读到的事务
 （queued Job + request_fingerprint + 恰好一个 job.dispatch_requested Outbox intent + Document 链接）。
 202、日志、内存 Session、reservation 都不是接受的证据。
-job_id 才是被接受的事实，idempotency_key 只是命令去重键，request_fingerprint 用来区分
+job_id 才是被接受的事实，idempotency_key（走 Idempotency-Key header）只是命令去重键，request_fingerprint（覆盖 tenant + key + 有序 document_ids + business_input）用来区分
 “完全相同的重试”和“同一个 key 换了不同请求”。
 readiness = 数据库可达 且 schema 处于期望的 Alembic revision，否则 503（不是 500）。
 迁移顺序是：原始 Day42 baseline -> Alembic stamp -> 受控 upgrade，失败要从新连接查真实 revision。

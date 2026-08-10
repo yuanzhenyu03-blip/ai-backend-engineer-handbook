@@ -9,6 +9,57 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.138 — Day59 review fix: acceptance-boundary correctness (P0/P1)
+
+Date: 2026-08-10
+
+Day: Day59 (Phase 5). Blocking review fixes to the FastAPI + PostgreSQL acceptance boundary; no expansion
+into Day60/Day61 (no Redis, Celery, Worker, Object Storage, Provider, OpenTelemetry, real JWT/JWKS, or
+production secret manager). Protected files unchanged.
+
+### Fixed
+
+- **P0 — AsyncSession autobegin then `session.begin()`.** The route ran the idempotency/Document SELECTs first
+  (opening an implicit transaction) and then entered `async with session.begin()`, which would raise on the
+  fresh-Job path. The acceptance path is now ONE explicit short `session.begin()` using
+  `INSERT INTO app.jobs ... ON CONFLICT (tenant_id, idempotency_key) DO NOTHING RETURNING job_id` as the atomic
+  create-or-return (Day43 contract, not SELECT-then-INSERT); on the fresh path it validates Documents and
+  writes links + one Outbox intent, and on conflict it re-reads the existing Job's fingerprint.
+- **P0 — real Document verification schema.** `app.documents` has no `verified_at`. Verification now joins
+  `app.documents` to `app.upload_sessions` on `(tenant_id, upload_session_id)` where
+  `session_status = 'verified'`; a wrong-tenant/unverified Document returns `422` and the whole transaction
+  rolls back, so an independent connection reads Job=0 / dispatch Outbox=0 / link=0.
+- **P1 — fingerprint covers the complete logical command.** `request_fingerprint` now covers the ordered
+  `document_ids` (order preserved — no `set()`) plus `business_input`, so the same key pointing at a different
+  Document is a `409`, not a replay. Per the existing Day50 contract the client-supplied `Idempotency-Key` is
+  the dedup key and is NOT part of the fingerprint.
+- **P1 — restored HTTP contract.** The idempotency key is taken from the `Idempotency-Key` header (Day43), not
+  the body; a missing or blank header returns `400` before any write; `document_ids` must be non-empty; the
+  test-only tenant seam stays strict (explicit integration-test mode + loopback DB only; production still
+  refuses a client tenant header).
+- **P1 — concurrency conflict semantics.** A concurrent same-key request is handled by `ON CONFLICT DO NOTHING`
+  and a re-read of `job_id` + `request_fingerprint`: same fingerprint returns the original Job with
+  `idempotent_replay=true`, a different fingerprint returns `409`; an unrelated integrity error is not
+  swallowed.
+- **Dependencies / reproducibility.** `requirements-day59.txt` now adds `greenlet` (SQLAlchemy async bridge)
+  and `psycopg2-binary` (the sync driver the runbook's Alembic `postgresql://` URL needs), matching the
+  runbook; scopes (stdlib tests vs opt-in Docker/PostgreSQL) are reconciled. Fixed the lesson typo
+  `Missing/визible signal` → `Missing/visible signal`. No real URL, password, token, tenant fixture, container
+  id, or `.venv` is committed.
+
+### Tests / evidence
+
+- `test_day59_acceptance_logic.py` expanded and re-run by the updating agent: **10 passed**
+  (`EXECUTED_LOCAL_RUNTIME` pure decision logic — fingerprint shape/determinism, fingerprint covers ordered
+  documents and excludes the key, replay vs 409 vs fresh, readiness gate). `py_compile` passes on all changed
+  Python.
+- **INTEGRATION_RUNTIME NOT RERUN.** The original in-class integration ran against the pre-fix code; the
+  corrected acceptance path has NOT been re-run against real PostgreSQL (the updating agent has no
+  Docker/PostgreSQL). Lesson, runbook, project README, and status files now say so and do not claim the
+  corrected code is integration-verified. A pure-logic pass is not PostgreSQL integration evidence.
+
+---
+
 ## v0.1.137 — Day59: Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5 opens)
 
 Date: 2026-08-10

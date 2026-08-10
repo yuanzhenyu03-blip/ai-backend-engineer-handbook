@@ -6,8 +6,8 @@ so the rules can be unit-tested WITHOUT a database, a web server, or Docker.
 
 Evidence tier: functions here are ``EXECUTED_LOCAL_RUNTIME`` when driven by
 ``test_day59_acceptance_logic.py``. They do NOT touch PostgreSQL and therefore prove
-NOTHING about real UNIQUE/partial-index/transaction behavior — that is
-``INTEGRATION_RUNTIME`` and belongs to a real Alembic + PostgreSQL run
+NOTHING about real UNIQUE / partial-index / ``ON CONFLICT`` / transaction behavior —
+that is ``INTEGRATION_RUNTIME`` and belongs to a real Alembic + PostgreSQL run
 (see the Day59 design/runbook).
 
 No secrets, URLs, passwords, tokens, or tenant fixture values live in this module.
@@ -20,29 +20,38 @@ import json
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 # SHA-256 hex shape; mirrors the 0008 migration CHECK constraint exactly.
 FINGERPRINT_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 def compute_request_fingerprint(
-    tenant_id: str, idempotency_key: str, business_input: Mapping[str, Any]
+    document_ids: Sequence[str],
+    business_input: Mapping[str, Any],
 ) -> str:
-    """Deterministic SHA-256 hex of the canonical acceptance request.
+    """Deterministic SHA-256 hex of the BEHAVIOR-RELEVANT logical command.
 
-    The fingerprint distinguishes an EXACT retry (same tenant + key + logical input)
-    from the same idempotency key reused for a DIFFERENT logical request. It is a
-    stable digest, NOT a secret and NOT a security token. ``business_input`` is
-    canonicalized with sorted keys so key ordering never changes the digest.
+    Per the Day50 contract, the ``Idempotency-Key`` is the client-supplied command
+    dedup key and is NOT part of the fingerprint; the fingerprint is computed
+    server-side from the behavior-relevant fields — here the referenced
+    ``document_ids`` plus the ``business_input`` (e.g. task_type, max_tokens). Because
+    it covers the documents, reusing the same key with a DIFFERENT Document is a 409,
+    not a replay. The fingerprint is only ever compared within one
+    ``(tenant_id, idempotency_key)`` row, so tenant/key scoping is the lookup, not the
+    digest.
+
+    ``document_ids`` ORDER IS PRESERVED (kept as an ordered list, never a ``set``)
+    because document order can carry business meaning. ``business_input`` is
+    canonicalized with sorted object keys so key ordering never changes the digest.
+    This is a stable digest, NOT a secret and NOT a security token.
     """
     canonical = json.dumps(
         {
-            "tenant_id": tenant_id,
-            "idempotency_key": idempotency_key,
+            "document_ids": list(document_ids),  # ordered; NOT set()
             "business_input": business_input,
         },
-        sort_keys=True,
+        sort_keys=True,  # sorts OBJECT keys only; array order is preserved
         separators=(",", ":"),
         ensure_ascii=True,
     )
@@ -62,8 +71,11 @@ def classify_idempotency(
 
     Idempotency state is checked BEFORE revalidating mutable Document state: an exact
     retry returns the original accepted Job even if the referenced object later became
-    unavailable. ``existing_fingerprint is None`` means no prior Job for this
-    (tenant, idempotency_key) — a fresh acceptance.
+    unavailable. ``existing_fingerprint is None`` means no committed Job yet for this
+    ``(tenant_id, idempotency_key)`` — a fresh acceptance. This function is also the
+    CONFLICT resolver after an ``INSERT ... ON CONFLICT DO NOTHING`` returns no row:
+    re-read the existing Job's fingerprint and classify (same -> replay, different ->
+    409), never swallowing an unrelated integrity error.
     """
     if existing_fingerprint is None:
         return IdempotencyDecision.ACCEPT_NEW
