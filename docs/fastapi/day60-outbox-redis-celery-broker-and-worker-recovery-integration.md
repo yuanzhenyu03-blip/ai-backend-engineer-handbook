@@ -17,11 +17,15 @@ Phase 5 Production Integration Gate continues. Day60 is the FIRST real consumer 
 path with at-least-once delivery, idempotent execution, Worker-loss recovery, and bounded
 repair.
 
-> Evidence honesty: the Relay/Worker/recovery integration was executed in a disposable
-> local environment during class. The repository updating agent re-ran only `py_compile`
-> and the standard-library pure-logic tests (**11 passed**, `EXECUTED_LOCAL_RUNTIME`); the
-> real Docker/PostgreSQL/Redis/Celery **INTEGRATION_RUNTIME was NOT re-run** and is not
-> claimed as verified for the current code — see the design/runbook.
+> Evidence honesty (Day60 review fix): the repository now includes a REAL
+> Relay/Worker/recovery/repair runtime (`day60_delivery_runtime.py`) plus the
+> `0010_day60_runtime_schema` migration it needs. The repository updating agent re-ran only
+> `py_compile` and the standard-library pure-logic tests (**18 passed**,
+> `EXECUTED_LOCAL_RUNTIME`, including the recovery-sweep negatives and the release-filtered
+> repair). The updating agent has NO Docker/PostgreSQL/Redis, so the real runtime has NOT
+> been executed against a real database + broker — **INTEGRATION_RUNTIME NOT RERUN**; no
+> integration result is claimed for the current code. See the design/runbook's Required
+> integration rerun matrix.
 
 ---
 

@@ -9,6 +9,68 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.141 — Day60 review fix: real Relay/Worker/recovery runtime + decision/state/repair fixes
+
+Date: 2026-08-11
+
+Day: Day60 (Phase 5). Closes the Day60 review: the repository lacked a real Relay/Worker
+runtime (only pure decision functions) and had state/version/lease gaps. No expansion into
+Day61 (no real Provider HTTP, Object Storage Result Artifact, or OpenTelemetry). Published
+revisions 0001–0009 and protected files are unchanged.
+
+### Fixed
+
+- **P0 — real Day60 runtime.** Added `projects/ai-backend-data-layer/api/day60_delivery_runtime.py`
+  (SQLAlchemy Core + a Celery-injected publish): `OutboxRelay` claims an unpublished Outbox row with
+  `FOR UPDATE SKIP LOCKED` + owner/token/expiry, publishes OUTSIDE the DB lock, then guarded-checkpoints
+  `published_at` under the fencing token; `run_worker_attempt` takes authority with a guarded
+  `UPDATE app.jobs SET job_status='running' ... WHERE job_status='queued' RETURNING`, persists an
+  Attempt + Event, and completes ONLY under the matching lease token (a stale, taken-over Worker cannot
+  commit); `recovery_sweep` recovers ONLY a legitimately expired `running` Job (external evidence ->
+  `pending_reconciliation`, no second Provider call; else one transaction `running -> queued` + a recovery
+  audit Event + EXACTLY ONE `job.redispatch_requested` Outbox intent); `repair_early_ack` re-verifies a
+  bounded, release-filtered set in one transaction, writes an immutable `job_repair_history` row LINKED to
+  the ONE redispatch intent it creates, and NEVER calls `.delay()`/`apply_async()`.
+- **P1 — decision-function state gaps.** `classify_recovery_sweep` now returns `NO_OP` for a `queued` Job,
+  for terminal states (`succeeded`/`failed`/`cancelled`), and for a `running` Job whose lease is still
+  active; only a legitimately expired `running` Job is recovered/reconciled. `classify_delivery` adds a
+  terminal `NO_OP`. Counterexample tests added.
+- **P1 — repair release filter.** `is_repair_eligible(candidate, affected_release_version)` now requires the
+  candidate's `actual_release_version` to equal the explicitly-passed `affected_release_version` (a job from
+  a different release is rejected even if every other condition holds); the previously unused
+  `bad_release_version` field is gone. A "different release rejected" test was added; all other conditions
+  (time window, `queued`, original dispatch checkpointed, no attempts/evidence, no conflict,
+  deadline/contract/budget, not-already-applied) are retained.
+- **P1 — auditable repair↔intent link.** New forward-additive migration `0010_day60_runtime_schema` adds
+  `app.job_repair_history.redispatch_outbox_event_id` (uuid FK) + a UNIQUE constraint; with the existing
+  `repair_id` PRIMARY KEY this makes the invariant DATABASE-enforced (one repair fact + one redispatch
+  intent per `repair_id`). The concurrent/duplicate-repair proof is a Required integration rerun item
+  (NOT RERUN).
+- **P2 — unified lease boundary.** A single rule (`lease_active`/`lease_expired`): `lease_expiry > now` is
+  active, `lease_expiry <= now` is expired (so `== now` is expired). Both the Worker/delivery classifier
+  and the sweeper use it; a `lease_expiry == now` test was added.
+
+### Schema
+
+- `0010_day60_runtime_schema` (forward-additive; 0001–0009 unchanged): `app.jobs` gains nullable
+  `lease_owner`, `lease_expiry`, `provider_dispatch_started_at`, `release_version`; the status CHECK is
+  widened to allow `pending_reconciliation` (a superset); `app.job_repair_history` gains
+  `redispatch_outbox_event_id` + UNIQUE. INSTRUCTIONAL local migration — NOT a production zero-downtime
+  plan. The Day60 app-factory now requires `0010_day60_runtime_schema`.
+
+### Tests / evidence
+
+- `test_day60_delivery_recovery_logic.py` expanded and re-run by the updating agent: **18 passed**
+  (`EXECUTED_LOCAL_RUNTIME` pure decision logic). `py_compile` passes on all changed Python (runtime, logic,
+  app-factory, migrations, tests). Pure-logic tests prove the RULES only — NOT PostgreSQL/broker behavior.
+- **INTEGRATION_RUNTIME NOT RERUN.** The updating agent has no Docker/PostgreSQL/Redis/Celery; the real
+  runtime was NOT executed against a real database + broker. The earlier "executed in class" integration
+  wording was corrected (the committed repo had no runtime module, so no integration was performed), and the
+  design/runbook now carries a Required integration rerun matrix. No secrets, database/broker URL, password,
+  token, fixture id, container id, or `.venv` is committed.
+
+---
+
 ## v0.1.140 — Day60: Outbox, Redis/Celery Broker and Worker Recovery Integration
 
 Date: 2026-08-10

@@ -3,9 +3,10 @@
 Engineering artifact / runbook for the Day60 Relay + Worker + recovery boundary. It records
 the boundaries, the additive `0009` migration, the disposable local run, the evidence
 actually captured, and the explicit NOT RUN limits. It is the entry point for
+`day60_delivery_runtime.py` (the REAL Relay/Worker/recovery/repair runtime),
 `day60_delivery_recovery_logic.py` (pure decision core), `day60_runtime_app.py` (readiness
 app-factory), `day60_celery_config.py` (delivery settings), and the
-`0009_day60_delivery_runtime` migration.
+`0009_day60_delivery_runtime` + `0010_day60_runtime_schema` migrations.
 
 ## What Day60 proves (and does not)
 
@@ -91,7 +92,7 @@ Eligibility predicate (all must hold): from the bad release, within the time win
 `queued`, original dispatch Outbox checkpointed, NO attempts/external evidence, no
 conflict, valid deadline/contract/budget, and the repair not already applied.
 
-## The `0009_day60_delivery_runtime` migration
+## The `0009_day60_delivery_runtime` + `0010_day60_runtime_schema` migrations
 
 Additive/expand only (published revisions 0001–0008 unchanged):
 
@@ -101,7 +102,7 @@ Additive/expand only (published revisions 0001–0008 unchanged):
   `created_at`) records immutable recovery/repair facts and enforces idempotent repair.
 
 The Day59 readiness app pinned exactly `0008` and correctly returns 503 after `0009`. The
-Day60 app requires `0009` via an EXPLICIT `create_app(expected_revision=...)` factory
+`0010_day60_runtime_schema` (this review) adds, forward-additively, the columns the real runtime needs: `app.jobs.lease_owner` / `lease_expiry` / `provider_dispatch_started_at` / `release_version`, a WIDENED status CHECK that also allows `pending_reconciliation`, and `app.job_repair_history.redispatch_outbox_event_id` (UNIQUE) linking a repair to its ONE redispatch intent. The Day60 app requires `0010_day60_runtime_schema` via an EXPLICIT `create_app(expected_revision=...)` factory
 parameter (not hidden mutable module state). This migration is INSTRUCTIONAL — NOT a
 production zero-downtime plan.
 
@@ -121,7 +122,7 @@ docker run --rm -d --name day60-redis -p 127.0.0.1:6379:6379 redis:7
 # 2) raw Day42 baseline -> Alembic stamp -> controlled upgrade to 0009
 export DAY48_ALEMBIC_DATABASE_URL='postgresql://<user>:<local-only>@127.0.0.1:5432/<db>'
 alembic -c day48_alembic/alembic.ini stamp 0001_baseline_day42
-alembic -c day48_alembic/alembic.ini upgrade 0009_day60_delivery_runtime
+alembic -c day48_alembic/alembic.ini upgrade 0010_day60_runtime_schema
 
 # 3) readiness gate expects 0009
 export DAY60_DATABASE_URL='postgresql+asyncpg://<user>:<local-only>@127.0.0.1:5432/<db>'
@@ -136,28 +137,40 @@ databases persist by design. Disposable containers were an intentional choice he
 
 ## Evidence captured (validation tiers)
 
-Genuinely executed in a disposable local environment during the Day60 class
-(`INTEGRATION_RUNTIME` / `EXECUTED_LOCAL_RUNTIME` as noted), against the ORIGINAL classroom
-code:
+The Day60 review added a REAL runtime (`day60_delivery_runtime.py`: `OutboxRelay`,
+`run_worker_attempt`, `recovery_sweep`, `repair_early_ack`) plus the `0010_day60_runtime_schema`
+migration it needs (lease/marker/`release_version` columns, a widened status CHECK adding
+`pending_reconciliation`, and a repair→Outbox link with a UNIQUE constraint).
+
+What the updating agent ACTUALLY executed (`EXECUTED_LOCAL_RUNTIME`):
 
 ```text
-[EXECUTED_LOCAL_RUNTIME] Python syntax compile of the changed modules
-[INTEGRATION_RUNTIME] fresh database facts distinguished from concept/static checks
-[INTEGRATION_RUNTIME] real Broker queue lifecycle (Redis/Celery)
-[INTEGRATION_RUNTIME] Relay crash window -> unpublished intent retried (at-least-once)
-[INTEGRATION_RUNTIME] Worker-kill redelivery
-[INTEGRATION_RUNTIME] recovery sweep (expired lease, no evidence) -> running->queued + one redispatch intent
-[INTEGRATION_RUNTIME] concurrent repair -> exactly one repair applied + one redispatch intent
-[INTEGRATION_RUNTIME] final Job/Attempt/Event/Outbox fact set consistent from a fresh connection
+[EXECUTED_LOCAL_RUNTIME] py_compile of every changed Python module (runtime + logic + migrations)
+[EXECUTED_LOCAL_RUNTIME] pytest test_day60_delivery_recovery_logic.py -> 18 passed (pure decision logic)
 ```
 
-**INTEGRATION_RUNTIME NOT RERUN by the updating agent.** The repository updating agent
-re-ran only `py_compile` of the changed Python files and the standard-library
-`test_day60_delivery_recovery_logic.py` (**11 passed**, `EXECUTED_LOCAL_RUNTIME` — pure
-decision logic: relay ordering, guarded-claim outcome, duplicate/redelivery/expiry
-classification, recovery-sweep result, repair eligibility + idempotent id, readiness gate).
-The updating agent has NO Docker/PostgreSQL/Redis available and did NOT re-run the
-integration matrix. A pure-logic pass is NOT integration evidence.
+The pure-logic suite proves the RULES only (relay ordering; guarded-claim outcome;
+duplicate/redelivery/expiry classification; the recovery-sweep NEGATIVES — queued/terminal/
+active-lease are never swept; the shared `> now` active / `<= now` expired lease boundary;
+release-filtered repair eligibility + idempotent id). A pure-logic pass is NOT integration
+evidence.
+
+**INTEGRATION_RUNTIME NOT RERUN.** The repository updating agent has NO Docker /
+PostgreSQL / Redis / Celery available, so the real Relay/Worker/recovery/repair runtime has
+NOT been executed against a real database + broker in this repository state. No integration
+result is claimed. The following matrix MUST be executed against the real runtime (from a
+fresh database connection) before any `INTEGRATION_RUNTIME` evidence is claimed:
+
+Required integration rerun matrix (NOT RERUN):
+
+```text
+[NOT RERUN] raw Day42 baseline -> Alembic stamp -> upgrade through 0010_day60_runtime_schema; /readyz revision gate
+[NOT RERUN] Relay crash AFTER publish, BEFORE checkpoint -> message redelivered, but the Job has exactly ONE valid guarded completion
+[NOT RERUN] Worker killed AFTER claim -> redelivery does NOT double-execute; after lease expiry the sweeper writes ONE redispatch intent and a NEW Attempt completes the Job
+[NOT RERUN] expired running + external-dispatch evidence -> job_status='pending_reconciliation', NO second Provider call
+[NOT RERUN] concurrent/duplicate early-ACK repair for the same repair_id -> exactly ONE job_repair_history row + ONE linked redispatch Outbox intent
+[NOT RERUN] a queued Job and terminal Jobs (succeeded/failed/cancelled) are NEVER redispatched by the sweeper
+```
 
 ## NOT RUN (explicitly not claimed for Day60)
 

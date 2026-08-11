@@ -1,14 +1,16 @@
 """Day60 — pure delivery/recovery decision logic (standard library only).
 
-The DECISION CORE of the Day60 Relay + Worker + recovery boundary, separated from any
-FastAPI/SQLAlchemy/Celery runtime so the rules can be unit-tested WITHOUT a database, a
-broker, or Docker. Every function here is deterministic control flow over plain values.
+The DECISION CORE of the Day60 Relay + Worker + recovery boundary, separated from the
+real runtime (``day60_delivery_runtime.py``) so the RULES can be unit-tested WITHOUT a
+database, a broker, or Docker. Every function here is deterministic control flow over
+plain values.
 
 Evidence tier: functions here are ``EXECUTED_LOCAL_RUNTIME`` when driven by
 ``test_day60_delivery_recovery_logic.py``. They prove the RULES only. They do NOT prove
 real PostgreSQL ``FOR UPDATE SKIP LOCKED`` / guarded ``UPDATE ... RETURNING`` /
 transaction / isolation, a real Redis/Celery broker, ACK timing, redelivery, or
-Worker-kill — that is ``INTEGRATION_RUNTIME`` (see the Day60 design/runbook).
+Worker-kill — that is ``INTEGRATION_RUNTIME`` (the runtime lives in
+``day60_delivery_runtime.py``; see the design/runbook for its NOT-RERUN status).
 
 No secrets, URLs, passwords, tokens, or fixture ids live in this module.
 """
@@ -21,6 +23,25 @@ from typing import Optional
 
 REDISPATCH_EVENT_TYPE = "job.redispatch_requested"
 DISPATCH_EVENT_TYPE = "job.dispatch_requested"
+RECOVERY_EVENT_TYPE = "job.recovery_requeued"
+
+# Terminal business states are never redispatched or swept.
+TERMINAL_STATUSES = frozenset({"succeeded", "failed", "cancelled"})
+
+
+# ---------------------------------------------------------------------------
+# Lease boundary — ONE rule shared by the Worker classifier and the sweeper.
+# ---------------------------------------------------------------------------
+def lease_active(lease_expiry_epoch: Optional[int], now_epoch: int) -> bool:
+    """A lease is ACTIVE only while ``lease_expiry > now`` (strictly greater). At exactly
+    ``lease_expiry == now`` the lease is EXPIRED. ``None`` means no lease -> not active."""
+    return lease_expiry_epoch is not None and lease_expiry_epoch > now_epoch
+
+
+def lease_expired(lease_expiry_epoch: Optional[int], now_epoch: int) -> bool:
+    """Exact complement of :func:`lease_active`: expired when ``lease_expiry <= now`` (so
+    ``== now`` is expired) or when there is no lease."""
+    return not lease_active(lease_expiry_epoch, now_epoch)
 
 
 # ---------------------------------------------------------------------------
@@ -66,76 +87,87 @@ def classify_guarded_claim(rows_updated: int) -> ClaimOutcome:
 
 
 # ---------------------------------------------------------------------------
-# 3) Duplicate / redelivery / expiry classification.
+# 3) Duplicate / redelivery / expiry classification (post-claim / duplicate branch).
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class LeaseView:
-    status: str                       # 'queued' | 'running' | terminal
+    status: str                       # 'queued' | 'running' | terminal | 'pending_reconciliation'
     lease_owner: Optional[str]
     lease_expiry_epoch: Optional[int]
     has_external_evidence: bool       # provider_request_id OR provider_dispatch_started_at
 
 
 class DeliveryDecision(str, Enum):
+    TERMINAL_NOOP = "terminal_noop"                    # already succeeded/failed/cancelled
     NOOP_HEALTHY_LEASE = "noop_healthy_lease"          # dup while lease credibly active
     DEFER_TO_RECOVERY_SWEEP = "defer_to_recovery_sweep"  # worker-loss redelivery before expiry
-    RECONCILE_ONLY = "reconcile_only"                  # expired + external evidence
-    SWEEP_REDISPATCH = "sweep_redispatch"              # expired + NO external evidence
+    RECONCILE_ONLY = "reconcile_only"                  # expired running + external evidence
+    SWEEP_REDISPATCH = "sweep_redispatch"              # expired running + NO external evidence
 
 
 def classify_delivery(now_epoch: int, this_worker: str, view: LeaseView) -> DeliveryDecision:
     """Decide what an incoming (possibly duplicate) delivery should do.
 
-    * A duplicate while the FIRST Worker holds a credibly active lease -> NOOP (no Provider
+    * A terminal Job (succeeded/failed/cancelled) -> TERMINAL_NOOP.
+    * A duplicate while THIS Worker holds a credibly active lease -> NOOP (no Provider
       call, no second claim).
-    * A redelivery arriving to a DIFFERENT worker while the lease is still unexpired
-      (worker-loss suspected) -> DEFER to the durable PostgreSQL recovery sweep, NOT a
-      Celery-retry execution authority.
-    * An EXPIRED lease is not a retry license: if an external call MAY have been sent
-      (evidence present) -> RECONCILE_ONLY (move to PENDING_RECONCILIATION, never a second
-      Provider call). With NO external evidence -> the sweeper may redispatch.
+    * A redelivery to a DIFFERENT worker while the lease is still active (worker-loss only
+      SUSPECTED) -> DEFER to the durable PostgreSQL recovery sweep.
+    * An EXPIRED ``running`` lease is not a retry license: external evidence ->
+      RECONCILE_ONLY (PENDING_RECONCILIATION, never a second Provider call); no evidence ->
+      the sweeper may redispatch.
     """
-    lease_active = (
-        view.status == "running"
-        and view.lease_owner is not None
-        and view.lease_expiry_epoch is not None
-        and view.lease_expiry_epoch >= now_epoch
-    )
-    if lease_active:
+    if view.status in TERMINAL_STATUSES:
+        return DeliveryDecision.TERMINAL_NOOP
+    if view.status == "running" and view.lease_owner is not None and lease_active(
+        view.lease_expiry_epoch, now_epoch
+    ):
         if view.lease_owner == this_worker:
             return DeliveryDecision.NOOP_HEALTHY_LEASE
-        # A different, still-valid owner: worker-loss is only SUSPECTED; do not seize.
         return DeliveryDecision.DEFER_TO_RECOVERY_SWEEP
-    # Lease not active (expired or absent):
-    if view.has_external_evidence:
-        return DeliveryDecision.RECONCILE_ONLY
-    return DeliveryDecision.SWEEP_REDISPATCH
+    # Not active. Only an EXPIRED running lease is a recovery/reconcile case.
+    if view.status == "running" and lease_expired(view.lease_expiry_epoch, now_epoch):
+        return (
+            DeliveryDecision.RECONCILE_ONLY
+            if view.has_external_evidence
+            else DeliveryDecision.SWEEP_REDISPATCH
+        )
+    # queued / pending_reconciliation / anything else -> the sweeper is NOT the authority.
+    return DeliveryDecision.DEFER_TO_RECOVERY_SWEEP
 
 
 # ---------------------------------------------------------------------------
-# 4) Expired-lease recovery sweep result (running -> queued + one redispatch intent).
+# 4) Expired-lease recovery sweep result — ONLY a legitimately expired running Job.
 # ---------------------------------------------------------------------------
 class SweepResult(str, Enum):
+    NO_OP = "no_op"                                    # not eligible (queued/terminal/active lease)
     RECONCILE_ONLY = "reconcile_only"                  # external evidence -> no requeue
     REQUEUED_WITH_REDISPATCH = "requeued_with_redispatch"  # atomic running->queued + 1 intent
 
 
 def classify_recovery_sweep(view: LeaseView, now_epoch: int) -> SweepResult:
-    """The durable sweeper handles an EXPIRED lease. With external evidence it is
-    RECONCILE_ONLY (PENDING_RECONCILIATION, no second call). Without it, it atomically
-    moves ``running -> queued``, records a recovery audit event, and writes EXACTLY ONE
-    new ``job.redispatch_requested`` Outbox intent for the Relay to deliver."""
-    expired = view.lease_expiry_epoch is None or view.lease_expiry_epoch < now_epoch
-    if not expired:
-        # Not the sweeper's job yet; the lease is still active.
-        return SweepResult.RECONCILE_ONLY if view.has_external_evidence else SweepResult.RECONCILE_ONLY
+    """The durable sweeper recovers ONLY a legitimately EXPIRED ``running`` Job.
+
+    * A ``queued`` Job is NEVER swept/redispatched (it is already awaiting delivery).
+    * A terminal Job (succeeded/failed/cancelled) is a terminal NO-OP.
+    * A ``running`` Job whose lease is still ACTIVE is not the sweeper's job yet.
+    * An EXPIRED ``running`` Job with external evidence -> RECONCILE_ONLY
+      (PENDING_RECONCILIATION, never a second Provider call).
+    * An EXPIRED ``running`` Job with NO external evidence -> atomically ``running ->
+      queued``, record a recovery audit Event, and write EXACTLY ONE new
+      ``job.redispatch_requested`` Outbox intent.
+    """
+    if view.status != "running":
+        return SweepResult.NO_OP
+    if lease_active(view.lease_expiry_epoch, now_epoch):
+        return SweepResult.NO_OP
     if view.has_external_evidence:
         return SweepResult.RECONCILE_ONLY
     return SweepResult.REQUEUED_WITH_REDISPATCH
 
 
 # ---------------------------------------------------------------------------
-# 5) Bounded early-ACK repair: idempotent id + eligibility predicate.
+# 5) Bounded early-ACK repair: idempotent id + eligibility predicate (release-filtered).
 # ---------------------------------------------------------------------------
 def repair_id(job_id: str, release_version: str, reason: str) -> str:
     """Deterministic idempotency key. Committing it to ``app.job_repair_history``
@@ -147,7 +179,7 @@ def repair_id(job_id: str, release_version: str, reason: str) -> str:
 
 @dataclass(frozen=True)
 class RepairCandidate:
-    bad_release_version: str
+    actual_release_version: str             # the candidate Job's REAL release/version
     within_time_window: bool
     status: str
     has_original_dispatch_checkpoint: bool  # the Day59 job.dispatch_requested was checkpointed
@@ -157,17 +189,22 @@ class RepairCandidate:
     repair_already_applied: bool
 
 
-def is_repair_eligible(c: RepairCandidate) -> bool:
-    """A bad early-ACK release is contained by rolling back the config FIRST; repair then
+def is_repair_eligible(c: RepairCandidate, affected_release_version: str) -> bool:
+    """Bounded early-ACK repair eligibility.
+
+    A bad early-ACK release is contained by rolling back the config FIRST; repair then
     selects a BOUNDED eligible set and re-verifies it inside the repair transaction. A Job
-    is eligible only if it is from the bad release AND in the time window AND still queued
-    AND its original dispatch Outbox was checkpointed AND it has NO attempts/external
-    evidence AND no conflict AND a valid deadline/contract/budget AND the repair was not
-    already applied. Repair writes a durable Outbox intent — never a direct Celery
-    ``.delay()`` (which publishes immediately but creates no transactional, replayable,
-    auditable business intent)."""
+    is eligible ONLY if its ACTUAL release matches the explicitly-passed
+    ``affected_release_version`` (a job from a DIFFERENT release is rejected even if every
+    other condition holds) AND it is in the time window AND still ``queued`` AND its
+    original dispatch Outbox was checkpointed AND it has NO attempts/external evidence AND
+    no conflict AND a valid deadline/contract/budget AND the repair was not already
+    applied. Repair writes a durable Outbox intent — never a direct Celery ``.delay()`` /
+    ``apply_async()``.
+    """
     return (
-        c.within_time_window
+        c.actual_release_version == affected_release_version
+        and c.within_time_window
         and c.status == "queued"
         and c.has_original_dispatch_checkpoint
         and not c.has_attempts_or_external_evidence
@@ -178,10 +215,9 @@ def is_repair_eligible(c: RepairCandidate) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# 6) Readiness revision gate (Day60 app-factory expects 0009).
+# 6) Readiness revision gate (Day60 app-factory expects the Day60 head revision).
 # ---------------------------------------------------------------------------
 def revision_ready(current_revision: Optional[str], expected_revision: str) -> bool:
-    """A Day60 composition explicitly REQUIRES its expected revision. The Day59 app
-    expected exactly 0008 and correctly returns 503 once the database is at 0009; the
-    Day60 app expects 0009. A ready process on the wrong revision must fail readiness."""
+    """A Day60 composition explicitly REQUIRES its expected revision. A ready process on
+    the wrong revision must fail readiness (503)."""
     return current_revision == expected_revision
