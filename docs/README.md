@@ -44,7 +44,8 @@ docs/
 │   ├── day56-provider-resilience-rate-limits-token-cost-and-backpressure.md
 │   ├── day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection.md
 │   ├── day58-production-ai-api-capstone-observability-and-english-interview.md
-│   └── day59-real-fastapi-runtime-postgresql-and-alembic-integration.md  # latest
+│   ├── day59-real-fastapi-runtime-postgresql-and-alembic-integration.md
+│   └── day60-outbox-redis-celery-broker-and-worker-recovery-integration.md  # latest
 ├── playwright/
 └── n8n/
 ```

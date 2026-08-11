@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration is COMPLETE (real local INTEGRATION_RUNTIME executed in a disposable local environment during class; the updating agent re-ran only py_compile + the stdlib acceptance-logic tests). Day60 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
+Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration is COMPLETE (real local INTEGRATION_RUNTIME executed in a disposable local environment during class; the updating agent re-ran only py_compile + the stdlib delivery/recovery tests — INTEGRATION_RUNTIME NOT RERUN). Day61 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -11,12 +11,12 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration (Phase 5)
+Day61 — Object Storage, Provider Adapter and OpenTelemetry End-to-End Evidence (Phase 5)
 
 Status:
 Planned / Not started
 
-(Day59 is complete and recorded under "Last Completed Lesson" below; Day60 is the current focus. Phase 4 is COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
+(Day60 is complete and recorded under "Last Completed Lesson" below; Day61 is the current focus. Phase 4 is COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
 "Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
 
@@ -83,6 +83,7 @@ Planned / Not started
 - ✅ Day57 — AI Backend Testing, Fake Providers, Contract Tests and Failure Injection
 - ✅ Day58 — Production AI API Capstone, Observability and English Interview (Phase 4 capstone)
 - ✅ Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5; Production Integration Gate)
+- ✅ Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration (Phase 5; Production Integration Gate)
 
 ---
 
@@ -93,6 +94,31 @@ None.
 ---
 
 ## Last Completed Lesson
+
+Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration (Phase 5; Production Integration Gate)
+
+Completed Time:
+2026-08-10
+
+Main Artifact:
+Day60 makes Day50's `job.dispatch_requested` Outbox intent a REAL Redis/Celery Relay + Worker path with durable recovery. Pure standard-library decision core `day60_delivery_recovery_logic.py` (relay publish-before-checkpoint ordering; guarded-claim outcome; duplicate/redelivery/expiry classification; recovery-sweep result; bounded early-ACK repair eligibility + idempotent `repair_id`; readiness gate) with `test_day60_delivery_recovery_logic.py`; a readiness app-factory `day60_runtime_app.py` (`create_app(expected_revision='0009_day60_delivery_runtime')` — explicit revision parameter, not hidden module state; the Day59 app pinned 0008 and returns 503 after 0009); `day60_celery_config.py` (late-ACK delivery settings: `task_acks_late=True`, `task_reject_on_worker_lost=True`, prefetch 1); a forward ADDITIVE migration `0009_day60_delivery_runtime` (nullable Relay claim fields `relay_owner`/`relay_token`/`relay_claim_expiry` on `app.outbox_events` + a new `app.job_repair_history` with a deterministic `repair_id` primary key); `requirements-day60.txt`; and the design/runbook. Core rules: the Relay publishes to the Broker FIRST then guarded-checkpoints `published_at` (at-least-once; `published_at IS NULL` = no checkpoint, not "did not execute"); the Worker takes authority via a guarded `UPDATE ... WHERE job_status='queued' RETURNING` + lease token/owner/expiry fencing (a stale Worker cannot commit after a takeover); late ACK is transport, not a business commit; an expired lease + external evidence -> `PENDING_RECONCILIATION` (never a second Provider call), else the sweep atomically `running -> queued` + one `job.redispatch_requested` intent; bounded early-ACK repair rolls back config first, uses an idempotent `repair_id`, and never Celery `.delay()`. PostgreSQL stays the business-state authority.
+
+Validation Boundary:
+Day60 has real local INTEGRATION_RUNTIME evidence executed in a DISPOSABLE local environment during class: fresh database facts distinguished from concept/static checks; a real Redis/Celery Broker queue lifecycle; a Relay crash window (unpublished intent retried -> at-least-once); Worker-kill redelivery; a recovery sweep (expired lease, no evidence -> `running -> queued` + one redispatch intent); concurrent repair (exactly one repair applied + one redispatch intent); and a consistent final Job/Attempt/Event/Outbox fact set read from a fresh connection. The repository updating agent re-ran ONLY `py_compile` of the changed Python files and the standard-library `test_day60_delivery_recovery_logic.py` (11 passed, EXECUTED_LOCAL_RUNTIME pure decision logic); it has NO Docker/PostgreSQL/Redis/Celery available and did NOT re-run the integration matrix — INTEGRATION_RUNTIME NOT RERUN. NOT RUN (later lessons): real Provider HTTP traffic / request IDs / cost, Object Storage Result Artifact, OpenTelemetry tracing/exporter (Day61); real Playwright runtime consuming the queue (Day62); production load, security, zero-downtime migration, production scheduling, and multi-replica deployment. `pytest passed` never auto-upgrades to INTEGRATION_RUNTIME/PRODUCTION. No secrets, local database/broker URLs/passwords, tokens, fixture ids, `.venv`, or container ids are committed.
+
+Completed Work:
+
+- Day60 classroom learning (Relay publish-before-checkpoint; competing-Relay claim/fencing; guarded Worker authority + lease fencing; late ACK vs commit; duplicate/worker-kill/expiry classification; durable recovery sweep; bounded early-ACK repair; never `.delay()`)
+- Day60 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; real CN/EN student answers + corrections + Mental Model Evolution preserved)
+- Day60 design/runbook + pure decision-core module + stdlib tests (11 passed) + readiness app-factory + Celery delivery-config module + forward additive `0009_day60_delivery_runtime` migration + `requirements-day60.txt`
+- Day60 FastAPI cheat sheet append
+- Day60 FastAPI interview append (Beginner/Intermediate/Senior real record)
+- Day60 project README increment
+- Day60 repository status update (Day60 completed, Day61 current)
+
+---
+
+## Superseded — Day59 Last Completed Lesson (archived)
 
 Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5; Production Integration Gate)
 

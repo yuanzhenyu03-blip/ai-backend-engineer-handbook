@@ -9,6 +9,62 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.140 — Day60: Outbox, Redis/Celery Broker and Worker Recovery Integration
+
+Date: 2026-08-10
+
+Day: Day60 (Phase 5 — Production Integration Gate). The first real consumer of the Day59
+`job.dispatch_requested` Outbox intent: a real Redis/Celery Relay + Worker path with at-least-once delivery,
+idempotent execution, Worker-loss recovery, and bounded repair. Protected files unchanged.
+
+### Added
+
+- `docs/fastapi/day60-outbox-redis-celery-broker-and-worker-recovery-integration.md` — new 16-section
+  LESSON_TEMPLATE_v2 lesson (Status Completed) preserving the real student answers/corrections.
+- `projects/ai-backend-data-layer/api/day60_delivery_recovery_logic.py` + `test_day60_delivery_recovery_logic.py`
+  — pure standard-library decision core (relay publish-before-checkpoint, guarded-claim outcome,
+  duplicate/redelivery/expiry classification, recovery-sweep result, bounded early-ACK repair eligibility +
+  idempotent `repair_id`, readiness gate) with unit tests (executed by the updating agent: 11 passed,
+  `EXECUTED_LOCAL_RUNTIME`).
+- `projects/ai-backend-data-layer/api/day60_runtime_app.py` — a readiness app-factory
+  `create_app(expected_revision='0009_day60_delivery_runtime')` using an EXPLICIT revision parameter rather
+  than hidden mutable module state (the Day59 app pinned `0008` and returns 503 after `0009`).
+- `projects/ai-backend-data-layer/api/day60_celery_config.py` — late-ACK delivery settings
+  (`task_acks_late=True`, `task_reject_on_worker_lost=True`, `worker_prefetch_multiplier=1`); config only, no
+  running broker.
+- `projects/ai-backend-data-layer/api/day48_alembic/versions/0009_day60_delivery_runtime.py` — forward ADDITIVE
+  migration: nullable Relay-claim fields (`relay_owner`/`relay_token`/`relay_claim_expiry`) on
+  `app.outbox_events` + a new `app.job_repair_history` (deterministic `repair_id` primary key). Published
+  revisions 0001–0008 are unchanged.
+- `projects/ai-backend-data-layer/api/requirements-day60.txt` and the design/runbook
+  (`day60-...-design.md`).
+
+### Changed
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day60 appends.
+- `projects/ai-backend-data-layer/README.md` — Day60 current increment; Day59 demoted to prior.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `docs/README.md` — Day60 marked Completed;
+  Current Lesson advanced to Day61; Last Completed Lesson is now Day60 (Day59 archived); docs index `# latest`
+  moved to Day60.
+
+### Validation (performed by the updating agent)
+
+- Markdown: 16-section order and internal links checked. YAML: none changed.
+- Code: `py_compile` on the five changed Python files; `pytest test_day60_delivery_recovery_logic.py` → 11
+  passed (`EXECUTED_LOCAL_RUNTIME`).
+- Links / Secrets: no committed database/broker URL, password, token, fixture id, `.venv`, or container id.
+
+### NOT RUN (not claimed for Day60)
+
+- The real Redis/Celery + PostgreSQL Relay/Worker/recovery integration was executed IN CLASS in a disposable
+  environment; the updating agent did NOT re-run it (only `py_compile` + the stdlib tests) —
+  **INTEGRATION_RUNTIME NOT RERUN**. `pytest passed` never auto-upgrades to `INTEGRATION_RUNTIME`/`PRODUCTION`.
+- Real Provider HTTP traffic / request IDs / cost, Object Storage Result Artifact, and OpenTelemetry (Day61);
+  real Playwright runtime (Day62); production load, security, zero-downtime migration, production scheduling,
+  and multi-replica deployment.
+
+---
+
 ## v0.1.139 — Day59 review round 2: persist Document input order; correct runtime-evidence claims
 
 Date: 2026-08-10

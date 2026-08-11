@@ -1417,3 +1417,37 @@ Validation: exercised in a disposable local environment (Python 3.11; real Uvico
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day59), the
 [Day59 lesson](../docs/fastapi/day59-real-fastapi-runtime-postgresql-and-alembic-integration.md), and the
 [Day59 design/runbook](../projects/ai-backend-data-layer/api/day59-real-fastapi-runtime-postgresql-and-alembic-integration-design.md).
+
+## Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration
+
+### Key Vocabulary
+
+transactional Outbox · Relay · publish-before-checkpoint · at-least-once · guarded claim (`UPDATE ... WHERE status='queued' RETURNING`) · `FOR UPDATE SKIP LOCKED` · lease token/owner/expiry fencing · late ACK · idempotent redelivery · Worker-kill recovery · `PENDING_RECONCILIATION` · recovery sweep · bounded repair · immutable audit · redispatch intent
+
+### Beginner Question
+
+Q: What is the Outbox and how does the Relay deliver from it?
+
+Strong Answer: "The Outbox is a transactional intent record written in the same transaction as the Job. The Relay scans rows where `published_at` is null and publishes the message to the Broker BEFORE writing `published_at`, which guarantees at-least-once delivery — a crash in between just re-delivers. `published_at` is a delivery checkpoint, not proof the Job executed."
+
+### Intermediate Question
+
+Q: A Worker's lease expired and a redelivery arrives. What happens?
+
+Strong Answer: "If there's previous Worker/Provider evidence that an external call may have happened, the Job goes to `PENDING_RECONCILIATION` — never a second Provider call. Otherwise the expired-lease scan creates a recovery audit event and writes exactly one new `job.redispatch_requested` Outbox intent in one transaction, then the Relay redispatches. Celery retry is transport behaviour, not recovery authority."
+
+### Senior Question
+
+Q: A bad release acked early and marked messages done. Contain and repair?
+
+Strong Answer: "Roll back the configuration first. Bound the affected Jobs by bad version and time window, `queued` state, the original checkpointed dispatch Outbox, no attempts or external evidence, no conflict, valid deadline/contract/budget, and unapplied repair. Re-verify inside the repair transaction, record immutable repair history keyed by a deterministic repair id, write one new durable Outbox intent, and commit. Never Celery `.delay()` for repair — it publishes immediately but creates no transactional, replayable, auditable intent."
+
+### Common Weak Answer
+
+"`published_at IS NULL` means it never ran, so re-run it." It proves only that no Relay checkpoint was recorded; execution truth is durable Job/Attempt/Event facts, and an expired lease with external evidence must reconcile, not re-run.
+
+Validation: exercised in a disposable local environment during class (fresh DB facts, real Redis/Celery Broker queue lifecycle, Relay crash window/at-least-once, Worker-kill redelivery, recovery sweep, concurrent repair, consistent Job/Attempt/Event/Outbox facts). The repository agent re-ran only `py_compile` + the standard-library `test_day60_delivery_recovery_logic.py` (11 passed, EXECUTED_LOCAL_RUNTIME pure decision logic) — the Docker/PostgreSQL/Redis/Celery INTEGRATION_RUNTIME was NOT RERUN. NOT RUN: real Provider HTTP/request-ids/cost, Object Storage Result Artifact, OpenTelemetry (Day61); production load/security/zero-downtime; multi-replica. No secrets, local URLs/passwords, tokens, or fixture ids are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day60), the
+[Day60 lesson](../docs/fastapi/day60-outbox-redis-celery-broker-and-worker-recovery-integration.md), and the
+[Day60 design/runbook](../projects/ai-backend-data-layer/api/day60-outbox-redis-celery-broker-and-worker-recovery-integration-design.md).
