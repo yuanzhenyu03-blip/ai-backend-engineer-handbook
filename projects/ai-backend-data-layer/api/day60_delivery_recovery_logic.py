@@ -44,6 +44,19 @@ def lease_expired(lease_expiry_epoch: Optional[int], now_epoch: int) -> bool:
     return not lease_active(lease_expiry_epoch, now_epoch)
 
 
+def in_time_window(
+    event_epoch: Optional[int], incident_start_epoch: int, incident_end_epoch: int
+) -> bool:
+    """Bounded early-ACK repair window predicate. A candidate is in-window ONLY if a
+    persisted time fact (e.g. the original dispatch Outbox ``created_at``) falls in the
+    caller-supplied incident window ``[start, end]`` (inclusive). ``None`` (no persisted
+    time fact) is NEVER in-window — the affected set must be genuinely bounded, so this is
+    never hardcoded ``True`` and an empty/unknown time is conservatively rejected."""
+    if event_epoch is None or incident_start_epoch > incident_end_epoch:
+        return False
+    return incident_start_epoch <= event_epoch <= incident_end_epoch
+
+
 # ---------------------------------------------------------------------------
 # 1) Relay ordering: publish BEFORE checkpointing published_at.
 # ---------------------------------------------------------------------------

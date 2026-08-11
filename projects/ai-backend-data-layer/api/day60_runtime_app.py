@@ -4,7 +4,7 @@ The Day59 readiness app pinned exactly ``0008_day59_acceptance`` and (correctly)
 503 once the database moved to ``0009_day60_delivery_runtime``. Rather than mutate hidden
 module state, Day60 exposes a production-quality ``create_app(expected_revision=...)``
 factory so each composition declares the schema revision it requires. The Day60
-composition requires the Day60 head revision ``0010_day60_runtime_schema``.
+composition requires the Day60 head revision ``0011_day60_lease_realign``.
 
 BOUNDARIES (unchanged from Day59): this is a COMPOSITION/readiness seam only. The HTTP
 process NEVER calls a Broker, Celery Worker, Provider, or Object Storage — the Relay and
@@ -31,7 +31,7 @@ from sqlalchemy import text
 from day47_async_uow import create_engine, create_session_factory
 from day60_delivery_recovery_logic import revision_ready
 
-DAY60_EXPECTED_REVISION = "0010_day60_runtime_schema"
+DAY60_EXPECTED_REVISION = "0011_day60_lease_realign"
 
 
 def _resolve_database_url(explicit: Optional[str]) -> str:

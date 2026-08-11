@@ -17,15 +17,17 @@ Phase 5 Production Integration Gate continues. Day60 is the FIRST real consumer 
 path with at-least-once delivery, idempotent execution, Worker-loss recovery, and bounded
 repair.
 
-> Evidence honesty (Day60 review fix): the repository now includes a REAL
-> Relay/Worker/recovery/repair runtime (`day60_delivery_runtime.py`) plus the
-> `0010_day60_runtime_schema` migration it needs. The repository updating agent re-ran only
-> `py_compile` and the standard-library pure-logic tests (**18 passed**,
-> `EXECUTED_LOCAL_RUNTIME`, including the recovery-sweep negatives and the release-filtered
-> repair). The updating agent has NO Docker/PostgreSQL/Redis, so the real runtime has NOT
-> been executed against a real database + broker — **INTEGRATION_RUNTIME NOT RERUN**; no
-> integration result is claimed for the current code. See the design/runbook's Required
-> integration rerun matrix.
+> Evidence honesty (Day60 review round 2): the repository includes a REAL
+> Relay/Worker/recovery/repair runtime that uses the EXISTING Day48 lease TRIPLE
+> (`lease_owner`/`lease_token`/`lease_expires_at`) — `day60_delivery_runtime.py` plus a real
+> Celery app (`day60_celery_app.py`) and the Relay/sweeper entrypoints
+> (`day60_relay.py`/`day60_sweeper.py`), and the forward-additive `0011_day60_lease_realign`
+> migration that drops the parallel `lease_expiry` column 0010 mistakenly added. The
+> repository updating agent re-ran only `py_compile` and the standard-library pure-logic +
+> static-contract tests (**26 passed**, `EXECUTED_LOCAL_RUNTIME`). It has NO
+> Docker/PostgreSQL/Redis/Celery, so the real runtime has NOT been executed against a real
+> database + broker — **INTEGRATION_RUNTIME NOT RERUN**; no integration result is claimed.
+> See the design/runbook's Required integration rerun matrix.
 
 ---
 

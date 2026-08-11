@@ -9,6 +9,59 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.142 — Day60 review round 2: align runtime to the existing lease triple + real Celery processes
+
+Date: 2026-08-11
+
+Day: Day60 (Phase 5). Closes the second Day60 review. No expansion into Day61 (no real Provider HTTP,
+Object Storage Result Artifact, or OpenTelemetry). No published migration (0001–0010) is edited; a new
+forward-additive `0011_day60_lease_realign` is used. Protected files unchanged.
+
+### Fixed
+
+- **P0 — one lease triple, no parallel state.** The authoritative lease is the EXISTING Day48 triple
+  `app.jobs.lease_owner` / `lease_token` / `lease_expires_at` (added by `0002_expand_lease`, constrained by
+  `0003_add_lease_constraints`: `jobs_lease_triple_coherent` + `jobs_running_requires_lease`). `0010`
+  mistakenly added a parallel `lease_expiry`; new migration `0011_day60_lease_realign` DROPS it. The runtime's
+  guarded `queued -> running` claim now writes all three lease columns atomically (so it satisfies both
+  CHECKs), completion/expiry-sweep/recovery all use the same triple, completion matches `lease_token` (never
+  mixed into `lease_owner`), and the boundary is `lease_expires_at > now` active / `<= now` expired.
+- **P0 — real, runnable Celery app + Relay/sweeper.** Added `day60_celery_app.py` (an actual `Celery`
+  application applying `task_acks_late=True`, `task_reject_on_worker_lost=True`, `worker_prefetch_multiplier=1`
+  and registering the `execute_job_attempt` Worker task that calls the guarded runtime), `day60_relay.py` (the
+  Relay process that claims Outbox rows and publishes via the task's `apply_async` outside the DB lock, then
+  fenced-checkpoints), and `day60_sweeper.py` (the recovery sweeper). ONLY the Relay publishes; recovery/repair
+  write durable Outbox intents and never call `.delay()`/`apply_async()`.
+- **P1 — Job/Attempt/Event/lease consistency.** Guarded completion is one transaction: `succeeded` +
+  `finished_at` + `attempt_count++` + the current Attempt's `finished_at` + a success Event with the correct
+  `attempt_id` + a cleared lease triple. A Worker that lost its lease writes nothing, does not close its
+  Attempt, and does not overwrite the new owner. The recovery sweep leaves the old unfinished Attempt as
+  interrupted evidence and the next Worker uses the next `attempt_number`. Day60 has NO real Provider/Result
+  Artifact and never fabricates a Provider success (Day61).
+- **P1 — bounded, attested repair.** `_within_repair_window` is gone; repair now requires an explicit incident
+  `[start, end]` window verified against the persisted dispatch-Outbox time fact (`in_time_window`, never
+  hardcoded `True`), and `no_conflict` / `deadline_contract_budget_valid` are explicit, auditable caller
+  attestations (the schema has no such fields), otherwise the repair is conservatively refused. Release,
+  window, queued, original-dispatch checkpoint, no-attempts/evidence, no-conflict, valid business conditions,
+  and not-already-applied are all re-verified inside the repair transaction; the `repair_id` PK +
+  `redispatch_outbox_event_id` UNIQUE keep the one-repair/one-intent invariant.
+- **P2 — docs + readiness revision.** The Day60 app-factory and the runbook now use the current head
+  `0011_day60_lease_realign` as the single expected readiness revision (was `0009`/`0010`); the runbook gives
+  real, executable Redis / Relay / Celery-Worker / sweeper start commands and the Relay-after-publish and
+  Worker-after-claim fault-injection steps, and a refreshed Required integration rerun matrix.
+
+### Tests / evidence
+
+- `test_day60_delivery_recovery_logic.py` + new `test_day60_runtime_schema_contract.py` re-run by the updating
+  agent: **26 passed** (`EXECUTED_LOCAL_RUNTIME` — pure decision logic + static runtime-SQL contract checks
+  asserting the full lease triple, `lease_token` completion match, and that the removed `lease_expiry` is not
+  referenced). `py_compile` passes on all changed Python.
+- **INTEGRATION_RUNTIME NOT RERUN.** The updating agent has no Docker/PostgreSQL/Redis/Celery; the real runtime
+  was NOT executed against a real database + broker. The runbook carries the Required integration rerun matrix.
+  No database/broker URL, password, token, fixture id, container id, or `.venv` is committed.
+
+---
+
 ## v0.1.141 — Day60 review fix: real Relay/Worker/recovery runtime + decision/state/repair fixes
 
 Date: 2026-08-11

@@ -7,10 +7,12 @@
 #    `py_compile` does not execute imports, so it works without the runtime stack:
 #      cd projects/ai-backend-data-layer/api
 #      python3 -m pip install pytest==7.4.3
-#      python3 -m py_compile day60_delivery_recovery_logic.py day60_delivery_runtime.py day60_runtime_app.py \
+#      python3 -m py_compile day60_delivery_recovery_logic.py day60_delivery_runtime.py \
+          day60_celery_app.py day60_relay.py day60_sweeper.py day60_runtime_app.py \
 #          day60_celery_config.py test_day60_delivery_recovery_logic.py \
 #          day48_alembic/versions/0009_day60_delivery_runtime.py \
-          day48_alembic/versions/0010_day60_runtime_schema.py
+          day48_alembic/versions/0010_day60_runtime_schema.py \
+          day48_alembic/versions/0011_day60_lease_realign.py
 #      python3 -m pytest -q test_day60_delivery_recovery_logic.py
 #
 # 2) INTEGRATION_RUNTIME (OPT-IN; disposable local PostgreSQL + Redis, e.g. `--rm` Docker) —

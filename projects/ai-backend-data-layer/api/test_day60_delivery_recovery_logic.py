@@ -24,6 +24,7 @@ from day60_delivery_recovery_logic import (
     classify_delivery,
     classify_guarded_claim,
     classify_recovery_sweep,
+    in_time_window,
     is_repair_eligible,
     lease_active,
     lease_expired,
@@ -151,7 +152,30 @@ def test_repair_id_is_deterministic():
     assert a == b == "repair:j1:r-bad:early_ack"
 
 
+def test_in_time_window_predicate_is_bounded():
+    # Bounded window [100,200]; None (no persisted time fact) is NEVER in-window.
+    assert in_time_window(150, 100, 200) is True
+    assert in_time_window(100, 100, 200) is True     # inclusive start
+    assert in_time_window(200, 100, 200) is True     # inclusive end
+    assert in_time_window(99, 100, 200) is False
+    assert in_time_window(201, 100, 200) is False
+    assert in_time_window(None, 100, 200) is False   # unknown time -> rejected (not hardcoded True)
+    assert in_time_window(150, 200, 100) is False    # inverted window -> rejected
+
+
+def test_repair_rejected_outside_time_window():
+    # Every other condition satisfied, but the candidate is out of the incident window.
+    assert is_repair_eligible(_cand(within_time_window=False), "r-bad") is False
+
+
+def test_repair_rejected_when_attestation_denies_conflict_or_budget():
+    # has_conflict / deadline_contract_budget_valid come from the caller attestation; a
+    # denied attestation (conflict present, or budget invalid) rejects the repair.
+    assert is_repair_eligible(_cand(has_conflict=True), "r-bad") is False
+    assert is_repair_eligible(_cand(deadline_contract_budget_valid=False), "r-bad") is False
+
+
 def test_readiness_revision_gate():
-    assert revision_ready("0010_day60_runtime_schema", "0010_day60_runtime_schema") is True
-    assert revision_ready("0009_day60_delivery_runtime", "0010_day60_runtime_schema") is False
-    assert revision_ready(None, "0010_day60_runtime_schema") is False
+    assert revision_ready("0011_day60_lease_realign", "0011_day60_lease_realign") is True
+    assert revision_ready("0009_day60_delivery_runtime", "0011_day60_lease_realign") is False
+    assert revision_ready(None, "0011_day60_lease_realign") is False
