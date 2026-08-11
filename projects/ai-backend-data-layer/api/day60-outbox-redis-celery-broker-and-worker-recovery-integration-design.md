@@ -1,15 +1,15 @@
 # Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration (Design & Runbook)
 
 Engineering artifact / runbook for the Day60 Relay + Worker + recovery boundary. It records
-the boundaries, the additive `0009`-`0011` migrations, the disposable local run, the evidence
+the boundaries, the `0009`-`0012` migrations (0009/0010/0012 additive; 0011 a corrective DROP), the disposable local run, the evidence
 actually captured, and the explicit NOT RUN limits. It is the entry point for
 `day60_delivery_runtime.py` (the REAL Relay/Worker/recovery/repair runtime),
 `day60_celery_app.py` (the real Celery app + Worker task), `day60_relay.py` /
 `day60_sweeper.py` (the Relay and sweeper process entrypoints),
 `day60_delivery_recovery_logic.py` (pure decision core), `day60_runtime_app.py` (readiness
 app-factory), `day60_celery_config.py` (delivery settings), and the
-`0009_day60_delivery_runtime` + `0010_day60_runtime_schema` + `0011_day60_lease_realign`
-migrations.
+`0009_day60_delivery_runtime` + `0010_day60_runtime_schema` + `0011_day60_lease_realign` +
+`0012_day60_repair_audit_attestation` migrations.
 
 ## What Day60 proves (and does not)
 
@@ -91,11 +91,28 @@ replayable, auditable database intent. Repair selects a BOUNDED eligible set
 duplicate/concurrent repair applies exactly once), and writes exactly one new redispatch
 Outbox intent before commit.
 
-Eligibility predicate (all must hold): from the bad release, within the time window, still
-`queued`, original dispatch Outbox checkpointed, NO attempts/external evidence, no
-conflict, valid deadline/contract/budget, and the repair not already applied.
+Eligibility predicate (all must hold): the actual release equals the caller-supplied
+`affected_release_version`, the persisted dispatch-Outbox time falls in the operator's
+incident `[start, end]` window (`in_time_window`, never hardcoded `True`), still `queued`,
+original dispatch Outbox checkpointed, NO attempts/external evidence, `no_conflict` and
+`deadline_contract_budget_valid` attested, and the repair not already applied. The schema
+has no deadline/contract/budget/conflict columns, so those are EXPLICIT, auditable operator
+attestations — not silent truths.
 
-## The `0009` / `0010` / `0011` migrations and the lease triple
+Persisted audit (`0012_day60_repair_audit_attestation`): the repair transaction writes the
+operator's decision to `app.job_repair_history` — `incident_start`, `incident_end`,
+`no_conflict_attested`, `deadline_contract_budget_valid_attested` — alongside `repair_id`,
+`job_id`, `release_version`, and the linked `redispatch_outbox_event_id`, so the
+bounded-eligibility judgement is durable, reviewable fact (not just a transient argument).
+
+True-duplicate vs failure: on an `IntegrityError` the repair rolls back and RE-READS the
+committed `job_repair_history` row for `repair_id` in a FRESH transaction. Only a row that
+MATCHES (same `job_id`, `release_version`, `reason`, and a linked redispatch Outbox event) is
+reported `already_applied` (a genuine concurrent/duplicate repair for the same `repair_id`);
+anything else — no row, or mismatched facts (e.g. an unrelated UNIQUE/FK violation) — returns
+`repair_failed` and is NEVER disguised as an idempotent success.
+
+## The `0009` / `0010` / `0011` / `0012` migrations and the lease triple
 
 Additive/expand only (published revisions 0001–0008 unchanged):
 
@@ -104,7 +121,7 @@ Additive/expand only (published revisions 0001–0008 unchanged):
 - `app.job_repair_history` (`repair_id` PK, `job_id` FK, `repair_reason`, `release_version`,
   `created_at`) records immutable recovery/repair facts and enforces idempotent repair.
 
-The authoritative Worker lease is the EXISTING Day48 TRIPLE (`app.jobs.lease_owner` / `lease_token` / `lease_expires_at`, added by `0002_expand_lease` and constrained by `0003_add_lease_constraints`: `jobs_lease_triple_coherent` all-or-nothing + `jobs_running_requires_lease`). `0010_day60_runtime_schema` mistakenly added a PARALLEL `app.jobs.lease_expiry`; `0011_day60_lease_realign` (this review) DROPS it so the runtime uses ONLY the existing triple, and keeps the non-conflicting 0010 additions (`provider_dispatch_started_at`, `release_version`, the widened status CHECK adding `pending_reconciliation`, and the `job_repair_history.redispatch_outbox_event_id` UNIQUE link). The guarded claim writes all three lease columns atomically (so it satisfies both CHECKs); completion/expiry-sweep/recovery all use the same triple and match `lease_token` (never mixing the token into `lease_owner`). The Day60 app requires `0011_day60_lease_realign` via an EXPLICIT `create_app(expected_revision=...)` factory
+The authoritative Worker lease is the EXISTING Day48 TRIPLE (`app.jobs.lease_owner` / `lease_token` / `lease_expires_at`, added by `0002_expand_lease` and constrained by `0003_add_lease_constraints`: `jobs_lease_triple_coherent` all-or-nothing + `jobs_running_requires_lease`). `0010_day60_runtime_schema` mistakenly added a PARALLEL `app.jobs.lease_expiry`. `0011_day60_lease_realign` is a **controlled corrective DESTRUCTIVE migration** — it `DROP COLUMN lease_expiry`, so it is NOT "additive"/"expand-only" and is NOT a production zero-downtime or expand/contract example. It is safe ONLY because that column was brand-new and had never been written (the runtime was never executed); the migration realigns the runtime to the existing triple and keeps the non-conflicting 0010 additions (`provider_dispatch_started_at`, `release_version`, the widened status CHECK adding `pending_reconciliation`, and the `job_repair_history.redispatch_outbox_event_id` UNIQUE link). **Production guidance (future, not implemented here):** to drop a live column you keep it, stop reads then writes, and remove it only after a multi-stage migration with monitoring and explicit human confirmation. `0012_day60_repair_audit_attestation` is genuinely additive: it adds nullable `job_repair_history.incident_start`/`incident_end`/`no_conflict_attested`/`deadline_contract_budget_valid_attested` so a repair persists the operator's bounded-eligibility decision (written in the same repair transaction). The guarded claim writes all three lease columns atomically (so it satisfies both CHECKs); completion/expiry-sweep/recovery all use the same triple and match `lease_token` (never mixing the token into `lease_owner`). The Day60 app requires `0012_day60_repair_audit_attestation` via an EXPLICIT `create_app(expected_revision=...)` factory
 parameter (not hidden mutable module state). This migration is INSTRUCTIONAL — NOT a
 production zero-downtime plan.
 
@@ -124,9 +141,9 @@ docker run --rm -d --name day60-redis -p 127.0.0.1:6379:6379 redis:7
 # 2) raw Day42 baseline -> Alembic stamp -> controlled upgrade to the Day60 head (0011)
 export DAY48_ALEMBIC_DATABASE_URL='postgresql://<user>:<local-only>@127.0.0.1:5432/<db>'
 alembic -c day48_alembic/alembic.ini stamp 0001_baseline_day42
-alembic -c day48_alembic/alembic.ini upgrade 0011_day60_lease_realign
+alembic -c day48_alembic/alembic.ini upgrade 0012_day60_repair_audit_attestation
 
-# 3) readiness gate expects 0011_day60_lease_realign
+# 3) readiness gate expects 0012_day60_repair_audit_attestation
 export DAY60_DATABASE_URL='postgresql+asyncpg://<user>:<local-only>@127.0.0.1:5432/<db>'
 uvicorn 'day60_runtime_app:create_app()' --factory --host 127.0.0.1 --port 8000
 
@@ -154,7 +171,7 @@ databases persist by design. Disposable containers were an intentional choice he
 ## Evidence captured (validation tiers)
 
 The Day60 review added a REAL runtime (`day60_delivery_runtime.py`: `OutboxRelay`,
-`run_worker_attempt`, `recovery_sweep`, `repair_early_ack`) plus the `0011_day60_lease_realign`
+`run_worker_attempt`, `recovery_sweep`, `repair_early_ack`) plus the `0012_day60_repair_audit_attestation`
 migration it needs (lease/marker/`release_version` columns, a widened status CHECK adding
 `pending_reconciliation`, and a repair→Outbox link with a UNIQUE constraint).
 
@@ -162,7 +179,7 @@ What the updating agent ACTUALLY executed (`EXECUTED_LOCAL_RUNTIME`):
 
 ```text
 [EXECUTED_LOCAL_RUNTIME] py_compile of every changed Python module (runtime + logic + migrations)
-[EXECUTED_LOCAL_RUNTIME] pytest test_day60_delivery_recovery_logic.py + test_day60_runtime_schema_contract.py -> 26 passed
+[EXECUTED_LOCAL_RUNTIME] pytest test_day60_delivery_recovery_logic.py + test_day60_runtime_schema_contract.py -> 31 passed
 ```
 
 The pure-logic + static-contract suites prove the RULES and the runtime SQL SHAPE only
@@ -183,7 +200,7 @@ fresh database connection) before any `INTEGRATION_RUNTIME` evidence is claimed:
 Required integration rerun matrix (NOT RERUN):
 
 ```text
-[NOT RERUN] raw Day42 baseline -> stamp -> upgrade through 0011_day60_lease_realign; /readyz expects 0011
+[NOT RERUN] raw Day42 baseline -> stamp -> upgrade through 0012_day60_repair_audit_attestation; /readyz expects 0012
 [NOT RERUN] a real guarded queued->running claim writes the lease triple WITHOUT tripping jobs_lease_triple_coherent / jobs_running_requires_lease
 [NOT RERUN] two competing Workers on one Job -> exactly ONE claim winner
 [NOT RERUN] a stale Worker with the OLD lease_token cannot complete (guarded completion returns no row)
@@ -192,7 +209,8 @@ Required integration rerun matrix (NOT RERUN):
 [NOT RERUN] Worker killed AFTER claim -> redelivery does NOT double-execute; after lease_expires_at the sweeper writes ONE redispatch intent and a NEW Attempt (new attempt_number) completes the Job; the old unfinished Attempt is retained as interrupted evidence
 [NOT RERUN] lease_expires_at == now -> the Job IS swept (== now is expired)
 [NOT RERUN] expired running + external-dispatch evidence -> job_status='pending_reconciliation', NO second Provider call
-[NOT RERUN] concurrent/duplicate early-ACK repair for the same repair_id -> exactly ONE job_repair_history row + ONE linked redispatch Outbox intent
+[NOT RERUN] concurrent/duplicate early-ACK repair for the same repair_id -> exactly ONE job_repair_history row + ONE linked redispatch intent; the second call returns already_applied only after re-reading a MATCHING committed row
+[NOT RERUN] an UNRELATED integrity failure (not a same-repair duplicate) returns repair_failed (never a fake already_applied); the audit row stores incident_start/incident_end + the two attested booleans
 [NOT RERUN] repair rejected for: a different release, out of the incident window, an existing Attempt/external evidence, an already-applied repair, or a denied attestation (conflict / deadline-contract-budget)
 [NOT RERUN] a queued Job and terminal Jobs (succeeded/failed/cancelled) are NEVER redispatched by the sweeper
 ```

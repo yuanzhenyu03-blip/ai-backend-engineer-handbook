@@ -21,10 +21,13 @@ repair.
 > Relay/Worker/recovery/repair runtime that uses the EXISTING Day48 lease TRIPLE
 > (`lease_owner`/`lease_token`/`lease_expires_at`) — `day60_delivery_runtime.py` plus a real
 > Celery app (`day60_celery_app.py`) and the Relay/sweeper entrypoints
-> (`day60_relay.py`/`day60_sweeper.py`), and the forward-additive `0011_day60_lease_realign`
-> migration that drops the parallel `lease_expiry` column 0010 mistakenly added. The
+> (`day60_relay.py`/`day60_sweeper.py`), the CONTROLLED CORRECTIVE (non-additive, DROP-column)
+> `0011_day60_lease_realign` migration that removes the never-written parallel `lease_expiry`
+> column 0010 added (safe only because it was brand-new/unused; NOT a production zero-downtime
+> pattern), and the additive `0012_day60_repair_audit_attestation` migration that persists the
+> repair incident window + operator attestations in `job_repair_history`. The
 > repository updating agent re-ran only `py_compile` and the standard-library pure-logic +
-> static-contract tests (**26 passed**, `EXECUTED_LOCAL_RUNTIME`). It has NO
+> static-contract tests (**31 passed**, `EXECUTED_LOCAL_RUNTIME`). It has NO
 > Docker/PostgreSQL/Redis/Celery, so the real runtime has NOT been executed against a real
 > database + broker — **INTEGRATION_RUNTIME NOT RERUN**; no integration result is claimed.
 > See the design/runbook's Required integration rerun matrix.

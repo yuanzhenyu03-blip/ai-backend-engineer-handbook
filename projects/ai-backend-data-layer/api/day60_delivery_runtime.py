@@ -56,6 +56,8 @@ from day60_delivery_recovery_logic import (
     RECOVERY_EVENT_TYPE,
     REDISPATCH_EVENT_TYPE,
     RepairCandidate,
+    RepairFact,
+    classify_repair_integrity,
     in_time_window,
     is_repair_eligible,
     repair_id,
@@ -357,16 +359,47 @@ def repair_early_ack(
             conn.execute(
                 text(
                     "INSERT INTO app.job_repair_history "
-                    "(repair_id, job_id, repair_reason, release_version, redispatch_outbox_event_id) "
-                    "VALUES (:rid, :j, :reason, :rel, :oid)"
+                    "(repair_id, job_id, repair_reason, release_version, redispatch_outbox_event_id, "
+                    " incident_start, incident_end, no_conflict_attested, "
+                    " deadline_contract_budget_valid_attested) "
+                    "VALUES (:rid, :j, :reason, :rel, :oid, :istart, :iend, :nca, :dcbva)"
                 ),
                 {"rid": rid, "j": job_id, "reason": reason,
-                 "rel": affected_release_version, "oid": outbox_event_id},
+                 "rel": affected_release_version, "oid": outbox_event_id,
+                 "istart": incident_start, "iend": incident_end,
+                 "nca": attestation.no_conflict,
+                 "dcbva": attestation.deadline_contract_budget_valid},
             )
         return "repaired"
     except IntegrityError:
-        # Concurrent repair for the same repair_id won (PK / UNIQUE) -> exactly-once.
-        return "already_applied"
+        # Do NOT assume a duplicate. The tx rolled back; RE-READ the committed repair row for
+        # this repair_id in a FRESH transaction and classify: a genuine same-repair duplicate
+        # is "already_applied"; an unrelated integrity failure is "repair_failed" (never a
+        # silent fake success).
+        with engine.begin() as conn2:
+            existing = conn2.execute(
+                text(
+                    "SELECT job_id, release_version, repair_reason, redispatch_outbox_event_id "
+                    "FROM app.job_repair_history WHERE repair_id=:rid"
+                ),
+                {"rid": rid},
+            ).first()
+        existing_fact = (
+            None if existing is None
+            else RepairFact(
+                job_id=str(existing.job_id),
+                release_version=existing.release_version or "",
+                reason=existing.repair_reason,
+                has_linked_outbox=existing.redispatch_outbox_event_id is not None,
+            )
+        )
+        expected_fact = RepairFact(
+            job_id=str(job_id),
+            release_version=affected_release_version,
+            reason=reason,
+            has_linked_outbox=True,
+        )
+        return classify_repair_integrity(existing_fact, expected_fact)
 
 
 def _has_attempts_or_marker(conn: Connection, job_id: str) -> bool:

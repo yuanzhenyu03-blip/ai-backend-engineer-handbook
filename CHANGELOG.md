@@ -9,6 +9,58 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.143 — Day60 review round 3: persist repair audit, honest IntegrityError, correct 0011 wording
+
+Date: 2026-08-11
+
+Day: Day60 (Phase 5). Closes the third Day60 review. No expansion into Day61. No published migration
+(0001–0011) is edited; a new additive `0012_day60_repair_audit_attestation` is used. Protected files unchanged.
+
+### Fixed
+
+- **P1 — persist the repair incident window + operator attestation.** New additive migration
+  `0012_day60_repair_audit_attestation` adds nullable `app.job_repair_history.incident_start`,
+  `incident_end`, `no_conflict_attested`, `deadline_contract_budget_valid_attested`. `repair_early_ack` now
+  WRITES those four values (plus `repair_id`, `job_id`, `release_version`, and the linked
+  `redispatch_outbox_event_id`) in the SAME repair transaction, so the operator's bounded-eligibility decision
+  is durable, reviewable fact — it is no longer only "recorded in audit" in prose.
+- **P1 — only a true duplicate is `already_applied`.** The old `except IntegrityError: return
+  "already_applied"` is gone. On an `IntegrityError` the repair rolls back and RE-READS the committed
+  `job_repair_history` row for `repair_id` in a FRESH transaction; a new pure `classify_repair_integrity`
+  returns `already_applied` ONLY when that row exists and MATCHES (same `job_id`, `release_version`, `reason`,
+  and a linked redispatch Outbox event) — a genuine concurrent/duplicate repair for the same `repair_id`.
+  Otherwise (no row, or mismatched facts such as an unrelated UNIQUE/FK violation) it returns `repair_failed`
+  and never disguises a failure as an idempotent success. The one-repair/one-intent invariant
+  (`repair_id` PK + `redispatch_outbox_event_id` UNIQUE) is unchanged.
+- **P2 — correct the `0011` migration wording.** `0011_day60_lease_realign` uses `DROP COLUMN lease_expiry`,
+  so it is NOT "forward-additive"/"expand-only". The runbook, lesson, project status, cheat sheet, and
+  interview notes now describe it as a CONTROLLED CORRECTIVE DESTRUCTIVE migration on a brand-new, never-written
+  teaching column — safe only for that reason — NOT a production expand/contract or zero-downtime example, with
+  future production guidance (keep the column, stop reads then writes, remove via a multi-stage migration with
+  monitoring and human confirmation). The published `0011` file itself was not modified.
+- **P2 — runnable test commands.** The Day60 `requirements-day60.txt` and runbook commands are now uniformly
+  commented and copy-pasteable, cover `0012`, and run BOTH Day60 test files
+  (`test_day60_delivery_recovery_logic.py` + `test_day60_runtime_schema_contract.py`).
+
+### Migrations / revision
+
+- `0012_day60_repair_audit_attestation` (additive) is the new Day60 head; the app-factory and runbook expect
+  it as the readiness revision (was `0011`).
+
+### Tests / evidence
+
+- Re-run by the updating agent: `py_compile` on all changed Python + `0012` migration; `pytest
+  test_day60_delivery_recovery_logic.py test_day60_runtime_schema_contract.py` -> **31 passed**
+  (`EXECUTED_LOCAL_RUNTIME`), adding `classify_repair_integrity` unit tests (duplicate vs unrelated failure) and
+  static contract checks that the repair persists the audit columns and re-reads on `IntegrityError`.
+- **INTEGRATION_RUNTIME NOT RERUN.** No Docker/PostgreSQL/Redis/Celery is available, so the real
+  Relay/Worker/recovery/repair (including the real concurrent-repair race) was NOT executed against a live
+  database + broker; the runbook's Required integration rerun matrix lists what must be run (a same-repair
+  duplicate -> `already_applied`; an unrelated integrity failure -> `repair_failed`; the audit columns
+  populated). No database/broker URL, password, token, fixture id, container id, or `.venv` is committed.
+
+---
+
 ## v0.1.142 — Day60 review round 2: align runtime to the existing lease triple + real Celery processes
 
 Date: 2026-08-11

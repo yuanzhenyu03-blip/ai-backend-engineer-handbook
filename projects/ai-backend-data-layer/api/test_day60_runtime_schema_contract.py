@@ -44,3 +44,20 @@ def test_runtime_never_imports_or_calls_the_celery_task():
     assert "self._publish(" in _SRC                 # injected publisher only
     assert "from day60_celery_app import" not in code
     assert "execute_job_attempt" not in code
+
+
+def test_repair_persists_incident_window_and_attestation_columns():
+    # The audit row must actually store the operator's bounded-eligibility decision.
+    for col in ("incident_start", "incident_end", "no_conflict_attested",
+                "deadline_contract_budget_valid_attested"):
+        assert col in _SRC, col
+    assert ":istart" in _SRC and ":iend" in _SRC
+    assert ":nca" in _SRC and ":dcbva" in _SRC
+
+
+def test_repair_integrity_does_not_blindly_return_already_applied():
+    # After IntegrityError the runtime must RE-READ and classify, not fake success.
+    assert "classify_repair_integrity(" in _SRC
+    assert "SELECT job_id, release_version, repair_reason, redispatch_outbox_event_id" in _SRC
+    # the old blind handler must be gone
+    assert "-> exactly-once." not in _SRC

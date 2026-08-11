@@ -234,3 +234,40 @@ def revision_ready(current_revision: Optional[str], expected_revision: str) -> b
     """A Day60 composition explicitly REQUIRES its expected revision. A ready process on
     the wrong revision must fail readiness (503)."""
     return current_revision == expected_revision
+
+
+# ---------------------------------------------------------------------------
+# 7) Repair IntegrityError classification — a true duplicate vs an unrelated failure.
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class RepairFact:
+    """The committed repair facts re-read AFTER an IntegrityError, and the facts the current
+    repair EXPECTED. Used to decide whether the conflict was a genuine duplicate of the same
+    logical repair or an unrelated integrity failure."""
+    job_id: str
+    release_version: str
+    reason: str
+    has_linked_outbox: bool
+
+
+def classify_repair_integrity(existing: Optional[RepairFact], expected: RepairFact) -> str:
+    """After an ``IntegrityError``, the runtime rolls back and RE-READS the committed
+    ``job_repair_history`` row for ``repair_id`` in a FRESH transaction, then calls this.
+
+    * A row that EXISTS and MATCHES (same job_id, release_version, reason, and a linked
+      redispatch Outbox event) -> ``"already_applied"`` (a genuine concurrent/duplicate repair
+      for the same ``repair_id`` won the PK race; exactly-once holds).
+    * No row, or a row whose facts DIFFER -> ``"repair_failed"``: the integrity error was NOT
+      a same-repair duplicate (e.g. a UNIQUE/FK violation), so it MUST NOT be silently
+      disguised as an idempotent success.
+    """
+    if existing is None:
+        return "repair_failed"
+    if (
+        existing.job_id == expected.job_id
+        and existing.release_version == expected.release_version
+        and existing.reason == expected.reason
+        and existing.has_linked_outbox
+    ):
+        return "already_applied"
+    return "repair_failed"

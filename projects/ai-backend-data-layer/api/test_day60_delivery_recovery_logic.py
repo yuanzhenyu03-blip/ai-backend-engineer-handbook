@@ -23,7 +23,9 @@ from day60_delivery_recovery_logic import (
     SweepResult,
     classify_delivery,
     classify_guarded_claim,
+    RepairFact,
     classify_recovery_sweep,
+    classify_repair_integrity,
     in_time_window,
     is_repair_eligible,
     lease_active,
@@ -175,7 +177,28 @@ def test_repair_rejected_when_attestation_denies_conflict_or_budget():
     assert is_repair_eligible(_cand(deadline_contract_budget_valid=False), "r-bad") is False
 
 
+def test_repair_integrity_true_duplicate_is_already_applied():
+    expected = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
+    existing = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
+    assert classify_repair_integrity(existing, expected) == "already_applied"
+
+
+def test_repair_integrity_no_row_is_repair_failed():
+    expected = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
+    assert classify_repair_integrity(None, expected) == "repair_failed"
+
+
+def test_repair_integrity_mismatch_is_repair_failed_not_fake_success():
+    expected = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
+    # Same repair_id row exists but for a different job / release / reason, or with no linked
+    # Outbox -> an UNRELATED integrity failure must NOT be disguised as idempotent success.
+    assert classify_repair_integrity(RepairFact("j2", "r-bad", "early_ack", True), expected) == "repair_failed"
+    assert classify_repair_integrity(RepairFact("j1", "r-good", "early_ack", True), expected) == "repair_failed"
+    assert classify_repair_integrity(RepairFact("j1", "r-bad", "other", True), expected) == "repair_failed"
+    assert classify_repair_integrity(RepairFact("j1", "r-bad", "early_ack", False), expected) == "repair_failed"
+
+
 def test_readiness_revision_gate():
-    assert revision_ready("0011_day60_lease_realign", "0011_day60_lease_realign") is True
-    assert revision_ready("0009_day60_delivery_runtime", "0011_day60_lease_realign") is False
-    assert revision_ready(None, "0011_day60_lease_realign") is False
+    assert revision_ready("0012_day60_repair_audit_attestation", "0012_day60_repair_audit_attestation") is True
+    assert revision_ready("0009_day60_delivery_runtime", "0012_day60_repair_audit_attestation") is False
+    assert revision_ready(None, "0012_day60_repair_audit_attestation") is False
