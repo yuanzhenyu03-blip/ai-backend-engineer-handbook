@@ -27,7 +27,7 @@ repair.
 > pattern), and the additive `0012_day60_repair_audit_attestation` migration that persists the
 > repair incident window + operator attestations in `job_repair_history`. The
 > repository updating agent re-ran only `py_compile` and the standard-library pure-logic +
-> static-contract tests (**31 passed**, `EXECUTED_LOCAL_RUNTIME`). It has NO
+> static-contract tests (**34 passed**, `EXECUTED_LOCAL_RUNTIME`). It has NO
 > Docker/PostgreSQL/Redis/Celery, so the real runtime has NOT been executed against a real
 > database + broker — **INTEGRATION_RUNTIME NOT RERUN**; no integration result is claimed.
 > See the design/runbook's Required integration rerun matrix.

@@ -58,6 +58,16 @@ def test_repair_persists_incident_window_and_attestation_columns():
 def test_repair_integrity_does_not_blindly_return_already_applied():
     # After IntegrityError the runtime must RE-READ and classify, not fake success.
     assert "classify_repair_integrity(" in _SRC
-    assert "SELECT job_id, release_version, repair_reason, redispatch_outbox_event_id" in _SRC
     # the old blind handler must be gone
     assert "-> exactly-once." not in _SRC
+
+
+def test_repair_integrity_reread_joins_outbox_and_verifies_semantics():
+    # The re-read must JOIN outbox_events and verify the linked intent's job + event_type,
+    # not merely that the FK is non-null.
+    assert "LEFT JOIN app.outbox_events o" in _SRC
+    assert "ON o.outbox_event_id = h.redispatch_outbox_event_id" in _SRC
+    assert "o.event_type" in _SRC and "o.job_id" in _SRC
+    assert "linked_outbox_job_matches=" in _SRC
+    assert "linked_outbox_is_redispatch=" in _SRC
+    assert "== REDISPATCH_EVENT_TYPE" in _SRC

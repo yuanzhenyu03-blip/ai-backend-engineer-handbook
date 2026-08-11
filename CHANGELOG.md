@@ -9,6 +9,47 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.144 — Day60 review round 4: verify linked-Outbox semantics on duplicate repair; head wording -> 0012
+
+Date: 2026-08-11
+
+Day: Day60 (Phase 5). Closes the final Day60 review. No expansion into Day61. No published migration
+(0001–0012) is edited; no new migration is needed. Protected files unchanged.
+
+### Fixed
+
+- **P1 — a confirmed duplicate repair must verify the LINKED Outbox's real semantics.** After an
+  `IntegrityError`, the runtime's fresh-transaction re-read previously only checked that
+  `redispatch_outbox_event_id IS NOT NULL`, which does not prove the linked row is THIS Job's
+  `job.redispatch_requested` intent. The re-read now JOINs `app.job_repair_history` to `app.outbox_events`
+  on the FK and reports `already_applied` ONLY when ALL hold: the repair row's `job_id` == current `job_id`,
+  its `release_version` == `affected_release_version`, its `repair_reason` == current `reason`, the FK is
+  non-null, a matching `outbox_events` row exists, that row's `job_id` == this Job, and its `event_type` ==
+  `'job.redispatch_requested'`. Anything else — no row, mismatched repair facts, or a
+  missing/foreign/wrong-type linked Outbox row — is `repair_failed`, never a faked success. `RepairFact`
+  gained `linked_outbox_job_matches` and `linked_outbox_is_redispatch`; `classify_repair_integrity` requires
+  both. Added pure negative tests (non-null FK but wrong-Job link; non-null FK but wrong-event-type link ->
+  `repair_failed`) and a static contract test asserting the re-read SQL JOINs `outbox_events` and verifies
+  `event_type` + the linked Job identity.
+- **P2 — unify the head/readiness wording to `0012`.** The runbook still had one "Day60 head (0011)" line in
+  the upgrade step; it now reads `0012_day60_repair_audit_attestation`. A scan of the Day60 lesson, runbook,
+  cheat sheet, interview notes, and status files confirms no current-tense readiness/head is written as
+  `0011` (dated round-2/round-3 bullets remain accurate history).
+
+### Tests / evidence
+
+- Re-run by the updating agent: `py_compile` on the changed Python; `pytest
+  test_day60_delivery_recovery_logic.py test_day60_runtime_schema_contract.py` -> **34 passed**
+  (`EXECUTED_LOCAL_RUNTIME`), adding the wrong-Job-link and wrong-event-type-link negatives and the
+  JOIN/semantic static contract check.
+- **INTEGRATION_RUNTIME NOT RERUN.** No Docker/PostgreSQL/Redis/Celery is available, so the real
+  concurrent-repair race (a genuine same-`repair_id` duplicate returning `already_applied` after the semantic
+  JOIN, vs an unrelated integrity failure returning `repair_failed`) was NOT executed against a live database;
+  the runbook's Required integration rerun matrix covers it. No database/broker URL, password, token, fixture
+  id, container id, or `.venv` is committed.
+
+---
+
 ## v0.1.143 — Day60 review round 3: persist repair audit, honest IntegrityError, correct 0011 wording
 
 Date: 2026-08-11

@@ -177,25 +177,37 @@ def test_repair_rejected_when_attestation_denies_conflict_or_budget():
     assert is_repair_eligible(_cand(deadline_contract_budget_valid=False), "r-bad") is False
 
 
+def _fact(job="j1", rel="r-bad", reason="early_ack", linked=True, job_match=True, is_redispatch=True):
+    return RepairFact(job, rel, reason, linked, job_match, is_redispatch)
+
+
+_EXPECTED = _fact()
+
+
 def test_repair_integrity_true_duplicate_is_already_applied():
-    expected = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
-    existing = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
-    assert classify_repair_integrity(existing, expected) == "already_applied"
+    assert classify_repair_integrity(_fact(), _EXPECTED) == "already_applied"
 
 
 def test_repair_integrity_no_row_is_repair_failed():
-    expected = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
-    assert classify_repair_integrity(None, expected) == "repair_failed"
+    assert classify_repair_integrity(None, _EXPECTED) == "repair_failed"
 
 
-def test_repair_integrity_mismatch_is_repair_failed_not_fake_success():
-    expected = RepairFact("j1", "r-bad", "early_ack", has_linked_outbox=True)
-    # Same repair_id row exists but for a different job / release / reason, or with no linked
-    # Outbox -> an UNRELATED integrity failure must NOT be disguised as idempotent success.
-    assert classify_repair_integrity(RepairFact("j2", "r-bad", "early_ack", True), expected) == "repair_failed"
-    assert classify_repair_integrity(RepairFact("j1", "r-good", "early_ack", True), expected) == "repair_failed"
-    assert classify_repair_integrity(RepairFact("j1", "r-bad", "other", True), expected) == "repair_failed"
-    assert classify_repair_integrity(RepairFact("j1", "r-bad", "early_ack", False), expected) == "repair_failed"
+def test_repair_integrity_mismatched_repair_facts_are_repair_failed():
+    # Different job / release / reason, or no linked Outbox at all.
+    assert classify_repair_integrity(_fact(job="j2"), _EXPECTED) == "repair_failed"
+    assert classify_repair_integrity(_fact(rel="r-good"), _EXPECTED) == "repair_failed"
+    assert classify_repair_integrity(_fact(reason="other"), _EXPECTED) == "repair_failed"
+    assert classify_repair_integrity(_fact(linked=False), _EXPECTED) == "repair_failed"
+
+
+def test_repair_integrity_linked_outbox_wrong_job_is_repair_failed():
+    # FK is non-null and a row exists, but the linked Outbox belongs to a DIFFERENT Job.
+    assert classify_repair_integrity(_fact(job_match=False), _EXPECTED) == "repair_failed"
+
+
+def test_repair_integrity_linked_outbox_wrong_event_type_is_repair_failed():
+    # FK is non-null and same Job, but the linked Outbox is NOT a job.redispatch_requested intent.
+    assert classify_repair_integrity(_fact(is_redispatch=False), _EXPECTED) == "repair_failed"
 
 
 def test_readiness_revision_gate():

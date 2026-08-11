@@ -379,8 +379,15 @@ def repair_early_ack(
         with engine.begin() as conn2:
             existing = conn2.execute(
                 text(
-                    "SELECT job_id, release_version, repair_reason, redispatch_outbox_event_id "
-                    "FROM app.job_repair_history WHERE repair_id=:rid"
+                    "SELECT h.job_id, h.release_version, h.repair_reason, "
+                    "       h.redispatch_outbox_event_id, "
+                    "       o.outbox_event_id AS linked_outbox_id, "
+                    "       o.job_id          AS linked_outbox_job_id, "
+                    "       o.event_type      AS linked_outbox_event_type "
+                    "FROM app.job_repair_history h "
+                    "LEFT JOIN app.outbox_events o "
+                    "  ON o.outbox_event_id = h.redispatch_outbox_event_id "
+                    "WHERE h.repair_id=:rid"
                 ),
                 {"rid": rid},
             ).first()
@@ -390,7 +397,19 @@ def repair_early_ack(
                 job_id=str(existing.job_id),
                 release_version=existing.release_version or "",
                 reason=existing.repair_reason,
-                has_linked_outbox=existing.redispatch_outbox_event_id is not None,
+                # A non-null FK is NOT enough: the JOINED Outbox row must actually exist,
+                # belong to THIS Job, and be a job.redispatch_requested intent.
+                has_linked_outbox=(
+                    existing.redispatch_outbox_event_id is not None
+                    and existing.linked_outbox_id is not None
+                ),
+                linked_outbox_job_matches=(
+                    existing.linked_outbox_job_id is not None
+                    and str(existing.linked_outbox_job_id) == str(job_id)
+                ),
+                linked_outbox_is_redispatch=(
+                    existing.linked_outbox_event_type == REDISPATCH_EVENT_TYPE
+                ),
             )
         )
         expected_fact = RepairFact(
@@ -398,6 +417,8 @@ def repair_early_ack(
             release_version=affected_release_version,
             reason=reason,
             has_linked_outbox=True,
+            linked_outbox_job_matches=True,
+            linked_outbox_is_redispatch=True,
         )
         return classify_repair_integrity(existing_fact, expected_fact)
 

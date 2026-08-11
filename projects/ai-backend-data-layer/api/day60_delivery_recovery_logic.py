@@ -243,23 +243,33 @@ def revision_ready(current_revision: Optional[str], expected_revision: str) -> b
 class RepairFact:
     """The committed repair facts re-read AFTER an IntegrityError, and the facts the current
     repair EXPECTED. Used to decide whether the conflict was a genuine duplicate of the same
-    logical repair or an unrelated integrity failure."""
+    logical repair or an unrelated integrity failure. The linked-Outbox flags carry the
+    JOINED semantics, not merely ``redispatch_outbox_event_id IS NOT NULL``:
+
+    * ``has_linked_outbox``            — the FK is non-null AND a matching ``outbox_events`` row exists.
+    * ``linked_outbox_job_matches``    — that Outbox row's ``job_id`` equals this Job.
+    * ``linked_outbox_is_redispatch``  — that Outbox row's ``event_type`` is ``job.redispatch_requested``.
+    """
     job_id: str
     release_version: str
     reason: str
     has_linked_outbox: bool
+    linked_outbox_job_matches: bool
+    linked_outbox_is_redispatch: bool
 
 
 def classify_repair_integrity(existing: Optional[RepairFact], expected: RepairFact) -> str:
     """After an ``IntegrityError``, the runtime rolls back and RE-READS the committed
-    ``job_repair_history`` row for ``repair_id`` in a FRESH transaction, then calls this.
+    ``job_repair_history`` row for ``repair_id`` JOINED to its linked ``outbox_events`` row in
+    a FRESH transaction, then calls this.
 
-    * A row that EXISTS and MATCHES (same job_id, release_version, reason, and a linked
-      redispatch Outbox event) -> ``"already_applied"`` (a genuine concurrent/duplicate repair
-      for the same ``repair_id`` won the PK race; exactly-once holds).
-    * No row, or a row whose facts DIFFER -> ``"repair_failed"``: the integrity error was NOT
-      a same-repair duplicate (e.g. a UNIQUE/FK violation), so it MUST NOT be silently
-      disguised as an idempotent success.
+    ``already_applied`` requires the FULL semantic match — same ``job_id`` / ``release_version``
+    / ``reason``, AND a linked redispatch Outbox that (a) exists, (b) belongs to this Job, and
+    (c) has ``event_type == 'job.redispatch_requested'``. A non-null FK alone is NOT enough.
+
+    Anything else — no row, mismatched repair facts, a missing/foreign/wrong-type linked Outbox
+    row — is ``"repair_failed"``: the integrity error was NOT a same-repair duplicate, so it
+    MUST NOT be silently disguised as an idempotent success.
     """
     if existing is None:
         return "repair_failed"
@@ -268,6 +278,8 @@ def classify_repair_integrity(existing: Optional[RepairFact], expected: RepairFa
         and existing.release_version == expected.release_version
         and existing.reason == expected.reason
         and existing.has_linked_outbox
+        and existing.linked_outbox_job_matches
+        and existing.linked_outbox_is_redispatch
     ):
         return "already_applied"
     return "repair_failed"

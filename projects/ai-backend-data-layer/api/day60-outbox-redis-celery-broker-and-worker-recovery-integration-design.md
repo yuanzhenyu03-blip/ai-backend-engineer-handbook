@@ -106,10 +106,12 @@ operator's decision to `app.job_repair_history` — `incident_start`, `incident_
 bounded-eligibility judgement is durable, reviewable fact (not just a transient argument).
 
 True-duplicate vs failure: on an `IntegrityError` the repair rolls back and RE-READS the
-committed `job_repair_history` row for `repair_id` in a FRESH transaction. Only a row that
-MATCHES (same `job_id`, `release_version`, `reason`, and a linked redispatch Outbox event) is
-reported `already_applied` (a genuine concurrent/duplicate repair for the same `repair_id`);
-anything else — no row, or mismatched facts (e.g. an unrelated UNIQUE/FK violation) — returns
+committed `job_repair_history` row for `repair_id` in a FRESH transaction. The re-read JOINs `job_repair_history`
+to `outbox_events` on the FK, and only reports `already_applied` when the row MATCHES on
+`job_id` / `release_version` / `reason` AND the linked Outbox row (a) exists, (b) has
+`job_id` equal to this Job, and (c) has `event_type = 'job.redispatch_requested'` — a non-null
+FK alone is NOT sufficient. Anything else — no row, mismatched repair facts, or a
+missing/foreign/wrong-type linked Outbox row (e.g. an unrelated UNIQUE/FK violation) — returns
 `repair_failed` and is NEVER disguised as an idempotent success.
 
 ## The `0009` / `0010` / `0011` / `0012` migrations and the lease triple
@@ -138,7 +140,7 @@ python3 -m pip install -r requirements-day60.txt
 docker run --rm -d --name day60-pg    -e POSTGRES_PASSWORD=<local-only> -p 127.0.0.1:5432:5432 postgres:16
 docker run --rm -d --name day60-redis -p 127.0.0.1:6379:6379 redis:7
 
-# 2) raw Day42 baseline -> Alembic stamp -> controlled upgrade to the Day60 head (0011)
+# 2) raw Day42 baseline -> Alembic stamp -> controlled upgrade to the Day60 head (0012_day60_repair_audit_attestation)
 export DAY48_ALEMBIC_DATABASE_URL='postgresql://<user>:<local-only>@127.0.0.1:5432/<db>'
 alembic -c day48_alembic/alembic.ini stamp 0001_baseline_day42
 alembic -c day48_alembic/alembic.ini upgrade 0012_day60_repair_audit_attestation
@@ -179,7 +181,7 @@ What the updating agent ACTUALLY executed (`EXECUTED_LOCAL_RUNTIME`):
 
 ```text
 [EXECUTED_LOCAL_RUNTIME] py_compile of every changed Python module (runtime + logic + migrations)
-[EXECUTED_LOCAL_RUNTIME] pytest test_day60_delivery_recovery_logic.py + test_day60_runtime_schema_contract.py -> 31 passed
+[EXECUTED_LOCAL_RUNTIME] pytest test_day60_delivery_recovery_logic.py + test_day60_runtime_schema_contract.py -> 34 passed
 ```
 
 The pure-logic + static-contract suites prove the RULES and the runtime SQL SHAPE only
