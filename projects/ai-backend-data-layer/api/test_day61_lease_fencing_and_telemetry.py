@@ -46,6 +46,14 @@ def test_all_state_changes_are_lease_fenced():
     assert "lease_lost_no_state_change" in _SRC
 
 
+def test_pending_reconciliation_clears_the_full_lease_triple_but_retains_attempt_evidence():
+    start = _SRC.index("def _to_pending_reconciliation")
+    end = _SRC.index("def _record_contract_failure", start)
+    pending = _SRC[start:end]
+    assert "lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL" in pending
+    assert "UPDATE app.job_attempts SET finished_at" not in pending
+
+
 def test_request_id_persistence_is_immutable_and_fenced():
     assert "classify_request_id_write(" in _SRC
     assert "provider_request_id IS NULL" in _SRC   # only NULL -> set

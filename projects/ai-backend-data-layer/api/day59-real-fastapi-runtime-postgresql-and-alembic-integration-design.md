@@ -134,7 +134,7 @@ docker run --rm -d --name day59-pg -e POSTGRES_PASSWORD=<local-only> -p 127.0.0.
 # 2) raw Day42 baseline, then Alembic stamp + controlled upgrade
 #    (apply sql/001..008 as the raw baseline, then:)
 export DAY48_ALEMBIC_DATABASE_URL='postgresql://<user>:<local-only>@127.0.0.1:5432/<db>'
-alembic -c day48_alembic/alembic.ini stamp 0001_baseline_day42
+alembic -c day48_alembic/alembic.ini stamp 0001_baseline
 alembic -c day48_alembic/alembic.ini upgrade 0008_day59_acceptance
 
 # 3) run the API and check readiness (expects revision 0008_day59_acceptance)

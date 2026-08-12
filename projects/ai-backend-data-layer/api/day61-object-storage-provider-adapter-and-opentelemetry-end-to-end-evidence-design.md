@@ -2,10 +2,9 @@
 
 Engineering artifact / runbook for the Day61 external-evidence path. It records the
 boundaries, the artifacts, the disposable local integration, the evidence pack format, and
-the explicit NOT RUN limits. Day61 is **not marked Completed**: the artifacts are delivered
-and the pure-logic + real-HTTP-loopback tests pass, but the full local `INTEGRATION_RUNTIME`
-matrix (PostgreSQL + Redis/Celery + MinIO + OTel Collector) has **NOT been executed** by the
-updating agent.
+the explicit NOT RUN limits. Day61 is **Completed**: the artifacts, local tests and a
+disposable local `INTEGRATION_RUNTIME` run (PostgreSQL + Redis/Celery + MinIO + OTel Collector)
+were executed. Real/paid Provider traffic and production-scale validation remain NOT RUN.
 
 ## What Day61 proves (and does not)
 
@@ -140,9 +139,13 @@ python3 -m pip install -r requirements-day61.txt
 # 1) disposable PostgreSQL + Redis + MinIO + OTel Collector
 cd day61_integration && docker compose up -d && cd ..
 
-# 2) migrate to the Day60 head (Day61 adds no migration)
+# 2) bootstrap a NEW database to the Day42 baseline, then migrate to the Day60 head
+#    (the Alembic baseline is a STAMP target: it creates no DDL by itself)
 export DAY48_ALEMBIC_DATABASE_URL='postgresql://<user>:<local-only>@127.0.0.1:5432/<db>'
-alembic -c day48_alembic/alembic.ini stamp 0001_baseline_day42
+psql "$DAY48_ALEMBIC_DATABASE_URL" -v ON_ERROR_STOP=1 -c 'CREATE EXTENSION IF NOT EXISTS pgcrypto'
+psql "$DAY48_ALEMBIC_DATABASE_URL" -v ON_ERROR_STOP=1 -f ../sql/001_create_jobs.sql
+psql "$DAY48_ALEMBIC_DATABASE_URL" -v ON_ERROR_STOP=1 -f ../sql/003_relational_modeling_and_data_integrity.sql
+alembic -c day48_alembic/alembic.ini stamp 0001_baseline
 alembic -c day48_alembic/alembic.ini upgrade 0012_day60_repair_audit_attestation
 
 # 3) the SEPARATE fake HTTP Provider (its own process)

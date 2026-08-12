@@ -3,7 +3,7 @@
 ## 1. Lesson Metadata
 
 ```text
-Status:        Artifacts + EXECUTED_LOCAL_RUNTIME delivered; local INTEGRATION_RUNTIME NOT RUN (not yet marked Completed)
+Status:        ✅ Completed — local INTEGRATION_RUNTIME verified with disposable infrastructure
 Version:       v2 (LESSON_TEMPLATE_v2, 16 sections)
 Difficulty:    Advanced
 Estimated Time: 4 hours
@@ -17,7 +17,7 @@ Storage artifacts, durable external-operation checkpoints, and OpenTelemetry cor
 
 > Evidence honesty: the runtime artifacts are real, and the pure-logic + REAL HTTP-loopback
 > (the separate fake Provider ↔ the adapter, success/invalid/timeout) + static/fake-driven
-> contract suites pass — **64 passed across the five Day61 local suites,
+> contract suites pass — **66 passed across the five Day61 local suites,
 > `EXECUTED_LOCAL_RUNTIME`**, run with:
 >
 > ```
@@ -33,12 +33,12 @@ Storage artifacts, durable external-operation checkpoints, and OpenTelemetry cor
 > same->idempotent / different->conflict); the production Celery path runs the authoritative
 > composition (a Provider is ALWAYS called before success); acceptance opens a
 > `fastapi.accept_job` root span and the Relay wraps its publish in an `outbox.relay_publish`
-> span, so the trace context flows FastAPI → Outbox → Relay → Worker. **These are pure/static/
-> loopback tests: NO OTel Collector received any trace, and NO PostgreSQL/Redis/Celery/MinIO
-> was run.** The full local `INTEGRATION_RUNTIME` matrix (PostgreSQL + Redis/Celery + MinIO +
-> a running OTel Collector) is **NOT RUN** (no Docker), so Day61 is **not marked Completed**.
-> See the design/runbook's Required integration rerun matrix. Target tier is local
-> `INTEGRATION_RUNTIME`, never Production; Day61 never calls a real/paid model Provider.
+> span, so the trace context flows FastAPI → Outbox → Relay → Worker. A disposable local
+> PostgreSQL + Redis/Celery + MinIO + OTel Collector run additionally verified a successful
+> guarded completion (with matching MinIO HEAD metadata and correlated spans) and a
+> timeout-after-receipt exercise (`pending_reconciliation`, no Artifact, full lease-triple
+> cleanup). Day61 is Completed. NOT RUN: real/paid model Provider and production-scale,
+> multi-replica validation.
 
 ---
 

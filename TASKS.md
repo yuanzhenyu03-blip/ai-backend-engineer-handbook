@@ -10,7 +10,7 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day60 (Outbox, Redis/Celery Broker and Worker Recovery Integration) is COMPLETE (real local INTEGRATION_RUNTIME executed in class; agent re-ran py_compile + stdlib tests only — INTEGRATION_RUNTIME NOT RERUN). Day61 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
+Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day60 and Day61 are COMPLETE. Day61 has disposable local INTEGRATION_RUNTIME evidence for the real success chain and timeout-after-receipt recovery; Day62 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts.
 
 ---
 

@@ -142,7 +142,7 @@ docker run --rm -d --name day60-redis -p 127.0.0.1:6379:6379 redis:7
 
 # 2) raw Day42 baseline -> Alembic stamp -> controlled upgrade to the Day60 head (0012_day60_repair_audit_attestation)
 export DAY48_ALEMBIC_DATABASE_URL='postgresql://<user>:<local-only>@127.0.0.1:5432/<db>'
-alembic -c day48_alembic/alembic.ini stamp 0001_baseline_day42
+alembic -c day48_alembic/alembic.ini stamp 0001_baseline
 alembic -c day48_alembic/alembic.ini upgrade 0012_day60_repair_audit_attestation
 
 # 3) readiness gate expects 0012_day60_repair_audit_attestation

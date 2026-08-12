@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day60 — Outbox, Redis/Celery Broker and Worker Recovery Integration is COMPLETE (real local INTEGRATION_RUNTIME executed in a disposable local environment during class; the updating agent re-ran only py_compile + the stdlib delivery/recovery tests — INTEGRATION_RUNTIME NOT RERUN). Day61 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
+Phase 5 — Production Runtime Integration and Browser Tool Engineering (Production Integration Gate). Day60 and Day61 are COMPLETE. Day61 was verified against disposable PostgreSQL, Redis/Celery, MinIO and an OTel Collector; Day62 is current. Phase 4 (Day43-Day58) remains COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts.
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -109,6 +109,7 @@ Day60 provides a REAL Relay/Worker/recovery/repair runtime (`day60_delivery_runt
 
 Completed Work:
 
+- Day61 completed: real disposable PostgreSQL + Redis/Celery + MinIO + OTel Collector success evidence, plus timeout-after-receipt evidence (`pending_reconciliation`, no success Artifact, lease triple cleared); 66 local Day61 tests passed. Real/paid Provider and production-scale validation remain out of scope.
 - Day60 classroom learning (Relay publish-before-checkpoint; competing-Relay claim/fencing; guarded Worker authority + lease fencing; late ACK vs commit; duplicate/worker-kill/expiry classification; durable recovery sweep; bounded early-ACK repair; never `.delay()`)
 - Day60 lesson document (LESSON_TEMPLATE_v2, exact 16-section order; real CN/EN student answers + corrections + Mental Model Evolution preserved)
 - Day60 design/runbook + pure decision-core module + stdlib tests (11 passed) + readiness app-factory + Celery delivery-config module + forward additive `0009_day60_delivery_runtime` migration + `requirements-day60.txt`

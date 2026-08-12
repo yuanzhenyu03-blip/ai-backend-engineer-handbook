@@ -263,10 +263,17 @@ def _guarded_completion(engine, tenant_id, job_id, attempt_id, lease_token, ref:
 
 
 def _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, reason: str) -> str:
-    """Lease-fenced. A stale Worker changes ZERO rows and CANNOT move the successor's Job."""
+    """Lease-fenced. Reconciliation is not active execution, so a successful
+    ``running -> pending_reconciliation`` transition clears the entire lease triple.
+    The unfinished Attempt is deliberately retained as external-operation evidence.
+    A stale Worker changes ZERO rows and cannot move the successor's Job."""
     with engine.begin() as conn:
         rows = conn.execute(
-            text(f"UPDATE app.jobs SET job_status='pending_reconciliation' WHERE job_id=:j AND {_LEASE_GUARD}"),
+            text(
+                "UPDATE app.jobs SET job_status='pending_reconciliation', "
+                "lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL "
+                f"WHERE job_id=:j AND {_LEASE_GUARD}"
+            ),
             {"j": job_id, "tok": lease_token},
         ).rowcount
         if rows == 0:

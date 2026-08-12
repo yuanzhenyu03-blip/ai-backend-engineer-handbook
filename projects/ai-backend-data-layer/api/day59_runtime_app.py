@@ -72,7 +72,10 @@ from day59_acceptance_logic import (
 
 # The API build declares the schema revision it REQUIRES. Readiness fails if the live
 # database is not exactly at this revision.
-EXPECTED_ALEMBIC_REVISION = "0008_day59_acceptance"
+# This runtime is reused by the Day60/Day61 execution path.  Readiness must
+# require the schema head that supplies the lease/recovery facts used by the
+# Worker, rather than reporting an already-upgraded Day61 database as stale.
+EXPECTED_ALEMBIC_REVISION = "0012_day60_repair_audit_attestation"
 DISPATCH_EVENT_TYPE = "job.dispatch_requested"
 
 

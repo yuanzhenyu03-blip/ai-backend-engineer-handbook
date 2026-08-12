@@ -156,6 +156,11 @@ def test_acceptance_wraps_uow_in_fastapi_root_span():
     assert s.index("INSERT INTO app.outbox_events", i_span) > i_span
 
 
+def test_acceptance_readiness_requires_the_day60_schema_head_used_by_day61_worker():
+    s = _src("day59_runtime_app.py")
+    assert 'EXPECTED_ALEMBIC_REVISION = "0012_day60_repair_audit_attestation"' in s
+
+
 class _FakeSpanCM:
     def __init__(self, log):
         self._log = log

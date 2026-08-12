@@ -9,6 +9,21 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.151 — Day61 integration runtime verified and completed
+
+Date: 2026-08-12
+
+Day61 was run against disposable local PostgreSQL, Redis/Celery, MinIO and an OTel Collector.
+The real success chain verified guarded Job completion, persisted Provider identity, matching MinIO
+HEAD metadata, fenced Outbox publication and correlated acceptance/Relay/Worker spans. A real
+timeout-after-receipt exercise produced `pending_reconciliation`, no success Artifact and full
+lease-triple cleanup. The readiness gate now expects the Day60 schema head (`0012`); the empty-db
+runbook now applies Day42 raw baseline SQL before stamping the real `0001_baseline` revision.
+Tests: 66 passed across the five Day61 suites. Real/paid Provider traffic and production-scale
+or multi-replica validation remain NOT RUN. Day61 is marked Completed.
+
+---
+
 ## v0.1.150 — Day61 review fix: Outbox Relay publish span + accurate test-count/evidence honesty
 
 Date: 2026-08-12
