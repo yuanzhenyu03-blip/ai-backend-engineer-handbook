@@ -9,6 +9,32 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.150 — Day61 review fix: Outbox Relay publish span + accurate test-count/evidence honesty
+
+Date: 2026-08-12
+
+Day: Day61 (Phase 5). Two P1 fixes. (1) The Relay's real publish path now emits a diagnostic-only
+`outbox.relay_publish` span inside `OutboxRelay.deliver_batch`, started UNDER the context extracted from the
+Outbox payload's W3C `traceparent`, so a Collector trace shows the missing hop
+`FastAPI acceptance -> Outbox Relay publish -> Celery Worker`. The span carries only low-risk correlation
+attributes (`job_id`/`outbox_event_id`/`event_type`) — never a full `provider_request_id` and never a metric
+label. The publish still runs OUTSIDE the DB lock (the claim tx already committed), a Relay retry of the same
+durable intent reuses the SAME trace association with a fresh Relay span id, and the fenced `published_at`
+checkpoint stays OUTSIDE the span; an OTel/exporter failure degrades to a no-op and never blocks the publish
+or the checkpoint, changes business state, or triggers an extra Provider call (`relay_publish_span` in
+`day61_telemetry.py`, same exception discipline as `operation_span`). (2) The lesson top no longer claims
+"19 passed": it now states the true EXECUTED_LOCAL_RUNTIME total (64 passed across the five Day61 local
+suites) with the exact command, and explicitly notes that NO OTel Collector received any trace and NO
+PostgreSQL/Redis/Celery/MinIO was run.
+
+No new migration (Day60 head stays `0012_day60_repair_audit_attestation`); no Day59/Day60 business boundary
+changed (the span wraps the existing publish only). Tests: 64 passed across the five Day61 suites (61 -> 64;
++3 relay-span tests); Day59/Day60 suites (46 passed) unaffected. Day61 remains **not Completed**: the full
+local `INTEGRATION_RUNTIME` matrix (PostgreSQL + Redis/Celery + MinIO + a running OTel Collector) is still NOT
+RUN and no Collector trace is claimed. Protected files and published migrations unchanged.
+
+---
+
 ## v0.1.149 — Day61 review fix: real Worker composition (Provider always called) + FastAPI root span starts the trace
 
 Date: 2026-08-12

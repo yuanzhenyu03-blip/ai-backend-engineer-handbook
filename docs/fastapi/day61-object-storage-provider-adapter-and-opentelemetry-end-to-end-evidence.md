@@ -15,17 +15,29 @@ Day61 turns the Day59 acceptance boundary and Day60 Outbox/Worker recovery bound
 real local end-to-end EVIDENCE path: a deterministic fake Provider over real HTTP, Object
 Storage artifacts, durable external-operation checkpoints, and OpenTelemetry correlation.
 
-> Evidence honesty: the runtime artifacts are real, and the pure-logic + a REAL
-> HTTP-loopback test (the separate fake Provider ↔ the adapter, success/invalid/timeout)
-> pass — **19 passed, `EXECUTED_LOCAL_RUNTIME`** (incl. the review fixes: Result-bytes
-> metadata is COMPUTED from the actual canonical bytes so a correct success verifies as
-> VERIFIED; every external action + state change is fenced by the CURRENT `lease_token`;
-> `provider_request_id` is immutable (NULL->set / same->idempotent / different->conflict);
-> and a minimal OpenTelemetry layer — `day61_telemetry.py` — adds spans + a low-cardinality
-> outcome metric with a no-op fallback). But the full local `INTEGRATION_RUNTIME` matrix
-> (PostgreSQL + Redis/Celery + MinIO + OTel Collector) has **NOT been executed** by the
-> updating agent (no Docker), so Day61 is **not marked Completed**. See the
-> design/runbook's Required integration rerun matrix. Target tier is local
+> Evidence honesty: the runtime artifacts are real, and the pure-logic + REAL HTTP-loopback
+> (the separate fake Provider ↔ the adapter, success/invalid/timeout) + static/fake-driven
+> contract suites pass — **64 passed across the five Day61 local suites,
+> `EXECUTED_LOCAL_RUNTIME`**, run with:
+>
+> ```
+> cd projects/ai-backend-data-layer/api
+> python3 -m pytest -q test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py \
+>   test_day61_lease_fencing_and_telemetry.py test_day61_trace_and_bootstrap.py \
+>   test_day61_authoritative_composition.py
+> ```
+>
+> These cover the review fixes: Result-bytes metadata is COMPUTED from the actual canonical
+> bytes (a correct success verifies as VERIFIED); every external action + state change is
+> fenced by the CURRENT `lease_token`; `provider_request_id` is immutable (NULL->set /
+> same->idempotent / different->conflict); the production Celery path runs the authoritative
+> composition (a Provider is ALWAYS called before success); acceptance opens a
+> `fastapi.accept_job` root span and the Relay wraps its publish in an `outbox.relay_publish`
+> span, so the trace context flows FastAPI → Outbox → Relay → Worker. **These are pure/static/
+> loopback tests: NO OTel Collector received any trace, and NO PostgreSQL/Redis/Celery/MinIO
+> was run.** The full local `INTEGRATION_RUNTIME` matrix (PostgreSQL + Redis/Celery + MinIO +
+> a running OTel Collector) is **NOT RUN** (no Docker), so Day61 is **not marked Completed**.
+> See the design/runbook's Required integration rerun matrix. Target tier is local
 > `INTEGRATION_RUNTIME`, never Production; Day61 never calls a real/paid model Provider.
 
 ---

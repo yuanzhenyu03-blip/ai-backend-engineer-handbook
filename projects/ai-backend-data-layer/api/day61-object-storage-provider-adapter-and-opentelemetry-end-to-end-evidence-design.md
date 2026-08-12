@@ -66,8 +66,12 @@ model Provider; a SEPARATE deterministic fake HTTP Provider proves adapter integ
   the SDK is absent. W3C trace context is now WIRED end to end: FastAPI acceptance opens a
   `fastapi.accept_job` ROOT span for the request (so a trace actually STARTS without external
   auto-instrumentation) and injects the request's `traceparent` into the `job.dispatch_requested` Outbox `payload` (existing JSONB;
-  no migration); the Relay reads that payload OUTSIDE the DB lock and passes the carrier to the
-  Celery task kwargs (keeping publish-outside-lock + fenced `published_at`); the Worker task
+  no migration); the Relay reads that payload OUTSIDE the DB lock and wraps its real publish in a
+  diagnostic-only `outbox.relay_publish` span (parented on the payload's `traceparent`, so a
+  Relay retry reuses the SAME trace association with a fresh Relay span id; the fenced
+  `published_at` checkpoint stays OUTSIDE the span and a telemetry failure degrades to a
+  no-op) and passes the carrier to the Celery task kwargs (keeping publish-outside-lock +
+  fenced `published_at`); the Worker task
   extracts it and runs the unit-of-work / Provider / Storage / DB spans UNDER that context, so
   they CONTINUE the original trace. A Relay retry of the same durable intent reuses the SAME
   trace association (each publish still mints a fresh span id). `init_telemetry()` is bootstrapped

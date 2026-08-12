@@ -262,6 +262,66 @@ def operation_span(
 
 
 # ---------------------------------------------------------------------------
+# 2b) Relay publish span so the trace shows the Outbox->Broker hop (P1-1).
+# ---------------------------------------------------------------------------
+@contextlib.contextmanager
+def relay_publish_span(
+    outbox_event_id: str, job_id: str, event_type: str, parent_context: Any = None
+) -> Iterator[None]:
+    """A DIAGNOSTIC-only span (``outbox.relay_publish``) around the Relay's real
+    ``apply_async`` publish, so a Collector trace shows the FastAPI acceptance -> Outbox Relay
+    publish -> Celery Worker hop. Started UNDER ``parent_context`` (the context extracted from
+    the Outbox payload's W3C ``traceparent``), so a Relay RETRY of the SAME durable intent
+    reuses the SAME trace association while EACH publish gets a fresh Relay span id.
+
+    Attributes are low-risk correlation ids only (``job_id``/``outbox_event_id``/
+    ``event_type``) — NEVER a full ``provider_request_id`` and never a metric label. Same
+    exception discipline as :func:`operation_span`: telemetry-layer errors are swallowed and a
+    business exception from the wrapped publish propagates UNCHANGED (single yield), so a
+    telemetry/exporter failure can never block the publish or the fenced ``published_at``
+    checkpoint, change business state, or trigger an extra Provider call. A no-op without the
+    SDK."""
+    attrs: Dict[str, str] = {
+        "job_id": job_id,
+        "outbox_event_id": outbox_event_id,
+        "event_type": event_type,
+    }
+    if not _OTEL or _TRACER is None:
+        yield
+        return
+    cm = None
+    span = None
+    try:
+        if parent_context is not None:
+            cm = _TRACER.start_as_current_span("outbox.relay_publish", context=parent_context)  # type: ignore[union-attr]
+        else:
+            cm = _TRACER.start_as_current_span("outbox.relay_publish")  # type: ignore[union-attr]
+        span = cm.__enter__()
+        for k, v in attrs.items():
+            try:
+                span.set_attribute(k, v)
+            except Exception:
+                pass  # attribute failure is telemetry-only
+    except Exception:
+        if cm is not None:
+            try:
+                cm.__exit__(*sys.exc_info())
+            except Exception:
+                pass
+        cm = None
+    if cm is None:
+        yield
+        return
+    try:
+        yield  # the real publish runs here; a publish exception propagates unchanged
+    finally:
+        try:
+            cm.__exit__(*sys.exc_info())
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # 3) W3C trace-context propagation across FastAPI -> Outbox -> Celery Worker (P1-3).
 # ---------------------------------------------------------------------------
 def inject_trace_context(carrier: Optional[Dict[str, str]] = None) -> Dict[str, str]:

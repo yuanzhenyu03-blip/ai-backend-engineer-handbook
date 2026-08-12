@@ -50,7 +50,7 @@ from typing import Optional
 from sqlalchemy import text
 from sqlalchemy.engine import Connection, Engine
 
-from day61_telemetry import extract_trace_context, load_traceparent_from_payload, operation_span
+from day61_telemetry import extract_trace_context, load_traceparent_from_payload, operation_span, relay_publish_span
 from sqlalchemy.exc import IntegrityError
 
 from day60_delivery_recovery_logic import (
@@ -99,12 +99,18 @@ class OutboxRelay:
             outbox_event_id, job_id, event_type, token, payload = claim
             # The SAME durable Outbox payload carries the request's W3C traceparent, so a Relay
             # RETRY of this intent reuses the SAME trace association; each publish still gets a
-            # fresh span id from the SDK. Loading is a pure read of the existing JSONB.
+            # fresh Relay span id. Loading is a pure read of the existing JSONB.
             trace_carrier = load_traceparent_from_payload(payload)
-            self._publish(job_id=str(job_id), event_type=event_type,
-                          outbox_event_id=str(outbox_event_id),
-                          trace_carrier=trace_carrier)          # OUTSIDE the DB lock
-            self._checkpoint(outbox_event_id, token)             # fenced by relay_token
+            parent_ctx = extract_trace_context(trace_carrier)
+            # DIAGNOSTIC-only `outbox.relay_publish` span UNDER the request's trace, around the
+            # real publish. The claim tx already committed (lock released), so the publish still
+            # runs OUTSIDE any DB lock; a telemetry failure degrades to a no-op and never blocks
+            # the publish or the fenced checkpoint.
+            with relay_publish_span(str(outbox_event_id), str(job_id), event_type, parent_context=parent_ctx):
+                self._publish(job_id=str(job_id), event_type=event_type,
+                              outbox_event_id=str(outbox_event_id),
+                              trace_carrier=trace_carrier)      # OUTSIDE the DB lock
+            self._checkpoint(outbox_event_id, token)             # fenced by relay_token (outside the span)
             delivered += 1
         return delivered
 

@@ -256,3 +256,124 @@ def test_operation_span_parent_context_is_noop_safe():
     ctx = tel.extract_trace_context({"traceparent": "tp"})  # None without SDK
     with tel.operation_span("x", "j1", "a1", parent_context=ctx):
         pass  # must not raise on the parent_context path
+
+
+# ---------------------------------------------------------------------------
+# P1-1: the Relay's real publish path emits an `outbox.relay_publish` span UNDER the payload's
+# trace association, without ever blocking the publish or the fenced checkpoint.
+# ---------------------------------------------------------------------------
+class _SqlRelayResult:
+    def __init__(self, first=None, rowcount=0):
+        self._first = first
+        self.rowcount = rowcount
+
+    def first(self):
+        return self._first
+
+
+class _SqlRelayConn:
+    def __init__(self, engine):
+        self._e = engine
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, stmt, params=None):
+        sql = str(stmt)
+        self._e.executed.append(sql)
+        if sql.strip().startswith("SELECT outbox_event_id"):
+            if self._e.rows:
+                return _SqlRelayResult(first=self._e.rows.pop(0))
+            return _SqlRelayResult(first=None)
+        return _SqlRelayResult(rowcount=1)  # claim UPDATE + checkpoint UPDATE
+
+
+class _SqlRelayEngine:
+    def __init__(self, payload):
+        self.rows = [_Row(payload)]
+        self.executed = []
+
+    def begin(self):
+        return _SqlRelayConn(self)
+
+
+def test_relay_publish_span_started_under_payload_trace_association(monkeypatch):
+    import day60_delivery_runtime as dr
+
+    calls = []
+
+    class _SpyCM:
+        def __init__(self, meta):
+            self.meta = meta
+
+        def __enter__(self):
+            calls.append(self.meta)
+            return None
+
+        def __exit__(self, *a):
+            return False
+
+    def _spy_span(outbox_event_id, job_id, event_type, parent_context=None):
+        return _SpyCM({"oe": outbox_event_id, "job": job_id, "etype": event_type, "parent": parent_context})
+
+    # Deterministic association token derived from the carrier's traceparent (same tp -> same token).
+    monkeypatch.setattr(dr, "relay_publish_span", _spy_span)
+    monkeypatch.setattr(dr, "extract_trace_context",
+                        lambda c: ("assoc", c.get("traceparent")) if c else None)
+
+    tp = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"
+
+    def _run():
+        published = {}
+        def publish(job_id, event_type, outbox_event_id, trace_carrier=None):
+            published["carrier"] = trace_carrier
+        eng = _SqlRelayEngine({"traceparent": tp})
+        OutboxRelay(eng, publish).deliver_batch(limit=5)
+        return published, eng
+
+    pub1, eng1 = _run()
+    assert calls[0]["parent"] == ("assoc", tp)          # span parented on the payload's trace
+    assert calls[0]["job"] and calls[0]["oe"] == "oe-1"
+    assert pub1["carrier"] == {"traceparent": tp}       # carrier still forwarded to the task
+    # a RETRY of the same durable intent -> SAME association, a NEW span invocation (new span id).
+    _run()
+    assert calls[1]["parent"] == calls[0]["parent"]     # same trace id
+    assert calls[1] is not calls[0]                     # distinct Relay span per publish
+
+
+def test_relay_publish_and_checkpoint_survive_telemetry_failure(monkeypatch):
+    # A failing SDK tracer inside the REAL relay_publish_span must not block publish/checkpoint.
+    import day61_telemetry as tel
+
+    class _BadTracer:
+        def start_as_current_span(self, *a, **k):
+            raise RuntimeError("span backend down")
+
+    monkeypatch.setattr(tel, "_OTEL", True, raising=False)
+    monkeypatch.setattr(tel, "_TRACER", _BadTracer(), raising=False)
+
+    published = {}
+    def publish(job_id, event_type, outbox_event_id, trace_carrier=None):
+        published["ok"] = True
+    eng = _SqlRelayEngine({"traceparent": "00-abc-def-01"})
+    delivered = OutboxRelay(eng, publish).deliver_batch(limit=5)
+
+    assert delivered == 1
+    assert published.get("ok") is True                                  # publish completed
+    assert any("SET published_at=now()" in s for s in eng.executed)     # fenced checkpoint ran
+
+
+def test_relay_publish_span_is_in_the_real_deliver_batch_path():
+    # Guard against a docs-only / helper-only span: it must be wired into deliver_batch, around
+    # the publish, and the checkpoint must remain OUTSIDE the span (still fenced).
+    s = (_HERE / "day60_delivery_runtime.py").read_text()
+    assert "with relay_publish_span(" in s
+    i_with = s.index("with relay_publish_span(")
+    i_pub = s.index("self._publish(", i_with)
+    i_ckpt = s.index("self._checkpoint(", i_with)
+    assert i_with < i_pub < i_ckpt                       # span wraps publish; checkpoint after
+    # checkpoint line is de-indented relative to the publish (outside the with block)
+    assert "self._checkpoint(outbox_event_id, token)" in s
