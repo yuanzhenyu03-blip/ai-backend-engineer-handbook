@@ -20,9 +20,19 @@ _SRC = (pathlib.Path(__file__).parent / "day61_worker_completion.py").read_text(
 def test_dispatch_marker_is_lease_fenced_and_short_circuits_before_provider_call():
     assert "def _claim_dispatch_marker" in _SRC
     assert "lease_token=:tok" in _SRC
-    # the marker claim (and its rowcount==1 gate) precedes the Provider HTTP call in source
-    assert _SRC.index("_claim_dispatch_marker(engine, job_id, lease_token)") < _SRC.index("call_provider(")
+    # the marker claim precedes the Provider HTTP call in source
+    assert _SRC.index("_claim_dispatch_marker(engine, job_id, attempt_id, lease_token)") < _SRC.index("call_provider(")
     assert "lease_lost_no_external_call" in _SRC
+
+
+def test_attempt_ownership_is_verified_before_provider_call():
+    # P1-4: the pre-call claim verifies the Attempt belongs to the Job (join on a.job_id=:j)
+    # BEFORE any Provider HTTP, and a mismatch stops without an external call.
+    join = "JOIN app.jobs j ON j.job_id=a.job_id"
+    assert join in _SRC
+    assert _SRC.index("a.job_id=:j") < _SRC.index("call_provider(")
+    assert "attempt_mismatch" in _SRC
+    assert "attempt_mismatch_no_external_call" in _SRC
 
 
 def test_all_state_changes_are_lease_fenced():
@@ -58,3 +68,113 @@ def test_metric_labels_low_cardinality_only():
     assert record_provider_outcome("fake", "valid", "verified") is True
     # high-cardinality label attempts are rejected by the pure validator inside record_*
     assert exporter_failure_is_bounded() is True
+
+
+# ---- telemetry: business exceptions propagate; only telemetry errors are swallowed (P0-2) --
+class _BoomError(Exception):
+    pass
+
+
+def test_business_exception_propagates_through_operation_span_noop_path():
+    # No-op path (SDK absent): a business exception inside the span reaches the caller.
+    import pytest
+
+    with pytest.raises(_BoomError):
+        with operation_span("x", "j1", "a1"):
+            raise _BoomError("business failed")
+
+
+def test_span_init_failure_still_runs_business_and_propagates(monkeypatch):
+    # Force the "OTel present" branch with a tracer whose span creation RAISES: the business
+    # block must still run, and its own exception must still propagate (telemetry never hides it).
+    import day61_telemetry as tel
+
+    class _BadTracer:
+        def start_as_current_span(self, *_a, **_k):
+            raise RuntimeError("span backend down")
+
+    monkeypatch.setattr(tel, "_OTEL", True, raising=False)
+    monkeypatch.setattr(tel, "_TRACER", _BadTracer(), raising=False)
+
+    ran = {"business": False}
+    with tel.operation_span("x", "j1", "a1"):
+        ran["business"] = True
+    assert ran["business"] is True  # telemetry failure did not skip business
+
+    import pytest
+    with pytest.raises(_BoomError):
+        with tel.operation_span("x", "j1", "a1"):
+            raise _BoomError("still propagates")
+
+
+def test_active_span_does_not_swallow_business_exception(monkeypatch):
+    # A WORKING fake span must not turn a business exception into a swallowed/duplicated yield.
+    import day61_telemetry as tel
+
+    class _FakeSpan:
+        def set_attribute(self, *_a, **_k):
+            pass
+
+    class _FakeSpanCM:
+        def __enter__(self):
+            return _FakeSpan()
+
+        def __exit__(self, *exc):
+            return False  # never suppress
+
+    class _FakeTracer:
+        def start_as_current_span(self, *_a, **_k):
+            return _FakeSpanCM()
+
+    monkeypatch.setattr(tel, "_OTEL", True, raising=False)
+    monkeypatch.setattr(tel, "_TRACER", _FakeTracer(), raising=False)
+
+    import pytest
+    with pytest.raises(_BoomError):
+        with tel.operation_span("x", "j1", "a1", provider_request_id="prov-secret"):
+            raise _BoomError("boom")  # must reach here, no "generator didn't stop" error
+
+
+# ---- telemetry: configurable OTLP init + W3C propagation (P1-3) -----------------------
+def test_init_telemetry_disabled_by_default_and_idempotent():
+    import day61_telemetry as tel
+
+    tel._reset_telemetry_init_for_tests()
+    # Default (no enable flag) must NOT build exporters / touch globals -> returns False.
+    assert tel.init_telemetry(enabled=False) is False
+    # Idempotent: a second call returns the same state without re-initializing.
+    assert tel.init_telemetry(enabled=True) is False  # already initialized as disabled
+    tel._reset_telemetry_init_for_tests()
+
+
+def test_init_telemetry_enabled_is_safe_without_sdk():
+    # With the SDK absent (this environment), enabling must NOT raise; it degrades to no-op.
+    import day61_telemetry as tel
+
+    tel._reset_telemetry_init_for_tests()
+    result = tel.init_telemetry(enabled=True)
+    assert result in (True, False)  # True only if a real SDK+exporter is installed
+    tel._reset_telemetry_init_for_tests()
+
+
+def test_trace_context_inject_extract_noop_safe():
+    import day61_telemetry as tel
+
+    carrier = tel.inject_trace_context({})
+    assert isinstance(carrier, dict)                 # never raises; empty when SDK absent
+    assert "provider_request_id" not in carrier      # protected id never propagated
+    ctx = tel.extract_trace_context(carrier)
+    assert ctx is None or ctx is not None            # returns without raising
+
+
+def test_traceparent_round_trips_through_outbox_payload():
+    # Outbox carries traceparent on the existing payload JSONB (no migration needed).
+    import day61_telemetry as tel
+
+    carrier = {"traceparent": "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01"}
+    payload = tel.store_traceparent_in_payload({"job_id": "j1"}, carrier)
+    assert payload["traceparent"] == carrier["traceparent"]
+    assert payload["job_id"] == "j1"
+    reloaded = tel.load_traceparent_from_payload(payload)
+    assert reloaded == carrier
+    assert tel.load_traceparent_from_payload({"job_id": "j1"}) == {}  # absent -> empty carrier

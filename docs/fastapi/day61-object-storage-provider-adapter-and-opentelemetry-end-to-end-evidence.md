@@ -216,13 +216,25 @@ Production Example: an OTLP exporter outage during a valid run. The Job still co
 lease token; the trace is simply incomplete, flagged by exporter health metrics, and the
 evidence pack is rebuilt from DB + MinIO + the Provider ledger.
 
+Implementation note: telemetry instrumentation swallows ONLY its own errors (SDK init, span
+creation, attribute setting, export) — a business exception inside a span propagates unchanged.
+The SDK exporter is optional, idempotent and disabled by default (`init_telemetry()`), reads its
+endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT` (no hardcoded URL/token), and W3C trace context rides
+the existing Outbox `payload` (no migration) from HTTP acceptance through the Relay into the
+Worker. A real OTLP export to a running Collector is INTEGRATION_RUNTIME (NOT RUN).
+
 ### Concept 8: The deterministic fake Provider (a separate process)
 
 Tech Lead Review: The fake Provider must be a SEPARATE process, not an in-process mock, so it
 verifies real HTTP serialization, timeout, header/context propagation and an independent request
-ledger. Modes: `success` (valid 200), `timeout` (record receipt FIRST, then delay past the
-client timeout), `invalid_response` (HTTP 200 with a contract-violating body). It is not a real
-model Provider and proves nothing about real cost, rate limits or production behaviour.
+ledger. It is IDEMPOTENT on our stable `X-Correlation-Key`: the first request for a key mints ONE
+external operation (one `provider_request_id` + one result); a same-key retry returns that exact
+result WITHOUT a second execution, and a same-key request with an incompatible mode is an explicit
+HTTP 409 — never a silent reuse of the wrong result. The ledger records each call attempt, proving
+"one external operation, many call attempts". Modes: `success` (valid 200), `timeout` (record
+receipt FIRST, then delay past the client timeout on the first call; a later same-key call
+reconciles immediately), `invalid_response` (HTTP 200 with a contract-violating body). It is not a
+real model Provider and proves nothing about real cost, rate limits or production behaviour.
 
 ---
 

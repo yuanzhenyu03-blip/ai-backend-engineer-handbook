@@ -9,6 +9,33 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.147 — Day61 review fix: real Provider idempotency, telemetry exception safety, OTLP export + trace propagation, pre-call Attempt ownership
+
+Date: 2026-08-12
+
+Day: Day61 (Phase 5). Four review fixes on the external-evidence path. (1) The fake HTTP Provider is now
+IDEMPOTENT on the caller's stable `X-Correlation-Key`: the first request per key mints ONE external
+operation; same-key retries reuse the same `provider_request_id` + result (no second execution); an
+incompatible mode for the same key returns HTTP 409; the ledger proves "one external operation, many call
+attempts", and timeout-after-receipt reconciles to the same one operation. (2) `operation_span()` no longer
+swallows business exceptions or double-yields — it swallows ONLY telemetry-layer errors and yields exactly
+once, so a business error propagates unchanged. (3) `init_telemetry()` adds an OPTIONAL, idempotent,
+disabled-by-default OTLP pipeline (TracerProvider + BatchSpanProcessor + OTLP span exporter; MeterProvider +
+PeriodicExportingMetricReader + OTLP metric exporter; endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT`, no
+hardcoded URL/token), plus W3C `inject/extract` helpers carrying `traceparent` on the EXISTING Outbox
+`payload` JSONB (no migration). (4) The Worker verifies Attempt ownership (Attempt exists + belongs to Job +
+Job running under THIS `lease_token`) in one transaction BEFORE any Provider HTTP; a mismatch returns
+`attempt_mismatch_no_external_call` (no marker, no call, no request_id, no state change).
+
+No new migration (schema already supports it; Outbox `payload` carries `traceparent`); Day60 head stays
+`0012_day60_repair_audit_attestation` with the lease triple + recovery preserved. Tests: 30 passed
+(pure logic + real-HTTP loopback idempotency + static lease/ownership contract + telemetry exception/OTLP/
+propagation). Day61 remains **not Completed**: the full local `INTEGRATION_RUNTIME` matrix (PostgreSQL +
+Redis/Celery + MinIO + a running OTel Collector) is still NOT RUN. Protected files and published migrations
+unchanged.
+
+---
+
 ## v0.1.146 — Day61 review fix: real success path, lease-fenced external ops, request-id immutability, real OTel
 
 Date: 2026-08-11

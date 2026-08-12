@@ -5,8 +5,9 @@ state machine, reusing the EXISTING Day60 lease TRIPLE (``lease_owner``/``lease_
 ``lease_expires_at``). EVERY external action and business state change is fenced by the
 CURRENT matching ``lease_token``:
 
-    guarded-claim provider_dispatch_started_at  (job_id + running + lease_token; rowcount==1)
-      -> if 0 rows: lease_lost_no_external_call (NO Provider call, NO request_id, NO state change)
+    guarded-claim provider_dispatch_started_at  (attempt belongs to job + running + lease_token)
+      -> attempt not owned: attempt_mismatch_no_external_call ; lease lost: lease_lost_no_external_call
+         (in every non-claimed case: NO Provider call, NO request_id, NO state change)
       -> call the Provider over real HTTP (adapter)
       -> persist provider_request_id (NULL->set / same->idempotent / diff->conflict), lease-fenced
       -> compute Artifact metadata from the ACTUAL result bytes; HEAD-verify on the per-Attempt key
@@ -46,11 +47,38 @@ from day61_telemetry import operation_span, record_provider_outcome
 _LEASE_GUARD = "job_status='running' AND lease_token=:tok"
 
 
-def _claim_dispatch_marker(engine: Engine, job_id: str, lease_token: str) -> bool:
-    """Guarded PRE-CALL checkpoint. Returns True ONLY if this Worker still holds the current
-    lease (job running + matching token). If it returns False, NO Provider call is made and
-    NO state is changed — a stale Worker stops here."""
+def _claim_dispatch_marker(engine: Engine, job_id: str, attempt_id: str, lease_token: str) -> str:
+    """Guarded PRE-CALL checkpoint that ALSO verifies Attempt ownership (P1-4). In ONE short
+    transaction it confirms, BEFORE any Provider HTTP, that:
+
+      * the Attempt exists AND belongs to THIS Job (``attempt_id`` -> ``job_id``);
+      * the Job is ``running`` AND the DB holds THIS Worker's ``lease_token``.
+
+    Returns:
+      * ``"claimed"``          -> ownership + lease verified and the dispatch marker set;
+      * ``"attempt_mismatch"`` -> the Attempt is missing or belongs to another Job;
+      * ``"lease_lost"``       -> the Attempt belongs to the Job but the Job is no longer
+        running under this token.
+
+    On any non-``claimed`` result NO marker is written, NO Provider call is made, NO
+    provider_request_id is written, and NO Job state changes — a stale or mis-targeted Worker
+    stops here."""
     with engine.begin() as conn:
+        owned = conn.execute(
+            text(
+                "SELECT a.attempt_id FROM app.job_attempts a "
+                "JOIN app.jobs j ON j.job_id=a.job_id "
+                f"WHERE a.attempt_id=:a AND a.job_id=:j AND {_LEASE_GUARD} FOR UPDATE OF a"
+            ),
+            {"a": attempt_id, "j": job_id, "tok": lease_token},
+        ).first()
+        if owned is None:
+            # Distinguish "Attempt does not belong to this Job" from "lease lost", still in-tx.
+            belongs = conn.execute(
+                text("SELECT 1 FROM app.job_attempts WHERE attempt_id=:a AND job_id=:j"),
+                {"a": attempt_id, "j": job_id},
+            ).first()
+            return "lease_lost" if belongs is not None else "attempt_mismatch"
         rows = conn.execute(
             text(
                 "UPDATE app.jobs SET provider_dispatch_started_at=coalesce(provider_dispatch_started_at, now()) "
@@ -58,7 +86,9 @@ def _claim_dispatch_marker(engine: Engine, job_id: str, lease_token: str) -> boo
             ),
             {"j": job_id, "tok": lease_token},
         ).rowcount
-    return rows == 1
+        if rows != 1:
+            return "lease_lost"
+    return "claimed"
 
 
 def _persist_provider_request_id(
@@ -108,8 +138,13 @@ def run_external_operation(
     """Execute one external operation end to end. Returns an outcome tag. INTEGRATION_RUNTIME."""
     store = store or S3ArtifactStore()
 
-    # Fence BEFORE any external call: a stale Worker never even reaches the Provider.
-    if not _claim_dispatch_marker(engine, job_id, lease_token):
+    # Fence + verify Attempt ownership BEFORE any external call: a stale OR mis-targeted
+    # Worker never even reaches the Provider (no marker, no call, no request_id, no state).
+    claim = _claim_dispatch_marker(engine, job_id, attempt_id, lease_token)
+    if claim == "attempt_mismatch":
+        record_provider_outcome(provider_name, "attempt_mismatch", "none")
+        return "attempt_mismatch_no_external_call"
+    if claim != "claimed":
         record_provider_outcome(provider_name, "lease_lost", "none")
         return "lease_lost_no_external_call"
 

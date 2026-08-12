@@ -25,24 +25,40 @@ model Provider; a SEPARATE deterministic fake HTTP Provider proves adapter integ
 - `day61_provider_artifact_logic.py` — pure decision core (outcome classification;
   deterministic per-Attempt key; HEAD verify / non-overwrite conflict; checkpoint order;
   lease-token completion gate; telemetry safety). Unit-tested.
-- `day61_fake_provider.py` — the SEPARATE deterministic fake HTTP Provider (`http.server`):
-  `success`, `timeout` (record receipt FIRST, then delay past the client timeout),
-  `invalid_response` (HTTP 200, contract-violating body), with an independent request ledger.
+- `day61_fake_provider.py` — the SEPARATE deterministic fake HTTP Provider (`http.server`).
+  IDEMPOTENT on the caller's stable `X-Correlation-Key`: the FIRST request for a key mints ONE
+  external operation (one `provider_request_id` + one result); later same-key requests reuse it
+  (no second Provider execution); a same-key request with an INCOMPATIBLE mode is HTTP 409. The
+  ledger records every call attempt separately, proving "one external operation, many attempts".
+  Modes: `success`, `timeout` (record receipt FIRST, then delay past the client timeout only on
+  the first call; a later same-key call reconciles immediately), `invalid_response` (HTTP 200,
+  contract-violating body).
 - `day61_provider_adapter.py` — the Provider Adapter over REAL HTTP (`urllib`): timeout, a
   stable `X-Correlation-Key`, response-contract validation, data minimization.
 - `day61_artifact_store.py` — S3/MinIO Result Artifact store: deterministic per-Attempt key,
   idempotent HEAD verification, non-overwrite conflict.
 - `day61_worker_completion.py` — the guarded end-to-end path (SQLAlchemy Core) reusing the
-  Day60 lease triple: a LEASE-FENCED dispatch marker (a stale Worker stops before any HTTP
-  call) -> HTTP call -> IMMUTABLE lease-fenced `provider_request_id` (NULL->set / same->
-  idempotent / different->conflict) -> metadata COMPUTED from the actual result bytes -> HEAD
-  verify -> ONE guarded completion under the CURRENT `lease_token`. All state changes
-  (pending_reconciliation / contract failure / completion) are lease-fenced.
-- `day61_telemetry.py` — minimal OpenTelemetry: spans for the Provider HTTP call, the Object
-  Storage put/HEAD, and the guarded completion; `job_id`/`attempt_id` correlation; a hashed
+  Day60 lease triple: a pre-call check that (in ONE tx) verifies the Attempt exists AND belongs
+  to this Job AND the Job is running under THIS `lease_token`, THEN sets the LEASE-FENCED
+  dispatch marker (a stale OR mis-targeted Worker stops before any HTTP call ->
+  `lease_lost_no_external_call` / `attempt_mismatch_no_external_call`) -> HTTP call -> IMMUTABLE
+  lease-fenced `provider_request_id` (NULL->set / same->idempotent / different->conflict) ->
+  metadata COMPUTED from the actual result bytes -> HEAD verify -> ONE guarded completion under
+  the CURRENT `lease_token`. All state changes (pending_reconciliation / contract failure /
+  completion) are lease-fenced.
+- `day61_telemetry.py` — OpenTelemetry: spans for the Provider HTTP call, the Object Storage
+  put/HEAD, and the guarded completion; `job_id`/`attempt_id` correlation; a hashed
   `provider_request_id` reference; a low-cardinality outcome counter
-  (`provider`/`outcome`/`verification_outcome`); a no-op fallback and exporter-failure
-  tolerance. A REAL OTLP export to a Collector is INTEGRATION_RUNTIME (NOT RUN).
+  (`provider`/`outcome`/`verification_outcome`). `operation_span()` swallows ONLY telemetry-layer
+  errors (SDK init/span/attribute/export) and yields exactly once, so a BUSINESS exception
+  inside the span propagates UNCHANGED (no double-yield). `init_telemetry()` is an OPTIONAL,
+  idempotent, disabled-by-default SDK pipeline (TracerProvider + BatchSpanProcessor + OTLP span
+  exporter; MeterProvider + PeriodicExportingMetricReader + OTLP metric exporter) whose endpoint
+  comes from `OTEL_EXPORTER_OTLP_ENDPOINT` (no hardcoded URL/token) and which never raises when
+  the SDK is absent. W3C trace context is injected/extracted via helpers and carried on the
+  EXISTING Outbox `payload` JSONB (`store_/load_traceparent_in_payload`; no migration), so the
+  Relay can inject it into the Celery message and the Worker can continue the trace. A REAL OTLP
+  export to a running Collector is INTEGRATION_RUNTIME (NOT RUN).
 - `day61_integration/otel-collector.yaml`, `day61_integration/docker-compose.yaml`,
   `requirements-day61.txt`.
 
