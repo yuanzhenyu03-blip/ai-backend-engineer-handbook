@@ -223,6 +223,15 @@ endpoint from `OTEL_EXPORTER_OTLP_ENDPOINT` (no hardcoded URL/token), and W3C tr
 the existing Outbox `payload` (no migration) from HTTP acceptance through the Relay into the
 Worker. A real OTLP export to a running Collector is INTEGRATION_RUNTIME (NOT RUN).
 
+Wiring note: the trace context is now carried end to end — acceptance injects `traceparent` into the
+dispatch Outbox payload; the Relay forwards it (outside the DB lock) into the Celery task kwargs; the
+Worker extracts it and runs its Provider/Storage/DB spans under that context, so they continue the
+original trace. A Relay retry of the same durable intent reuses the same trace association. Telemetry
+is bootstrapped at real process start (FastAPI lifespan, Relay `main`, Celery `worker_process_init`),
+idempotent and disabled by default. And a stale Worker whose lease was superseded after the HTTP
+response returns `lease_lost_no_commit` — it never reports a `pending_reconciliation`/`failed`
+transition the database did not make.
+
 ### Concept 8: The deterministic fake Provider (a separate process)
 
 Tech Lead Review: The fake Provider must be a SEPARATE process, not an in-process mock, so it

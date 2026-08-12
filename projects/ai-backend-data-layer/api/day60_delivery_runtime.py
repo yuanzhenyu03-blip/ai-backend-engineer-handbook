@@ -49,6 +49,8 @@ from typing import Optional
 
 from sqlalchemy import text
 from sqlalchemy.engine import Connection, Engine
+
+from day61_telemetry import extract_trace_context, load_traceparent_from_payload, operation_span
 from sqlalchemy.exc import IntegrityError
 
 from day60_delivery_recovery_logic import (
@@ -94,9 +96,14 @@ class OutboxRelay:
             claim = self._claim_one()
             if claim is None:
                 break
-            outbox_event_id, job_id, event_type, token = claim
+            outbox_event_id, job_id, event_type, token, payload = claim
+            # The SAME durable Outbox payload carries the request's W3C traceparent, so a Relay
+            # RETRY of this intent reuses the SAME trace association; each publish still gets a
+            # fresh span id from the SDK. Loading is a pure read of the existing JSONB.
+            trace_carrier = load_traceparent_from_payload(payload)
             self._publish(job_id=str(job_id), event_type=event_type,
-                          outbox_event_id=str(outbox_event_id))  # OUTSIDE the DB lock
+                          outbox_event_id=str(outbox_event_id),
+                          trace_carrier=trace_carrier)          # OUTSIDE the DB lock
             self._checkpoint(outbox_event_id, token)             # fenced by relay_token
             delivered += 1
         return delivered
@@ -107,7 +114,7 @@ class OutboxRelay:
         with self._engine.begin() as conn:  # short tx; lock released at commit, before I/O
             row = conn.execute(
                 text(
-                    "SELECT outbox_event_id, job_id, event_type FROM app.outbox_events "
+                    "SELECT outbox_event_id, job_id, event_type, payload FROM app.outbox_events "
                     "WHERE published_at IS NULL "
                     "  AND (relay_claim_expiry IS NULL OR relay_claim_expiry <= :now) "
                     "ORDER BY created_at FOR UPDATE SKIP LOCKED LIMIT 1"
@@ -124,7 +131,7 @@ class OutboxRelay:
                 {"o": self._relay_id, "tok": token,
                  "exp": now + timedelta(seconds=RELAY_CLAIM_SECONDS), "id": row.outbox_event_id},
             )
-            return row.outbox_event_id, row.job_id, row.event_type, token
+            return row.outbox_event_id, row.job_id, row.event_type, token, row.payload
 
     def _checkpoint(self, outbox_event_id, token) -> None:
         with self._engine.begin() as conn:
@@ -141,9 +148,14 @@ class OutboxRelay:
 # Worker: guarded queued->running claim writes the FULL lease triple + Attempt/Event;
 # completion matches lease_token (not owner) and keeps Job/Attempt/Event/lease consistent.
 # ===========================================================================
-def run_worker_attempt(engine: Engine, job_id: str, worker_id: str) -> str:
+def run_worker_attempt(engine: Engine, job_id: str, worker_id: str,
+                       trace_carrier: Optional[dict] = None) -> str:
     """Execute one authoritative attempt. Returns an outcome tag. Delivery is NOT authority;
-    the guarded claim is. Completion happens ONLY under the matching ``lease_token``."""
+    the guarded claim is. Completion happens ONLY under the matching ``lease_token``.
+
+    ``trace_carrier`` is the propagated W3C text-map extracted from the Celery message; the
+    unit-of-work seam runs UNDER that context so the Worker's spans continue the request's
+    trace. It is DIAGNOSTIC only — it never changes the claim/completion authority."""
     lease_token = uuid.uuid4()  # the fencing token (NOT mixed into lease_owner)
 
     # --- claim tx: guarded queued->running writing the FULL lease triple + start Attempt ---
@@ -181,7 +193,13 @@ def run_worker_attempt(engine: Engine, job_id: str, worker_id: str) -> str:
         )
 
     # ... the unit of work runs here. Day60 has NO real Provider/Object Storage/Result
-    # Artifact (that is Day61); the skeleton "succeeds" without a Provider call. ...
+    # Artifact (that is Day61); the skeleton "succeeds" without a Provider call. The seam is
+    # wrapped in a span UNDER the propagated trace context (diagnostic only — no authority
+    # change); in the Day61 integration `run_external_operation` runs the real Provider/
+    # Storage/DB spans here under the SAME context.
+    _parent_ctx = extract_trace_context(trace_carrier) if trace_carrier else None
+    with operation_span("worker.unit_of_work", str(job_id), str(attempt_id), parent_context=_parent_ctx):
+        pass
 
     # --- guarded completion tx: ONE transaction keeps Job/Attempt/Event/lease consistent ---
     with engine.begin() as conn:

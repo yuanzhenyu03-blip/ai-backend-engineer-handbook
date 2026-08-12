@@ -19,12 +19,16 @@ from sqlalchemy import create_engine
 
 from day60_celery_app import execute_job_attempt
 from day60_delivery_runtime import OutboxRelay
+from day61_telemetry import bootstrap_telemetry
 
 
-def _publish(job_id: str, event_type: str, outbox_event_id: str) -> None:
+def _publish(job_id: str, event_type: str, outbox_event_id: str, trace_carrier: dict | None = None) -> None:
     # The ONLY publish path. apply_async is a RELAY concern (transport), never business repair.
+    # The W3C trace carrier (from the durable Outbox payload) rides the task kwargs so the
+    # Worker can continue the request's trace; it is diagnostic metadata, not business input.
     execute_job_attempt.apply_async(
-        kwargs={"job_id": job_id, "outbox_event_id": outbox_event_id, "event_type": event_type}
+        kwargs={"job_id": job_id, "outbox_event_id": outbox_event_id, "event_type": event_type,
+                "trace_carrier": trace_carrier or {}}
     )
 
 
@@ -32,6 +36,8 @@ def main() -> None:
     url = os.environ.get("DAY60_DATABASE_URL")
     if not url:
         raise SystemExit("DAY60_DATABASE_URL is required (a disposable local sync URL).")
+    # Real-process telemetry bootstrap (P1-3): idempotent, disabled unless configured.
+    bootstrap_telemetry("outbox-relay")
     engine = create_engine(url, pool_pre_ping=True)
     relay = OutboxRelay(engine, _publish)
     poll_seconds = float(os.environ.get("DAY60_RELAY_POLL_SECONDS", "1.0"))

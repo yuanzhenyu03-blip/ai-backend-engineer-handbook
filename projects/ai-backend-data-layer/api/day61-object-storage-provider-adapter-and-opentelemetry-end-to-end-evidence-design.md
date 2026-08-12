@@ -55,10 +55,17 @@ model Provider; a SEPARATE deterministic fake HTTP Provider proves adapter integ
   idempotent, disabled-by-default SDK pipeline (TracerProvider + BatchSpanProcessor + OTLP span
   exporter; MeterProvider + PeriodicExportingMetricReader + OTLP metric exporter) whose endpoint
   comes from `OTEL_EXPORTER_OTLP_ENDPOINT` (no hardcoded URL/token) and which never raises when
-  the SDK is absent. W3C trace context is injected/extracted via helpers and carried on the
-  EXISTING Outbox `payload` JSONB (`store_/load_traceparent_in_payload`; no migration), so the
-  Relay can inject it into the Celery message and the Worker can continue the trace. A REAL OTLP
-  export to a running Collector is INTEGRATION_RUNTIME (NOT RUN).
+  the SDK is absent. W3C trace context is now WIRED end to end: FastAPI acceptance injects the
+  request's `traceparent` into the `job.dispatch_requested` Outbox `payload` (existing JSONB;
+  no migration); the Relay reads that payload OUTSIDE the DB lock and passes the carrier to the
+  Celery task kwargs (keeping publish-outside-lock + fenced `published_at`); the Worker task
+  extracts it and runs the unit-of-work / Provider / Storage / DB spans UNDER that context, so
+  they CONTINUE the original trace. A Relay retry of the same durable intent reuses the SAME
+  trace association (each publish still mints a fresh span id). `init_telemetry()` is bootstrapped
+  at real process start (`bootstrap_telemetry()` in the FastAPI lifespan, the Relay `main()`, and
+  the Celery `worker_process_init`) — idempotent, disabled by default, endpoint from
+  `OTEL_EXPORTER_OTLP_ENDPOINT` only, and a no-op on SDK/exporter failure. A REAL OTLP export to a
+  running Collector is INTEGRATION_RUNTIME (NOT RUN).
 - `day61_integration/otel-collector.yaml`, `day61_integration/docker-compose.yaml`,
   `requirements-day61.txt`.
 
@@ -87,6 +94,11 @@ and `app.jobs.provider_dispatch_started_at` from Day60's `0010`). The Day60 head
   `lease_token`: verified Artifact reference + Attempt finished + success Event + Job
   running->succeeded + lease cleared. Object existence / HTTP 200 / Celery ACK / traces are
   NOT success. A stale Worker's guarded UPDATE matches zero rows.
+- A stale Worker's final result must MATCH the database. If a timeout/invalid-response state
+  transition's guarded UPDATE matches 0 rows (the lease was superseded after the HTTP response),
+  `run_external_operation` returns `lease_lost_no_commit` — it does NOT report
+  `pending_reconciliation`/`contract_failure`, write a stale Event, or ACK the transition. The
+  successor Job is never touched by the old Worker.
 - OpenTelemetry is diagnostic correlation, not business truth. Propagate/persist trace
   context HTTP -> Job/Outbox -> Relay -> Worker; reuse the trace association for the same
   durable Outbox intent on Relay retry; every actual operation gets a new span id. Logs/

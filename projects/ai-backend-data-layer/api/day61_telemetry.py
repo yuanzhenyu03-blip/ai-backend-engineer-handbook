@@ -133,15 +133,48 @@ def _reset_telemetry_init_for_tests() -> None:
     _TELEMETRY_ACTIVE = False
 
 
+def bootstrap_telemetry(component: str) -> bool:
+    """Call ONCE at a real process start (FastAPI lifespan, Relay ``main()``, Celery worker
+    process init). Thin, defensive wrapper around :func:`init_telemetry`: disabled by default,
+    idempotent, and it NEVER raises — an SDK/exporter setup failure degrades to a bounded
+    diagnostic and a no-op so the business process/DB commit/Provider idempotency are
+    unaffected. ``component`` is only a label for the (bounded) diagnostic. Returns True iff an
+    exporting pipeline is now active."""
+    try:
+        active = init_telemetry()
+    except Exception:
+        active = False
+    if not active:
+        # Bounded diagnostic only (no raise, no retry storm): telemetry stays a no-op.
+        try:
+            import logging
+
+            logging.getLogger("day61.telemetry").debug(
+                "telemetry disabled or exporter init failed for %s; continuing without export", component
+            )
+        except Exception:
+            pass
+    return active
+
+
 # ---------------------------------------------------------------------------
 # 2) Span with SAFE correlation attributes; business exceptions propagate (P0-2).
 # ---------------------------------------------------------------------------
 @contextlib.contextmanager
 def operation_span(
-    name: str, job_id: str, attempt_id: str, provider_request_id: Optional[str] = None
+    name: str,
+    job_id: str,
+    attempt_id: str,
+    provider_request_id: Optional[str] = None,
+    parent_context: Any = None,
 ) -> Iterator[None]:
     """Wrap a business operation in a span carrying SAFE correlation attributes only (never a
     full ``provider_request_id`` — only its hashed reference).
+
+    When ``parent_context`` is a context extracted from a propagated W3C ``traceparent`` (via
+    :func:`extract_trace_context`), the span is started UNDER that context so the Worker's
+    Provider/Storage/DB spans CONTINUE the original request's trace across the async boundary.
+    When it is None the span uses the current context (or is a no-op without the SDK).
 
     Exception discipline: telemetry-layer errors (SDK init, span creation, attribute setting,
     exporter flush) are swallowed so a telemetry problem cannot break the business path; an
@@ -162,7 +195,10 @@ def operation_span(
     cm = None
     span = None
     try:
-        cm = _TRACER.start_as_current_span(name)  # type: ignore[union-attr]
+        if parent_context is not None:
+            cm = _TRACER.start_as_current_span(name, context=parent_context)  # type: ignore[union-attr]
+        else:
+            cm = _TRACER.start_as_current_span(name)  # type: ignore[union-attr]
         span = cm.__enter__()
         for k, v in attrs.items():
             try:

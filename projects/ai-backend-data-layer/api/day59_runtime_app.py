@@ -43,6 +43,7 @@ executed. See the design/runbook for the exact commands and NOT RUN limits.
 
 from __future__ import annotations
 
+import json
 import os
 from contextlib import asynccontextmanager
 from typing import Any, Optional
@@ -54,6 +55,11 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from day47_async_uow import create_engine, create_session_factory
+from day61_telemetry import (
+    bootstrap_telemetry,
+    inject_trace_context,
+    store_traceparent_in_payload,
+)
 from day59_acceptance_logic import (
     IdempotencyDecision,
     Readiness,
@@ -91,6 +97,9 @@ def _integration_seam_enabled(url: str) -> bool:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Real-process telemetry bootstrap (P1-3): idempotent, disabled unless
+    # DAY61_TELEMETRY_ENABLED is set; failure degrades to a no-op and never blocks startup.
+    bootstrap_telemetry("fastapi-acceptance")
     url = _database_url()
     engine = create_engine(url)
     app.state.engine = engine
@@ -275,12 +284,17 @@ async def accept_job(
                 )
 
             # Exactly one dispatch Outbox intent (0008 partial unique index enforces one).
+            # Carry the W3C trace context of THIS request on the dispatch payload (existing
+            # JSONB; no migration) so a later Relay -> Celery Worker can CONTINUE the trace.
+            # Only the low-cardinality `traceparent` string is stored — never a secret or a
+            # provider_request_id. Without the OTel SDK this is an empty carrier (safe no-op).
+            dispatch_payload = store_traceparent_in_payload({}, inject_trace_context({}))
             await session.execute(
                 text(
                     "INSERT INTO app.outbox_events (job_id, event_type, payload) "
-                    "VALUES (:j, :etype, '{}'::jsonb)"
+                    "VALUES (:j, :etype, CAST(:payload AS jsonb))"
                 ),
-                {"j": job_id, "etype": DISPATCH_EVENT_TYPE},
+                {"j": job_id, "etype": DISPATCH_EVENT_TYPE, "payload": json.dumps(dispatch_payload)},
             )
 
     return {"job_id": str(job_id), "idempotent_replay": False}

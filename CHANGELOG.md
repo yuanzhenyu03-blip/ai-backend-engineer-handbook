@@ -9,6 +9,37 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.148 — Day61 review fix: wire W3C trace context end-to-end, telemetry bootstrap, accurate stale-Worker returns
+
+Date: 2026-08-12
+
+Day: Day61 (Phase 5). Four review fixes connecting telemetry to the real async execution chain and
+tightening stale-Worker honesty. (1) W3C trace context is now WIRED, not just helpers: FastAPI acceptance
+injects the request `traceparent` into the `job.dispatch_requested` Outbox `payload` (existing JSONB; no
+migration); the Relay reads that payload OUTSIDE the DB lock and forwards the carrier into the Celery task
+kwargs (publish-outside-lock + fenced `published_at` preserved); the Celery Worker extracts it and runs the
+unit-of-work / Provider / Storage / DB spans UNDER that context, continuing the original trace; a Relay retry
+of the same durable intent reuses the same trace association (fresh span id per publish). (2) Trace-continuity
+tests (static contract over every hop + executable checks driving the real `OutboxRelay` and
+`run_external_operation` with a fake engine): retry reuse, empty/corrupt-carrier safe degrade, low-cardinality
+labels, and full `provider_request_id` never in trace payload/attributes. (3) `init_telemetry()` is
+bootstrapped at real process start via `bootstrap_telemetry()` in the FastAPI lifespan, the Relay `main()`,
+and the Celery `worker_process_init` signal — idempotent, disabled by default, endpoint from
+`OTEL_EXPORTER_OTLP_ENDPOINT` only, and a bounded no-op on SDK/exporter failure. (4) A stale Worker whose
+lease was superseded after the HTTP response now returns `lease_lost_no_commit` for the timeout and
+invalid-response branches instead of falsely reporting `pending_reconciliation`/`contract_failure`; it writes
+no stale Event and never touches the successor Job.
+
+No new migration (the Outbox `payload` JSONB carries `traceparent`); Day60 head stays
+`0012_day60_repair_audit_attestation`, lease triple + recovery preserved. Modified Day59 acceptance, Day60
+Relay/Celery/runtime, and Day61 telemetry/worker to thread the carrier — no business-authority change. Tests:
+45 passed for Day61 (30 -> 45) plus the existing Day59/Day60 suites (46 passed) unaffected. Day61 remains
+**not Completed**: the full local `INTEGRATION_RUNTIME` matrix (PostgreSQL + Redis/Celery + MinIO + a running
+OTel Collector) is still NOT RUN; no Collector export is claimed. Protected files and published migrations
+unchanged.
+
+---
+
 ## v0.1.147 — Day61 review fix: real Provider idempotency, telemetry exception safety, OTLP export + trace propagation, pre-call Attempt ownership
 
 Date: 2026-08-12

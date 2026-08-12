@@ -25,6 +25,7 @@ from sqlalchemy import create_engine
 
 from day60_celery_config import DAY60_CELERY_SETTINGS
 from day60_delivery_runtime import run_worker_attempt
+from day61_telemetry import bootstrap_telemetry
 
 celery_app = Celery("day60")
 celery_app.conf.update(
@@ -34,6 +35,16 @@ celery_app.conf.update(
 )
 
 _ENGINE = None
+
+
+try:  # bootstrap telemetry once per worker PROCESS (idempotent, disabled by default).
+    from celery.signals import worker_process_init  # type: ignore
+
+    @worker_process_init.connect
+    def _init_worker_telemetry(**_kwargs):  # pragma: no cover - needs a live worker
+        bootstrap_telemetry("celery-worker")
+except Exception:  # pragma: no cover - signals unavailable at import time
+    pass
 
 
 def _engine():
@@ -49,9 +60,18 @@ def _engine():
 
 
 @celery_app.task(name="day60.execute_job_attempt", bind=True)
-def execute_job_attempt(self, job_id: str, outbox_event_id: str, event_type: str = "job.dispatch_requested"):
+def execute_job_attempt(self, job_id: str, outbox_event_id: str,
+                        event_type: str = "job.dispatch_requested", trace_carrier: dict | None = None):
     """The Worker task. Delivery gives it the Job/Outbox identity; the guarded runtime
     decides authority. ``task_reject_on_worker_lost`` + ``task_acks_late`` mean a crash
-    redelivers rather than silently acking."""
+    redelivers rather than silently acking.
+
+    ``trace_carrier`` is the propagated W3C text-map (``{"traceparent": ...}``) the Relay put
+    on the task kwargs. It is extracted here so the Day61 external-operation spans (Provider
+    HTTP, Object Storage, guarded DB completion) CONTINUE the original request's trace. A
+    missing/empty/corrupt carrier degrades to a local trace and never changes authority. The
+    extracted context is not a business input — the guarded runtime remains the only authority."""
+    bootstrap_telemetry("celery-worker")  # idempotent; also covers the solo/eager path
     worker_id = self.request.hostname or f"worker-{os.getpid()}"
-    return run_worker_attempt(_engine(), job_id, worker_id)
+    # Forward the propagated carrier so the Worker's unit-of-work spans continue the trace.
+    return run_worker_attempt(_engine(), job_id, worker_id, trace_carrier=trace_carrier or {})

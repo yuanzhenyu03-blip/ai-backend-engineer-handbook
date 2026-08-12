@@ -41,7 +41,7 @@ from day61_provider_artifact_logic import (
     compute_artifact_metadata,
     provider_declaration_matches_bytes,
 )
-from day61_telemetry import operation_span, record_provider_outcome
+from day61_telemetry import extract_trace_context, operation_span, record_provider_outcome
 
 # --- lease-guard clause shared by every state-changing statement (Day60 fencing). ---
 _LEASE_GUARD = "job_status='running' AND lease_token=:tok"
@@ -123,6 +123,27 @@ def _persist_provider_request_id(
     return "set"
 
 
+# A stale-Worker guarded UPDATE that changed 0 rows means the successor owns the Job now:
+# the caller must report the STALE outcome, NEVER that this Worker moved the Job.
+_STALE_NO_STATE_CHANGE = "lease_lost_no_state_change"
+
+
+def _reconcile_result(engine, job_id, attempt_id, lease_token, reason: str, normal_outcome: str) -> str:
+    """Attempt the lease-fenced pending_reconciliation transition and translate its result:
+    if the guarded UPDATE matched THIS lease it returns ``normal_outcome``; if it matched 0
+    rows (lease already superseded) it returns ``lease_lost_no_commit`` — so the caller never
+    claims a transition the database did not make."""
+    res = _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, reason)
+    return normal_outcome if res != _STALE_NO_STATE_CHANGE else "lease_lost_no_commit"
+
+
+def _contract_failure_result(engine, job_id, attempt_id, lease_token) -> str:
+    """Same idea for the contract-failure transition: a 0-row guarded UPDATE (superseded lease)
+    surfaces as ``lease_lost_no_commit`` instead of a fabricated ``contract_failure``."""
+    res = _record_contract_failure(engine, job_id, attempt_id, lease_token)
+    return "contract_failure" if res != _STALE_NO_STATE_CHANGE else "lease_lost_no_commit"
+
+
 def run_external_operation(
     engine: Engine,
     provider_url: str,
@@ -134,9 +155,17 @@ def run_external_operation(
     mode: str = "success",
     store: Optional[object] = None,
     provider_name: str = "fake",
+    trace_carrier: Optional[dict] = None,
 ) -> str:
-    """Execute one external operation end to end. Returns an outcome tag. INTEGRATION_RUNTIME."""
+    """Execute one external operation end to end. Returns an outcome tag. INTEGRATION_RUNTIME.
+
+    ``trace_carrier`` is the W3C text-map (``{"traceparent": ...}``) propagated from HTTP
+    acceptance through the Outbox payload, the Relay and the Celery message. It is extracted
+    ONCE and every Provider/Storage/DB span runs UNDER that context, so the Worker's spans
+    continue the original request's trace. A missing/empty/corrupt carrier degrades safely to
+    a local (parentless) trace and never affects business control flow."""
     store = store or S3ArtifactStore()
+    parent_ctx = extract_trace_context(trace_carrier) if trace_carrier else None
 
     # Fence + verify Attempt ownership BEFORE any external call: a stale OR mis-targeted
     # Worker never even reaches the Provider (no marker, no call, no request_id, no state).
@@ -148,29 +177,26 @@ def run_external_operation(
         record_provider_outcome(provider_name, "lease_lost", "none")
         return "lease_lost_no_external_call"
 
-    with operation_span("provider.http_call", job_id, attempt_id):
+    with operation_span("provider.http_call", job_id, attempt_id, parent_context=parent_ctx):
         result: AdapterResult = call_provider(provider_url, correlation_key, mode)
 
     decision = classify_provider_outcome(result.outcome, dispatch_marker_persisted=True)
     if decision is ExecutionDecision.PENDING_RECONCILIATION:
         record_provider_outcome(provider_name, "timeout", "none")
-        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "provider_timeout")
-        return "pending_reconciliation"
+        # Honor the fenced result: a superseded lease -> stale outcome, not pending_reconciliation.
+        return _reconcile_result(engine, job_id, attempt_id, lease_token, "provider_timeout", "pending_reconciliation")
     if decision is ExecutionDecision.CONTRACT_FAILURE:
         record_provider_outcome(provider_name, "invalid_body", "none")
-        _record_contract_failure(engine, job_id, attempt_id, lease_token)
-        return "contract_failure"
+        return _contract_failure_result(engine, job_id, attempt_id, lease_token)
     if decision is ExecutionDecision.UNSAFE_NO_MARKER:  # defensive
-        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "unknown_no_marker")
-        return "pending_reconciliation"
+        return _reconcile_result(engine, job_id, attempt_id, lease_token, "unknown_no_marker", "pending_reconciliation")
 
     # VALID: cross-check the Provider's DECLARED metadata against the ACTUAL result bytes.
     if not provider_declaration_matches_bytes(
         result.declared_checksum, result.declared_size_bytes, result.declared_content_type, result.result_data
     ):
         record_provider_outcome(provider_name, "invalid_body", "declared_mismatch")
-        _record_contract_failure(engine, job_id, attempt_id, lease_token)
-        return "contract_failure"
+        return _contract_failure_result(engine, job_id, attempt_id, lease_token)
 
     # Persist the external identity BEFORE the Artifact/success path (lease-fenced, immutable).
     assert result.provider_request_id is not None
@@ -178,25 +204,23 @@ def run_external_operation(
     if rid == "lease_lost":
         return "lease_lost_no_commit"
     if rid == "conflict":
-        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "provider_request_id_conflict")
-        return "provider_request_id_conflict"
+        return _reconcile_result(engine, job_id, attempt_id, lease_token,
+                                 "provider_request_id_conflict", "provider_request_id_conflict")
 
     # Compute metadata from the ACTUAL bytes we will store (source of truth) — never guessed.
     result_bytes = canonical_result_bytes(result.result_data)
     expected = compute_artifact_metadata(result.result_data)
     key = store.key_for(tenant_id, job_id, attempt_id)
-    with operation_span("storage.put_verify", job_id, attempt_id, result.provider_request_id):
+    with operation_span("storage.put_verify", job_id, attempt_id, result.provider_request_id, parent_context=parent_ctx):
         verdict = store.put_if_safe(key, result_bytes, expected.content_type, expected)
     if verdict is ArtifactVerdict.CONFLICT:
         record_provider_outcome(provider_name, "valid", "conflict")
-        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "artifact_conflict")
-        return "artifact_conflict"
+        return _reconcile_result(engine, job_id, attempt_id, lease_token, "artifact_conflict", "artifact_conflict")
     if verdict is not ArtifactVerdict.VERIFIED:
         record_provider_outcome(provider_name, "valid", "unverified")
-        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "artifact_unverified")
-        return "artifact_unverified"
+        return _reconcile_result(engine, job_id, attempt_id, lease_token, "artifact_unverified", "artifact_unverified")
 
-    with operation_span("db.guarded_completion", job_id, attempt_id, result.provider_request_id):
+    with operation_span("db.guarded_completion", job_id, attempt_id, result.provider_request_id, parent_context=parent_ctx):
         outcome = _guarded_completion(
             engine, tenant_id, job_id, attempt_id, lease_token,
             ArtifactRef(key, expected.checksum, expected.size_bytes, expected.content_type),
