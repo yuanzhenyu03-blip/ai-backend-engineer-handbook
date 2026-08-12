@@ -232,6 +232,15 @@ idempotent and disabled by default. And a stale Worker whose lease was supersede
 response returns `lease_lost_no_commit` — it never reports a `pending_reconciliation`/`failed`
 transition the database did not make.
 
+Authoritative-path note: the real Celery task runs `run_authoritative_attempt`
+(`day61_worker_runtime`), which does the guarded claim, reads the tenant + stable correlation
+key from PostgreSQL durable facts (never the Celery message), then calls `run_external_operation`
+under the claim's lease token and returns its outcome verbatim. A Job reaches `succeeded` ONLY
+after a real Provider HTTP call + Object Storage PUT/HEAD + guarded completion — there is no
+"no-Provider, straight-to-succeeded" production path (the Day60 `run_worker_attempt` skeleton is
+teaching-only). And acceptance opens a `fastapi.accept_job` ROOT span so a trace actually starts
+and its `traceparent` is written into the Outbox payload in the same transaction.
+
 ### Concept 8: The deterministic fake Provider (a separate process)
 
 Tech Lead Review: The fake Provider must be a SEPARATE process, not an in-process mock, so it
@@ -418,6 +427,22 @@ Provider ledger."
 storage/HTTP with business truth and skips lease-guarded completion and HEAD verification.
 
 ---
+
+### Advanced Question
+
+Q: How do you guarantee a Job can never be marked succeeded without a Provider call and a
+verified Artifact — even under retries and a superseded lease?
+
+Strong Answer: "The production Celery task runs one composition: guarded `queued->running`
+claim (writing the lease triple), then `run_external_operation` under THAT lease token. Success
+is emitted only by the guarded completion inside that function, after a real Provider HTTP call,
+an Object Storage PUT and a HEAD verification of checksum/size/content-type on the per-Attempt
+key. The composition returns that function's outcome verbatim — it never adds an outer success
+or overwrites a transition. tenant and the correlation key come from durable PostgreSQL facts,
+not the Celery message. If the lease was superseded after the HTTP response, the guarded UPDATE
+matches zero rows and we return `lease_lost_no_commit` instead of a fabricated
+pending_reconciliation/failed, so a stale Worker never touches the successor's Job. The old
+Day60 skeleton that 'succeeded' without a Provider is a teaching artifact, not the task."
 
 ## 14. Mental Model Summary
 

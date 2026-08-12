@@ -58,6 +58,7 @@ from day47_async_uow import create_engine, create_session_factory
 from day61_telemetry import (
     bootstrap_telemetry,
     inject_trace_context,
+    root_span,
     store_traceparent_in_payload,
 )
 from day59_acceptance_logic import (
@@ -216,88 +217,92 @@ async def accept_job(
     # business_input); the Idempotency-Key is the dedup key, never part of the digest.
     fingerprint = compute_request_fingerprint(body.document_ids, body.business_input)
 
-    session = app.state.session_factory()
-    async with session:
-        # ONE short, explicit Unit of Work (no autobegin then begin()).
-        async with session.begin():
-            # Atomic create-or-return (Day43): the UNIQUE(tenant_id, idempotency_key)
-            # constraint is the idempotency mechanism, not a SELECT-then-INSERT.
-            inserted = (
-                await session.execute(
-                    text(
-                        "INSERT INTO app.jobs "
-                        "(tenant_id, idempotency_key, request_fingerprint, job_status) "
-                        "VALUES (:t, :k, :fp, 'queued') "
-                        "ON CONFLICT (tenant_id, idempotency_key) DO NOTHING "
-                        "RETURNING job_id"
-                    ),
-                    {"t": tenant_id, "k": idempotency_key, "fp": fingerprint},
-                )
-            ).first()
+    # Establish a request ROOT span so this acceptance actually STARTS a trace; the
+    # traceparent injected below is serialized into the Outbox payload IN THIS SAME
+    # transaction (no external auto-instrumentation required; a no-op without the SDK).
+    with root_span("fastapi.accept_job"):
+            session = app.state.session_factory()
+            async with session:
+                # ONE short, explicit Unit of Work (no autobegin then begin()).
+                async with session.begin():
+                    # Atomic create-or-return (Day43): the UNIQUE(tenant_id, idempotency_key)
+                    # constraint is the idempotency mechanism, not a SELECT-then-INSERT.
+                    inserted = (
+                        await session.execute(
+                            text(
+                                "INSERT INTO app.jobs "
+                                "(tenant_id, idempotency_key, request_fingerprint, job_status) "
+                                "VALUES (:t, :k, :fp, 'queued') "
+                                "ON CONFLICT (tenant_id, idempotency_key) DO NOTHING "
+                                "RETURNING job_id"
+                            ),
+                            {"t": tenant_id, "k": idempotency_key, "fp": fingerprint},
+                        )
+                    ).first()
 
-            if inserted is None:
-                # The key already has a committed Job (this or a concurrent request won
-                # the race). Re-read its fingerprint and classify — NEVER assume replay.
-                existing = (
+                    if inserted is None:
+                        # The key already has a committed Job (this or a concurrent request won
+                        # the race). Re-read its fingerprint and classify — NEVER assume replay.
+                        existing = (
+                            await session.execute(
+                                text(
+                                    "SELECT job_id, request_fingerprint FROM app.jobs "
+                                    "WHERE tenant_id = :t AND idempotency_key = :k"
+                                ),
+                                {"t": tenant_id, "k": idempotency_key},
+                            )
+                        ).first()
+                        decision = classify_idempotency(
+                            existing.request_fingerprint if existing else None, fingerprint
+                        )
+                        if decision is IdempotencyDecision.RETURN_ORIGINAL:
+                            response.status_code = 202
+                            return {"job_id": str(existing.job_id), "idempotent_replay": True}
+                        # Different fingerprint for the same key -> 409 (exact retry only).
+                        raise HTTPException(
+                            status_code=409,
+                            detail="idempotency key reused for a different request",
+                        )
+
+                    # FRESH acceptance. Validate Documents INSIDE the same transaction so an
+                    # invalid/wrong-tenant Document rolls the whole thing back -> Job=0/Outbox=0/link=0.
+                    job_id = inserted.job_id
+                    if not await _all_documents_verified_and_owned(
+                        session, tenant_id, body.document_ids
+                    ):
+                        raise HTTPException(
+                            status_code=422, detail="unverified or wrong-tenant document"
+                        )
+
+                    # Job–Document links in the CLIENT'S ORDER: document_role='input' and
+                    # input_order=1..n make the input sequence a durable PostgreSQL fact a later
+                    # Worker can reconstruct. No set()/dict.fromkeys(): duplicates were already
+                    # rejected (422) above, so the client's list is written verbatim and in order.
+                    for input_order, document_id in enumerate(body.document_ids, start=1):
+                        await session.execute(
+                            text(
+                                "INSERT INTO app.job_documents "
+                                "(tenant_id, job_id, document_id, document_role, input_order) "
+                                "VALUES (:t, :j, :d, 'input', :ord)"
+                            ),
+                            {"t": tenant_id, "j": job_id, "d": document_id, "ord": input_order},
+                        )
+
+                    # Exactly one dispatch Outbox intent (0008 partial unique index enforces one).
+                    # Carry the W3C trace context of THIS request on the dispatch payload (existing
+                    # JSONB; no migration) so a later Relay -> Celery Worker can CONTINUE the trace.
+                    # Only the low-cardinality `traceparent` string is stored — never a secret or a
+                    # provider_request_id. Without the OTel SDK this is an empty carrier (safe no-op).
+                    dispatch_payload = store_traceparent_in_payload({}, inject_trace_context({}))
                     await session.execute(
                         text(
-                            "SELECT job_id, request_fingerprint FROM app.jobs "
-                            "WHERE tenant_id = :t AND idempotency_key = :k"
+                            "INSERT INTO app.outbox_events (job_id, event_type, payload) "
+                            "VALUES (:j, :etype, CAST(:payload AS jsonb))"
                         ),
-                        {"t": tenant_id, "k": idempotency_key},
+                        {"j": job_id, "etype": DISPATCH_EVENT_TYPE, "payload": json.dumps(dispatch_payload)},
                     )
-                ).first()
-                decision = classify_idempotency(
-                    existing.request_fingerprint if existing else None, fingerprint
-                )
-                if decision is IdempotencyDecision.RETURN_ORIGINAL:
-                    response.status_code = 202
-                    return {"job_id": str(existing.job_id), "idempotent_replay": True}
-                # Different fingerprint for the same key -> 409 (exact retry only).
-                raise HTTPException(
-                    status_code=409,
-                    detail="idempotency key reused for a different request",
-                )
 
-            # FRESH acceptance. Validate Documents INSIDE the same transaction so an
-            # invalid/wrong-tenant Document rolls the whole thing back -> Job=0/Outbox=0/link=0.
-            job_id = inserted.job_id
-            if not await _all_documents_verified_and_owned(
-                session, tenant_id, body.document_ids
-            ):
-                raise HTTPException(
-                    status_code=422, detail="unverified or wrong-tenant document"
-                )
-
-            # Job–Document links in the CLIENT'S ORDER: document_role='input' and
-            # input_order=1..n make the input sequence a durable PostgreSQL fact a later
-            # Worker can reconstruct. No set()/dict.fromkeys(): duplicates were already
-            # rejected (422) above, so the client's list is written verbatim and in order.
-            for input_order, document_id in enumerate(body.document_ids, start=1):
-                await session.execute(
-                    text(
-                        "INSERT INTO app.job_documents "
-                        "(tenant_id, job_id, document_id, document_role, input_order) "
-                        "VALUES (:t, :j, :d, 'input', :ord)"
-                    ),
-                    {"t": tenant_id, "j": job_id, "d": document_id, "ord": input_order},
-                )
-
-            # Exactly one dispatch Outbox intent (0008 partial unique index enforces one).
-            # Carry the W3C trace context of THIS request on the dispatch payload (existing
-            # JSONB; no migration) so a later Relay -> Celery Worker can CONTINUE the trace.
-            # Only the low-cardinality `traceparent` string is stored — never a secret or a
-            # provider_request_id. Without the OTel SDK this is an empty carrier (safe no-op).
-            dispatch_payload = store_traceparent_in_payload({}, inject_trace_context({}))
-            await session.execute(
-                text(
-                    "INSERT INTO app.outbox_events (job_id, event_type, payload) "
-                    "VALUES (:j, :etype, CAST(:payload AS jsonb))"
-                ),
-                {"j": job_id, "etype": DISPATCH_EVENT_TYPE, "payload": json.dumps(dispatch_payload)},
-            )
-
-    return {"job_id": str(job_id), "idempotent_replay": False}
+            return {"job_id": str(job_id), "idempotent_replay": False}
 
 
 @app.get("/v1/jobs/{job_id}")

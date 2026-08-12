@@ -24,8 +24,8 @@ from celery import Celery  # type: ignore
 from sqlalchemy import create_engine
 
 from day60_celery_config import DAY60_CELERY_SETTINGS
-from day60_delivery_runtime import run_worker_attempt
 from day61_telemetry import bootstrap_telemetry
+from day61_worker_runtime import run_authoritative_attempt
 
 celery_app = Celery("day60")
 celery_app.conf.update(
@@ -73,5 +73,14 @@ def execute_job_attempt(self, job_id: str, outbox_event_id: str,
     extracted context is not a business input — the guarded runtime remains the only authority."""
     bootstrap_telemetry("celery-worker")  # idempotent; also covers the solo/eager path
     worker_id = self.request.hostname or f"worker-{os.getpid()}"
-    # Forward the propagated carrier so the Worker's unit-of-work spans continue the trace.
-    return run_worker_attempt(_engine(), job_id, worker_id, trace_carrier=trace_carrier or {})
+    # The PRODUCTION path: a real Provider HTTP call + Object Storage + guarded completion.
+    # There is NO "no Provider, straight to succeeded" branch here. The Provider URL is the
+    # SEPARATE fake HTTP Provider, taken from the environment (never from the message).
+    provider_url = os.environ.get("DAY61_PROVIDER_URL")
+    if not provider_url:
+        raise RuntimeError("DAY61_PROVIDER_URL is required (the SEPARATE fake HTTP Provider URL).")
+    # tenant + correlation key are loaded from PostgreSQL durable facts inside the composition;
+    # the message supplies only Job identity + the diagnostic trace carrier.
+    return run_authoritative_attempt(
+        _engine(), job_id, worker_id, provider_url=provider_url, trace_carrier=trace_carrier or {}
+    )

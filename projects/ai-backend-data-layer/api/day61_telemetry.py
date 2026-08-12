@@ -158,6 +158,38 @@ def bootstrap_telemetry(component: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# 1b) Request ROOT span so acceptance actually STARTS a trace (P0-2).
+# ---------------------------------------------------------------------------
+@contextlib.contextmanager
+def root_span(name: str) -> Iterator[None]:
+    """Start a NEW ROOT span for the request lifecycle (e.g. ``fastapi.accept_job``) so that,
+    without external auto-instrumentation, there IS an active span whose W3C ``traceparent``
+    :func:`inject_trace_context` can serialize into the Outbox payload. Same exception
+    discipline as :func:`operation_span`: telemetry-layer errors are swallowed, a business
+    exception inside the block propagates UNCHANGED, and the block yields exactly once. A no-op
+    without the SDK."""
+    if not _OTEL or _TRACER is None:
+        yield
+        return
+    cm = None
+    try:
+        cm = _TRACER.start_as_current_span(name)  # type: ignore[union-attr]
+        cm.__enter__()
+    except Exception:
+        cm = None
+    if cm is None:
+        yield
+        return
+    try:
+        yield
+    finally:
+        try:
+            cm.__exit__(*sys.exc_info())
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # 2) Span with SAFE correlation attributes; business exceptions propagate (P0-2).
 # ---------------------------------------------------------------------------
 @contextlib.contextmanager

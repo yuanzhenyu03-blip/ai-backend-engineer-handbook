@@ -46,6 +46,14 @@ model Provider; a SEPARATE deterministic fake HTTP Provider proves adapter integ
   metadata COMPUTED from the actual result bytes -> HEAD verify -> ONE guarded completion under
   the CURRENT `lease_token`. All state changes (pending_reconciliation / contract failure /
   completion) are lease-fenced.
+- `day61_worker_runtime.py` — the REAL authoritative-attempt COMPOSITION and the actual
+  production Worker path (what the Celery task runs): `run_authoritative_attempt` does the
+  Day60 guarded claim (`claim_and_start_attempt`, extracted so there is ONE claim
+  implementation), loads tenant + the stable correlation key from PostgreSQL durable facts
+  (NEVER the Celery message), then calls `run_external_operation` under the claim's lease token
+  and returns its outcome VERBATIM. A Job reaches `succeeded` ONLY after a real Provider HTTP
+  call + MinIO PUT/HEAD + guarded completion; there is NO "no Provider, straight to succeeded"
+  production path. The Day60 `run_worker_attempt` skeleton remains a teaching artifact only.
 - `day61_telemetry.py` — OpenTelemetry: spans for the Provider HTTP call, the Object Storage
   put/HEAD, and the guarded completion; `job_id`/`attempt_id` correlation; a hashed
   `provider_request_id` reference; a low-cardinality outcome counter
@@ -55,8 +63,9 @@ model Provider; a SEPARATE deterministic fake HTTP Provider proves adapter integ
   idempotent, disabled-by-default SDK pipeline (TracerProvider + BatchSpanProcessor + OTLP span
   exporter; MeterProvider + PeriodicExportingMetricReader + OTLP metric exporter) whose endpoint
   comes from `OTEL_EXPORTER_OTLP_ENDPOINT` (no hardcoded URL/token) and which never raises when
-  the SDK is absent. W3C trace context is now WIRED end to end: FastAPI acceptance injects the
-  request's `traceparent` into the `job.dispatch_requested` Outbox `payload` (existing JSONB;
+  the SDK is absent. W3C trace context is now WIRED end to end: FastAPI acceptance opens a
+  `fastapi.accept_job` ROOT span for the request (so a trace actually STARTS without external
+  auto-instrumentation) and injects the request's `traceparent` into the `job.dispatch_requested` Outbox `payload` (existing JSONB;
   no migration); the Relay reads that payload OUTSIDE the DB lock and passes the carrier to the
   Celery task kwargs (keeping publish-outside-lock + fenced `published_at`); the Worker task
   extracts it and runs the unit-of-work / Provider / Storage / DB spans UNDER that context, so

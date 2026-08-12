@@ -148,17 +148,16 @@ class OutboxRelay:
 # Worker: guarded queued->running claim writes the FULL lease triple + Attempt/Event;
 # completion matches lease_token (not owner) and keeps Job/Attempt/Event/lease consistent.
 # ===========================================================================
-def run_worker_attempt(engine: Engine, job_id: str, worker_id: str,
-                       trace_carrier: Optional[dict] = None) -> str:
-    """Execute one authoritative attempt. Returns an outcome tag. Delivery is NOT authority;
-    the guarded claim is. Completion happens ONLY under the matching ``lease_token``.
+def claim_and_start_attempt(engine: Engine, job_id: str, worker_id: str):
+    """The guarded ``queued->running`` claim: in ONE transaction it writes the FULL lease
+    TRIPLE (``lease_owner``/``lease_token``/``lease_expires_at``), opens a new Attempt, and
+    records the ``attempt.started`` Event. Returns ``(lease_token, attempt_id)`` on a win, or
+    ``None`` if the Job was not claimable (duplicate/redelivery — the sweeper owns recovery).
 
-    ``trace_carrier`` is the propagated W3C text-map extracted from the Celery message; the
-    unit-of-work seam runs UNDER that context so the Worker's spans continue the request's
-    trace. It is DIAGNOSTIC only — it never changes the claim/completion authority."""
+    This is the shared, authoritative claim reused by BOTH the Day60 skeleton attempt and the
+    Day61 real external-operation composition, so there is exactly ONE claim implementation and
+    the lease token that fences the Provider/Storage/DB work is the one written here."""
     lease_token = uuid.uuid4()  # the fencing token (NOT mixed into lease_owner)
-
-    # --- claim tx: guarded queued->running writing the FULL lease triple + start Attempt ---
     with engine.begin() as conn:
         won = conn.execute(
             text(
@@ -170,7 +169,7 @@ def run_worker_attempt(engine: Engine, job_id: str, worker_id: str,
              "exp": _now() + timedelta(seconds=LEASE_SECONDS), "j": job_id},
         ).first()
         if won is None:
-            return "not_claimed"  # duplicate/redelivery: let the sweeper/reconciliation own it
+            return None  # duplicate/redelivery: let the sweeper/reconciliation own it
         attempt_number = int(
             conn.execute(
                 text("SELECT coalesce(max(attempt_number),0)+1 FROM app.job_attempts WHERE job_id=:j"),
@@ -191,6 +190,23 @@ def run_worker_attempt(engine: Engine, job_id: str, worker_id: str,
             ),
             {"j": job_id, "a": attempt_id, "w": worker_id},
         )
+    return lease_token, attempt_id
+
+
+def run_worker_attempt(engine: Engine, job_id: str, worker_id: str,
+                       trace_carrier: Optional[dict] = None) -> str:
+    """Day60 SKELETON authoritative attempt (teaching artifact). Delivery is NOT authority;
+    the guarded claim is. Completion happens ONLY under the matching ``lease_token``.
+
+    NOTE: this Day60 skeleton "succeeds" WITHOUT a Provider/Object Storage call — it exists to
+    teach the claim/lease/completion mechanics. It is NOT the production execution path: the
+    real Celery task runs ``day61_worker_runtime.run_authoritative_attempt`` (a Provider is
+    ALWAYS called before any success). ``trace_carrier`` runs the unit-of-work seam UNDER the
+    propagated trace context (diagnostic only — never changes authority)."""
+    claim = claim_and_start_attempt(engine, job_id, worker_id)
+    if claim is None:
+        return "not_claimed"
+    lease_token, attempt_id = claim
 
     # ... the unit of work runs here. Day60 has NO real Provider/Object Storage/Result
     # Artifact (that is Day61); the skeleton "succeeds" without a Provider call. The seam is

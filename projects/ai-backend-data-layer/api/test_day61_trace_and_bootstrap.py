@@ -54,11 +54,15 @@ def test_relay_entry_puts_carrier_in_celery_kwargs():
     assert 'kwargs={"job_id": job_id' in s and '"trace_carrier"' in s
 
 
-def test_worker_task_extracts_and_forwards_carrier_and_bootstraps():
+def test_worker_task_runs_authoritative_composition_with_carrier_and_bootstrap():
     s = _src("day60_celery_app.py")
     assert "trace_carrier" in s
     assert "bootstrap_telemetry(" in s
-    assert "run_worker_attempt(_engine(), job_id, worker_id, trace_carrier=" in s
+    # The PRODUCTION task now runs the Day61 authoritative composition (Provider is always
+    # called before success), NOT the Day60 skeleton run_worker_attempt.
+    assert "run_authoritative_attempt(" in s
+    assert "run_worker_attempt(" not in s
+    assert 'os.environ.get("DAY61_PROVIDER_URL")' in s  # Provider URL from env, not the message
 
 
 def test_worker_unit_of_work_runs_under_extracted_context():

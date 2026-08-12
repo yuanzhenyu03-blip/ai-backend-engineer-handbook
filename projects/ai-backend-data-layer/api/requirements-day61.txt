@@ -10,8 +10,8 @@
 #
 #    cd projects/ai-backend-data-layer/api
 #    python3 -m pip install pytest==7.4.3
-#    python3 -m py_compile day61_provider_artifact_logic.py day61_provider_adapter.py day61_fake_provider.py day61_artifact_store.py day61_worker_completion.py test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py
-#    python3 -m pytest -q test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py
+#    python3 -m py_compile day61_provider_artifact_logic.py day61_provider_adapter.py day61_fake_provider.py day61_artifact_store.py day61_worker_completion.py day61_worker_runtime.py day61_telemetry.py test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py test_day61_lease_fencing_and_telemetry.py test_day61_trace_and_bootstrap.py test_day61_authoritative_composition.py
+#    python3 -m pytest -q test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py test_day61_lease_fencing_and_telemetry.py test_day61_trace_and_bootstrap.py test_day61_authoritative_composition.py
 #
 # 2) INTEGRATION_RUNTIME (OPT-IN; disposable PostgreSQL + Redis + MinIO + OTel Collector via
 #    day61_integration/docker-compose.yaml, FastAPI/Relay/Celery-Worker host processes, and

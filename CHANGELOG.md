@@ -9,6 +9,35 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.149 — Day61 review fix: real Worker composition (Provider always called) + FastAPI root span starts the trace
+
+Date: 2026-08-12
+
+Day: Day61 (Phase 5). Two P0 fixes turning the wiring into a real end-to-end run. (1) The production Celery
+task now runs a new Day61 composition `day61_worker_runtime.run_authoritative_attempt`: the Day60 guarded
+claim was extracted to `claim_and_start_attempt` (one shared claim; `run_worker_attempt` keeps identical
+Day60 behavior/tests as a teaching skeleton), and after the claim the composition loads tenant + a stable
+correlation/idempotency key from PostgreSQL durable facts (NEVER the Celery message), then calls
+`run_external_operation` under the claim's lease token and returns its outcome verbatim. A Job reaches
+`succeeded` ONLY after a real fake-Provider HTTP call + MinIO PUT/HEAD + guarded completion — the
+"no Provider, straight to succeeded" production path is gone; every non-success outcome
+(pending_reconciliation / contract_failure / lease_lost_no_commit / ...) is surfaced unchanged, never
+re-committed. Day60's Relay-only-publisher and lease-token authority are preserved. (2) FastAPI acceptance
+now opens a real `fastapi.accept_job` ROOT span (`root_span()` in telemetry) around the acceptance unit of
+work, so a trace actually STARTS and its W3C `traceparent` is written into the `job.dispatch_requested`
+Outbox payload in the SAME transaction; the Relay retry reuses that association and the Worker continues the
+trace. Telemetry remains diagnostic only — an OTel failure never rolls back a commit or triggers a Provider
+call.
+
+No new migration (Day60 head stays `0012_day60_repair_audit_attestation`); no Day59/Day60 business boundary
+changed (claim extraction is behavior-preserving; the task wiring reads the Provider URL from env). New
+module `day61_worker_runtime.py` + new tests `test_day61_authoritative_composition.py`. Tests: 61 passed
+across the five Day61 suites (45 -> 61); Day59/Day60 suites (46 passed) unaffected. Day61 remains **not
+Completed**: the full local `INTEGRATION_RUNTIME` matrix (PostgreSQL + Redis/Celery + MinIO + a running OTel
+Collector) is still NOT RUN. Protected files and published migrations unchanged.
+
+---
+
 ## v0.1.148 — Day61 review fix: wire W3C trace context end-to-end, telemetry bootstrap, accurate stale-Worker returns
 
 Date: 2026-08-12
