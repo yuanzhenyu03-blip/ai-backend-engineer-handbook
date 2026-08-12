@@ -14,7 +14,8 @@ Phase 3 — Backend Foundations (Complete)
 Day61 — Object Storage, Provider Adapter and OpenTelemetry End-to-End Evidence (Phase 5)
 
 Status:
-Planned / Not started
+In progress — artifacts delivered, local INTEGRATION_RUNTIME NOT RUN (NOT yet Completed).
+The Day61 lesson + real runtime (pure decision core, a SEPARATE fake HTTP Provider, the Provider Adapter over real HTTP, an S3/MinIO artifact store, the guarded Worker completion path reusing the Day60 lease triple), an OTel Collector config + docker-compose, and `requirements-day61.txt` are present. The updating agent ran `py_compile` + `test_day61_provider_artifact_logic.py` + `test_day61_fake_provider_http.py` (9 passed, EXECUTED_LOCAL_RUNTIME — including a REAL HTTP loopback round-trip of the fake Provider ↔ adapter for success/invalid/timeout-after-receipt). The full local INTEGRATION_RUNTIME matrix (PostgreSQL + Redis/Celery + MinIO + OTel Collector) has NOT been executed (no Docker), so Day61 is NOT marked Completed and the current lesson does NOT advance. No new migration (schema already supports it; Day60 head stays 0012, lease triple + recovery preserved); no secrets committed.
 
 (Day60 is complete and recorded under "Last Completed Lesson" below; Day61 is the current focus. Phase 4 is COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;

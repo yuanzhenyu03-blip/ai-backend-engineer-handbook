@@ -1451,3 +1451,37 @@ Validation: the repository includes a REAL Relay/Worker/recovery/repair runtime 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day60), the
 [Day60 lesson](../docs/fastapi/day60-outbox-redis-celery-broker-and-worker-recovery-integration.md), and the
 [Day60 design/runbook](../projects/ai-backend-data-layer/api/day60-outbox-redis-celery-broker-and-worker-recovery-integration-design.md).
+
+## Day61 — Object Storage, Provider Adapter and OpenTelemetry End-to-End Evidence
+
+### Key Vocabulary
+
+provider_dispatch_started_at (pre-call marker) · provider_request_id (post-call identity) · correlation/idempotency key · per-Attempt Artifact key · HEAD vs GET · checksum/metadata conflict · guarded completion under the current lease_token · pending_reconciliation · trace_id/span_id/Span Link · low-cardinality metrics · exporter-failure tolerance
+
+### Beginner Question
+
+Q: Why isn't an HTTP 200 from the Provider enough to mark a Job succeeded?
+
+Strong Answer: "A 200 only says the HTTP call returned; it doesn't prove a verified result or the authority to commit. Success is one guarded PostgreSQL transaction under the current lease token: a HEAD-verified Result Artifact reference, the Attempt finished, a success Event, the Job moved to succeeded, and the lease cleared. Object existence, ACK and traces are not business truth."
+
+### Intermediate Question
+
+Q: The Provider call times out — what do you do, and why not retry?
+
+Strong Answer: "A timeout doesn't prove non-execution; the Provider may have run a billable operation. Because we persisted `provider_dispatch_started_at` before the call, the Job goes to `pending_reconciliation` and we never blind-retry. We reconcile by asking the Provider with our stable correlation key and by checking the deterministic Artifact key; only after confirmed non-receipt with a valid deadline/budget do we guardedly requeue with a new durable `job.redispatch_requested` Outbox intent — never `.delay()`."
+
+### Senior Question
+
+Q: Upload timed out but HEAD finds a matching object; a later DB tx fails after another upload; and the OTel exporter is down. Walk me through it.
+
+Strong Answer: "Upload-timeout-then-matching-HEAD is not a failure: forward-repair the Artifact reference against the existing object and complete under the lease token, no overwrite. A DB rollback doesn't undo Object Storage, so I retain and validate the candidate object then reconcile/forward-repair or schedule auditable orphan GC — never a blind exception-path delete and never overwrite on a checksum mismatch. The exporter being down doesn't affect business truth: the guarded commit holds, I emit exporter health metrics, note the telemetry limitation, and rebuild the evidence pack from PostgreSQL, MinIO and the Provider ledger."
+
+### Common Weak Answer
+
+"The object is in the bucket and the Provider returned 200, so it succeeded." This confuses storage/HTTP with business truth and skips lease-guarded completion and HEAD verification.
+
+Validation: the repository ships the real Day61 artifacts (pure decision core, a SEPARATE fake HTTP Provider, the Provider Adapter over real HTTP, an S3/MinIO artifact store, and the guarded Worker completion path reusing the Day60 lease triple). The updating agent ran `py_compile` + `test_day61_provider_artifact_logic.py` + `test_day61_fake_provider_http.py` (9 passed, EXECUTED_LOCAL_RUNTIME — including a REAL HTTP loopback round-trip for success/invalid/timeout-after-receipt). The full local INTEGRATION_RUNTIME matrix (PostgreSQL + Redis/Celery + MinIO + OTel Collector) is NOT RUN (no Docker), so Day61 is NOT marked Completed. NOT RUN: a real/paid model Provider; production load/security/zero-downtime/multi-replica. No secrets, URLs, keys, tokens, or fixture ids are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day61), the
+[Day61 lesson](../docs/fastapi/day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md), and the
+[Day61 design/runbook](../projects/ai-backend-data-layer/api/day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence-design.md).

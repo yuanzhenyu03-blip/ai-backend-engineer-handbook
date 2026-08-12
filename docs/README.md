@@ -45,7 +45,8 @@ docs/
 │   ├── day57-ai-backend-testing-fake-providers-contract-tests-and-failure-injection.md
 │   ├── day58-production-ai-api-capstone-observability-and-english-interview.md
 │   ├── day59-real-fastapi-runtime-postgresql-and-alembic-integration.md
-│   └── day60-outbox-redis-celery-broker-and-worker-recovery-integration.md  # latest
+│   ├── day60-outbox-redis-celery-broker-and-worker-recovery-integration.md
+│   └── day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md  # latest (artifacts delivered; INTEGRATION_RUNTIME NOT RUN)
 ├── playwright/
 └── n8n/
 ```

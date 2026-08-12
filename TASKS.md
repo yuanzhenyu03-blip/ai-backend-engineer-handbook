@@ -19,7 +19,7 @@ Phase 5 — Production Runtime Integration and Browser Tool Engineering (Product
 Day61 — Object Storage, Provider Adapter and OpenTelemetry End-to-End Evidence (Phase 5)
 
 Status:
-Planned / Not started
+In progress — Day61 lesson + real runtime artifacts (day61_provider_artifact_logic.py, day61_fake_provider.py, day61_provider_adapter.py, day61_artifact_store.py, day61_worker_completion.py), OTel Collector + docker-compose config, requirements-day61.txt, and the design/runbook are delivered; `py_compile` + `test_day61_provider_artifact_logic.py` + `test_day61_fake_provider_http.py` = 9 passed (EXECUTED_LOCAL_RUNTIME, incl. a REAL HTTP loopback round-trip). The full local INTEGRATION_RUNTIME matrix (PostgreSQL + Redis/Celery + MinIO + OTel Collector) is NOT RUN (no Docker), so Day61 is NOT marked Completed and stays the current lesson. No new migration (schema already supports it; Day60 head 0012 + lease triple/recovery preserved); no secrets committed.
 
 Target lesson:
 Not created yet — see CURRICULUM.md and ROADMAP.md.

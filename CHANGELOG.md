@@ -9,6 +9,72 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.145 — Day61: Object Storage, Provider Adapter and OpenTelemetry evidence artifacts (INTEGRATION_RUNTIME NOT RUN)
+
+Date: 2026-08-11
+
+Day: Day61 (Phase 5). Delivers the Day61 lesson + real runtime artifacts for the external
+evidence path. Honesty note: the full local `INTEGRATION_RUNTIME` matrix was NOT executed, so
+Day61 is **not marked Completed** and the current lesson does not advance. No published
+migration is added or edited; the Day60 head stays `0012_day60_repair_audit_attestation` and
+the Day60 lease triple + recovery semantics are preserved. Protected files unchanged.
+
+### Added
+
+- `docs/fastapi/day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md`
+  — 16-section LESSON_TEMPLATE_v2 lesson (real student answers/corrections, three interview
+  levels, final Chinese mental model). Status: artifacts + EXECUTED_LOCAL_RUNTIME delivered,
+  INTEGRATION_RUNTIME NOT RUN.
+- `projects/ai-backend-data-layer/api/day61_provider_artifact_logic.py` +
+  `test_day61_provider_artifact_logic.py` — pure decision core (outcome classification;
+  deterministic per-Attempt key; HEAD verify / non-overwrite conflict; checkpoint order;
+  lease-token completion gate; telemetry safety) with unit tests.
+- `day61_fake_provider.py` — a SEPARATE deterministic fake HTTP Provider (`http.server`):
+  `success` / `timeout` (record receipt FIRST, then delay past the client timeout) /
+  `invalid_response`, with an independent request ledger. `test_day61_fake_provider_http.py`
+  drives it + the adapter over REAL HTTP loopback.
+- `day61_provider_adapter.py` — Provider Adapter over real HTTP (`urllib`): timeout, stable
+  `X-Correlation-Key`, response-contract validation, data minimization.
+- `day61_artifact_store.py` — S3/MinIO Result Artifact store: deterministic per-Attempt key,
+  idempotent HEAD verification, non-overwrite conflict.
+- `day61_worker_completion.py` — the guarded end-to-end path (SQLAlchemy Core) reusing the Day60
+  lease triple: dispatch marker -> HTTP call -> persist `provider_request_id` -> HEAD verify ->
+  ONE guarded completion under the CURRENT `lease_token`.
+- `day61_integration/otel-collector.yaml` + `day61_integration/docker-compose.yaml`
+  (disposable PostgreSQL/Redis/MinIO/OTel — OPT-IN, not executed), `requirements-day61.txt`,
+  and the Day61 design/runbook.
+
+### Changed
+
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` — Day61 appends.
+- `CURRICULUM.md` — Day61 status note (artifacts delivered; INTEGRATION_RUNTIME NOT RUN; not
+  Completed). `PROJECT_STATUS.md`, `TASKS.md` — Day61 remains the current lesson with an
+  in-progress status (not Completed); Day60 remains Last Completed. `docs/README.md` — Day61
+  indexed (marked as artifacts delivered / INTEGRATION_RUNTIME NOT RUN). `ROADMAP.md` Day61
+  row stays `Planned` (not `✅ Completed`).
+
+### Validation (performed by the updating agent)
+
+- Code: `py_compile` on all Day61 modules; `pytest test_day61_provider_artifact_logic.py
+  test_day61_fake_provider_http.py` -> **9 passed** (`EXECUTED_LOCAL_RUNTIME`), including a REAL
+  HTTP loopback round-trip of the fake Provider ↔ adapter (success / invalid-200 /
+  timeout-after-receipt). YAML: `otel-collector.yaml` + `docker-compose.yaml` parse. Markdown:
+  16-section order + internal links. Secrets: none committed.
+
+### NOT RUN (not claimed for Day61)
+
+- **INTEGRATION_RUNTIME NOT RUN.** No Docker/PostgreSQL/Redis/MinIO/OTel Collector is available,
+  so the end-to-end matrix (success; delayed response -> pending_reconciliation; invalid-200
+  contract failure; upload-timeout-then-matching-HEAD forward repair; checksum-mismatch conflict;
+  stale-lease-token zero-row completion; Collector-failure tolerance) was NOT executed against
+  real infrastructure. `pytest passed` is not integration evidence. Day61 is NOT marked
+  Completed until that matrix is executed and recorded (see the runbook's Required integration
+  rerun matrix). No real/paid model Provider; no production load/security/zero-downtime/
+  multi-replica. No URLs, passwords, keys, tokens, fixture ids, container ids, or `.venv`
+  committed.
+
+---
+
 ## v0.1.144 — Day60 review round 4: verify linked-Outbox semantics on duplicate repair; head wording -> 0012
 
 Date: 2026-08-11
