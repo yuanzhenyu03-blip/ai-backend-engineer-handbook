@@ -26,6 +26,8 @@ import threading
 import time
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+from day61_provider_artifact_logic import RESULT_CONTENT_TYPE, compute_artifact_metadata
 from typing import Any
 
 
@@ -74,21 +76,29 @@ def make_handler(ledger: RequestLedger, timeout_delay_seconds: float = 5.0):
 
             if mode == "timeout":
                 time.sleep(timeout_delay_seconds)  # exceed the client's timeout AFTER receipt
-                self._send(200, {"provider_request_id": provider_request_id, "status": "ok",
-                                  "artifact": {"checksum": "sha256:x", "size_bytes": 1,
-                                               "content_type": "application/json"}})
+                self._send(200, self._success_body(provider_request_id, correlation_key))
                 return
             if mode == "invalid_response":
                 # HTTP 200 but the body violates the contract (missing provider_request_id/artifact).
                 self._send(200, {"unexpected": "no contract fields here"})
                 return
             # success
-            self._send(200, {
+            self._send(200, self._success_body(provider_request_id, correlation_key))
+
+        @staticmethod
+        def _success_body(provider_request_id: str, correlation_key: str) -> dict[str, Any]:
+            # The RESULT payload the Worker will store, and artifact metadata computed from
+            # the SAME canonical bytes (so the Worker's HEAD verification is VERIFIED, not a
+            # CONFLICT). Minimal/verifiable; not a real model output.
+            result_data = {"summary": "ok", "correlation_key": correlation_key}
+            meta = compute_artifact_metadata(result_data)
+            return {
                 "provider_request_id": provider_request_id,
                 "status": "ok",
-                "artifact": {"checksum": "sha256:deadbeef", "size_bytes": 42,
-                             "content_type": "application/json"},
-            })
+                "result": {"content_type": RESULT_CONTENT_TYPE, "data": result_data},
+                "artifact": {"checksum": meta.checksum, "size_bytes": meta.size_bytes,
+                             "content_type": meta.content_type},
+            }
 
         def _send(self, code: int, payload: dict[str, Any]) -> None:
             data = json.dumps(payload).encode("utf-8")

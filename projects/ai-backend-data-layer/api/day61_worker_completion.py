@@ -1,30 +1,27 @@
 """Day61 — the guarded end-to-end Worker completion path (SQLAlchemy Core).
 
-Wires the pure decisions + the real HTTP adapter + Object Storage to the durable state
-machine, reusing the EXISTING Day60 lease TRIPLE (``lease_owner``/``lease_token``/
-``lease_expires_at``) and its recovery semantics. Order (see the pure
-``external_call_checkpoint_order``):
+Wires the pure decisions + the real HTTP adapter + Object Storage + OTel to the durable
+state machine, reusing the EXISTING Day60 lease TRIPLE (``lease_owner``/``lease_token``/
+``lease_expires_at``). EVERY external action and business state change is fenced by the
+CURRENT matching ``lease_token``:
 
-    persist provider_dispatch_started_at  (BEFORE the HTTP call)
+    guarded-claim provider_dispatch_started_at  (job_id + running + lease_token; rowcount==1)
+      -> if 0 rows: lease_lost_no_external_call (NO Provider call, NO request_id, NO state change)
       -> call the Provider over real HTTP (adapter)
-      -> persist provider_request_id      (as soon as returned; before Artifact/success)
-      -> verify the Result Artifact by HEAD on the deterministic per-Attempt key
-      -> ONE guarded completion transaction under the CURRENT matching lease_token
+      -> persist provider_request_id (NULL->set / same->idempotent / diff->conflict), lease-fenced
+      -> compute Artifact metadata from the ACTUAL result bytes; HEAD-verify on the per-Attempt key
+      -> ONE guarded completion transaction under the CURRENT lease_token
 
-Timeout with a durable marker -> ``pending_reconciliation`` (never a blind second call).
-Invalid 200 body -> durable contract-failure facts. A stale Worker's guarded UPDATE matches
-zero rows and cannot complete. Object existence / HTTP 200 / ACK / traces are NOT success.
+Timeout with the durable marker -> ``pending_reconciliation``. Invalid/inconsistent 200 body ->
+contract-failure facts. A stale Worker cannot mark the successor's Job pending/failed/succeeded.
 
-Evidence tier: INTEGRATION_RUNTIME. Running it needs real PostgreSQL (Day60 head 0012) +
-Object Storage + the fake Provider process. The updating agent ran only ``py_compile`` +
-the pure-logic and real-loopback-HTTP tests — the full PostgreSQL/MinIO/OTel integration is
-NOT RUN (see the design/runbook's Required integration rerun matrix). No secrets hardcoded.
-Day61 never calls a real/paid model Provider.
+Evidence tier: INTEGRATION_RUNTIME. The updating agent ran only ``py_compile`` + the pure-logic
+and real-loopback-HTTP tests; the full PostgreSQL/MinIO/OTel-Collector matrix is NOT RUN (see the
+design/runbook). No secrets hardcoded. Day61 never calls a real/paid model Provider.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy import text
@@ -35,38 +32,65 @@ from day61_provider_adapter import AdapterResult, call_provider
 from day61_provider_artifact_logic import (
     ArtifactVerdict,
     ExecutionDecision,
-    ExpectedArtifact,
     ProviderOutcome,
-    can_complete,
+    RequestIdDecision,
+    canonical_result_bytes,
     classify_provider_outcome,
+    classify_request_id_write,
+    compute_artifact_metadata,
+    provider_declaration_matches_bytes,
 )
+from day61_telemetry import operation_span, record_provider_outcome
+
+# --- lease-guard clause shared by every state-changing statement (Day60 fencing). ---
+_LEASE_GUARD = "job_status='running' AND lease_token=:tok"
 
 
-def _now():
-    return datetime.now(timezone.utc)
-
-
-def _persist_dispatch_marker(engine: Engine, job_id: str) -> None:
-    # Conservative PRE-CALL checkpoint: external work may happen after it; NOT success.
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "UPDATE app.jobs SET provider_dispatch_started_at=coalesce(provider_dispatch_started_at, now()) "
-                "WHERE job_id=:j AND job_status='running'"
-            ),
-            {"j": job_id},
-        )
-
-
-def _persist_provider_request_id(engine: Engine, attempt_id: str, provider_request_id: str) -> bool:
-    # POST-CALL durable external-operation identity. If this cannot persist, do NOT continue
-    # the success path (retry only this checkpoint; else reconcile conservatively).
+def _claim_dispatch_marker(engine: Engine, job_id: str, lease_token: str) -> bool:
+    """Guarded PRE-CALL checkpoint. Returns True ONLY if this Worker still holds the current
+    lease (job running + matching token). If it returns False, NO Provider call is made and
+    NO state is changed — a stale Worker stops here."""
     with engine.begin() as conn:
         rows = conn.execute(
-            text("UPDATE app.job_attempts SET provider_request_id=:p WHERE attempt_id=:a"),
-            {"p": provider_request_id, "a": attempt_id},
+            text(
+                "UPDATE app.jobs SET provider_dispatch_started_at=coalesce(provider_dispatch_started_at, now()) "
+                f"WHERE job_id=:j AND {_LEASE_GUARD}"
+            ),
+            {"j": job_id, "tok": lease_token},
         ).rowcount
     return rows == 1
+
+
+def _persist_provider_request_id(
+    engine: Engine, job_id: str, attempt_id: str, lease_token: str, provider_request_id: str
+) -> str:
+    """Lease-fenced, IMMUTABLE persistence of the external-operation identity:
+    NULL->set, same->idempotent success, DIFFERENT->conflict (never overwrite). The Attempt
+    must belong to this Job, which must still be running under THIS lease token."""
+    with engine.begin() as conn:
+        row = conn.execute(
+            text(
+                "SELECT a.provider_request_id FROM app.job_attempts a "
+                "JOIN app.jobs j ON j.job_id=a.job_id "
+                f"WHERE a.attempt_id=:a AND a.job_id=:j AND {_LEASE_GUARD} FOR UPDATE OF a"
+            ),
+            {"a": attempt_id, "j": job_id, "tok": lease_token},
+        ).first()
+        if row is None:
+            return "lease_lost"
+        decision = classify_request_id_write(row.provider_request_id, provider_request_id)
+        if decision is RequestIdDecision.CONFLICT:
+            return "conflict"
+        if decision is RequestIdDecision.IDEMPOTENT:
+            return "idempotent"
+        conn.execute(
+            text(
+                "UPDATE app.job_attempts SET provider_request_id=:p "
+                "WHERE attempt_id=:a AND provider_request_id IS NULL"
+            ),
+            {"p": provider_request_id, "a": attempt_id},
+        )
+    return "set"
 
 
 def run_external_operation(
@@ -78,61 +102,87 @@ def run_external_operation(
     lease_token: str,
     correlation_key: str,
     mode: str = "success",
-    store: Optional[S3ArtifactStore] = None,
+    store: Optional[object] = None,
+    provider_name: str = "fake",
 ) -> str:
-    """Execute one external operation end to end. Returns an outcome tag. This is the real
-    runtime; it is exercised in INTEGRATION_RUNTIME (NOT RUN here)."""
+    """Execute one external operation end to end. Returns an outcome tag. INTEGRATION_RUNTIME."""
     store = store or S3ArtifactStore()
 
-    _persist_dispatch_marker(engine, job_id)
-    result: AdapterResult = call_provider(provider_url, correlation_key, mode)
+    # Fence BEFORE any external call: a stale Worker never even reaches the Provider.
+    if not _claim_dispatch_marker(engine, job_id, lease_token):
+        record_provider_outcome(provider_name, "lease_lost", "none")
+        return "lease_lost_no_external_call"
 
-    decision = classify_provider_outcome(
-        result.outcome, dispatch_marker_persisted=True
-    )
+    with operation_span("provider.http_call", job_id, attempt_id):
+        result: AdapterResult = call_provider(provider_url, correlation_key, mode)
+
+    decision = classify_provider_outcome(result.outcome, dispatch_marker_persisted=True)
     if decision is ExecutionDecision.PENDING_RECONCILIATION:
-        _to_pending_reconciliation(engine, job_id, attempt_id, reason="provider_timeout")
+        record_provider_outcome(provider_name, "timeout", "none")
+        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "provider_timeout")
         return "pending_reconciliation"
     if decision is ExecutionDecision.CONTRACT_FAILURE:
-        _record_contract_failure(engine, job_id, attempt_id)
+        record_provider_outcome(provider_name, "invalid_body", "none")
+        _record_contract_failure(engine, job_id, attempt_id, lease_token)
         return "contract_failure"
-    if decision is ExecutionDecision.UNSAFE_NO_MARKER:  # defensive; marker was persisted above
-        _to_pending_reconciliation(engine, job_id, attempt_id, reason="unknown_no_marker")
+    if decision is ExecutionDecision.UNSAFE_NO_MARKER:  # defensive
+        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "unknown_no_marker")
         return "pending_reconciliation"
 
-    # VALID -> persist the external identity BEFORE the Artifact/success path.
+    # VALID: cross-check the Provider's DECLARED metadata against the ACTUAL result bytes.
+    if not provider_declaration_matches_bytes(
+        result.declared_checksum, result.declared_size_bytes, result.declared_content_type, result.result_data
+    ):
+        record_provider_outcome(provider_name, "invalid_body", "declared_mismatch")
+        _record_contract_failure(engine, job_id, attempt_id, lease_token)
+        return "contract_failure"
+
+    # Persist the external identity BEFORE the Artifact/success path (lease-fenced, immutable).
     assert result.provider_request_id is not None
-    if not _persist_provider_request_id(engine, attempt_id, result.provider_request_id):
-        _to_pending_reconciliation(engine, job_id, attempt_id, reason="request_id_persist_failed")
-        return "pending_reconciliation"
+    rid = _persist_provider_request_id(engine, job_id, attempt_id, lease_token, result.provider_request_id)
+    if rid == "lease_lost":
+        return "lease_lost_no_commit"
+    if rid == "conflict":
+        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "provider_request_id_conflict")
+        return "provider_request_id_conflict"
 
+    # Compute metadata from the ACTUAL bytes we will store (source of truth) — never guessed.
+    result_bytes = canonical_result_bytes(result.result_data)
+    expected = compute_artifact_metadata(result.result_data)
     key = store.key_for(tenant_id, job_id, attempt_id)
-    expected = ExpectedArtifact(result.checksum, result.size_bytes, result.content_type)
-    verdict = store.put_if_safe(key, b"{}", result.content_type, expected)
+    with operation_span("storage.put_verify", job_id, attempt_id, result.provider_request_id):
+        verdict = store.put_if_safe(key, result_bytes, expected.content_type, expected)
     if verdict is ArtifactVerdict.CONFLICT:
-        _to_pending_reconciliation(engine, job_id, attempt_id, reason="artifact_conflict")
+        record_provider_outcome(provider_name, "valid", "conflict")
+        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "artifact_conflict")
         return "artifact_conflict"
     if verdict is not ArtifactVerdict.VERIFIED:
-        _to_pending_reconciliation(engine, job_id, attempt_id, reason="artifact_unverified")
+        record_provider_outcome(provider_name, "valid", "unverified")
+        _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, "artifact_unverified")
         return "artifact_unverified"
 
-    return _guarded_completion(
-        engine, tenant_id, job_id, attempt_id, lease_token,
-        ArtifactRef(key, expected.checksum, expected.size_bytes, expected.content_type),
-    )
+    with operation_span("db.guarded_completion", job_id, attempt_id, result.provider_request_id):
+        outcome = _guarded_completion(
+            engine, tenant_id, job_id, attempt_id, lease_token,
+            ArtifactRef(key, expected.checksum, expected.size_bytes, expected.content_type),
+        )
+    record_provider_outcome(provider_name, "valid", "verified" if outcome == "succeeded" else "lease_lost")
+    return outcome
 
 
 def _guarded_completion(engine, tenant_id, job_id, attempt_id, lease_token, ref: ArtifactRef) -> str:
     """ONE guarded transaction under the CURRENT matching lease_token: Result Artifact
     reference, Attempt finished, success Event, Job running->succeeded, lease cleared."""
     with engine.begin() as conn:
-        job = conn.execute(
-            text("SELECT job_status, lease_token FROM app.jobs WHERE job_id=:j FOR UPDATE"),
-            {"j": job_id},
+        completed = conn.execute(
+            text(
+                "UPDATE app.jobs SET job_status='succeeded', finished_at=now(), attempt_count=attempt_count+1, "
+                "lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL "
+                f"WHERE job_id=:j AND {_LEASE_GUARD} RETURNING job_id"
+            ),
+            {"j": job_id, "tok": lease_token},
         ).first()
-        if job is None or not can_complete(
-            job.job_status, str(job.lease_token) if job.lease_token else None, lease_token
-        ):
+        if completed is None:
             return "lease_lost_no_commit"  # stale Worker: object retained for reconciliation
         conn.execute(
             text(
@@ -150,23 +200,18 @@ def _guarded_completion(engine, tenant_id, job_id, attempt_id, lease_token, ref:
             ),
             {"j": job_id, "a": attempt_id},
         )
-        conn.execute(
-            text(
-                "UPDATE app.jobs SET job_status='succeeded', finished_at=now(), attempt_count=attempt_count+1, "
-                "lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL "
-                "WHERE job_id=:j AND job_status='running' AND lease_token=:tok"
-            ),
-            {"j": job_id, "tok": lease_token},
-        )
     return "succeeded"
 
 
-def _to_pending_reconciliation(engine, job_id, attempt_id, reason: str) -> None:
+def _to_pending_reconciliation(engine, job_id, attempt_id, lease_token, reason: str) -> str:
+    """Lease-fenced. A stale Worker changes ZERO rows and CANNOT move the successor's Job."""
     with engine.begin() as conn:
-        conn.execute(
-            text("UPDATE app.jobs SET job_status='pending_reconciliation' WHERE job_id=:j AND job_status='running'"),
-            {"j": job_id},
-        )
+        rows = conn.execute(
+            text(f"UPDATE app.jobs SET job_status='pending_reconciliation' WHERE job_id=:j AND {_LEASE_GUARD}"),
+            {"j": job_id, "tok": lease_token},
+        ).rowcount
+        if rows == 0:
+            return "lease_lost_no_state_change"
         conn.execute(
             text(
                 "INSERT INTO app.job_events (job_id, attempt_id, event_type, from_status, to_status, actor, metadata) "
@@ -175,11 +220,26 @@ def _to_pending_reconciliation(engine, job_id, attempt_id, reason: str) -> None:
             ),
             {"j": job_id, "a": attempt_id, "r": reason},
         )
+    return "pending_reconciliation"
 
 
-def _record_contract_failure(engine, job_id, attempt_id) -> None:
+def _record_contract_failure(engine, job_id, attempt_id, lease_token) -> str:
+    """Lease-fenced. A stale Worker cannot mark the successor's Job failed."""
     with engine.begin() as conn:
-        conn.execute(text("UPDATE app.job_attempts SET finished_at=now(), error_code='provider_contract' WHERE attempt_id=:a"), {"a": attempt_id})
+        rows = conn.execute(
+            text(
+                "UPDATE app.jobs SET job_status='failed', finished_at=now(), "
+                "lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL "
+                f"WHERE job_id=:j AND {_LEASE_GUARD}"
+            ),
+            {"j": job_id, "tok": lease_token},
+        ).rowcount
+        if rows == 0:
+            return "lease_lost_no_state_change"
+        conn.execute(
+            text("UPDATE app.job_attempts SET finished_at=now(), error_code='provider_contract' WHERE attempt_id=:a AND job_id=:j"),
+            {"a": attempt_id, "j": job_id},
+        )
         conn.execute(
             text(
                 "INSERT INTO app.job_events (job_id, attempt_id, event_type, from_status, to_status, actor) "
@@ -187,4 +247,4 @@ def _record_contract_failure(engine, job_id, attempt_id) -> None:
             ),
             {"j": job_id, "a": attempt_id},
         )
-        conn.execute(text("UPDATE app.jobs SET job_status='failed', finished_at=now(), lease_owner=NULL, lease_token=NULL, lease_expires_at=NULL WHERE job_id=:j AND job_status='running'"), {"j": job_id})
+    return "contract_failure"

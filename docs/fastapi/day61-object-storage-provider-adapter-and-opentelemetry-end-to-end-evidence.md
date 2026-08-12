@@ -17,9 +17,14 @@ Storage artifacts, durable external-operation checkpoints, and OpenTelemetry cor
 
 > Evidence honesty: the runtime artifacts are real, and the pure-logic + a REAL
 > HTTP-loopback test (the separate fake Provider ↔ the adapter, success/invalid/timeout)
-> pass — **9 passed, `EXECUTED_LOCAL_RUNTIME`**. But the full local `INTEGRATION_RUNTIME`
-> matrix (PostgreSQL + Redis/Celery + MinIO + OTel Collector) has **NOT been executed** by
-> the updating agent (no Docker), so Day61 is **not marked Completed**. See the
+> pass — **19 passed, `EXECUTED_LOCAL_RUNTIME`** (incl. the review fixes: Result-bytes
+> metadata is COMPUTED from the actual canonical bytes so a correct success verifies as
+> VERIFIED; every external action + state change is fenced by the CURRENT `lease_token`;
+> `provider_request_id` is immutable (NULL->set / same->idempotent / different->conflict);
+> and a minimal OpenTelemetry layer — `day61_telemetry.py` — adds spans + a low-cardinality
+> outcome metric with a no-op fallback). But the full local `INTEGRATION_RUNTIME` matrix
+> (PostgreSQL + Redis/Celery + MinIO + OTel Collector) has **NOT been executed** by the
+> updating agent (no Docker), so Day61 is **not marked Completed**. See the
 > design/runbook's Required integration rerun matrix. Target tier is local
 > `INTEGRATION_RUNTIME`, never Production; Day61 never calls a real/paid model Provider.
 

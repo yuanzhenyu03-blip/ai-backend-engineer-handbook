@@ -17,6 +17,7 @@ proves adapter integration only.
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -177,3 +178,76 @@ def exporter_failure_must_not_fail_job() -> bool:
     telemetry-evidence limitation. Business evidence is reconstructable from PostgreSQL,
     Object Storage and Provider identity."""
     return True
+
+
+# ---------------------------------------------------------------------------
+# 7) Canonical Result bytes — the ONE serialization the Provider, adapter, Worker,
+#    Object Storage and PostgreSQL all agree on (so metadata is computed, not guessed).
+# ---------------------------------------------------------------------------
+RESULT_CONTENT_TYPE = "application/json"
+
+
+def canonical_result_bytes(result_data: object) -> bytes:
+    """Deterministic canonical serialization of the Provider's RESULT payload. The fake
+    Provider, the adapter, the Worker and the Object Storage HEAD all derive checksum/size
+    from THESE bytes, so upload metadata cannot drift from the stored bytes. Data
+    minimization: only the ``result`` payload is serialized/stored — never the full raw
+    Provider HTTP response."""
+    return json.dumps(result_data, sort_keys=True, separators=(",", ":"),
+                      ensure_ascii=True).encode("utf-8")
+
+
+def compute_artifact_metadata(result_data: object) -> "ExpectedArtifact":
+    """Compute checksum/size/content-type from the ACTUAL canonical bytes. The Worker uses
+    THIS as the single source of truth for upload + HEAD verification + the DB reference."""
+    from_hash = canonical_result_bytes(result_data)
+    return ExpectedArtifact(
+        checksum="sha256:" + hashlib.sha256(from_hash).hexdigest(),
+        size_bytes=len(from_hash),
+        content_type=RESULT_CONTENT_TYPE,
+    )
+
+
+def provider_declaration_matches_bytes(
+    declared_checksum: str, declared_size: int, declared_content_type: str, result_data: object
+) -> bool:
+    """A valid Provider response must DECLARE metadata that exactly equals the metadata
+    computed from the actual result bytes; a mismatch is a Provider CONTRACT inconsistency
+    (treated as invalid, not success)."""
+    m = compute_artifact_metadata(result_data)
+    return (
+        declared_checksum == m.checksum
+        and declared_size == m.size_bytes
+        and declared_content_type == m.content_type
+    )
+
+
+# ---------------------------------------------------------------------------
+# 8) Lease-token authority for EVERY external op + state change (Day60 fencing).
+# ---------------------------------------------------------------------------
+def can_act_under_lease(job_status: str, db_lease_token: Optional[str], worker_token: str) -> bool:
+    """A Worker may take an external action or a business state change ONLY while the Job is
+    ``running`` AND the DB holds THIS Worker's ``lease_token``. A stale Worker (token
+    superseded by a successor) can act on NOTHING: no dispatch marker, no Provider call, no
+    provider_request_id, and no state change to the successor's Job."""
+    return job_status == "running" and db_lease_token is not None and db_lease_token == worker_token
+
+
+# ---------------------------------------------------------------------------
+# 9) provider_request_id immutability (NULL->set / same->idempotent / diff->conflict).
+# ---------------------------------------------------------------------------
+class RequestIdDecision(str, Enum):
+    SET = "set"                 # NULL -> write the id
+    IDEMPOTENT = "idempotent"   # already this exact id -> success, no write
+    CONFLICT = "conflict"       # already a DIFFERENT id -> never overwrite; reconcile
+
+
+def classify_request_id_write(existing: Optional[str], incoming: str) -> RequestIdDecision:
+    """Persist an external-operation identity WITHOUT clobbering a prior one. A different
+    existing id means two external operations are associated with this Attempt — a conflict
+    that must reconcile, never a silent overwrite."""
+    if existing is None:
+        return RequestIdDecision.SET
+    if existing == incoming:
+        return RequestIdDecision.IDEMPOTENT
+    return RequestIdDecision.CONFLICT

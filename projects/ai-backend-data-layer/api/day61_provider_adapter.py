@@ -22,16 +22,24 @@ from day61_provider_artifact_logic import ProviderOutcome
 class AdapterResult:
     outcome: ProviderOutcome
     provider_request_id: Optional[str] = None
-    checksum: Optional[str] = None
-    size_bytes: Optional[int] = None
-    content_type: Optional[str] = None
+    # The extracted RESULT payload (data-minimized: only this is kept/stored, never the full
+    # raw HTTP body) and the Provider's DECLARED artifact metadata (cross-checked against the
+    # bytes computed from result_data by the Worker).
+    result_data: object = None
+    declared_checksum: Optional[str] = None
+    declared_size_bytes: Optional[int] = None
+    declared_content_type: Optional[str] = None
 
 
 def _valid_contract(payload: dict) -> bool:
     art = payload.get("artifact")
+    res = payload.get("result")
     return (
         isinstance(payload.get("provider_request_id"), str)
         and payload.get("provider_request_id") != ""
+        and isinstance(res, dict)
+        and "data" in res
+        and isinstance(res.get("content_type"), str)
         and isinstance(art, dict)
         and isinstance(art.get("checksum"), str)
         and isinstance(art.get("size_bytes"), int)
@@ -68,6 +76,7 @@ def call_provider(
     return AdapterResult(
         ProviderOutcome.VALID,
         provider_request_id=payload["provider_request_id"],
-        checksum=art["checksum"], size_bytes=art["size_bytes"],
-        content_type=art["content_type"],
+        result_data=payload["result"]["data"],
+        declared_checksum=art["checksum"], declared_size_bytes=art["size_bytes"],
+        declared_content_type=art["content_type"],
     )

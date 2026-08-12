@@ -91,3 +91,36 @@ class S3ArtifactStore:
             )
             return verify_artifact_head(self.head(key), expected)  # re-verify by HEAD
         return verdict
+
+
+class InMemoryArtifactStore:
+    """A real, usable in-memory implementation of the same store contract for
+    ``EXECUTED_LOCAL_RUNTIME`` tests (no MinIO/boto3). It stores the ACTUAL bytes and derives
+    HEAD metadata (checksum/size/content_type) from those bytes, so a correct Worker upload
+    verifies as VERIFIED and a byte/metadata mismatch verifies as CONFLICT — exactly like a
+    real Object Storage HEAD."""
+
+    def __init__(self) -> None:
+        self._objects: dict[str, tuple[bytes, str]] = {}
+
+    def key_for(self, tenant_id: str, job_id: str, attempt_id: str) -> str:
+        return result_artifact_key(tenant_id, job_id, attempt_id)
+
+    def head(self, key: str) -> HeadMetadata:
+        obj = self._objects.get(key)
+        if obj is None:
+            return HeadMetadata(False, None, None, None)
+        data, content_type = obj
+        return HeadMetadata(True, sha256_of(data), len(data), content_type)
+
+    def put_if_safe(self, key: str, data: bytes, content_type: str, expected: ExpectedArtifact) -> ArtifactVerdict:
+        verdict = verify_artifact_head(self.head(key), expected)
+        if verdict is ArtifactVerdict.ABSENT:
+            # Refuse to store bytes whose real metadata would not match what the caller
+            # expects (defends the invariant even in-memory).
+            if not (sha256_of(data) == expected.checksum and len(data) == expected.size_bytes
+                    and content_type == expected.content_type):
+                return ArtifactVerdict.CONFLICT
+            self._objects[key] = (data, content_type)
+            return verify_artifact_head(self.head(key), expected)
+        return verdict

@@ -13,11 +13,17 @@ from day61_provider_artifact_logic import (
     ExpectedArtifact,
     HeadMetadata,
     ProviderOutcome,
+    RequestIdDecision,
+    can_act_under_lease,
     can_complete,
+    canonical_result_bytes,
     classify_provider_outcome,
+    classify_request_id_write,
+    compute_artifact_metadata,
     exporter_failure_must_not_fail_job,
     external_call_checkpoint_order,
     metric_labels_allowed,
+    provider_declaration_matches_bytes,
     result_artifact_key,
     telemetry_safe_provider_request_ref,
     verify_artifact_head,
@@ -70,3 +76,35 @@ def test_telemetry_low_cardinality_and_protected_id():
     ref = telemetry_safe_provider_request_ref("prov-secret-123")
     assert ref.startswith("prid:") and "prov-secret-123" not in ref
     assert exporter_failure_must_not_fail_job() is True
+
+
+def test_computed_metadata_matches_actual_bytes_and_verifies():
+    # P0-1: metadata is COMPUTED from the actual canonical bytes, so a correct upload -> VERIFIED.
+    data = {"summary": "ok", "correlation_key": "c1"}
+    b = canonical_result_bytes(data)
+    meta = compute_artifact_metadata(data)
+    assert meta.checksum == "sha256:" + __import__("hashlib").sha256(b).hexdigest()
+    assert meta.size_bytes == len(b)
+    head = HeadMetadata(True, meta.checksum, meta.size_bytes, meta.content_type)
+    assert verify_artifact_head(head, meta) is ArtifactVerdict.VERIFIED
+
+
+def test_provider_declaration_must_match_actual_bytes():
+    data = {"summary": "ok"}
+    m = compute_artifact_metadata(data)
+    assert provider_declaration_matches_bytes(m.checksum, m.size_bytes, m.content_type, data) is True
+    assert provider_declaration_matches_bytes("sha256:wrong", m.size_bytes, m.content_type, data) is False
+    assert provider_declaration_matches_bytes(m.checksum, m.size_bytes + 1, m.content_type, data) is False
+
+
+def test_can_act_under_lease():
+    assert can_act_under_lease("running", "tokA", "tokA") is True
+    assert can_act_under_lease("running", "tokA", "tokB") is False   # stale Worker
+    assert can_act_under_lease("running", None, "tokA") is False
+    assert can_act_under_lease("succeeded", "tokA", "tokA") is False
+
+
+def test_provider_request_id_immutability():
+    assert classify_request_id_write(None, "p1") is RequestIdDecision.SET
+    assert classify_request_id_write("p1", "p1") is RequestIdDecision.IDEMPOTENT
+    assert classify_request_id_write("p1", "p2") is RequestIdDecision.CONFLICT

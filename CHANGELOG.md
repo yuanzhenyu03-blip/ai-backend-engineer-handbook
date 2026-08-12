@@ -9,6 +9,57 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.146 — Day61 review fix: real success path, lease-fenced external ops, request-id immutability, real OTel
+
+Date: 2026-08-11
+
+Day: Day61 (Phase 5). Fixes so the real success path is reachable and a stale Worker can never call the
+Provider or change the current Job's business state. No new migration (schema already supports it); Day60 head
+stays `0012_day60_repair_audit_attestation` with the lease triple + recovery preserved. Day61 remains **not
+Completed**: the full local `INTEGRATION_RUNTIME` matrix is still NOT RUN. Protected files unchanged.
+
+### Fixed
+
+- **P0 — Result bytes vs metadata consistency.** The fake Provider `success` previously declared fixed
+  checksum/size while the Worker uploaded `b"{}"`, so HEAD always mismatched and success was unreachable. There
+  is now a minimal, verifiable Result payload contract: `canonical_result_bytes` is the ONE serialization the
+  fake Provider, adapter, Worker, Object Storage HEAD and the DB reference all agree on; the fake Provider
+  returns a real `result.data` plus declared metadata computed from those bytes; the Worker COMPUTES
+  checksum/size/content-type from the actual bytes (`compute_artifact_metadata`), requires the Provider's
+  declaration to match (`provider_declaration_matches_bytes`, else contract failure), uploads THOSE bytes, and
+  HEAD-verifies -> VERIFIED. Data minimization: only the `result` payload is kept/stored, never the full raw
+  Provider body. A new test proves success -> VERIFIED (not CONFLICT) via an in-memory store.
+- **P0 — lease-token fencing on every external op + state change.** The dispatch marker is now a GUARDED write
+  (`job_id + job_status='running' + lease_token=:current`); if it updates 0 rows the Worker returns
+  `lease_lost_no_external_call` and makes NO Provider call, writes NO `provider_request_id`, and changes NO
+  state. `provider_request_id` persistence, `pending_reconciliation` and contract-failure transitions, and the
+  guarded completion all match `job_id + attempt_id + lease_token` — a stale Worker changes zero rows and can
+  never move the successor's Job to pending_reconciliation/failed/succeeded. Static-contract tests assert the
+  fencing and the before-Provider-call short-circuit.
+- **P1 — real OpenTelemetry (not just a Collector YAML).** New `day61_telemetry.py`: spans for the Provider
+  HTTP call, the Object Storage put/HEAD, and the guarded completion, with `job_id`/`attempt_id` correlation
+  and a HASHED `provider_request_id` reference (never the full value); a low-cardinality outcome counter
+  (`provider`/`outcome`/`verification_outcome`) that rejects high-cardinality labels; a no-op fallback when the
+  SDK is absent; and exporter-failure tolerance (a Collector/exporter outage never rolls back a committed Job or
+  triggers a new Provider call). A REAL OTLP export to a running Collector is INTEGRATION_RUNTIME (NOT RUN).
+- **P1 — `provider_request_id` immutability.** `classify_request_id_write`: `NULL -> set`, `same -> idempotent
+  success`, `different -> conflict` (never overwrite; conflict routes to `pending_reconciliation`). The write is
+  lease/Job/Attempt-fenced and only fills a NULL. Tests added.
+
+### Tests / evidence
+
+- Re-run by the updating agent: `py_compile` on all Day61 modules; `pytest
+  test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py
+  test_day61_lease_fencing_and_telemetry.py` -> **19 passed** (`EXECUTED_LOCAL_RUNTIME`) — pure decision logic,
+  a REAL HTTP loopback of the fake Provider ↔ adapter (success now VERIFIED via an in-memory store, plus
+  invalid-200 and timeout-after-receipt), static lease-fencing contract checks, and the no-op OTel path.
+- **INTEGRATION_RUNTIME NOT RUN.** No Docker/PostgreSQL/Redis/MinIO/OTel Collector, so the end-to-end matrix
+  (including bytes<->metadata VERIFIED, stale-Worker-no-external-call, request-id conflict, and real OTLP export)
+  was NOT executed. Day61 stays NOT Completed. No secrets, URLs, keys, tokens, fixture ids, or `.venv`
+  committed.
+
+---
+
 ## v0.1.145 — Day61: Object Storage, Provider Adapter and OpenTelemetry evidence artifacts (INTEGRATION_RUNTIME NOT RUN)
 
 Date: 2026-08-11

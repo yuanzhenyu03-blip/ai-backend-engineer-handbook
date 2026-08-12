@@ -11,9 +11,16 @@ those remain NOT RUN (see the design/runbook).
 
 import threading
 
+from day61_artifact_store import InMemoryArtifactStore
 from day61_fake_provider import build_server
 from day61_provider_adapter import call_provider
-from day61_provider_artifact_logic import ProviderOutcome
+from day61_provider_artifact_logic import (
+    ArtifactVerdict,
+    ProviderOutcome,
+    canonical_result_bytes,
+    compute_artifact_metadata,
+    provider_declaration_matches_bytes,
+)
 
 
 def _serve(server):
@@ -29,7 +36,16 @@ def test_success_over_real_http_returns_valid_with_request_id_and_ledger():
         url = f"http://127.0.0.1:{server.server_address[1]}/v1/invoke"
         r = call_provider(url, correlation_key="corr-1", mode="success", timeout_seconds=2.0)
         assert r.outcome is ProviderOutcome.VALID
-        assert r.provider_request_id and r.checksum and r.size_bytes and r.content_type
+        assert r.provider_request_id and r.result_data is not None
+        # P0-1: the Provider's DECLARED metadata matches the metadata computed from the actual
+        # result bytes; storing THOSE bytes HEAD-verifies as VERIFIED (never CONFLICT).
+        assert provider_declaration_matches_bytes(
+            r.declared_checksum, r.declared_size_bytes, r.declared_content_type, r.result_data)
+        store = InMemoryArtifactStore()
+        key = store.key_for("t1", "j1", "a1")
+        meta = compute_artifact_metadata(r.result_data)
+        verdict = store.put_if_safe(key, canonical_result_bytes(r.result_data), meta.content_type, meta)
+        assert verdict is ArtifactVerdict.VERIFIED
         # independent ledger recorded the receipt against OUR correlation key
         assert len(ledger.find_by_correlation("corr-1")) == 1
     finally:

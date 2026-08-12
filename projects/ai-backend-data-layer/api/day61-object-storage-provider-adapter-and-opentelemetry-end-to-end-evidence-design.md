@@ -33,8 +33,16 @@ model Provider; a SEPARATE deterministic fake HTTP Provider proves adapter integ
 - `day61_artifact_store.py` — S3/MinIO Result Artifact store: deterministic per-Attempt key,
   idempotent HEAD verification, non-overwrite conflict.
 - `day61_worker_completion.py` — the guarded end-to-end path (SQLAlchemy Core) reusing the
-  Day60 lease triple: dispatch marker -> HTTP call -> persist `provider_request_id` -> HEAD
-  verify -> ONE guarded completion under the CURRENT `lease_token`.
+  Day60 lease triple: a LEASE-FENCED dispatch marker (a stale Worker stops before any HTTP
+  call) -> HTTP call -> IMMUTABLE lease-fenced `provider_request_id` (NULL->set / same->
+  idempotent / different->conflict) -> metadata COMPUTED from the actual result bytes -> HEAD
+  verify -> ONE guarded completion under the CURRENT `lease_token`. All state changes
+  (pending_reconciliation / contract failure / completion) are lease-fenced.
+- `day61_telemetry.py` — minimal OpenTelemetry: spans for the Provider HTTP call, the Object
+  Storage put/HEAD, and the guarded completion; `job_id`/`attempt_id` correlation; a hashed
+  `provider_request_id` reference; a low-cardinality outcome counter
+  (`provider`/`outcome`/`verification_outcome`); a no-op fallback and exporter-failure
+  tolerance. A REAL OTLP export to a Collector is INTEGRATION_RUNTIME (NOT RUN).
 - `day61_integration/otel-collector.yaml`, `day61_integration/docker-compose.yaml`,
   `requirements-day61.txt`.
 
@@ -124,7 +132,7 @@ What the updating agent ACTUALLY executed (`EXECUTED_LOCAL_RUNTIME`):
 
 ```text
 [EXECUTED_LOCAL_RUNTIME] py_compile of every Day61 module
-[EXECUTED_LOCAL_RUNTIME] pytest test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py -> 9 passed
+[EXECUTED_LOCAL_RUNTIME] pytest test_day61_provider_artifact_logic.py test_day61_fake_provider_http.py test_day61_lease_fencing_and_telemetry.py -> 19 passed
 [EXECUTED_LOCAL_RUNTIME] the fake Provider + adapter over REAL HTTP loopback (success / invalid-200 / timeout-after-receipt)
 [CONCEPTUAL_STATIC] yaml parse of otel-collector.yaml + docker-compose.yaml
 ```
@@ -146,6 +154,11 @@ claiming `INTEGRATION_RUNTIME` / marking Day61 Completed):
 [NOT RUN] same key, mismatched checksum/metadata: CONFLICT, no overwrite/no success, reconciliation evidence
 [NOT RUN] stale lease-token completion attempt updates ZERO rows and cannot claim success
 [NOT RUN] Collector/exporter interruption: business success stays correct; telemetry limitation/error evidence recorded
+[NOT RUN] success bytes<->metadata: the stored bytes' checksum/size/content-type equal the DB Artifact reference (VERIFIED, not CONFLICT)
+[NOT RUN] a stale-lease-token Worker makes NO Provider HTTP call (guarded dispatch marker updates 0 rows -> lease_lost_no_external_call)
+[NOT RUN] a stale Worker's timeout/invalid-response does NOT move the successor's running Job to pending_reconciliation/failed
+[NOT RUN] provider_request_id immutability: a second, DIFFERENT id for the same Attempt -> conflict/pending_reconciliation, never an overwrite
+[NOT RUN] real OTLP export to a running Collector (spans + low-cardinality metric); exporter down still commits the Job
 ```
 
 ## NOT RUN / out of scope (Day61)
