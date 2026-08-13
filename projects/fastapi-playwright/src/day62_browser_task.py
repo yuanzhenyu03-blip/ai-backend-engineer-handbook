@@ -27,13 +27,8 @@ interaction facts) — NOT auth isolation, queue integration, artifact flow, or 
 
 from __future__ import annotations
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(__file__))
-
-from day62_interaction_logic import TaskReport, classify_task_result  # noqa: E402
-from day62_research_page import (  # noqa: E402
+from day62_interaction_logic import TaskReport, classify_task_result
+from day62_research_page import (
     INPUT_TESTID,
     RESULTS_TESTID,
     SUBMIT_TESTID,

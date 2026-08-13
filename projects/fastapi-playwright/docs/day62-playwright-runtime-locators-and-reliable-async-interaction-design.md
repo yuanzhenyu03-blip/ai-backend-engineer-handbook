@@ -28,6 +28,9 @@ queue-backed integration.
 - `tests/test_day62_browser_task_playwright.py` — the real-Chromium suite ONLY, GATED on the
   `playwright` package via a module-level `importorskip` (this file — and only this file — skips
   when the package is absent; NOT RUN there).
+- `pytest.ini` — `[pytest] pythonpath = src` (+ `testpaths = tests`): puts `src/` on the import
+  path so the tests import the modules under test with NO per-file `sys.path` manipulation and NO
+  package install. Requires pytest >= 7.0.
 - `requirements-day62.txt` — the two clearly separated run scopes.
 
 ## Mental model

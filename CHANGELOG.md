@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.154 — Day62 review fix: standard pytest path config (pytest.ini pythonpath=src)
+
+Date: 2026-08-13
+
+Day: Day62 (Phase 5). Codex P1: the `tests/` modules import from `src/` (e.g.
+`from day62_interaction_logic import ...`), but the only thing putting `src/` on the import path was a
+`tests/conftest.py` that mutated `sys.path` (with a second `sys.path.insert` inside
+`src/day62_browser_task.py`) — a workaround, not a standard, discoverable configuration.
+
+Fix: added `projects/fastapi-playwright/pytest.ini` with `[pytest] pythonpath = src` (and
+`testpaths = tests`), and REMOVED both `sys.path` hacks (`tests/conftest.py` deleted;
+`src/day62_browser_task.py` now imports its siblings directly). No per-test-file `sys.path`
+manipulation and no package install; Playwright/Chromium remain NOT a prerequisite for the static and
+HTTP-loopback tests. `pytest.ini`'s `pythonpath` option requires pytest >= 7.0 (pinned to 7.4.3 in
+`requirements-day62.txt`).
+
+Verified in a clean environment WITHOUT Playwright installed:
+`cd projects/fastapi-playwright && python3 -m pytest -q tests/` → **13 passed, 1 skipped**
+(rootdir `projects/fastapi-playwright`, `configfile: pytest.ini`; 7 interaction-logic + 4
+reliability-contract + 2 HTTP-loopback pass; the 1 skip is the real-Chromium module
+`test_day62_browser_task_playwright.py`).
+
+Evidence boundary unchanged and honest: these are the static + pure-logic + HTTP-loopback
+`EXECUTED_LOCAL_RUNTIME` scope only. The real Chromium run, the Python `finally` cleanup, the
+action-timeout negative case, Day63+, integration and production remain NOT RUN. Files updated:
+`projects/fastapi-playwright/pytest.ini` (new), `projects/fastapi-playwright/tests/conftest.py`
+(deleted), `projects/fastapi-playwright/src/day62_browser_task.py`,
+`projects/fastapi-playwright/requirements-day62.txt`,
+`projects/fastapi-playwright/docs/day62-...-design.md`, `projects/fastapi-playwright/README.md`,
+`docs/fastapi/day62-...-interaction.md`, `PROJECT_STATUS.md`, `TASKS.md`. No secrets, browser storage
+state, tenant data, real URLs/tokens or screenshots committed; `prompts/master-prompt.md`,
+`prompts/teaching-session-prompt.md` and `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.153 — Day62 review fix: run the static reliability tests + reconcile Day59-63 status
 
 Date: 2026-08-13

@@ -13,6 +13,8 @@
 #    python3 -m pytest -q tests/
 #    # -> 13 passed, 1 skipped: pure-logic + HTTP-loopback + STATIC reliability-contract checks run;
 #    #    only the real-Chromium module skips (playwright not installed) — honestly NOT RUN.
+#    # The import path is configured by pytest.ini (`pythonpath = src`); no PYTHONPATH export or
+#    # package install is needed, and no test file manipulates sys.path.
 #
 # 2) EXECUTED_LOCAL_RUNTIME with a real browser (OPT-IN) — install Playwright + Chromium and the
 #    gated tests run the real interaction (success + action-timeout). This proves specific

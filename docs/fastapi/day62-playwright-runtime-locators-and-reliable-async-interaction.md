@@ -27,6 +27,8 @@ observable business condition is evidence.
 > python3 -m pytest -q tests/
 > ```
 >
+> No extra setup is needed: `projects/fastapi-playwright/pytest.ini` sets `pythonpath = src`, so
+> the tests import the modules under test directly (no `sys.path` hack, no package install).
 > The 1 skipped test is the real-Chromium suite, gated on the `playwright` package (absent in the
 > updating agent's environment). In class, a real Chromium opened
 > `/research?overlay_delay_ms=800`, a semantic snapshot found the Company textbox, Search button

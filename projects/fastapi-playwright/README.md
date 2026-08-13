@@ -42,7 +42,8 @@ with explicit Browser/Context/Page ownership, stable role/test-id Locators, no f
 `force=True`, and `finally` Context cleanup that preserves the primary operation error. Run the
 pure-logic + HTTP-loopback + static reliability-contract tests with `python3 -m pytest -q tests/`
 (= 13 passed, 1 skipped; only the real-Chromium suite is gated on the `playwright` package and skips
-when it is absent). See
+when it is absent). No extra setup is needed — `pytest.ini` sets `pythonpath = src` so the tests
+import the modules under test directly. See
 [`docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md`](docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md)
 and the [Day62 lesson](../../docs/fastapi/day62-playwright-runtime-locators-and-reliable-async-interaction.md).
 
