@@ -23,8 +23,11 @@ queue-backed integration.
 - `tests/test_day62_interaction_logic.py` — pure-logic tests (EXECUTED_LOCAL_RUNTIME).
 - `tests/test_day62_research_page_http.py` — REAL HTTP-loopback tests of the page contract
   (EXECUTED_LOCAL_RUNTIME).
-- `tests/test_day62_browser_task_playwright.py` — STATIC reliability-contract checks (always run)
-  + a real-Chromium suite GATED on the `playwright` package (skipped/NOT RUN without it).
+- `tests/test_day62_reliability_contract.py` — STATIC reliability-contract checks that inspect the
+  task CODE (docstrings/comments stripped); they ALWAYS run, with or without Playwright.
+- `tests/test_day62_browser_task_playwright.py` — the real-Chromium suite ONLY, GATED on the
+  `playwright` package via a module-level `importorskip` (this file — and only this file — skips
+  when the package is absent; NOT RUN there).
 - `requirements-day62.txt` — the two clearly separated run scopes.
 
 ## Mental model
@@ -65,9 +68,9 @@ task success = business result asserted + Context cleanup completed
 # EXECUTED_LOCAL_RUNTIME (no browser): pure logic + real HTTP-loopback page contract.
 cd projects/fastapi-playwright
 python3 -m pip install pytest==7.4.3
-python3 -m pytest -q tests/test_day62_interaction_logic.py tests/test_day62_research_page_http.py \
-  tests/test_day62_browser_task_playwright.py
-# -> the real-Chromium tests SKIP (playwright not installed) — honestly NOT RUN.
+python3 -m pytest -q tests/
+# -> 13 passed, 1 skipped: the real-Chromium MODULE skips (playwright not installed) — honestly
+#    NOT RUN — while the pure-logic, HTTP-loopback and STATIC reliability-contract checks all run.
 
 # EXECUTED_LOCAL_RUNTIME with a real browser (OPT-IN):
 python3 -m pip install playwright==1.44.0 pytest==7.4.3
@@ -78,9 +81,10 @@ python3 -m pytest -q tests/
 ## Evidence tiers
 
 - `EXECUTED_LOCAL_RUNTIME` (run by the updating agent): `py_compile` + the pure-logic suite + the
-  real HTTP-loopback page-contract suite + the STATIC reliability-contract checks — **9 passed, 1
-  skipped**. The skipped test is the real-Chromium suite (no `playwright` package in the agent
-  environment).
+  real HTTP-loopback page-contract suite + the STATIC reliability-contract checks (all actually
+  collected and run) — **13 passed, 1 skipped**. The 1 skipped item is the real-Chromium module
+  `test_day62_browser_task_playwright.py` (no `playwright` package in the agent environment); the
+  four static reliability-contract checks are NO LONGER swallowed by that module's skip.
 - `EXECUTED_LOCAL_RUNTIME` (classroom, NOT re-run by the agent): a real Chromium opened
   `/research?overlay_delay_ms=800` through the Playwright CLI; a semantic snapshot found the
   Company textbox, Search button and results status; filling `Acme` + clicking the `data-testid`

@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.153 — Day62 review fix: run the static reliability tests + reconcile Day59-63 status
+
+Date: 2026-08-13
+
+Day: Day62 (Phase 5). Two P1 review fixes.
+
+P1-1 (tests): the four STATIC reliability-contract checks (no fixed sleep / no `force=True`; one Context per
+task closed in `finally`; wait on the business result, not only actionability; role/`data-testid` Locators,
+not brittle CSS/DOM) were defined below a module-level `pytest.importorskip("playwright.async_api")`, so
+without Playwright the whole file skipped and those checks NEVER ran — making "static reliability-contract
+checks pass" inaccurate. They are now split into `tests/test_day62_reliability_contract.py`, which imports no
+Playwright and always runs; the real-Chromium suite stays in `tests/test_day62_browser_task_playwright.py`
+behind the module-level `importorskip` (only that file skips when the package is absent). The static checks
+now inspect CODE (docstrings/comments stripped) so a documented anti-pattern like "NO force=True" no longer
+falsely fails. Actual result: `python3 -m pytest -q tests/` = **13 passed, 1 skipped** (7 interaction-logic +
+4 reliability-contract + 2 HTTP-loopback pass; the 1 skip is the real-Chromium module). Real Chromium, the
+Python `finally` cleanup and the action-timeout case remain NOT RUN by the updating agent (no `playwright`
+package) and are honestly marked so.
+
+P1-2 (status): removed stale Day61 "current lesson / in progress" and "Production Integration Gate is in
+progress" text from `TASKS.md` and `PROJECT_STATUS.md`. `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`,
+`TASKS.md` and `CHANGELOG.md` now agree: Day59–61 = Completed, Day62 = Completed (EXECUTED_LOCAL_RUNTIME; the
+real-Chromium Python suite is reported by its actual gated result), Day63 = current/next up.
+
+Files updated: `projects/fastapi-playwright/tests/test_day62_browser_task_playwright.py` (real-Chromium only),
+`projects/fastapi-playwright/tests/test_day62_reliability_contract.py` (new; static checks),
+`projects/fastapi-playwright/requirements-day62.txt`, `docs/fastapi/day62-...-interaction.md`,
+`projects/fastapi-playwright/docs/day62-...-design.md`, `projects/fastapi-playwright/README.md`,
+`cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`, `PROJECT_STATUS.md`, `TASKS.md`. No
+secrets, browser storage state, tenant data, real URLs/tokens or screenshots committed;
+`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md` and `LESSON_TEMPLATE_v2.md` unchanged; no
+Day63–66 scope added.
+
+---
+
 ## v0.1.152 — Day62 released: Playwright Runtime, Locators and Reliable Async Interaction
 
 Date: 2026-08-13
@@ -45,7 +80,9 @@ times out Workers, roll back the contract rather than `force=True`/CSS/blind ret
 
 Validation: `python3 -m pytest -q projects/fastapi-playwright/tests/` = 9 passed, 1 skipped, plus
 `py_compile` — EXECUTED_LOCAL_RUNTIME (pure interaction/cleanup logic + the controlled research page over a
-REAL HTTP loopback + static reliability-contract checks). The 1 skipped test is the real-Chromium suite,
+REAL HTTP loopback). NOTE (corrected in v0.1.153): the four static reliability-contract checks were NOT
+actually collected here — they sat behind a module-level `importorskip` that skipped the whole file; the 1
+skipped item was that entire module. The 1 skipped test is the real-Chromium suite,
 gated on the `playwright` package (absent in the updating-agent environment). In class a real Chromium
 rendered `Results for Acme` from `/research?overlay_delay_ms=800` (EXECUTED_LOCAL_RUNTIME). NOT RUN by the
 updating agent: Python `finally` cleanup + the action-timeout case against a live browser; Day63 auth/session

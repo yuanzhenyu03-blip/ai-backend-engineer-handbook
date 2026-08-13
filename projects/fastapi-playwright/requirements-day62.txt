@@ -10,9 +10,9 @@
 #
 #    cd projects/fastapi-playwright
 #    python3 -m pip install pytest==7.4.3
-#    python3 -m pytest -q tests/test_day62_interaction_logic.py tests/test_day62_research_page_http.py \
-#      tests/test_day62_browser_task_playwright.py
-#    # -> the real-Chromium tests SKIP (playwright not installed) — honestly NOT RUN.
+#    python3 -m pytest -q tests/
+#    # -> 13 passed, 1 skipped: pure-logic + HTTP-loopback + STATIC reliability-contract checks run;
+#    #    only the real-Chromium module skips (playwright not installed) — honestly NOT RUN.
 #
 # 2) EXECUTED_LOCAL_RUNTIME with a real browser (OPT-IN) — install Playwright + Chromium and the
 #    gated tests run the real interaction (success + action-timeout). This proves specific

@@ -19,8 +19,8 @@ into the browser: a fixed sleep or a brittle CSS selector is a guess; a Locator 
 observable business condition is evidence.
 
 > Evidence honesty: the runnable artifact's pure interaction/cleanup logic + the controlled
-> research page over REAL HTTP loopback + the static reliability-contract checks pass —
-> **9 passed, 1 skipped, `EXECUTED_LOCAL_RUNTIME`**, run with:
+> research page over REAL HTTP loopback + the static reliability-contract checks all run and pass —
+> **13 passed, 1 skipped, `EXECUTED_LOCAL_RUNTIME`**, run with:
 >
 > ```
 > cd projects/fastapi-playwright
@@ -795,8 +795,9 @@ DOM mutation    = forbidden (fakes the page's own result)
 - [ ] I can correct the misconception that a timeout means "no result".
 - [ ] I can defend the trade-off: `data-testid` contract vs brittle CSS; reuse-Browser + per-task
       Context.
-- [ ] I can run the artifact: `python3 -m pytest -q tests/` (pure-logic + HTTP-loopback pass; the
-      real-Chromium suite is gated on `playwright`).
+- [ ] I can run the artifact: `python3 -m pytest -q tests/` (= 13 passed, 1 skipped; pure-logic +
+      HTTP-loopback + static reliability-contract checks all run; only the real-Chromium suite is
+      gated on `playwright`).
 - [ ] I can connect this to Playwright (Locators, actionability vs assertion, cleanup).
 - [ ] I can connect it to AI Backend (agent tool calling, per-task Context isolation, cost).
 - [ ] I can answer in English why a timeout is unknown and why cleanup failure means incomplete.

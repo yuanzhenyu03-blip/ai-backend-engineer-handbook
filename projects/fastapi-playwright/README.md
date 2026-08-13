@@ -40,8 +40,9 @@ The first connected Day62 artifact lives under `src/`, `tests/` and `docs/`: a c
 localhost HTTP research page, a pure interaction/cleanup decision core, and an async browser task
 with explicit Browser/Context/Page ownership, stable role/test-id Locators, no fixed sleep or
 `force=True`, and `finally` Context cleanup that preserves the primary operation error. Run the
-pure-logic + HTTP-loopback tests with `python3 -m pytest -q tests/` (the real-Chromium suite is
-gated on the `playwright` package). See
+pure-logic + HTTP-loopback + static reliability-contract tests with `python3 -m pytest -q tests/`
+(= 13 passed, 1 skipped; only the real-Chromium suite is gated on the `playwright` package and skips
+when it is absent). See
 [`docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md`](docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md)
 and the [Day62 lesson](../../docs/fastapi/day62-playwright-runtime-locators-and-reliable-async-interaction.md).
 
