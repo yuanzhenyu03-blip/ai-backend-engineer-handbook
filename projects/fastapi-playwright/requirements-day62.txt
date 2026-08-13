@@ -1,0 +1,30 @@
+# Day62 — Playwright Runtime, Locators and Reliable Async Interaction.
+# Python 3.10+ REQUIRED.
+#
+# Two clearly separated scopes:
+#
+# 1) EXECUTED_LOCAL_RUNTIME (no browser; runs in a plain venv) — needs only pytest. The pure
+#    interaction/cleanup logic + the controlled research page over REAL HTTP loopback (stdlib
+#    http.server + urllib) run without Chromium:
+#    (strip the leading "# " and run as-is)
+#
+#    cd projects/fastapi-playwright
+#    python3 -m pip install pytest==7.4.3
+#    python3 -m pytest -q tests/test_day62_interaction_logic.py tests/test_day62_research_page_http.py \
+#      tests/test_day62_browser_task_playwright.py
+#    # -> the real-Chromium tests SKIP (playwright not installed) — honestly NOT RUN.
+#
+# 2) EXECUTED_LOCAL_RUNTIME with a real browser (OPT-IN) — install Playwright + Chromium and the
+#    gated tests run the real interaction (success + action-timeout). This proves specific
+#    browser-interaction facts and Python `finally` cleanup ONLY — NOT auth/session isolation
+#    (Day63), network/download/artifact flow (Day64), recovery/security policy (Day65), or
+#    queue-backed integration (Day66):
+#
+#    python3 -m pip install playwright==1.44.0 pytest==7.4.3
+#    python3 -m playwright install chromium
+#    python3 -m pytest -q tests/
+#
+# No secrets, credentials, tenant data, login state, real URLs/tokens, or screenshots are
+# committed. The research page is served on 127.0.0.1 only and talks to no external network.
+playwright==1.44.0
+pytest==7.4.3

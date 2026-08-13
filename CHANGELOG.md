@@ -9,6 +9,53 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.152 — Day62 released: Playwright Runtime, Locators and Reliable Async Interaction
+
+Date: 2026-08-13
+
+Day: Day62 (Phase 5, first Playwright lesson). Reliable asynchronous browser interaction: explicit
+Browser/Context/Page ownership, a stable Locator contract, actionability waiting vs a business assertion, and
+honest timeout/cleanup boundaries. Reuses the Day61 rule (timeout ≠ non-execution; observable facts, not
+impressions, decide claims).
+
+Files added:
+- `docs/fastapi/day62-playwright-runtime-locators-and-reliable-async-interaction.md` — 16-section
+  LESSON_TEMPLATE_v2 lesson (real classroom answers, misconceptions, corrections, interview record).
+- `projects/fastapi-playwright/src/day62_interaction_logic.py` — pure decision core (task outcome = business
+  result AND Context cleanup; timeout/login/crash = unknown/precondition, never `no result`, never blind
+  retry; actionability budget; Locator stability preference).
+- `projects/fastapi-playwright/src/day62_research_page.py` — a controlled localhost HTTP research page whose
+  OWN JavaScript clears a bounded `overlay_delay_ms` overlay, handles the Search click, and asynchronously
+  renders `Results for <query>` (Playwright never mutates the DOM to fake success).
+- `projects/fastapi-playwright/src/day62_browser_task.py` — the async task: reused Browser, ONE Context per
+  task, scoped role/`data-testid` Locators, actionability wait + business assertion, no fixed sleep, no
+  `force=True`, `finally` Context cleanup that preserves the primary operation error.
+- `projects/fastapi-playwright/tests/` — pure-logic + real HTTP-loopback + a Playwright-gated real-Chromium
+  suite; `projects/fastapi-playwright/requirements-day62.txt`; `projects/fastapi-playwright/docs/day62-...-design.md`.
+
+Files updated:
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` (Day62 sections); `CURRICULUM.md` (Day62 Status ✅
+  Completed + artifacts), `ROADMAP.md` (Day62 ✅ Completed), `PROJECT_STATUS.md`, `TASKS.md` (Day62 released,
+  Day63 current), `projects/fastapi-playwright/README.md`.
+
+Main learning outcome: actionability is not business completion; a timeout/login/crash is UNKNOWN or a failed
+precondition (not `no result`, not a blind-retry license); task success = business asserted AND Context
+cleanup completed; prefer role/`data-testid` Locators over brittle CSS/`nth()`; on a `data-testid` rename that
+times out Workers, roll back the contract rather than `force=True`/CSS/blind retry.
+
+Validation: `python3 -m pytest -q projects/fastapi-playwright/tests/` = 9 passed, 1 skipped, plus
+`py_compile` — EXECUTED_LOCAL_RUNTIME (pure interaction/cleanup logic + the controlled research page over a
+REAL HTTP loopback + static reliability-contract checks). The 1 skipped test is the real-Chromium suite,
+gated on the `playwright` package (absent in the updating-agent environment). In class a real Chromium
+rendered `Results for Acme` from `/research?overlay_delay_ms=800` (EXECUTED_LOCAL_RUNTIME). NOT RUN by the
+updating agent: Python `finally` cleanup + the action-timeout case against a live browser; Day63 auth/session
+isolation; Day64 network/download/artifact flow; Day65 recovery/security policy; Day66 queue-backed
+integration; `INTEGRATION_RUNTIME`; production. No secrets, credentials, tenant data, login state, real
+URLs/tokens, or browser screenshots are committed. `prompts/master-prompt.md`,
+`prompts/teaching-session-prompt.md` and `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.151 — Day61 integration runtime verified and completed
 
 Date: 2026-08-12

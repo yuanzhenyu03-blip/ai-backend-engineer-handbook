@@ -1485,3 +1485,37 @@ Validation: 66 Day61 local tests pass, and a disposable PostgreSQL + Redis/Celer
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day61), the
 [Day61 lesson](../docs/fastapi/day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md), and the
 [Day61 design/runbook](../projects/ai-backend-data-layer/api/day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence-design.md).
+
+## Day62 — Playwright Runtime, Locators and Reliable Async Interaction
+
+### Beginner Question
+
+Q: What is the difference between a Playwright Locator and a CSS selector?
+
+Weak Answer: "The Locator is a stable contract, whereas CSS is a method for element positioning."
+
+Strong Answer: "A Locator is a re-resolvable target query — it re-finds the element each time it acts, so it does not go stale. Its stability comes from what it matches: a maintained role/accessible-name or a stable `data-testid` contract. CSS is itself a locator mechanism, brittle when it depends on implementation details like build-hashed classes or positional `nth()`. So I prefer role + name, scope to a business region, and use a `data-testid` when semantics aren't enough."
+
+### Intermediate Question
+
+Q: A browser task times out. What do you do, and why not retry?
+
+Weak Answer: "Since the outcome is unknown, I preserve evidence for the verification process."
+
+Strong Answer: "A timeout is an UNKNOWN outcome, not a business `no result`, so I don't report a result and I don't blind-retry — a duplicate action could double a side effect. I preserve safe diagnostics (the condition I awaited, the URL, timings — never secrets or full sensitive payloads), keep the task as unknown, and defer any retry to an explicit recovery/reconciliation policy that accounts for duplicate-side-effect risk. This is the Day61 rule: transport/interaction impressions aren't business truth."
+
+### Senior Question
+
+Q: A frontend release renamed a `data-testid` and Browser Workers are timing out at scale. Walk me through the response.
+
+Strong Answer: "Contain first: pause affected new work and preserve diagnostics so the fleet stops timing out. Correlate the spike with the frontend release and confirm the renamed test-id is the cause. Fix by rolling back the frontend test-id contract (or a coordinated contract update), not by routing around it with `force=True` or a brittle CSS fallback, which hide the regression and risk duplicate actions. Re-verify locally and pre-release against the restored contract, and retain the timed-out tasks as unknown for the recovery policy to reconcile — I don't reclassify them as `no result`. The test-id is a versioned contract between frontend and automation; honoring it is the durable fix."
+
+### Common Weak Answer
+
+"The click worked and the page looked done, so the task succeeded." This confuses actionability with business completion and skips the business assertion and Context cleanup. Task success = the business fact asserted AND `context.close()` completed; a passed assertion with a failed close is INCOMPLETE, not successful; when operation and cleanup both fail, the ORIGINAL operation error is primary and the cleanup failure is diagnostics.
+
+Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/` → 9 passed, 1 skipped (the real-Chromium suite is gated on the `playwright` package), EXECUTED_LOCAL_RUNTIME (pure interaction/cleanup logic + the controlled research page over real HTTP loopback). In class a real Chromium rendered `Results for Acme` from `/research?overlay_delay_ms=800`. NOT RUN by the updating agent: Python `finally` cleanup + the action-timeout case against a live browser; Day63 auth/isolation; Day64 artifact flow; Day65 recovery/security; Day66 queue integration; production. No secrets, login state, tenant data, real URLs/tokens, or screenshots are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day62), the
+[Day62 lesson](../docs/fastapi/day62-playwright-runtime-locators-and-reliable-async-interaction.md), and the
+[Day62 design/runbook](../projects/fastapi-playwright/docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md).
