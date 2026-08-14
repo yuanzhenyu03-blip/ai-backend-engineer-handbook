@@ -9,6 +9,50 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.157 — Day63 fix: real-Playwright tests use one async event loop (no nested run_until_complete)
+
+Date: 2026-08-14
+
+Day: Day63 (Phase 5). The gated real-Chromium tests in
+`projects/fastapi-playwright/tests/test_day63_playwright_isolation.py` drove the SYNC Gate
+(`run_task_authorization`) with deps that each called `_run(...)` internally, so with Playwright
+actually installed the browser deps would call `run_until_complete` inside the already-running outer
+loop and raise `RuntimeError: Cannot run the event loop while another loop is running`. The prior
+`28 passed, 1 skipped` therefore only proved the pure Python Gate, not the real-browser tests.
+
+Fix (without weakening any Gate safety boundary):
+- Added an ASYNC orchestrator `run_task_authorization_async` + `AsyncTaskDeps` to
+  `src/day63_session_gate.py`. It is the async twin of the sync `run_task_authorization` — it `await`s
+  the side-effecting deps but reuses the identical pure decisions (binding, atomic claim, identity,
+  navigation/security, the FULL final-fence predicate: active + session-expiry + lease_owner +
+  lease_token + lease_expires_at + version, and the SUCCESS/INCOMPLETE/FAILED completion status). The
+  sync `run_task_authorization` stays as the pure teaching artifact.
+- Rewrote the three real-Chromium tests to run ONE event loop via `run_until_complete(_go())` and do
+  all Playwright + Gate work with `await` inside `_go()` (async deps), driving the async orchestrator.
+  No nested `run_until_complete`/`asyncio.run`.
+- Added 8 async-path PURE tests (via `asyncio.run`, no Playwright) proving the async Gate keeps the
+  same safety semantics: rejected claim reads no credential/builds no Context; identity mismatch and
+  unapproved Origin publish nothing (SECURITY_FAILURE closes the Context); final-fence timeout /
+  expired-lease block publish; cleanup failure → INCOMPLETE with the primary error preserved.
+
+Validation (actual): `cd projects/fastapi-playwright && python3 -m pytest -q
+tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py
+tests/test_day63_playwright_isolation.py` = **36 passed, 1 skipped** (33 gate incl. the async
+orchestrator + 3 HTTP-loopback; the 1 skip is the real-Chromium module, `playwright` absent), plus
+`py_compile`. EXECUTED_LOCAL_RUNTIME. The updating agent ATTEMPTED the real-browser suite —
+`pip install playwright==1.44.0` succeeded but `playwright install chromium` FAILED to download the
+browser binary in the sandbox, so it is **NOT RUN**; with the package present the tests collect and
+reach `chromium.launch()` in a single loop (the failure is the missing binary, NOT a nested-loop
+error). Real Chromium isolation/popup/redirect, real PostgreSQL atomic claim, credential
+encryption/KMS/Object Storage, a real Worker, queue integration (Day66) and production remain NOT RUN;
+Day62 counts are not reused. Only files affected by this change were touched:
+`src/day63_session_gate.py`, `tests/test_day63_session_gate.py`,
+`tests/test_day63_playwright_isolation.py`, the Day63 lesson + design/runbook, `README.md`,
+`cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`, `PROJECT_STATUS.md`, `TASKS.md`.
+`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.156 — Day63 review fixes: final-fence lease predicate, host-only Cookie default, task completion status, persist consistency
 
 Date: 2026-08-14

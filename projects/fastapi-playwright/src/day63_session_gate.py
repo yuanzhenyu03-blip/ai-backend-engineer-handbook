@@ -46,7 +46,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Dict, List, Optional
+from typing import Awaitable, Callable, Dict, List, Optional
 from urllib.parse import urlparse
 
 
@@ -458,6 +458,123 @@ def run_task_authorization(
 
     # Task completion status (distinct from `published`): a published result whose cleanup FAILED is
     # INCOMPLETE, never SUCCESS. A cleanup error never overwrites the primary (business) error.
+    if outcome is not Outcome.AUTHORIZED or not published:
+        status = TaskCompletion.FAILED
+    elif cleanup_error is not None:
+        status = TaskCompletion.INCOMPLETE
+    else:
+        status = TaskCompletion.SUCCESS
+
+    return TaskReport(outcome, published=published, status=status, invoked=invoked,
+                      primary_error=primary_error, cleanup_error=cleanup_error)
+
+
+# ---------------------------------------------------------------------------
+# Async orchestrator + async deps — for the REAL Playwright runtime (single event loop).
+# ---------------------------------------------------------------------------
+@dataclass
+class AsyncTaskDeps:
+    """The async equivalent of :class:`TaskDeps`. Each collaborator is an ``async`` callable that is
+    ``await``-ed by :func:`run_task_authorization_async`. Real Playwright tests wire these to real
+    Browser/Context/Page coroutines, so the whole pipeline runs inside ONE event loop with no nested
+    ``run_until_complete``/``asyncio.run`` (which would raise "Cannot run the event loop while another
+    loop is running")."""
+    read_credential: Callable[[str], Awaitable[Dict]]          # (credential_ref) -> storage_state
+    create_context: Callable[[Dict], Awaitable[object]]        # (filtered_storage_state) -> context
+    probe_identity: Callable[[object], Awaitable[ObservedIdentity]]
+    observe_origin: Callable[[object], Awaitable[str]]
+    publish_result: Callable[[object], Awaitable[None]]
+    close_context: Callable[[object], Awaitable[None]]
+
+
+async def run_task_authorization_async(
+    job: JobRequest,
+    binding: SessionBinding,
+    meta: SessionMeta,
+    deps: AsyncTaskDeps,
+    *,
+    now: int,
+    worker_token: str,
+    fence_meta: Optional[SessionMeta] = None,
+    fence_timed_out: bool = False,
+    approved_cookie_domains: Optional[List[str]] = None,
+) -> TaskReport:
+    """Async twin of :func:`run_task_authorization` with the SAME safety semantics — it only differs
+    in ``await``-ing the side-effecting deps, so real Playwright coroutines run in the caller's single
+    event loop. The pure decisions (binding, claim, identity, navigation, final fence, completion
+    status) are the identical synchronous functions; NO Gate safety boundary is weakened for testing.
+
+    Guarantees (identical to the sync path, verified by tests):
+      * a rejected binding or claim -> ``read_credential``/``create_context`` are NEVER awaited;
+      * identity mismatch / login redirect -> no ``observe_origin``, no ``publish_result``;
+      * unapproved Origin/popup -> ``SECURITY_FAILURE``, no publish, Context closed;
+      * final fence checks active + session expiry + lease_owner + lease_token + lease_expires_at +
+        version; a failed/UNKNOWN/timed-out fence -> no publish;
+      * ``close_context`` runs in ``finally`` on every path; a cleanup failure never overwrites the
+        primary error; published-but-cleanup-failed is INCOMPLETE, never SUCCESS.
+    """
+    invoked: List[str] = []
+
+    o = validate_job_binding(job, binding)
+    if o is not Outcome.AUTHORIZED:
+        return TaskReport(o, published=False, status=TaskCompletion.FAILED, invoked=invoked)
+
+    claim = classify_claim(meta, job.attempt_id, now)
+    if claim is not ClaimResult.CLAIMED:
+        return TaskReport(claim_result_to_outcome(claim), published=False, status=TaskCompletion.FAILED, invoked=invoked)
+
+    storage_state = await deps.read_credential(binding.credential_ref)
+    invoked.append("read_credential")
+    filtered = filter_storage_state(
+        storage_state,
+        binding.target_origin,
+        approved_cookie_domains if approved_cookie_domains is not None else default_cookie_domains(binding.target_origin),
+    )
+
+    context = None
+    primary_error = None
+    cleanup_error = None
+    published = False
+    outcome = Outcome.AUTHORIZED
+    try:
+        context = await deps.create_context(filtered)
+        invoked.append("create_context")
+
+        observed = await deps.probe_identity(context)
+        invoked.append("probe_identity")
+        outcome = verify_identity(observed, binding)
+
+        if outcome is Outcome.AUTHORIZED:
+            origin = await deps.observe_origin(context)
+            invoked.append("observe_origin")
+            outcome = check_navigation(origin, binding.target_origin)
+
+        if outcome is Outcome.AUTHORIZED:
+            outcome = final_fence(
+                fence_meta if fence_meta is not None else meta,
+                worker_token,
+                meta.version,
+                job.attempt_id,
+                now,
+                timed_out=fence_timed_out,
+            )
+
+        if outcome is Outcome.AUTHORIZED:
+            await deps.publish_result(context)
+            invoked.append("publish_result")
+            published = True
+    except Exception as exc:
+        primary_error = f"{type(exc).__name__}: {exc}"
+        if outcome is Outcome.AUTHORIZED:
+            outcome = Outcome.UNKNOWN_AUTHORIZATION_STATE
+    finally:
+        if context is not None:
+            try:
+                await deps.close_context(context)
+                invoked.append("close_context")
+            except Exception as close_exc:
+                cleanup_error = f"{type(close_exc).__name__}: {close_exc}"
+
     if outcome is not Outcome.AUTHORIZED or not published:
         status = TaskCompletion.FAILED
     elif cleanup_error is not None:

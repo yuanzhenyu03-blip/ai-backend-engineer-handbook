@@ -30,10 +30,17 @@ and stays authorized all the way through result publication.
 >   tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py
 > ```
 >
-> Result: **28 passed, 1 skipped, `EXECUTED_LOCAL_RUNTIME`**. The 1 skipped item is the
-> real-Chromium isolation module, gated on the `playwright` package (absent in the agent
-> environment). **NOT RUN:** real Chromium `BrowserContext` state isolation / redirect-popup
-> observation; real PostgreSQL `UPDATE ... RETURNING` atomic claim; real credential
+> Result: **36 passed, 1 skipped, `EXECUTED_LOCAL_RUNTIME`** (this includes the async Gate
+> orchestrator exercised via `asyncio.run`, not just the sync one). The 1 skipped item is the
+> real-Chromium isolation module, gated on the `playwright` package. That suite now runs ONE event
+> loop and does all browser + Gate work with `await` (via `run_task_authorization_async` +
+> `AsyncTaskDeps`), so it no longer nests `run_until_complete` inside a running loop. The updating
+> agent ATTEMPTED it: installing the `playwright` package succeeded, but `playwright install chromium`
+> FAILED to download the browser binary in the sandbox — so the real-browser suite is **NOT RUN**
+> (with the package present the tests collect and reach `chromium.launch()` in a single loop; the only
+> blocker is the missing Chromium binary, not a nested-loop error). **NOT RUN:** real Chromium
+> `BrowserContext` state isolation / redirect-popup observation; real PostgreSQL `UPDATE ... RETURNING`
+> atomic claim; real credential
 > encryption/KMS/Object Storage; a real Worker; queue integration; and production. Day62's
 > `13 passed, 1 skipped` is Day62-only evidence and is NOT reused as Day63 proof. This gate proves
 > the authorization/claim CONTROL FLOW only — never that a real browser, database, or secret store
@@ -800,7 +807,7 @@ login persist    = ACTIVATED (state saved + metadata committed) | ORPHAN_INACTIV
 - [ ] I can defend the arbitrary-subdomain rollback drill.
 - [ ] I can distinguish `EXECUTED_LOCAL_RUNTIME` (pure gate + fake Context) from `INTEGRATION_RUNTIME`
       (real PostgreSQL/credential store/Playwright).
-- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` (= 28 passed, 1 skipped; the real-Chromium suite is gated on `playwright`).
+- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` (= 36 passed, 1 skipped; the real-Chromium suite is gated on `playwright`).
 
 ---
 

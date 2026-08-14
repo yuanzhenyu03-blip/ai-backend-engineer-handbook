@@ -14,6 +14,7 @@ from day63_session_gate import (
     Outcome,
     PersistOutcome,
     SessionBinding,
+    AsyncTaskDeps,
     SessionMeta,
     TaskCompletion,
     TaskDeps,
@@ -26,6 +27,7 @@ from day63_session_gate import (
     final_fence,
     may_blind_retry,
     run_task_authorization,
+    run_task_authorization_async,
     task_succeeded,
     validate_job_binding,
     verify_identity,
@@ -316,3 +318,108 @@ def test_gate_reads_credential_only_after_a_successful_claim():
 def test_gate_holds_no_credential_material_or_real_identifiers():
     for forbidden in ("BEGIN RSA", "password=", "cookie:", "Bearer "):
         assert forbidden.lower() not in _GATE_SRC.lower()
+
+
+# ---- Async orchestrator: same safety semantics, proven WITHOUT Playwright (single loop) --------
+import asyncio as _asyncio
+
+
+class _AsyncSpy:
+    """Records which async side effects ran; returns programmable observations. Used to prove the
+    async Gate keeps the identical safety boundaries as the sync Gate (EXECUTED_LOCAL_RUNTIME)."""
+    def __init__(self, identity=None, origin=None, close_raises=False, publish_raises=False):
+        self.calls = []
+        self._identity = identity or ObservedIdentity(False, "prin_B", "org_B")
+        self._origin = origin or "https://research.example.test"
+        self._close_raises = close_raises
+        self._publish_raises = publish_raises
+
+    def deps(self):
+        async def read_credential(ref):
+            self.calls.append("read_credential"); return {"cookies": [], "origins": []}
+        async def create_context(state):
+            self.calls.append("create_context"); return object()
+        async def probe_identity(ctx):
+            self.calls.append("probe_identity"); return self._identity
+        async def observe_origin(ctx):
+            self.calls.append("observe_origin"); return self._origin
+        async def publish_result(ctx):
+            self.calls.append("publish_result")
+            if self._publish_raises:
+                raise RuntimeError("publish failed")
+        async def close_context(ctx):
+            self.calls.append("close_context")
+            if self._close_raises:
+                raise RuntimeError("close failed")
+        return AsyncTaskDeps(read_credential, create_context, probe_identity, observe_origin,
+                             publish_result, close_context)
+
+
+def _run_async(spy, meta=ACTIVE, job=JOB, fence_meta=None, fence_timed_out=False, worker_token="tok-1"):
+    claimed = SessionMeta(meta.status, meta.expires_at, meta.version, job.attempt_id, worker_token,
+                          NOW + 50) if meta is ACTIVE else meta
+    return _asyncio.run(run_task_authorization_async(
+        job, BINDING, claimed, spy.deps(), now=NOW, worker_token=worker_token,
+        fence_meta=fence_meta, fence_timed_out=fence_timed_out))
+
+
+def test_async_happy_path_is_success():
+    spy = _AsyncSpy()
+    r = _run_async(spy)
+    assert r.status is TaskCompletion.SUCCESS and r.published is True
+    assert spy.calls == ["read_credential", "create_context", "probe_identity",
+                         "observe_origin", "publish_result", "close_context"]
+
+
+def test_async_rejected_claim_never_reads_credential_or_builds_context():
+    spy = _AsyncSpy()
+    revoked = SessionMeta("revoked", NOW + 100, 3, None, None, None)
+    r = _asyncio.run(run_task_authorization_async(JOB, BINDING, revoked, spy.deps(), now=NOW, worker_token="tok-1"))
+    assert r.outcome is Outcome.AUTHENTICATION_PRECONDITION_FAILED and r.published is False
+    assert spy.calls == []
+
+
+def test_async_identity_mismatch_no_business_action_no_publish():
+    spy = _AsyncSpy(identity=ObservedIdentity(False, "prin_WRONG", "org_B"))
+    r = _run_async(spy)
+    assert r.outcome is Outcome.AUTHORIZATION_SESSION_FAILURE and r.published is False
+    assert "observe_origin" not in spy.calls and "publish_result" not in spy.calls
+    assert spy.calls[-1] == "close_context"
+
+
+def test_async_unapproved_origin_security_failure_closes_no_publish():
+    spy = _AsyncSpy(origin="https://billing.example.test")
+    r = _run_async(spy)
+    assert r.outcome is Outcome.SECURITY_FAILURE and r.published is False
+    assert "publish_result" not in spy.calls and spy.calls[-1] == "close_context"
+
+
+def test_async_final_fence_timeout_unknown_no_publish():
+    spy = _AsyncSpy()
+    fence = SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", NOW + 50)
+    r = _run_async(spy, fence_meta=fence, fence_timed_out=True)
+    assert r.outcome is Outcome.UNKNOWN_AUTHORIZATION_STATE and r.published is False
+    assert "publish_result" not in spy.calls and spy.calls[-1] == "close_context"
+
+
+def test_async_expired_lease_at_final_fence_blocks_publish():
+    spy = _AsyncSpy()
+    expired_lease = SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", NOW - 1)  # lease itself expired
+    r = _run_async(spy, fence_meta=expired_lease)
+    assert r.outcome is Outcome.AUTHORIZATION_SESSION_FAILURE and r.published is False
+    assert "publish_result" not in spy.calls
+
+
+def test_async_business_success_but_cleanup_failure_is_incomplete():
+    spy = _AsyncSpy(close_raises=True)
+    r = _run_async(spy)
+    assert r.published is True and r.status is TaskCompletion.INCOMPLETE and task_succeeded(r) is False
+    assert r.cleanup_error is not None and r.primary_error is None
+
+
+def test_async_business_and_cleanup_failure_preserves_primary_error():
+    spy = _AsyncSpy(publish_raises=True, close_raises=True)
+    r = _run_async(spy)
+    assert r.status is TaskCompletion.FAILED and r.published is False
+    assert "publish failed" in r.primary_error and "close failed" in r.cleanup_error
+    assert r.outcome is Outcome.UNKNOWN_AUTHORIZATION_STATE

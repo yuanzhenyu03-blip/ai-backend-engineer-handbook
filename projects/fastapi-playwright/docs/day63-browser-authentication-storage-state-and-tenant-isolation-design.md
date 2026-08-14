@@ -21,9 +21,11 @@ extraction/artifacts, Day65 recovery/security/SSRF/prompt-injection, or Day66 qu
   contract checks (all EXECUTED_LOCAL_RUNTIME).
 - `tests/test_day63_controlled_login_page_http.py` — REAL HTTP-loopback page-contract tests.
 - `tests/test_day63_playwright_isolation.py` — the real-Chromium suite ONLY: Context cookie isolation,
-  a REAL popup to an UNAPPROVED Origin observed and driven through the Gate to `SECURITY_FAILURE`
+  a REAL popup to an UNAPPROVED Origin observed and driven through the ASYNC Gate to `SECURITY_FAILURE`
   (Context closed, nothing published), and a login-redirect proving no auto-login yields
-  `AUTHENTICATION_PRECONDITION_FAILED`. GATED on the
+  `AUTHENTICATION_PRECONDITION_FAILED`. Each test runs ONE event loop and does all browser + Gate work
+  with `await` (via `run_task_authorization_async` + `AsyncTaskDeps`), so there is NO nested
+  `run_until_complete`/`asyncio.run`. GATED on the
   `playwright` package via a module-level `importorskip` (this file — and only this file — skips when
   the package is absent). The static contract checks live in `test_day63_session_gate.py` so they are
   never swallowed by the skip.
@@ -78,7 +80,7 @@ cd projects/fastapi-playwright
 python3 -m pip install pytest==7.4.3
 python3 -m pytest -q tests/test_day63_session_gate.py \
   tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py
-# -> 28 passed, 1 skipped: pure logic + NEGATIVE-effect + static contract + HTTP-loopback all run;
+# -> 36 passed, 1 skipped: pure logic + NEGATIVE-effect + static contract + HTTP-loopback all run;
 #    only the real-Chromium isolation module skips (playwright not installed) — honestly NOT RUN.
 
 # OPT-IN real browser (EXECUTED_LOCAL_RUNTIME for isolation/redirect observation):
@@ -91,15 +93,21 @@ python3 -m pytest -q tests/test_day63_playwright_isolation.py
 ```text
 [CONCEPTUAL_STATIC]      The LIVE CLASSROOM session — no Day63 source/tests/browser/PostgreSQL/
                          credential-store/queue/production run was executed in class.
-[EXECUTED_LOCAL_RUNTIME] Run by the updating agent: py_compile + the pure Session-Gate logic +
-                         NEGATIVE-effect orchestrator tests + static gate-source contract + the
-                         controlled account page over REAL HTTP loopback = 28 passed, 1 skipped.
+[EXECUTED_LOCAL_RUNTIME] Run by the updating agent: py_compile + the pure Session-Gate logic (sync
+                         AND async orchestrator, via asyncio.run) + NEGATIVE-effect tests + static
+                         gate-source contract + the controlled account page over REAL HTTP loopback
+                         = 36 passed, 1 skipped.
 [EXECUTED_LOCAL_RUNTIME] (OPT-IN, NOT RUN here) real Chromium + the controlled page: BrowserContext
                          cookie isolation; a REAL popup to an unapproved Origin driven through the
-                         Gate to SECURITY_FAILURE (Context closed, no publish); a login-redirect
-                         proving no auto-login -> AUTHENTICATION_PRECONDITION_FAILED. Gated on
-                         `playwright`; SKIPPED in the agent environment — these browser facts are
-                         NOT claimed as verified until Playwright/Chromium actually run them.
+                         ASYNC Gate to SECURITY_FAILURE (Context closed, no publish); a login-redirect
+                         proving no auto-login -> AUTHENTICATION_PRECONDITION_FAILED. The updating agent
+                         ATTEMPTED this suite: `pip install playwright==1.44.0` succeeded, but
+                         `playwright install chromium` FAILED to download the browser binary in the
+                         sandbox, so the suite is NOT RUN. With the package present the tests collect and
+                         reach `chromium.launch()` inside a SINGLE event loop (the failure is the missing
+                         browser binary, NOT a nested-loop error), but these browser facts are NOT claimed
+                         verified until Chromium actually runs them. Without `playwright` installed only
+                         this module skips; the pure + HTTP-loopback suites still run.
 [INTEGRATION_RUNTIME]    NOT RUN — real PostgreSQL `UPDATE ... RETURNING` atomic claim, protected
                          credential encryption/KMS/Object Storage, a real Worker, and real Playwright,
                          only if actually executed and evidence saved.

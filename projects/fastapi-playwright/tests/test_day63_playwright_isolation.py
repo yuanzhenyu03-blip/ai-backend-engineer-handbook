@@ -1,13 +1,21 @@
-"""Day63 — BrowserContext isolation + real popup/redirect observation, driven through the Gate.
+"""Day63 — BrowserContext isolation + real popup/redirect observation, driven through the ASYNC Gate.
 
-This module is the real-Chromium suite ONLY, GATED on the ``playwright`` package via a module-level
-``importorskip``. When ``playwright`` is absent, THIS FILE (and only this file) is skipped — the pure
-Session-Gate tests and the HTTP-loopback page-contract tests still run. A real local run here is
-``EXECUTED_LOCAL_RUNTIME`` (BrowserContext state isolation + real popup/navigation observation + no
-auto-login after a login redirect); it is NOT integration or production, and it is NOT RUN by the
-updating agent (no ``playwright`` in this environment). The live classroom artifact was
-``CONCEPTUAL_STATIC``. These assertions are therefore NOT claimed as verified until Playwright/Chromium
-actually run them.
+Real-Chromium suite ONLY, GATED on the ``playwright`` package via a module-level ``importorskip``.
+When ``playwright`` is absent, THIS FILE (and only this file) is skipped — the pure Session-Gate tests
+and the HTTP-loopback page-contract tests still run.
+
+Event-loop discipline (the fix): each test runs ONE event loop via ``run_until_complete(_go())`` and
+does ALL browser + Gate work inside that single ``async def _go()`` with ``await``. It uses the ASYNC
+Gate orchestrator (``run_task_authorization_async`` + ``AsyncTaskDeps``), so nothing calls
+``run_until_complete``/``asyncio.run`` from inside a running loop (which would raise
+"Cannot run the event loop while another loop is running"). The Gate's safety boundaries are
+unchanged — the async twin awaits the same pure decisions.
+
+A real local run here is ``EXECUTED_LOCAL_RUNTIME`` (BrowserContext cookie isolation + real
+popup/navigation observation + no auto-login after a login redirect). It is NOT integration or
+production. In the UPDATING AGENT'S environment there is no ``playwright`` package, so this module is
+SKIPPED and these browser facts are **NOT RUN / NOT verified** until Playwright/Chromium actually run
+them. The live classroom artifact was ``CONCEPTUAL_STATIC``.
 """
 
 import asyncio
@@ -24,21 +32,27 @@ pytest.importorskip(
 
 from day63_controlled_login_page import build_server  # noqa: E402
 from day63_session_gate import (  # noqa: E402
+    AsyncTaskDeps,
     JobRequest,
     ObservedIdentity,
     Outcome,
     SessionBinding,
     SessionMeta,
     TaskCompletion,
-    TaskDeps,
-    run_task_authorization,
+    run_task_authorization_async,
 )
 
 UNAPPROVED = "http://unapproved.example.test"
 
 
-def _run(coro):
-    return asyncio.new_event_loop().run_until_complete(coro)
+def _loop_run(coro):
+    """Run a coroutine to completion on a fresh loop. There is no running loop at test-function
+    scope, so this is the ONE loop for the test; everything inside the coroutine uses ``await``."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 def _origin_of(url: str) -> str:
@@ -59,14 +73,20 @@ def _job(origin: str) -> JobRequest:
 
 
 def _meta(now: int) -> SessionMeta:
+    # active, owned by att-1, token tok-1, lease + session not expired -> claim CLAIMED, fence passes.
     return SessionMeta("active", now + 1000, 1, "att-1", "tok-1", now + 1000)
+
+
+def _serve():
+    server, base = build_server(port=0, mode="account")
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    return server, base
 
 
 def test_two_contexts_do_not_share_cookies():  # pragma: no cover - only when playwright installed
     from playwright.async_api import async_playwright
 
-    server, base = build_server(port=0, mode="account")
-    threading.Thread(target=server.serve_forever, daemon=True).start()
+    server, base = _serve()
 
     async def _go():
         async with async_playwright() as p:
@@ -84,66 +104,63 @@ def test_two_contexts_do_not_share_cookies():  # pragma: no cover - only when pl
                 await browser.close()
 
     try:
-        assert _run(_go()) == []            # Context B never sees Context A's cookie
+        assert _loop_run(_go()) == []            # Context B never sees Context A's cookie
     finally:
         server.shutdown()
 
 
 def test_unapproved_origin_popup_observed_stops_closes_no_publish():  # pragma: no cover - gated
-    # A real popup to an UNAPPROVED Origin, observed by the Context, is fed to the Gate through the
-    # orchestrator: outcome SECURITY_FAILURE, nothing published, and the Context is closed.
+    # A real popup to an UNAPPROVED Origin, observed by the Context, is fed through the ASYNC Gate:
+    # outcome SECURITY_FAILURE, nothing published, and the Context is closed — all in ONE event loop.
     from playwright.async_api import async_playwright
 
     server, base = build_server(port=0, mode="unapproved_origin", unapproved_origin=UNAPPROVED)
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    state = {"published": False, "context_closed": False}
 
     async def _go():
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             try:
                 ctx = await browser.new_context()
+                state = {"published": False, "closed": False}
 
-                def read_credential(ref):
+                async def read_credential(ref):
                     return {"cookies": [], "origins": []}
 
-                def create_context(_filtered):
+                async def create_context(_filtered):
                     return ctx  # the real, already-created Context
 
-                def probe_identity(_c):
+                async def probe_identity(_c):
                     return ObservedIdentity(False, "prin_synthetic_0001", "org_synthetic_0001")
 
-                def observe_origin(_c):
-                    # navigate; the page's OWN script opens a popup to the UNAPPROVED Origin, which
-                    # we observe and return as the current business-relevant Origin.
-                    async def _nav():
-                        page = await ctx.new_page()
-                        async with ctx.expect_page() as popup_info:
-                            await page.goto(f"{base}/account?mode=unapproved_origin")
-                        popup = await popup_info.value
-                        return _origin_of(popup.url)
-                    return _run(_nav())
+                async def observe_origin(_c):
+                    page = await ctx.new_page()
+                    async with ctx.expect_page() as popup_info:   # the page opens an unapproved popup
+                        await page.goto(f"{base}/account?mode=unapproved_origin")
+                    popup = await popup_info.value
+                    return _origin_of(popup.url)
 
-                def publish_result(_c):
+                async def publish_result(_c):
                     state["published"] = True
 
-                def close_context(_c):
-                    state["context_closed"] = True
-                    _run(ctx.close())
+                async def close_context(_c):
+                    state["closed"] = True
+                    await ctx.close()
 
-                deps = TaskDeps(read_credential, create_context, probe_identity, observe_origin,
-                                publish_result, close_context)
+                deps = AsyncTaskDeps(read_credential, create_context, probe_identity, observe_origin,
+                                     publish_result, close_context)
                 now = 1_000
-                return run_task_authorization(_job(base), _binding(base), _meta(now), deps,
-                                              now=now, worker_token="tok-1")
+                report = await run_task_authorization_async(
+                    _job(base), _binding(base), _meta(now), deps, now=now, worker_token="tok-1")
+                return report, state
             finally:
                 await browser.close()
 
     try:
-        report = _run(_go())
+        report, state = _loop_run(_go())
         assert report.outcome is Outcome.SECURITY_FAILURE
         assert report.published is False and state["published"] is False   # NO business result
-        assert state["context_closed"] is True                             # Context closed
+        assert state["closed"] is True                                     # Context closed
         assert report.status is TaskCompletion.FAILED
     finally:
         server.shutdown()
@@ -151,60 +168,58 @@ def test_unapproved_origin_popup_observed_stops_closes_no_publish():  # pragma: 
 
 def test_login_redirect_yields_precondition_failed_no_auto_login():  # pragma: no cover - gated
     # A Task Context redirected to login must NOT auto-login: no principal fact, redirect observed,
-    # and the Gate yields AUTHENTICATION_PRECONDITION_FAILED with no publish.
+    # and the ASYNC Gate yields AUTHENTICATION_PRECONDITION_FAILED with no publish.
     from playwright.async_api import async_playwright
 
     server, base = build_server(port=0, mode="login_redirect")
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    state = {"published": False, "context_closed": False, "auto_logged_in": None}
 
     async def _go():
         async with async_playwright() as p:
             browser = await p.chromium.launch()
             try:
                 ctx = await browser.new_context()
+                state = {"published": False, "closed": False, "auto_logged_in": None}
 
-                def read_credential(ref):
+                async def read_credential(ref):
                     return {"cookies": [], "origins": []}
 
-                def create_context(_filtered):
+                async def create_context(_filtered):
                     return ctx
 
-                def probe_identity(_c):
-                    async def _probe():
-                        page = await ctx.new_page()
-                        await page.goto(f"{base}/account?mode=login_redirect")
-                        on_login = await page.get_by_test_id("login-form").count()
-                        principal = await page.get_by_test_id("principal-id").count()
-                        # no auto-login: we landed on the login form and there is NO principal fact
-                        state["auto_logged_in"] = principal > 0
-                        return ObservedIdentity(login_redirect=on_login > 0, principal_id=None,
-                                                organization_id=None)
-                    return _run(_probe())
+                async def probe_identity(_c):
+                    page = await ctx.new_page()
+                    await page.goto(f"{base}/account?mode=login_redirect")
+                    on_login = await page.get_by_test_id("login-form").count()
+                    principal = await page.get_by_test_id("principal-id").count()
+                    state["auto_logged_in"] = principal > 0   # no silent re-auth -> no principal fact
+                    return ObservedIdentity(login_redirect=on_login > 0, principal_id=None,
+                                            organization_id=None)
 
-                def observe_origin(_c):
+                async def observe_origin(_c):
                     return base  # not reached (identity fails first)
 
-                def publish_result(_c):
+                async def publish_result(_c):
                     state["published"] = True
 
-                def close_context(_c):
-                    state["context_closed"] = True
-                    _run(ctx.close())
+                async def close_context(_c):
+                    state["closed"] = True
+                    await ctx.close()
 
-                deps = TaskDeps(read_credential, create_context, probe_identity, observe_origin,
-                                publish_result, close_context)
+                deps = AsyncTaskDeps(read_credential, create_context, probe_identity, observe_origin,
+                                     publish_result, close_context)
                 now = 1_000
-                return run_task_authorization(_job(base), _binding(base), _meta(now), deps,
-                                              now=now, worker_token="tok-1")
+                report = await run_task_authorization_async(
+                    _job(base), _binding(base), _meta(now), deps, now=now, worker_token="tok-1")
+                return report, state
             finally:
                 await browser.close()
 
     try:
-        report = _run(_go())
+        report, state = _loop_run(_go())
         assert report.outcome is Outcome.AUTHENTICATION_PRECONDITION_FAILED
         assert report.published is False and state["published"] is False
         assert state["auto_logged_in"] is False        # no silent re-authentication
-        assert state["context_closed"] is True
+        assert state["closed"] is True
     finally:
         server.shutdown()
