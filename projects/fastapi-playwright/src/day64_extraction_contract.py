@@ -65,6 +65,9 @@ class TaskContract:
     required_schema: Mapping[str, FieldSpec]   # field name -> type/value spec (e.g. row_id=INTEGER)
     extraction_contract_version: str
     allow_partial_import: bool = False
+    # Business constraints on the DOWNLOADED artifact's actually-parsed rows (not a caller boolean):
+    min_download_records: int = 1        # the downloaded artifact must have at least this many rows
+    expected_download_record_count: Optional[int] = None  # if set, the download count must equal it
 
     @property
     def required_field_names(self) -> frozenset:
@@ -306,28 +309,52 @@ class DownloadCandidate:
     declared_content_type: str            # from the filename/header (NOT trusted alone)
     actual_content_type: str              # sniffed from bytes
     sha256: Optional[str]
-    parsed_ok: bool
-    schema_valid: bool
-    business_valid: bool
+    parsed_ok: bool                       # did the raw bytes parse into rows at all?
+    parsed_records: Sequence[Mapping]     # the ACTUAL parsed rows — validated against the SAME contract
     expected_content_type: str = "text/csv"
 
 
 class DownloadOutcome(str, Enum):
     VALID = "VALID"
+    # transfer / container-level failures
     NO_PROVENANCE = "NO_PROVENANCE"
     INCOMPLETE_TRANSFER = "INCOMPLETE_TRANSFER"
     BAD_SIZE = "BAD_SIZE"
     CONTENT_TYPE_MISMATCH = "CONTENT_TYPE_MISMATCH"   # filename ext lied; actual type differs
     CHECKSUM_MISSING = "CHECKSUM_MISSING"
     PARSE_FAILED = "PARSE_FAILED"
-    SCHEMA_INVALID = "SCHEMA_INVALID"
-    BUSINESS_INVALID = "BUSINESS_INVALID"
+    # CONTENT-level failures: the downloaded rows are validated against the SAME TaskContract, so the
+    # download can fail for the same distinct reasons as the network JSON (never a fuzzy "SCHEMA_INVALID").
+    SCHEMA_FIELD_MISSING = "SCHEMA_FIELD_MISSING"
+    SCHEMA_TYPE_MISMATCH = "SCHEMA_TYPE_MISMATCH"
+    SCHEMA_VALUE_INVALID = "SCHEMA_VALUE_INVALID"
+    SCHEMA_CONTRACT_MISMATCH = "SCHEMA_CONTRACT_MISMATCH"   # unreviewed field rename/drift
+    BUSINESS_INVALID = "BUSINESS_INVALID"                   # actual record-count business constraint
 
 
-def validate_download(c: DownloadCandidate, max_bytes: int = 50_000_000) -> DownloadOutcome:
-    """Download validation requires provenance, a completed transfer, a bounded NONZERO size, the
-    ACTUAL content type (never the filename extension alone), a SHA-256, successful parsing, schema
-    validation, and business constraints. Any failure blocks Artifact publication."""
+_SCHEMA_TO_DOWNLOAD = {
+    SchemaOutcome.FIELD_MISSING: DownloadOutcome.SCHEMA_FIELD_MISSING,
+    SchemaOutcome.TYPE_MISMATCH: DownloadOutcome.SCHEMA_TYPE_MISMATCH,
+    SchemaOutcome.VALUE_INVALID: DownloadOutcome.SCHEMA_VALUE_INVALID,
+    SchemaOutcome.CONTRACT_MISMATCH: DownloadOutcome.SCHEMA_CONTRACT_MISMATCH,
+}
+
+
+def validate_download(
+    c: DownloadCandidate,
+    contract: TaskContract,
+    reviewed_compat: Optional[Mapping[str, str]] = None,
+    max_bytes: int = 50_000_000,
+) -> DownloadOutcome:
+    """Validate the DOWNLOADED artifact from its ACTUAL parsed content — never a caller-supplied
+    ``schema_valid``/``business_valid`` boolean. Requires provenance, a completed transfer, a bounded
+    NONZERO size, the ACTUAL content type (never the filename extension), and a SHA-256; then the raw
+    bytes must have parsed, and the parsed rows are validated against the SAME ``TaskContract`` used
+    for the network JSON — so a downloaded row with ``score="not-a-number"``, a missing field, an
+    empty ``label``, or an unreviewed rename fails HERE with a distinct outcome. Finally the download's
+    business record-count constraints are checked. Any failure blocks Artifact publication; the
+    network JSON and the downloaded artifact are validated INDEPENDENTLY and never substitute for each
+    other."""
     if not c.provenance_action_id:
         return DownloadOutcome.NO_PROVENANCE
     if not c.transfer_complete:
@@ -340,9 +367,15 @@ def validate_download(c: DownloadCandidate, max_bytes: int = 50_000_000) -> Down
         return DownloadOutcome.CHECKSUM_MISSING
     if not c.parsed_ok:
         return DownloadOutcome.PARSE_FAILED
-    if not c.schema_valid:
-        return DownloadOutcome.SCHEMA_INVALID
-    if not c.business_valid:
+    # ACTUAL Extraction-Contract validation of the parsed download rows (type + value + drift).
+    sc = classify_schema(contract.required_schema, c.parsed_records, reviewed_compat)
+    if sc is not SchemaOutcome.OK:
+        return _SCHEMA_TO_DOWNLOAD[sc]
+    # Business constraint on the ACTUAL parsed content (record counts), not a boolean claim.
+    n = len(c.parsed_records)
+    if n < contract.min_download_records:
+        return DownloadOutcome.BUSINESS_INVALID
+    if contract.expected_download_record_count is not None and n != contract.expected_download_record_count:
         return DownloadOutcome.BUSINESS_INVALID
     return DownloadOutcome.VALID
 
@@ -539,7 +572,7 @@ def assemble_trusted_artifact(x: AssemblyInputs) -> ArtifactResult:
         return ArtifactResult(False, "schema", sc.value, trace=trace)
     trace.append("schema")
 
-    d = validate_download(x.download)
+    d = validate_download(x.download, x.contract, x.reviewed_compat)
     if d is not DownloadOutcome.VALID:
         return ArtifactResult(False, "download", d.value, trace=trace)
     trace.append("download")

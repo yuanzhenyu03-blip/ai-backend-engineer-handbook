@@ -79,7 +79,7 @@ def _ok_inputs(**over):
                          "safe_checksum": "sha256:pay", "observed_at": NOW},
         reviewed_compat=None,
         download=DownloadCandidate("act-1", True, 1234, "text/csv", "text/csv", "sha256:abc",
-                                   True, True, True),
+                                   True, [{"row_id": 1, "score": 0.5, "label": "a"}]),
         upload=UploadOutcomeFacts("imp-1", "imported", 500, 0),
         manifest=manifest,
         head=HeadMetadata(True, 1234, "sha256:abc", "text/csv"),
@@ -231,13 +231,74 @@ def test_readiness_generating_report_id_schema():
     assert r.published is False and r.stage == "readiness" and r.reason == "NOT_READY_STATUS"
 
 
-def test_invalid_download_blocks_artifact_publication():
-    assert validate_download(DownloadCandidate("a", True, 10, "text/csv", "text/html", "s", True, True, True)) is DownloadOutcome.CONTENT_TYPE_MISMATCH
-    assert validate_download(DownloadCandidate("a", True, 10, "text/csv", "text/csv", None, True, True, True)) is DownloadOutcome.CHECKSUM_MISSING
-    assert validate_download(DownloadCandidate("a", True, 10, "text/csv", "text/csv", "s", True, False, True)) is DownloadOutcome.SCHEMA_INVALID
-    bad = DownloadCandidate("act-1", True, 1234, "text/csv", "application/octet-stream", "sha256:abc", True, True, True)
-    r = assemble_trusted_artifact(_ok_inputs(download=bad))
+def _dl(parsed, **over):
+    d = dict(provenance_action_id="act-1", transfer_complete=True, byte_size=1234,
+             declared_content_type="text/csv", actual_content_type="text/csv", sha256="sha256:abc",
+             parsed_ok=True, parsed_records=parsed)
+    d.update(over)
+    return DownloadCandidate(**d)
+
+
+_GOOD_ROWS = [{"row_id": 1, "score": 0.5, "label": "a"}, {"row_id": 2, "score": 0.6, "label": "b"}]
+
+
+def test_download_container_level_failures_are_distinct():
+    ct = _contract()
+    assert validate_download(_dl(_GOOD_ROWS), ct) is DownloadOutcome.VALID
+    assert validate_download(_dl(_GOOD_ROWS, provenance_action_id=None), ct) is DownloadOutcome.NO_PROVENANCE
+    assert validate_download(_dl(_GOOD_ROWS, transfer_complete=False), ct) is DownloadOutcome.INCOMPLETE_TRANSFER
+    assert validate_download(_dl(_GOOD_ROWS, byte_size=0), ct) is DownloadOutcome.BAD_SIZE
+    assert validate_download(_dl(_GOOD_ROWS, actual_content_type="text/html"), ct) is DownloadOutcome.CONTENT_TYPE_MISMATCH
+    assert validate_download(_dl(_GOOD_ROWS, sha256=None), ct) is DownloadOutcome.CHECKSUM_MISSING
+    assert validate_download(_dl(_GOOD_ROWS, parsed_ok=False), ct) is DownloadOutcome.PARSE_FAILED
+
+
+def test_download_content_type_mismatch_blocks_end_to_end():
+    r = assemble_trusted_artifact(_ok_inputs(download=_dl(_GOOD_ROWS, actual_content_type="application/octet-stream")))
     assert r.published is False and r.stage == "download" and r.reason == "CONTENT_TYPE_MISMATCH"
+
+
+def test_download_score_wrong_type_blocks_publication_end_to_end():
+    # network JSON is fine; the DOWNLOADED CSV's actual row has a non-numeric score -> block at download.
+    bad_rows = [{"row_id": 1, "score": "not-a-number", "label": "Acme"}]
+    assert validate_download(_dl(bad_rows), _contract()) is DownloadOutcome.SCHEMA_TYPE_MISMATCH
+    r = assemble_trusted_artifact(_ok_inputs(download=_dl(bad_rows)))
+    assert r.published is False and r.stage == "download" and r.reason == "SCHEMA_TYPE_MISMATCH"
+
+
+def test_download_missing_field_blocks_publication_end_to_end():
+    r = assemble_trusted_artifact(_ok_inputs(download=_dl([{"row_id": 1, "score": 0.5}])))
+    assert r.published is False and r.stage == "download" and r.reason == "SCHEMA_FIELD_MISSING"
+
+
+def test_download_empty_label_value_blocks_publication_end_to_end():
+    r = assemble_trusted_artifact(_ok_inputs(download=_dl([{"row_id": 1, "score": 0.5, "label": "   "}])))
+    assert r.published is False and r.stage == "download" and r.reason == "SCHEMA_VALUE_INVALID"
+
+
+def test_download_conforming_records_publishes():
+    r = assemble_trusted_artifact(_ok_inputs(download=_dl(_GOOD_ROWS)))
+    assert r.published is True and r.stage == "published"
+
+
+def test_download_unreviewed_rename_blocks_reviewed_rename_passes():
+    drifted = [{"row_id": 1, "relevance_score": 0.5, "label": "a"}]
+    # unreviewed rename in the DOWNLOAD content -> block at download
+    r = assemble_trusted_artifact(_ok_inputs(download=_dl(drifted)))
+    assert r.published is False and r.stage == "download" and r.reason == "SCHEMA_CONTRACT_MISMATCH"
+    # with an explicit reviewed compatibility rule, the aliased download field is accepted
+    r2 = assemble_trusted_artifact(_ok_inputs(download=_dl(drifted), reviewed_compat={"relevance_score": "score"}))
+    assert r2.published is True
+
+
+def test_download_business_record_count_constraint():
+    # empty parsed content fails the default min_download_records=1 business constraint
+    assert validate_download(_dl([]), _contract()) is DownloadOutcome.BUSINESS_INVALID
+    # an explicit expected count that the download does not meet -> BUSINESS_INVALID at download
+    ct = TaskContract("42", "ready", SCHEMA, "v1", expected_download_record_count=2)
+    assert validate_download(_dl([{"row_id": 1, "score": 0.5, "label": "a"}]), ct) is DownloadOutcome.BUSINESS_INVALID
+    r = assemble_trusted_artifact(_ok_inputs(contract=ct, download=_dl([{"row_id": 1, "score": 0.5, "label": "a"}])))
+    assert r.published is False and r.stage == "download" and r.reason == "BUSINESS_INVALID"
 
 
 def test_upload_counts_and_partial_semantics():

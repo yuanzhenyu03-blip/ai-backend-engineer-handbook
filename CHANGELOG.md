@@ -9,6 +9,46 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.160 — Day64 review fix: download validation from actual parsed content (no forgeable booleans)
+
+Date: 2026-08-14
+
+Day: Day64 (Phase 5). P1: `DownloadCandidate` carried caller-supplied `schema_valid`/`business_valid`
+booleans that `validate_download()` trusted, so a downloaded CSV whose real rows violated the contract
+(e.g. `score="not-a-number"`) could still pass and publish an Artifact.
+
+Fix (`projects/fastapi-playwright/src/day64_extraction_contract.py`):
+- `DownloadCandidate` drops `schema_valid`/`business_valid` and instead carries `parsed_records`
+  (the ACTUAL parsed rows). `validate_download(candidate, contract, reviewed_compat)` now runs the SAME
+  `classify_schema(contract.required_schema, download.parsed_records, reviewed_compat)` used for the
+  network JSON, plus real business record-count constraints (`min_download_records`,
+  `expected_download_record_count` on `TaskContract`).
+- `DownloadOutcome` replaces the fuzzy `SCHEMA_INVALID` with distinct content outcomes
+  `SCHEMA_FIELD_MISSING` / `SCHEMA_TYPE_MISMATCH` / `SCHEMA_VALUE_INVALID` / `SCHEMA_CONTRACT_MISMATCH`,
+  keeping the container-level `NO_PROVENANCE`/`INCOMPLETE_TRANSFER`/`BAD_SIZE`/`CONTENT_TYPE_MISMATCH`/
+  `CHECKSUM_MISSING`/`PARSE_FAILED` and a `BUSINESS_INVALID` for the record-count constraint.
+- `assemble_trusted_artifact()` passes the full `TaskContract` (+ `reviewed_compat`) into the download
+  stage, so the network JSON and the downloaded artifact are validated INDEPENDENTLY against the same
+  contract — neither substitutes for the other.
+
+The other Day64 boundaries are unchanged: strict `client_request_id` initial correlation (export_id
+can't bypass it), the final fence at the guarded durable-write boundary, the network-metadata
+allow-list, and the genuinely-dynamic controlled page.
+
+Validation (actual): `cd projects/fastapi-playwright && python3 -m pytest -q tests/test_day64_extraction_contract.py
+tests/test_day64_report_page_http.py` = **25 passed** (23 pure decision-core failure-path — now including
+end-to-end tests through `assemble_trusted_artifact()` proving a download with a wrong-type/missing/empty-value/
+unreviewed-rename row is blocked at the `download` stage, plus container-level and business-count cases — and 2
+controlled report/export page over a REAL HTTP loopback), plus `py_compile` — EXECUTED_LOCAL_RUNTIME. LIVE
+CLASSROOM = CONCEPTUAL_STATIC. NOT RUN: real Playwright, a real download/upload, the real Day61 Object Storage
+HEAD, and a real PostgreSQL guarded transaction; a real Worker; queue integration (Day66); production. Day63's
+results are not reused as Day64 evidence. Files updated: the Day64 lesson,
+`projects/fastapi-playwright/docs/day64-...-design.md`, `projects/fastapi-playwright/README.md`,
+`cheat_sheets/fastapi.md`, `CURRICULUM.md`, `PROJECT_STATUS.md`, `TASKS.md`. `prompts/master-prompt.md`,
+`prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.159 — Day64 review fixes: strict export correlation, guarded-fence publish order, type/value contract, metadata allow-list, dynamic page
 
 Date: 2026-08-14

@@ -27,7 +27,7 @@ Storage existence, or Job publication with business truth.
 > python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py
 > ```
 >
-> Result: **18 passed, `EXECUTED_LOCAL_RUNTIME`** (16 pure decision-core FAILURE-PATH tests + 2
+> Result: **25 passed, `EXECUTED_LOCAL_RUNTIME`** (23 pure decision-core FAILURE-PATH tests + 2
 > controlled report/export page tests over a REAL HTTP loopback; no browser, Object Storage, or
 > PostgreSQL involved). **NOT RUN:** real Playwright extraction / network interception /
 > download-upload; the REAL Day61 Object Storage HEAD; a real PostgreSQL Artifact-reference
@@ -322,9 +322,13 @@ The student had the right validation instinct and an honest question about what 
 
 #### Tech Lead Review
 
-Correct. Download validation requires provenance, a completed transfer, a bounded nonzero size, the
-ACTUAL content type (never the filename extension alone), a SHA-256, parsing, schema validation, and
-business constraints. And `record_count` splits into precise names: `artifact_record_count` (validated
+Correct — and the schema/content validation must come from the DOWNLOAD's ACTUALLY-PARSED rows
+against the SAME `TaskContract`, never a caller-supplied `schema_valid`/`business_valid` boolean.
+Download validation requires provenance, a completed transfer, a bounded nonzero size, the ACTUAL
+content type (never the filename extension alone), a SHA-256, successful parsing, and then the parsed
+rows run through `classify_schema(contract.required_schema, download.parsed_records)` — so a downloaded
+row with `score="not-a-number"`, a missing field, an empty `label`, or an unreviewed rename fails at
+the DOWNLOAD stage with a distinct outcome, plus a business record-count constraint. And `record_count` splits into precise names: `artifact_record_count` (validated
 rows parsed from the artifact), `source_record_count` (rows in source/API data), `accepted_count` /
 `rejected_count` (target-system terminal import facts). File selection and `202 Accepted` do not prove
 import success — a terminal `import_id`, status, accepted/rejected counts, and rejection summary are
@@ -338,8 +342,13 @@ required. `498 accepted, 2 rejected` is successful only if the explicit task con
 
 #### Framework Connection
 
-`validate_download(...)` → `CONTENT_TYPE_MISMATCH`/`SCHEMA_INVALID`/…; `classify_upload(facts,
-allow_partial)` → `NOT_TERMINAL`/`PARTIAL_NOT_ALLOWED`/`PARTIAL_SUCCESS`/`IMPORT_SUCCESS`.
+`validate_download(candidate, contract, reviewed_compat)` → container failures
+(`CONTENT_TYPE_MISMATCH`/`CHECKSUM_MISSING`/`PARSE_FAILED`/…) OR content failures on the parsed rows
+(`SCHEMA_FIELD_MISSING`/`SCHEMA_TYPE_MISMATCH`/`SCHEMA_VALUE_INVALID`/`SCHEMA_CONTRACT_MISMATCH`) OR
+`BUSINESS_INVALID` (record count); `classify_upload(facts, allow_partial)` →
+`NOT_TERMINAL`/`PARTIAL_NOT_ALLOWED`/`PARTIAL_SUCCESS`/`IMPORT_SUCCESS`. The network JSON and the
+downloaded artifact are validated INDEPENDENTLY against the same contract; neither substitutes for the
+other.
 
 ---
 
@@ -738,7 +747,7 @@ rollback                = stop future harm ; scope past harm by evidence ; class
 - [ ] I can HEAD-verify, retain a candidate on DB-ref failure, forward-repair a timeout+HEAD, and let
       the final fence block publication.
 - [ ] I can classify a broad-listener rollback (confirmed/misattributed/unpublished/unknown).
-- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py` (= 18 passed).
+- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py` (= 25 passed).
 
 ---
 

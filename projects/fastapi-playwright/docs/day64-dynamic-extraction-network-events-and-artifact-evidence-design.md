@@ -63,7 +63,11 @@ AND the final Day63 authorization fence
   `client_request_id`, `export_id`, `response_status`, `safe_checksum`, `observed_at`); unknown keys,
   nested header/body maps, Cookies, Authorization, credentials, tokens and raw payloads are rejected.
 - Downloads need provenance, a completed transfer, a bounded nonzero size, the ACTUAL content type
-  (not the filename extension), a SHA-256, parsing, schema, and business constraints. Counts are
+  (not the filename extension), a SHA-256, and successful parsing; the ACTUALLY-PARSED rows are then
+  validated against the SAME `TaskContract` via `classify_schema(...)` (distinct outcomes
+  `SCHEMA_FIELD_MISSING`/`SCHEMA_TYPE_MISMATCH`/`SCHEMA_VALUE_INVALID`/`SCHEMA_CONTRACT_MISMATCH`) plus a
+  `BUSINESS_INVALID` record-count constraint — NEVER a caller-supplied `schema_valid`/`business_valid`
+  boolean, and the network JSON and downloaded artifact are validated INDEPENDENTLY. Counts are
   precise: `artifact_record_count` (validated rows), `source_record_count` (source/API rows),
   `accepted_count`/`rejected_count` (terminal import). `202 Accepted` / file selection is not import
   success; a partial import succeeds only if the task contract permits it.
@@ -97,7 +101,7 @@ never blindly retry).
 cd projects/fastapi-playwright
 python3 -m pip install pytest==7.4.3
 python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py
-# -> 18 passed: pure decision-core FAILURE-PATH tests + the controlled report/export page over a
+# -> 25 passed: pure decision-core FAILURE-PATH tests + the controlled report/export page over a
 #    REAL HTTP loopback. No browser, Object Storage, or PostgreSQL is involved.
 ```
 
@@ -110,7 +114,7 @@ python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_re
                          core (readiness, strict correlation, schema drift, download/upload counts,
                          HEAD verify, persist/candidate retention, final-fence-controls-publish,
                          rollback classification) + the controlled report/export page over REAL HTTP
-                         loopback = 18 passed.
+                         loopback = 25 passed.
 [INTEGRATION_RUNTIME]    NOT RUN — real Playwright extraction/network interception/download-upload, the
                          REAL Day61 Object Storage HEAD, and a real PostgreSQL Artifact-reference
                          transaction, only if actually executed and evidence saved.
