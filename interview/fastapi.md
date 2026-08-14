@@ -1549,3 +1549,39 @@ Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day63), the
 [Day63 lesson](../docs/fastapi/day63-browser-authentication-storage-state-and-tenant-isolation.md), and the
 [Day63 design/runbook](../projects/fastapi-playwright/docs/day63-browser-authentication-storage-state-and-tenant-isolation-design.md).
+
+## Day64 — Dynamic Extraction, Network Events and Artifact Evidence
+
+### Beginner Question
+
+Q: What is the difference between a page-load event and a valid extraction result?
+
+Student answer (preserved): "page-load event is a observation, valid extraction result is a bussiness truth."
+
+Strong Answer: "A page-load event is only an observation about the browser lifecycle. A valid extraction result is a verified business fact that satisfies the task contract — the expected report is ready, the extracted data matches the schema, and the Artifact is validated before publication."
+
+### Intermediate Question
+
+Q: Before publishing an Artifact, how do you prove the response belongs to the current Export action?
+
+Student answer (preserved): "Monitoring and the establishment of definitive evidence of correlation should be carried out first."
+
+Strong Answer: "The worker registers the response waiter before clicking, then validates the approved origin, HTTP method, endpoint, report ID, and a stable client_request_id or export_id. A URL substring plus HTTP 200 is too broad — a background GET poll can match. If correlation cannot be proven, it must not publish the Artifact or blindly retry. It stores only safe/redacted metadata, never Cookies, Authorization headers, credentials, or raw payloads."
+
+### Senior Question
+
+Q: A release weakened correlation to "any `/api/exports` response with HTTP 200". Walk me through the response.
+
+Student answer (preserved): "1. Roll back the erroneous release and pause any new, related Browser Tasks. 2. Define a bounded 'affected set' based on version, release window, and audit evidence. 3. Handle the items according to the classification of the actually preserved evidence."
+
+Strong Answer: "Roll back the faulty release and pause related Browser Tasks to stop further harm. Build a bounded affected set using the release version, a time window, and preserved audit evidence. Classify each affected item from actually-preserved evidence: confirmed-correct (correlation + contract + Artifact re-provable) can remain; misattributed/unverified must be marked untrusted and removed from downstream use; unpublished candidates are retained for reconciliation or audited GC; unknown outcomes must not be blindly retried. Finally, restore the strict correlation contract and add regression tests before a controlled rollout. Rollback stops future harm; evidence scopes past harm; classification decides repair."
+
+### Common Weak Answer
+
+"The export downloaded a CSV and the API returned 200, so the report is published." This confuses observations, file existence, and Object Storage existence with a correlated, validated, authorized Artifact. A trusted Artifact = authorized Session + fresh isolated Context + task-contract ready fact + correctly correlated network/DOM/download evidence + schema/content validation + Object Storage HEAD verification + a durable Artifact reference + the final Day63 authorization fence.
+
+Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py` -> 16 passed, EXECUTED_LOCAL_RUNTIME (14 pure decision-core failure-path tests + the controlled report/export page over real HTTP loopback). The LIVE classroom artifact was CONCEPTUAL_STATIC. NOT RUN: real Playwright extraction/network/download-upload; the real Day61 Object Storage HEAD; a real PostgreSQL Artifact-reference transaction; a real Worker; queue integration (Day66); production. Day63's test results are not reused as Day64 evidence. No secrets, credentials, Cookies, storage-state exports, real target URLs, customer data, raw payloads, or screenshots are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day64), the
+[Day64 lesson](../docs/fastapi/day64-dynamic-extraction-network-events-and-artifact-evidence.md), and the
+[Day64 design/runbook](../projects/fastapi-playwright/docs/day64-dynamic-extraction-network-events-and-artifact-evidence-design.md).

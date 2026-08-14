@@ -9,6 +9,57 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.158 — Day64 released: Dynamic Extraction, Network Events and Artifact Evidence
+
+Date: 2026-08-14
+
+Day: Day64 (Phase 5). Turns an authorized, isolated Day63 session into structured, correlated, validated, durable
+Artifact evidence — without confusing browser observations, HTTP success, file existence, Object Storage
+existence, or Job publication with business truth. The LIVE CLASSROOM session executed nothing — its artifact is
+CONCEPTUAL_STATIC. The repository artifact added here is a PURE decision core plus a controlled loopback report
+page (authored + run by the updating agent).
+
+Files added:
+- `docs/fastapi/day64-dynamic-extraction-network-events-and-artifact-evidence.md` — 16-section LESSON_TEMPLATE_v2
+  lesson (real classroom answers, mental-model evolution, interview record).
+- `projects/fastapi-playwright/src/day64_extraction_contract.py` — pure decision core: task-contract readiness,
+  DOM/network source roles, STRICT network correlation (approved origin + POST + endpoint + report_id +
+  client_request_id/export_id; safe/redacted metadata only), Extraction Contract schema-drift classification,
+  download validation + precise counts (source/artifact/accepted/rejected), upload terminal-import
+  classification (202 != import), Object Storage HEAD verification, persist/candidate-retention + forward-repair,
+  the final-fence-still-controls-publish rule (REUSES `day63_session_gate.final_fence`), the
+  `assemble_trusted_artifact` orchestrator (publishes ONLY if the whole chain passes; the first failing stage
+  blocks publication), and the broad-listener rollback classification.
+- `projects/fastapi-playwright/src/day64_controlled_report_page.py` — a synthetic SPA + `/api/reports/{id}`
+  (`generating` before `ready`) + `POST /api/exports` (echoes the strict action identity).
+- `projects/fastapi-playwright/tests/test_day64_extraction_contract.py` (pure failure-path),
+  `.../tests/test_day64_report_page_http.py` (real HTTP loopback),
+  `.../docs/day64-...-design.md` (design/runbook + validation matrix).
+
+Files updated:
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` (Day64 sections); `CURRICULUM.md` (Day64 Status ✅ Completed +
+  artifacts), `ROADMAP.md` (Day64 ✅ Completed), `PROJECT_STATUS.md`, `TASKS.md` (Day64 released, Day65 current),
+  `projects/fastapi-playwright/README.md`.
+
+Main learning outcome: an observed event != a correlated action != valid content != a durable Artifact !=
+authorized publication. Readiness is a task contract (expected id + terminal status + schema), not HTTP 200;
+correlate the action (client_request_id/export_id), not the URL; accepted != imported and existence != success;
+a field rename is an Extraction Contract Mismatch without a reviewed rule; HEAD-verify then require a durable DB
+reference, retaining the candidate (never deleting) on failure and forward-repairing a timeout+matching HEAD; and
+the Day63 final fence still blocks publication after an Artifact exists.
+
+Validation: the LIVE classroom artifact was CONCEPTUAL_STATIC. The updating agent ran `cd projects/fastapi-playwright
+&& python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py` = **16 passed**,
+plus `py_compile` — EXECUTED_LOCAL_RUNTIME (14 pure decision-core failure-path tests + the controlled report/export
+page over a REAL HTTP loopback). NOT RUN: real Playwright extraction / network interception / download-upload; the
+REAL Day61 Object Storage HEAD; a real PostgreSQL Artifact-reference transaction; a real Worker; queue integration
+(Day66); production. Day63's test results are NOT reused as Day64 evidence. No secrets, real credentials, Cookies,
+storage-state exports, real target URLs, customer data, raw sensitive payloads, or screenshots are committed; all
+data is synthetic and the page is served on 127.0.0.1. `prompts/master-prompt.md`,
+`prompts/teaching-session-prompt.md` and `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.157 — Day63 fix: real-Playwright tests use one async event loop (no nested run_until_complete)
 
 Date: 2026-08-14
