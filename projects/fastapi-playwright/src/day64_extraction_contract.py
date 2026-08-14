@@ -41,13 +41,34 @@ from day63_session_gate import Outcome, SessionMeta, final_fence
 # ---------------------------------------------------------------------------
 # 1) Task-contract readiness — a page load / HTTP 200 is an observation, not success.
 # ---------------------------------------------------------------------------
+class FieldType(str, Enum):
+    """The declared TYPE of a required Extraction-Contract field."""
+    INTEGER = "integer"
+    NUMBER = "number"                    # int or float (not bool)
+    NON_EMPTY_STRING = "non_empty_string"
+    STRING = "string"
+    BOOLEAN = "boolean"
+
+
+@dataclass(frozen=True)
+class FieldSpec:
+    """A required field's TYPE and (implicit) value constraint. ``NON_EMPTY_STRING`` also enforces a
+    non-empty value; other types enforce their type only. The Contract validates the ACTUAL record
+    values — a hand-written ``schema_valid=True`` boolean can never substitute for it."""
+    ftype: FieldType
+
+
 @dataclass(frozen=True)
 class TaskContract:
     expected_report_id: str
     terminal_status: str                 # the business-ready status, e.g. "ready"
-    required_fields: frozenset            # required schema fields for a record
+    required_schema: Mapping[str, FieldSpec]   # field name -> type/value spec (e.g. row_id=INTEGER)
     extraction_contract_version: str
     allow_partial_import: bool = False
+
+    @property
+    def required_field_names(self) -> frozenset:
+        return frozenset(self.required_schema.keys())
 
 
 @dataclass(frozen=True)
@@ -73,8 +94,8 @@ def evaluate_readiness(contract: TaskContract, obs: ReportObservation) -> Readin
     if obs.status != contract.terminal_status:
         return Readiness.NOT_READY_STATUS
     for rec in obs.records:
-        if not contract.required_fields.issubset(set(rec.keys())):
-            return Readiness.SCHEMA_INCOMPLETE
+        if not contract.required_field_names.issubset(set(rec.keys())):
+            return Readiness.SCHEMA_INCOMPLETE   # presence only; deep type/value checks in classify_schema
     return Readiness.READY
 
 
@@ -97,9 +118,13 @@ def choose_primary_source(contract_wants_visible_text: bool) -> SourceRole:
 # ---------------------------------------------------------------------------
 # 3) Strict network correlation — a URL substring + HTTP 200 is too broad.
 # ---------------------------------------------------------------------------
-_FORBIDDEN_METADATA_KEYS = frozenset({
-    "cookie", "cookies", "authorization", "set-cookie", "credentials", "token", "password",
-    "raw_payload", "body", "headers",
+# P2-1: an explicit ALLOW-list of safe, flat evidence fields — not an ever-growing deny-list.
+# Only these top-level keys may be stored as Network Evidence metadata; everything else (unknown
+# keys, nested header/body maps, Cookies, Authorization, credentials, tokens, raw payloads) is
+# rejected by default.
+_ALLOWED_METADATA_KEYS = frozenset({
+    "action_id", "allowed_origin", "method", "normalized_endpoint", "report_id",
+    "client_request_id", "export_id", "response_status", "safe_checksum", "observed_at",
 })
 
 
@@ -129,17 +154,25 @@ class NetworkEvidence:
 class Correlation(str, Enum):
     CORRELATED = "CORRELATED"
     ORIGIN_MISMATCH = "ORIGIN_MISMATCH"
-    METHOD_MISMATCH = "METHOD_MISMATCH"          # e.g. a background GET poll
+    METHOD_MISMATCH = "METHOD_MISMATCH"                    # e.g. a background GET poll
     ENDPOINT_MISMATCH = "ENDPOINT_MISMATCH"
     REPORT_ID_MISMATCH = "REPORT_ID_MISMATCH"
-    MISSING_ACTION_ID = "MISSING_ACTION_ID"      # no client_request_id/export_id -> too broad
+    MISSING_ACTION_ID = "MISSING_ACTION_ID"               # no client_request_id at all -> too broad
+    CLIENT_REQUEST_ID_MISMATCH = "CLIENT_REQUEST_ID_MISMATCH"  # present but belongs to another action
+    EXPORT_ID_MISMATCH = "EXPORT_ID_MISMATCH"             # follow-up export_id != the saved initial one
     BAD_STATUS = "BAD_STATUS"
 
 
 def correlate_export(expected: ExportAction, observed: NetworkEvidence) -> Correlation:
-    """Prove the observed response belongs to THIS Export action. A background poll (``GET`` on the
-    same URL) or a missing ``client_request_id``/``export_id`` must NOT correlate — a URL substring
-    plus HTTP 200 is too broad."""
+    """Correlate the INITIAL Export response to THIS action. It must STRICTLY match the approved
+    origin, the expected method, the expected endpoint, the expected report_id, AND
+    ``observed.client_request_id == expected.client_request_id``. A non-empty ``export_id`` is NEVER a
+    substitute for the request-id match — another Export action's response (its own ``export_id``)
+    must be rejected, not published as this Job's result. A background poll (``GET``) fails on method;
+    a URL substring plus HTTP 200 is too broad.
+
+    The ``export_id`` returned in THIS verified initial response is what a LATER poll/download/status
+    call correlates against — see :func:`extract_export_id` and :func:`correlate_followup`."""
     if observed.allowed_origin != expected.allowed_origin:
         return Correlation.ORIGIN_MISMATCH
     if observed.method != expected.method:                 # POST action vs background GET
@@ -148,19 +181,48 @@ def correlate_export(expected: ExportAction, observed: NetworkEvidence) -> Corre
         return Correlation.ENDPOINT_MISMATCH
     if observed.report_id != expected.report_id:
         return Correlation.REPORT_ID_MISMATCH
-    if not (observed.client_request_id == expected.client_request_id and observed.client_request_id) \
-            and not observed.export_id:
+    if not observed.client_request_id:                     # no request id at all -> too broad
         return Correlation.MISSING_ACTION_ID
+    if observed.client_request_id != expected.client_request_id:  # belongs to a DIFFERENT action
+        return Correlation.CLIENT_REQUEST_ID_MISMATCH
+    if not (200 <= observed.response_status < 300):
+        return Correlation.BAD_STATUS
+    return Correlation.CORRELATED
+
+
+def extract_export_id(observed: NetworkEvidence) -> Optional[str]:
+    """Return the ``export_id`` minted by the Provider in a VERIFIED initial Export response. Call
+    this ONLY after :func:`correlate_export` returned ``CORRELATED`` for that response; the returned
+    value is the ONLY export identity a later poll/download/status call may correlate against."""
+    return observed.export_id
+
+
+def correlate_followup(expected_origin: str, saved_export_id: str, observed: NetworkEvidence) -> Correlation:
+    """Correlate a SUBSEQUENT poll/download/status response using the ``export_id`` SAVED from the
+    verified initial response — never an arbitrary non-empty ``export_id``. Requires the approved
+    origin, a matching saved ``export_id``, and a 2xx status."""
+    if observed.allowed_origin != expected_origin:
+        return Correlation.ORIGIN_MISMATCH
+    if not saved_export_id or observed.export_id != saved_export_id:
+        return Correlation.EXPORT_ID_MISMATCH
     if not (200 <= observed.response_status < 300):
         return Correlation.BAD_STATUS
     return Correlation.CORRELATED
 
 
 def assert_safe_network_metadata(metadata: Mapping) -> bool:
-    """Store only SAFE/redacted metadata: normalized endpoint, method, IDs, status, timestamp, and a
-    payload checksum. NEVER store Cookies, Authorization headers, credentials, or unrelated raw
-    payloads. Returns True iff no forbidden key is present."""
-    return all(k.lower() not in _FORBIDDEN_METADATA_KEYS for k in metadata.keys())
+    """Store only SAFE, FLAT, redacted evidence: `action_id`, `allowed_origin`, `method`,
+    `normalized_endpoint`, `report_id`, `client_request_id`, `export_id`, `response_status`,
+    `safe_checksum`, `observed_at`. Returns True ONLY if EVERY key is in the allow-list AND no value
+    is a nested mapping/collection (so a `request_headers`/`http_headers` object, a Cookie, an
+    Authorization header, a token, or a raw payload is rejected by default, not by enumerating every
+    bad name)."""
+    for k, v in metadata.items():
+        if k not in _ALLOWED_METADATA_KEYS:
+            return False
+        if isinstance(v, (dict, list, tuple, set)):     # no nested header/body maps
+            return False
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -168,25 +230,68 @@ def assert_safe_network_metadata(metadata: Mapping) -> bool:
 # ---------------------------------------------------------------------------
 class SchemaOutcome(str, Enum):
     OK = "OK"
-    CONTRACT_MISMATCH = "CONTRACT_MISMATCH"      # renamed/removed/type-changed/unclear, no reviewed rule
+    FIELD_MISSING = "FIELD_MISSING"              # a required field is simply absent (no drift candidate)
+    TYPE_MISMATCH = "TYPE_MISMATCH"              # present but the wrong type (e.g. score is a string)
+    VALUE_INVALID = "VALUE_INVALID"              # right type but violates the value/business constraint
+    CONTRACT_MISMATCH = "CONTRACT_MISMATCH"      # renamed/removed/drifted field, no reviewed compat rule
+
+
+def _type_ok(value, ftype: FieldType) -> bool:
+    if ftype is FieldType.INTEGER:
+        return isinstance(value, int) and not isinstance(value, bool)
+    if ftype is FieldType.NUMBER:
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if ftype in (FieldType.NON_EMPTY_STRING, FieldType.STRING):
+        return isinstance(value, str)
+    if ftype is FieldType.BOOLEAN:
+        return isinstance(value, bool)
+    return False
+
+
+def _value_ok(value, ftype: FieldType) -> bool:
+    if ftype is FieldType.NON_EMPTY_STRING:
+        return len(value.strip()) > 0
+    return True
 
 
 def classify_schema(
-    required_fields: frozenset,
-    observed_fields: frozenset,
+    required_schema: Mapping[str, FieldSpec],
+    records: Sequence[Mapping],
     reviewed_compat: Optional[Mapping[str, str]] = None,
 ) -> SchemaOutcome:
-    """Each required field must be satisfied DIRECTLY (present in ``observed_fields``) or via an
-    EXPLICIT, REVIEWED compatibility rule (``observed_name -> required_name``). Renaming ``score`` to
-    ``relevance_score`` without a reviewed rule is an Extraction Contract Mismatch; do not silently map
-    renamed, removed, type-changed, or semantically unclear fields."""
+    """Validate the ACTUAL record values against the Extraction Contract — distinguishing a MISSING
+    field, a wrong TYPE, an invalid VALUE, an EXPLICIT reviewed compatibility rename, and unreviewed
+    drift.
+
+    For each required field of each record:
+      * present directly            -> validate its type and value.
+      * satisfied via a REVIEWED compatibility rule (``observed_name -> required_name``) -> validate
+        the aliased field's type/value (a reviewed ``relevance_score -> score`` rename is OK).
+      * otherwise absent:
+          - if the record carries an UNREVIEWED extra field (a rename/drift candidate) ->
+            ``CONTRACT_MISMATCH`` (never silently map ``score`` -> ``relevance_score``);
+          - else ``FIELD_MISSING``.
+    """
     reviewed_compat = reviewed_compat or {}
-    satisfied_by_compat = {required for observed, required in reviewed_compat.items()
-                           if observed in observed_fields}
-    for req in required_fields:
-        if req in observed_fields or req in satisfied_by_compat:
-            continue
-        return SchemaOutcome.CONTRACT_MISMATCH
+    required_names = set(required_schema.keys())
+    reviewed_observed = set(reviewed_compat.keys())
+    for rec in records:
+        keys = set(rec.keys())
+        unreviewed_extra = keys - required_names - reviewed_observed
+        for name, spec in required_schema.items():
+            if name in rec:
+                src = name
+            else:
+                alias = next((o for o, r in reviewed_compat.items() if r == name and o in rec), None)
+                if alias is None:
+                    # a required field is unsatisfied: drift (unreviewed extra present) vs truly missing
+                    return SchemaOutcome.CONTRACT_MISMATCH if unreviewed_extra else SchemaOutcome.FIELD_MISSING
+                src = alias
+            value = rec[src]
+            if not _type_ok(value, spec.ftype):
+                return SchemaOutcome.TYPE_MISMATCH
+            if not _value_ok(value, spec.ftype):
+                return SchemaOutcome.VALUE_INVALID
     return SchemaOutcome.OK
 
 
@@ -315,55 +420,65 @@ def verify_head(manifest: ArtifactManifest, head: HeadMetadata) -> HeadOutcome:
     return HeadOutcome.MISMATCH
 
 
-class PersistDecision(str, Enum):
-    PUBLISH = "PUBLISH"                    # HEAD verified AND DB Artifact-reference committed
-    RETAIN_CANDIDATE = "RETAIN_CANDIDATE"  # HEAD verified but DB ref failed -> keep private, reconcile
-    FORWARD_REPAIR = "FORWARD_REPAIR"      # upload-timeout then matching HEAD -> use verified object
-    NOT_VERIFIED = "NOT_VERIFIED"          # HEAD absent/mismatch -> no publish
-
-
-def classify_persist(head: HeadOutcome, db_ref_committed: bool,
-                     upload_timed_out: bool = False) -> PersistDecision:
-    """After HEAD verification: DB ref committed -> PUBLISH; DB ref FAILED -> RETAIN_CANDIDATE (do not
-    publish, reconcile/forward-repair; orphan GC is only later, audited, retention-governed cleanup).
-    An upload timeout followed by a MATCHING HEAD -> FORWARD_REPAIR (use the verified object; never
-    blind re-upload/overwrite/delete)."""
-    if head is not HeadOutcome.VERIFIED:
-        return PersistDecision.NOT_VERIFIED
-    if upload_timed_out and not db_ref_committed:
-        return PersistDecision.FORWARD_REPAIR
-    if not db_ref_committed:
-        return PersistDecision.RETAIN_CANDIDATE
-    return PersistDecision.PUBLISH
-
-
-# ---------------------------------------------------------------------------
-# 7) Final fence STILL controls publishing (Day63 boundary preserved).
-# ---------------------------------------------------------------------------
+# 7) The FINAL fence lives INSIDE the guarded durable write — there is no "DB reference already
+#    committed" state before the fence. Lifecycle:
+#
+#        HEAD verified
+#          -> final FULL fence check (active + session-expiry + lease_owner + lease_token +
+#             lease_expires_at + version)  [BEFORE any durable reference exists]
+#          -> guarded durable DB transaction: Artifact reference + Job publication/Event,
+#             committed ONLY if the fence still matches
+#          -> commit
+#
+# Because the fence is evaluated at the guarded-write boundary, a fence failure means NO Artifact
+# reference was ever committed and NO Job success was published (there is no "reference committed but
+# publication blocked" success path to reconcile). A real PostgreSQL transaction is NOT RUN here; the
+# pure model represents whether the guarded publish transaction WOULD commit or was rejected.
 class PublishDecision(str, Enum):
-    PUBLISH = "PUBLISH"
-    RETAIN_UNPUBLISHED = "RETAIN_UNPUBLISHED"   # fence failed after an Artifact exists -> private, untrusted
+    PUBLISH = "PUBLISH"                                  # fence held AND the guarded durable txn committed
+    RETAIN_UNPUBLISHED_FENCE = "RETAIN_UNPUBLISHED_FENCE"    # fence failed/timeout/revoked -> nothing committed
+    RETAIN_CANDIDATE_TXN_FAILED = "RETAIN_CANDIDATE_TXN_FAILED"  # fence held but the guarded txn did not commit
+    FORWARD_REPAIR = "FORWARD_REPAIR"                    # upload-timeout + matching HEAD -> reuse verified object
+    NOT_VERIFIED = "NOT_VERIFIED"                        # HEAD absent/mismatch -> no publish
 
 
-def final_publish_decision(
-    persist: PersistDecision,
+def decide_guarded_publish(
+    head: HeadOutcome,
     fence_meta: SessionMeta,
     worker_token: str,
     claimed_version: int,
     attempt_id: str,
     now: int,
     *,
+    guarded_txn_commits: bool,
+    upload_timed_out: bool = False,
     fence_timed_out: bool = False,
 ) -> PublishDecision:
-    """Even with a HEAD-verified object and a committed reference, the Day63 FINAL fence still
-    governs: if the Session is revoked / the fence fails / times out, do NOT write the Artifact
-    reference or Job success — retain the candidate PRIVATELY as unpublished/untrusted audit/
-    reconciliation material; do not immediately GC it."""
-    if persist is not PersistDecision.PUBLISH:
-        return PublishDecision.RETAIN_UNPUBLISHED
+    """Decide publication AT the guarded durable-write boundary (P1-2).
+
+    * HEAD not verified                    -> NOT_VERIFIED (no object to reference).
+    * final FULL fence fails/timeout/revoked/lease-or-version mismatch -> RETAIN_UNPUBLISHED_FENCE:
+      NO Artifact reference is written, NO Job success is published, the candidate is retained
+      PRIVATELY for audit/reconciliation, and it is NOT immediately GC'd.
+    * fence holds:
+        - upload timed out with a matching HEAD (object already exists) -> FORWARD_REPAIR (reuse the
+          verified object; never blind re-upload/overwrite/delete);
+        - the guarded durable transaction does NOT commit -> RETAIN_CANDIDATE_TXN_FAILED (private
+          candidate; reconcile; no publish);
+        - the guarded durable transaction commits -> PUBLISH (Artifact reference + Job publication
+          committed atomically UNDER the fence).
+    """
+    if head is not HeadOutcome.VERIFIED:
+        return PublishDecision.NOT_VERIFIED
     fence = final_fence(fence_meta, worker_token, claimed_version, attempt_id, now,
                         timed_out=fence_timed_out)
-    return PublishDecision.PUBLISH if fence is Outcome.AUTHORIZED else PublishDecision.RETAIN_UNPUBLISHED
+    if fence is not Outcome.AUTHORIZED:
+        return PublishDecision.RETAIN_UNPUBLISHED_FENCE   # nothing durable was committed
+    if upload_timed_out and not guarded_txn_commits:
+        return PublishDecision.FORWARD_REPAIR
+    if not guarded_txn_commits:
+        return PublishDecision.RETAIN_CANDIDATE_TXN_FAILED
+    return PublishDecision.PUBLISH
 
 
 # ---------------------------------------------------------------------------
@@ -385,13 +500,12 @@ class AssemblyInputs:
     expected_action: ExportAction
     observed_network: NetworkEvidence
     stored_metadata: Mapping
-    observed_fields: frozenset
     reviewed_compat: Optional[Mapping[str, str]]
     download: DownloadCandidate
     upload: UploadOutcomeFacts
     manifest: ArtifactManifest
     head: HeadMetadata
-    db_ref_committed: bool
+    guarded_txn_commits: bool            # would the guarded durable Artifact-reference+publish tx commit?
     fence_meta: SessionMeta
     worker_token: str
     attempt_id: str
@@ -420,7 +534,7 @@ def assemble_trusted_artifact(x: AssemblyInputs) -> ArtifactResult:
         return ArtifactResult(False, "network_metadata", "UNSAFE_METADATA", trace=trace)
     trace.append("network_metadata")
 
-    sc = classify_schema(x.contract.required_fields, x.observed_fields, x.reviewed_compat)
+    sc = classify_schema(x.contract.required_schema, x.observation.records, x.reviewed_compat)
     if sc is not SchemaOutcome.OK:
         return ArtifactResult(False, "schema", sc.value, trace=trace)
     trace.append("schema")
@@ -435,19 +549,20 @@ def assemble_trusted_artifact(x: AssemblyInputs) -> ArtifactResult:
         return ArtifactResult(False, "upload", u.value, trace=trace)
     trace.append("upload")
 
-    h = verify_head(x.manifest, x.head)
-    persist = classify_persist(h, x.db_ref_committed, upload_timed_out=x.upload_timed_out)
-    if persist is not PersistDecision.PUBLISH:
-        # HEAD-verified but unpersisted (or forward-repair) -> a private candidate is retained.
-        retained = persist in (PersistDecision.RETAIN_CANDIDATE, PersistDecision.FORWARD_REPAIR)
-        return ArtifactResult(False, "persist", persist.value, candidate_retained=retained, trace=trace)
-    trace.append("persist")
-
-    pub = final_publish_decision(persist, x.fence_meta, x.worker_token, x.manifest.session_version,
-                                 x.attempt_id, x.now, fence_timed_out=x.fence_timed_out)
+    trace.append("head")
+    # HEAD -> final FULL fence -> guarded durable transaction (Artifact reference + Job publication),
+    # in ONE decision. The fence is at the durable-write boundary: a fence failure commits nothing.
+    pub = decide_guarded_publish(
+        verify_head(x.manifest, x.head), x.fence_meta, x.worker_token, x.manifest.session_version,
+        x.attempt_id, x.now, guarded_txn_commits=x.guarded_txn_commits,
+        upload_timed_out=x.upload_timed_out, fence_timed_out=x.fence_timed_out,
+    )
     if pub is not PublishDecision.PUBLISH:
-        return ArtifactResult(False, "final_fence", pub.value, candidate_retained=True, trace=trace)
-    trace.append("final_fence")
+        # NOT_VERIFIED-absent has no object; every other non-publish keeps a private candidate.
+        absent = pub is PublishDecision.NOT_VERIFIED and x.head.exists is False
+        return ArtifactResult(False, "guarded_publish", pub.value,
+                              candidate_retained=not absent, trace=trace)
+    trace.append("guarded_publish")
 
     return ArtifactResult(True, "published", "PUBLISH", trace=trace)
 

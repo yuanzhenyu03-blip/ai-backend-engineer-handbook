@@ -16,9 +16,12 @@ integration.
   final-fence-still-controls-publish rule (REUSES `day63_session_gate.final_fence`), the
   `assemble_trusted_artifact` orchestrator (publishes ONLY if the whole chain passes; the first
   failing stage blocks publication), and the broad-listener rollback classification.
-- `src/day64_controlled_report_page.py` — a controlled localhost dynamic-report SPA + JSON API
-  (`/api/reports/{id}` returns `generating` before `ready`; `POST /api/exports` echoes the strict
-  action identity). Synthetic data only.
+- `src/day64_controlled_report_page.py` — a genuinely DYNAMIC, synthetic localhost SPA + JSON API. Its
+  page-owned JavaScript fetches `/api/reports/{id}` (`generating` before `ready`), renders the state +
+  a LIMITED rounded/virtualized DOM (first 20 rows at 2-decimal precision vs 500 full-precision JSON
+  rows), and triggers a real Export `POST /api/exports` (echoes the strict action identity). It is
+  intended to serve a FUTURE real-Playwright local test (NOT RUN this round); the HTTP-loopback test
+  drives only the JSON API (no JavaScript executes under urllib). No sensitive data.
 - `tests/test_day64_extraction_contract.py` — pure-logic + all required FAILURE-PATH tests
   (EXECUTED_LOCAL_RUNTIME).
 - `tests/test_day64_report_page_http.py` — REAL HTTP-loopback tests of the report/export contract
@@ -52,22 +55,34 @@ AND the final Day63 authorization fence
 - Register the download/response waiter BEFORE the Export click — this prevents a missed-observation
   race only; it does not make a repeated click / re-download / retry idempotent or safe.
 - Correlation needs an explicit action identity (`POST /api/exports {report_id, client_request_id}`);
-  a URL substring + HTTP 200 is too broad (a background GET poll can match). Store only safe/redacted
-  metadata — never Cookies, Authorization headers, credentials, or raw payloads.
+  the INITIAL response must strictly match origin+method+endpoint+report_id AND
+  `client_request_id == expected` (a non-empty `export_id` is NEVER a substitute — another action's
+  response is rejected). The `export_id` from the verified initial response is what a later
+  poll/download/status call correlates against. Network metadata uses an explicit ALLOW-list of flat
+  fields (`action_id`, `allowed_origin`, `method`, `normalized_endpoint`, `report_id`,
+  `client_request_id`, `export_id`, `response_status`, `safe_checksum`, `observed_at`); unknown keys,
+  nested header/body maps, Cookies, Authorization, credentials, tokens and raw payloads are rejected.
 - Downloads need provenance, a completed transfer, a bounded nonzero size, the ACTUAL content type
   (not the filename extension), a SHA-256, parsing, schema, and business constraints. Counts are
   precise: `artifact_record_count` (validated rows), `source_record_count` (source/API rows),
   `accepted_count`/`rejected_count` (terminal import). `202 Accepted` / file selection is not import
   success; a partial import succeeds only if the task contract permits it.
-- Renaming `score` -> `relevance_score` is an Extraction Contract Mismatch unless a reviewed
-  compatibility rule proves equivalence. Never silently map renamed/removed/type-changed fields.
-- Object existence is not Job success. Verify size/checksum/content-type with HEAD; if the DB
-  Artifact-reference transaction fails, retain the private candidate, do not publish, and
-  reconcile/forward-repair. An upload timeout then a matching HEAD forward-repairs against the
-  verified object (never blind re-upload/overwrite/delete). Orphan GC is only later, audited,
-  retention-governed cleanup.
-- The Day63 final fence still governs: a revoked Session / failed / timed-out fence blocks publication
-  even after an Artifact exists — retain the candidate privately as unpublished/untrusted; do not GC.
+- The Extraction Contract validates field TYPES and VALUE constraints against the ACTUAL records
+  (e.g. `row_id`=integer, `score`=number, `label`=non-empty string): a missing field is
+  `FIELD_MISSING`, a wrong type is `TYPE_MISMATCH`, an empty value is `VALUE_INVALID`. Renaming
+  `score` -> `relevance_score` is `CONTRACT_MISMATCH` unless a reviewed compatibility rule proves
+  equivalence (then the alias's type is still validated). Never silently map renamed/removed/
+  type-changed fields, and never substitute a hand-written `schema_valid=True`.
+- Object existence is not Job success. The lifecycle is `HEAD verified -> final FULL fence (active +
+  session-expiry + lease_owner + lease_token + lease_expires_at + version) -> ONE guarded durable
+  transaction (Artifact reference + Job publication), committed ONLY if the fence still matches ->
+  commit`. The fence sits AT the durable-write boundary, so a fence failure/timeout/revocation commits
+  NOTHING — there is no "DB reference committed but publication blocked" state. If the guarded
+  transaction fails to commit, retain the private candidate and reconcile/forward-repair (an upload
+  timeout then a matching HEAD forward-repairs against the verified object; never blind
+  re-upload/overwrite/delete). Orphan GC is only later, audited, retention-governed cleanup. A real
+  PostgreSQL transaction is NOT RUN; the pure model represents whether the guarded publish would
+  commit or was rejected.
 
 ## Rollback (broad-listener release)
 
@@ -82,7 +97,7 @@ never blindly retry).
 cd projects/fastapi-playwright
 python3 -m pip install pytest==7.4.3
 python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py
-# -> 16 passed: pure decision-core FAILURE-PATH tests + the controlled report/export page over a
+# -> 18 passed: pure decision-core FAILURE-PATH tests + the controlled report/export page over a
 #    REAL HTTP loopback. No browser, Object Storage, or PostgreSQL is involved.
 ```
 
@@ -95,7 +110,7 @@ python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_re
                          core (readiness, strict correlation, schema drift, download/upload counts,
                          HEAD verify, persist/candidate retention, final-fence-controls-publish,
                          rollback classification) + the controlled report/export page over REAL HTTP
-                         loopback = 16 passed.
+                         loopback = 18 passed.
 [INTEGRATION_RUNTIME]    NOT RUN — real Playwright extraction/network interception/download-upload, the
                          REAL Day61 Object Storage HEAD, and a real PostgreSQL Artifact-reference
                          transaction, only if actually executed and evidence saved.

@@ -27,7 +27,7 @@ Storage existence, or Job publication with business truth.
 > python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py
 > ```
 >
-> Result: **16 passed, `EXECUTED_LOCAL_RUNTIME`** (14 pure decision-core FAILURE-PATH tests + 2
+> Result: **18 passed, `EXECUTED_LOCAL_RUNTIME`** (16 pure decision-core FAILURE-PATH tests + 2
 > controlled report/export page tests over a REAL HTTP loopback; no browser, Object Storage, or
 > PostgreSQL involved). **NOT RUN:** real Playwright extraction / network interception /
 > download-upload; the REAL Day61 Object Storage HEAD; a real PostgreSQL Artifact-reference
@@ -281,10 +281,15 @@ The student was honestly unsure at first ("不知道"), so this was taught direc
 
 Exactly the strict fields. A URL substring + HTTP 200 is too broad — a background `GET` poll can
 match. Use an explicit action identity: `POST /api/exports {report_id, client_request_id}` →
-`{export_id, status}`. The predicate must validate approved origin, method, endpoint, report ID, and
-`client_request_id` or `export_id`. Store only safe/redacted metadata: normalized endpoint, method,
-IDs, status, timestamp, payload checksum — NEVER Cookies, Authorization headers, credentials, or
-unrelated raw payloads.
+`{export_id, status}`. The INITIAL Export response must strictly match approved origin, method,
+endpoint, report ID, AND `observed.client_request_id == expected.client_request_id`. A non-empty
+`export_id` is NEVER a substitute for the request-id match — another action's response (its own
+`export_id`) must be rejected. The `export_id` extracted from THIS verified initial response is the
+only export identity a LATER poll/download/status call may correlate against. Store only
+safe/redacted metadata drawn from an explicit ALLOW-list (`action_id`, `allowed_origin`, `method`,
+`normalized_endpoint`, `report_id`, `client_request_id`, `export_id`, `response_status`,
+`safe_checksum`, `observed_at`); reject any unknown key, any nested header/body map, Cookies,
+Authorization, credentials, tokens, and raw payloads — by allow-list, not an ever-growing deny-list.
 
 #### Engineering Thinking
 
@@ -295,7 +300,9 @@ unrelated raw payloads.
 #### Framework Connection
 
 `correlate_export(expected, observed)` → `METHOD_MISMATCH` for a GET poll, `MISSING_ACTION_ID` for a
-POST without the request id; `assert_safe_network_metadata(...)` rejects secrets.
+POST with no request id, `CLIENT_REQUEST_ID_MISMATCH` when the request id belongs to another action;
+`extract_export_id(...)` + `correlate_followup(saved_export_id, ...)` for later calls;
+`assert_safe_network_metadata(...)` enforces the allow-list.
 
 ---
 
@@ -348,9 +355,14 @@ The API renamed `score` to `relevance_score`. Extract anyway?
 
 #### Tech Lead Review
 
-Correct. Renaming `score` to `relevance_score` is an Extraction Contract Mismatch unless an explicit,
-reviewed compatibility rule proves semantic equivalence. Do not silently map renamed, removed,
-type-changed, or semantically unclear fields.
+Correct — and the Contract validates VALUES, not just names. Each required field carries a type/value
+spec (e.g. `row_id`=integer, `score`=number, `label`=non-empty string), validated against the ACTUAL
+records: a missing field is `FIELD_MISSING`, a wrong type (e.g. `score:"not-a-number"`) is
+`TYPE_MISMATCH`, an empty `label` is `VALUE_INVALID`. Renaming `score` to `relevance_score` is a
+`CONTRACT_MISMATCH` unless an explicit, reviewed compatibility rule proves semantic equivalence (then
+the aliased field's type is still validated). Do not silently map renamed, removed, type-changed, or
+semantically unclear fields, and never substitute a hand-written `schema_valid=True` for real Contract
+validation.
 
 #### Engineering Thinking
 
@@ -360,7 +372,8 @@ type-changed, or semantically unclear fields.
 
 #### Framework Connection
 
-`classify_schema(required, observed, reviewed_compat)` → `CONTRACT_MISMATCH` without a reviewed rule.
+`classify_schema(required_schema, records, reviewed_compat)` → `FIELD_MISSING` / `TYPE_MISMATCH` /
+`VALUE_INVALID` / `CONTRACT_MISMATCH`; a reviewed rename validates the alias's type.
 
 ---
 
@@ -378,14 +391,18 @@ retry? And if the Session is revoked after the Artifact exists?
 
 #### Tech Lead Review
 
-Correct on all points, with one nuance. Object existence is not Job success: after a deterministic
-object-key upload, verify size/checksum/metadata with HEAD. If the DB reference transaction fails,
-RETAIN the private candidate, do NOT publish, and reconcile/forward-repair if valid — an upload
-timeout then a matching HEAD forward-repairs against the verified object (never blind
-re-upload/overwrite/delete). If the Day63 Session is revoked or the final fence fails AFTER an Artifact
-exists, do not write the Artifact reference or Job success; retain the candidate PRIVATELY as
-unpublished/untrusted material. The nuance: GC is a delayed, audited, retention-governed lifecycle
-cleanup — NOT an immediate exception-path compensation.
+Correct on all points, with the order made precise. Object existence is not Job success: after a
+deterministic object-key upload, verify size/checksum/metadata with HEAD. Then the FINAL fence is
+evaluated AT the guarded durable-write boundary — `HEAD verified -> final FULL fence -> ONE guarded
+durable transaction that writes the Artifact reference + Job publication ONLY if the Session status,
+expiry, lease_owner, lease_token, lease_expires_at and version still match -> commit`. So a fence
+failure/timeout/revocation commits NOTHING: there is no "DB reference already committed but publication
+blocked" state to undo. If the guarded transaction itself fails to commit, RETAIN the private
+candidate and reconcile/forward-repair (an upload timeout then a matching HEAD forward-repairs against
+the verified object; never blind re-upload/overwrite/delete). GC is a delayed, audited,
+retention-governed lifecycle cleanup — NOT an immediate exception-path compensation. (A real
+PostgreSQL transaction is NOT RUN; the pure model represents whether the guarded publish would commit
+or was rejected.)
 
 #### Engineering Thinking
 
@@ -395,8 +412,9 @@ cleanup — NOT an immediate exception-path compensation.
 
 #### Framework Connection
 
-`verify_head(...)`, `classify_persist(...)` → `RETAIN_CANDIDATE`/`FORWARD_REPAIR`;
-`final_publish_decision(...)` reuses `day63_session_gate.final_fence`.
+`verify_head(...)` then `decide_guarded_publish(...)` (HEAD -> final fence -> guarded txn) →
+`RETAIN_UNPUBLISHED_FENCE` / `RETAIN_CANDIDATE_TXN_FAILED` / `FORWARD_REPAIR` / `PUBLISH`, reusing
+`day63_session_gate.final_fence`.
 
 ---
 ## 8. Common Misconceptions
@@ -720,7 +738,7 @@ rollback                = stop future harm ; scope past harm by evidence ; class
 - [ ] I can HEAD-verify, retain a candidate on DB-ref failure, forward-repair a timeout+HEAD, and let
       the final fence block publication.
 - [ ] I can classify a broad-listener rollback (confirmed/misattributed/unpublished/unknown).
-- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py` (= 16 passed).
+- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day64_extraction_contract.py tests/test_day64_report_page_http.py` (= 18 passed).
 
 ---
 

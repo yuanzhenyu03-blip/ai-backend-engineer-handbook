@@ -9,6 +9,52 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.159 — Day64 review fixes: strict export correlation, guarded-fence publish order, type/value contract, metadata allow-list, dynamic page
+
+Date: 2026-08-14
+
+Day: Day64 (Phase 5). Five review findings fixed in `projects/fastapi-playwright/src/day64_extraction_contract.py`
+(+ the controlled page) and its tests.
+
+- P1-1 (correlation): `correlate_export()` now STRICTLY requires `observed.client_request_id == expected` for
+  the INITIAL Export response; a non-empty `export_id` can no longer bypass the request-id match (another
+  action's response is rejected with `CLIENT_REQUEST_ID_MISMATCH`). Added `extract_export_id()` +
+  `correlate_followup(saved_export_id, ...)` so only the `export_id` from the verified initial response
+  correlates later poll/download/status calls. The background-GET-poll test is preserved.
+- P1-2 (guarded-fence order): removed `db_ref_committed` as a pre-fence premise. New `decide_guarded_publish()`
+  models `HEAD verified -> final FULL fence -> ONE guarded durable transaction (Artifact reference + Job
+  publication) committed only if the fence still matches`. A fence failure/timeout/revocation now commits
+  NOTHING (`RETAIN_UNPUBLISHED_FENCE`) — there is no "reference committed but publication blocked" success
+  path; a guarded-txn failure is `RETAIN_CANDIDATE_TXN_FAILED`; upload-timeout+matching-HEAD is
+  `FORWARD_REPAIR`. A real PostgreSQL transaction is NOT RUN (pure model = would-commit/rejected).
+- P1-3 (type/value contract): `TaskContract.required_schema` is now `{field: FieldSpec(type)}`;
+  `classify_schema()` validates the ACTUAL records and distinguishes `FIELD_MISSING`, `TYPE_MISMATCH`
+  (e.g. `score` is a string), `VALUE_INVALID` (empty `label`), a reviewed-compatibility rename (alias type
+  still validated), and unreviewed `CONTRACT_MISMATCH`. A hand-written `schema_valid=True` no longer
+  substitutes for real Contract validation.
+- P2-1 (metadata allow-list): `assert_safe_network_metadata()` now uses an explicit ALLOW-list of flat fields
+  and rejects unknown keys, nested header/body maps, `session_token`, `request_headers`, `http_headers`,
+  `custom_auth`, Cookies, Authorization, tokens, credentials and raw payloads — instead of an ever-growing
+  deny-list.
+- P2-2 (controlled page): `day64_controlled_report_page.py` is now a genuinely DYNAMIC, synthetic SPA whose
+  page-owned JavaScript fetches the report API, renders the state + a limited rounded/virtualized DOM, and
+  triggers a real Export POST — intended for a FUTURE real-Playwright local test (NOT RUN this round; the
+  HTTP-loopback test drives only the JSON API).
+
+Validation (actual): `cd projects/fastapi-playwright && python3 -m pytest -q tests/test_day64_extraction_contract.py
+tests/test_day64_report_page_http.py` = **18 passed** (16 pure decision-core failure-path incl. the new
+export-id/fence/type/allow-list tests + 2 controlled report/export page over a REAL HTTP loopback), plus
+`py_compile` — EXECUTED_LOCAL_RUNTIME. LIVE CLASSROOM = CONCEPTUAL_STATIC. NOT RUN: real Playwright
+extraction/network/download-upload; the real Day61 Object Storage HEAD; a real PostgreSQL Artifact-reference
+transaction; a real Worker; queue integration (Day66); production. Day63's results are not reused as Day64
+evidence. Day63 unchanged; Day65 recovery/SSRF/credential/prompt-injection work is NOT started. Files updated:
+the Day64 lesson, `projects/fastapi-playwright/docs/day64-...-design.md`, `projects/fastapi-playwright/README.md`,
+`cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`, `PROJECT_STATUS.md`, `TASKS.md`. No secrets,
+real credentials, Cookies, storage-state exports, real target URLs, customer data, raw payloads, or screenshots
+committed; `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.158 — Day64 released: Dynamic Extraction, Network Events and Artifact Evidence
 
 Date: 2026-08-14
