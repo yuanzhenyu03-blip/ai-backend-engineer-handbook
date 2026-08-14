@@ -47,6 +47,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Callable, Dict, List, Optional
+from urllib.parse import urlparse
 
 
 # ---------------------------------------------------------------------------
@@ -173,6 +174,16 @@ def claim_result_to_outcome(claim: ClaimResult) -> Outcome:
 # ---------------------------------------------------------------------------
 # 3) Storage-state allowlist filtering (Origin + Cookie domain)
 # ---------------------------------------------------------------------------
+def default_cookie_domains(target_origin: str) -> List[str]:
+    """Derive the SAFE default Cookie-domain allowlist from an Origin: its host-only hostname
+    (e.g. ``https://research.example.test`` -> ``["research.example.test"]``). It never treats the
+    full Origin string as a Cookie domain, and it never widens to a parent domain — a
+    ``.example.test`` cross-subdomain Cookie stays rejected by default and must be added to the
+    allowlist explicitly and auditably."""
+    host = urlparse(target_origin).hostname
+    return [host] if host else []
+
+
 def filter_storage_state(
     storage_state: Dict,
     approved_origin: str,
@@ -237,24 +248,41 @@ def final_fence(
     meta: SessionMeta,
     worker_token: str,
     claimed_version: int,
+    attempt_id: str,
     now: int,
     *,
     timed_out: bool = False,
 ) -> Outcome:
-    """The last gate before publishing a business result.
+    """The last gate before publishing a business result. The FULL fencing predicate is:
 
-    * the fence check TIMED OUT            -> UNKNOWN_AUTHORIZATION_STATE (state unknown; do NOT
+    ``AUTHORIZED`` iff:
+        session active
+        AND session expires_at > now
+        AND lease_owner == attempt_id
+        AND lease_token == worker_token
+        AND lease_expires_at > now
+        AND session version == claimed version
+
+    Outcomes:
+    * the fence check TIMED OUT                 -> UNKNOWN_AUTHORIZATION_STATE (state unknown; do NOT
       publish and do NOT blind-retry).
-    * session revoked/inactive or expired  -> AUTHENTICATION_PRECONDITION_FAILED.
-    * lease token superseded or version bumped (a new Session version / re-claim) ->
-      AUTHORIZATION_SESSION_FAILURE (this Attempt lost continuing authority).
-    * still active + same token + same version -> AUTHORIZED (publish).
+    * session revoked/inactive or session-expired -> AUTHENTICATION_PRECONDITION_FAILED.
+    * lease no longer owned by THIS Attempt, its token/version superseded, OR the LEASE ITSELF has
+      EXPIRED (``lease_expires_at <= now``) -> AUTHORIZATION_SESSION_FAILURE (this Attempt lost its
+      continuing authority; an old Attempt can NEVER publish on a stale token/version or an expired
+      lease).
     """
     if timed_out:
         return Outcome.UNKNOWN_AUTHORIZATION_STATE
     if meta.status != "active" or meta.expires_at <= now:
         return Outcome.AUTHENTICATION_PRECONDITION_FAILED
-    if meta.lease_token != worker_token or meta.version != claimed_version:
+    if (
+        meta.lease_owner != attempt_id
+        or meta.lease_token != worker_token
+        or meta.version != claimed_version
+        or meta.lease_expires_at is None
+        or meta.lease_expires_at <= now
+    ):
         return Outcome.AUTHORIZATION_SESSION_FAILURE
     return Outcome.AUTHORIZED
 
@@ -264,19 +292,31 @@ def final_fence(
 #    protected-state persistence AND metadata/audit commit both succeed.
 # ---------------------------------------------------------------------------
 class PersistOutcome(str, Enum):
-    ACTIVATED = "ACTIVATED"                       # protected state + metadata/audit committed
-    ORPHAN_INACTIVE = "ORPHAN_INACTIVE"           # protected state saved, metadata tx failed
+    ACTIVATED = "ACTIVATED"                       # protected state saved AND metadata/audit committed
+    ORPHAN_INACTIVE = "ORPHAN_INACTIVE"           # protected state saved, metadata/audit tx FAILED
     REJECTED_NOT_VERIFIED = "REJECTED_NOT_VERIFIED"  # identity not verified before export
+    PERSIST_CONSISTENCY_FAILED = "PERSIST_CONSISTENCY_FAILED"  # protected state NOT saved (no orphan exists)
 
 
 def classify_login_persist(identity_verified: bool, state_persisted: bool, metadata_committed: bool) -> PersistOutcome:
     """A verified login is exported, filtered, encrypted, and persisted; the Session becomes a new
-    active version ONLY after the metadata/audit commit also succeeds. Never overwrite an old
-    credential in place: a failed metadata transaction leaves a PROTECTED but INACTIVE
-    candidate/orphan for reconciliation — never an active Session."""
+    ACTIVE version ONLY after the metadata/audit commit also succeeds. Never overwrite an old
+    credential in place.
+
+    * identity NOT verified                       -> REJECTED_NOT_VERIFIED (never export state first).
+    * protected state saved AND metadata committed -> ACTIVATED.
+    * protected state saved BUT metadata FAILED    -> ORPHAN_INACTIVE (a protected-but-inactive
+      candidate for reconciliation — this is the ONLY orphan case).
+    * protected state NOT saved                    -> PERSIST_CONSISTENCY_FAILED. There is NO protected
+      material, so it is NOT an orphan; ``state_persisted=False, metadata_committed=True`` is an
+      impossible/inconsistent state (metadata cannot reference protected content that was not saved)
+      and must be reconciled, never activated and never called an orphan.
+    """
     if not identity_verified:
-        return PersistOutcome.REJECTED_NOT_VERIFIED           # do not export state before verifying
-    if state_persisted and metadata_committed:
+        return PersistOutcome.REJECTED_NOT_VERIFIED
+    if not state_persisted:
+        return PersistOutcome.PERSIST_CONSISTENCY_FAILED
+    if metadata_committed:
         return PersistOutcome.ACTIVATED
     return PersistOutcome.ORPHAN_INACTIVE
 
@@ -297,13 +337,29 @@ class TaskDeps:
     close_context: Callable[[object], None]
 
 
+class TaskCompletion(str, Enum):
+    """Whether the TASK completed, distinct from whether a business result was published.
+
+    Reuses the Day62/Day63 rule: task success = business fact asserted AND Context cleanup
+    completed. A published result whose ``context.close()`` failed is INCOMPLETE, never SUCCESS."""
+    SUCCESS = "SUCCESS"        # authorized + published + Context cleanup completed
+    INCOMPLETE = "INCOMPLETE"  # business result published, but Context cleanup FAILED
+    FAILED = "FAILED"          # not authorized / not published (business did not succeed)
+
+
 @dataclass
 class TaskReport:
     outcome: Outcome
     published: bool
+    status: TaskCompletion = TaskCompletion.FAILED
     invoked: List[str] = field(default_factory=list)   # names of deps actually called, in order
-    primary_error: Optional[str] = None
-    cleanup_error: Optional[str] = None
+    primary_error: Optional[str] = None                # the ORIGINAL business error (never overwritten)
+    cleanup_error: Optional[str] = None                # Context cleanup failure (diagnostics only)
+
+
+def task_succeeded(report: "TaskReport") -> bool:
+    """A task is fully successful ONLY when it is SUCCESS: authorized, published, and cleaned up."""
+    return report.status is TaskCompletion.SUCCESS
 
 
 def run_task_authorization(
@@ -334,18 +390,20 @@ def run_task_authorization(
     # 1) binding
     o = validate_job_binding(job, binding)
     if o is not Outcome.AUTHORIZED:
-        return TaskReport(o, published=False, invoked=invoked)
+        return TaskReport(o, published=False, status=TaskCompletion.FAILED, invoked=invoked)
 
     # 2) atomic claim (authoritative concurrency/state check)
     claim = classify_claim(meta, job.attempt_id, now)
     if claim is not ClaimResult.CLAIMED:
-        return TaskReport(claim_result_to_outcome(claim), published=False, invoked=invoked)
+        return TaskReport(claim_result_to_outcome(claim), published=False, status=TaskCompletion.FAILED, invoked=invoked)
 
     # 3) ONLY the winning Attempt reads the protected credential
     storage_state = deps.read_credential(binding.credential_ref)
     invoked.append("read_credential")
     filtered = filter_storage_state(
-        storage_state, binding.target_origin, approved_cookie_domains or [binding.target_origin]
+        storage_state,
+        binding.target_origin,
+        approved_cookie_domains if approved_cookie_domains is not None else default_cookie_domains(binding.target_origin),
     )
 
     context = None
@@ -375,6 +433,7 @@ def run_task_authorization(
                 fence_meta if fence_meta is not None else meta,
                 worker_token,
                 meta.version,
+                job.attempt_id,
                 now,
                 timed_out=fence_timed_out,
             )
@@ -397,5 +456,14 @@ def run_task_authorization(
             except Exception as close_exc:
                 cleanup_error = f"{type(close_exc).__name__}: {close_exc}"
 
-    return TaskReport(outcome, published=published, invoked=invoked,
+    # Task completion status (distinct from `published`): a published result whose cleanup FAILED is
+    # INCOMPLETE, never SUCCESS. A cleanup error never overwrites the primary (business) error.
+    if outcome is not Outcome.AUTHORIZED or not published:
+        status = TaskCompletion.FAILED
+    elif cleanup_error is not None:
+        status = TaskCompletion.INCOMPLETE
+    else:
+        status = TaskCompletion.SUCCESS
+
+    return TaskReport(outcome, published=published, status=status, invoked=invoked,
                       primary_error=primary_error, cleanup_error=cleanup_error)

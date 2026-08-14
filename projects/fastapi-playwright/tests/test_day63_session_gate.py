@@ -15,15 +15,18 @@ from day63_session_gate import (
     PersistOutcome,
     SessionBinding,
     SessionMeta,
+    TaskCompletion,
     TaskDeps,
     blocks_publication,
     check_navigation,
     classify_claim,
     classify_login_persist,
+    default_cookie_domains,
     filter_storage_state,
     final_fence,
     may_blind_retry,
     run_task_authorization,
+    task_succeeded,
     validate_job_binding,
     verify_identity,
 )
@@ -77,40 +80,83 @@ def test_identity_rules_positive_fact_required():
     assert verify_identity(ObservedIdentity(False, "prin_B", "org_OTHER"), BINDING) is Outcome.AUTHORIZATION_SESSION_FAILURE
 
 
-def test_navigation_and_fence_outcomes():
+def test_navigation_outcomes():
     assert check_navigation("https://research.example.test", BINDING.target_origin) is Outcome.AUTHORIZED
     assert check_navigation("https://billing.example.test", BINDING.target_origin) is Outcome.SECURITY_FAILURE
-    # final fence: timeout -> UNKNOWN; superseded token/version -> authorization failure
-    assert final_fence(ACTIVE._replace() if hasattr(ACTIVE, "_replace") else ACTIVE, "tok-1", 3, NOW, timed_out=True) is Outcome.UNKNOWN_AUTHORIZATION_STATE
-    fenced = SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", NOW + 50)
-    assert final_fence(fenced, "tok-1", 3, NOW) is Outcome.AUTHORIZED
-    superseded = SessionMeta("active", NOW + 100, 4, "att-2", "tok-2", NOW + 50)
-    assert final_fence(superseded, "tok-1", 3, NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE
-    revoked = SessionMeta("revoked", NOW + 100, 3, "att-1", "tok-1", NOW + 50)
-    assert final_fence(revoked, "tok-1", 3, NOW) is Outcome.AUTHENTICATION_PRECONDITION_FAILED
 
 
-def test_storage_state_filtered_to_allowlists():
-    state = {
-        "cookies": [
-            {"domain": "research.example.test", "name": "sid"},
-            {"domain": ".example.test", "name": "sso"},              # cross-subdomain -> dropped by default
-            {"domain": "billing.example.test", "name": "b"},         # unrelated -> dropped
-        ],
-        "origins": [
-            {"origin": "https://research.example.test"},
-            {"origin": "https://billing.example.test"},              # dropped
-        ],
-    }
-    filtered = filter_storage_state(state, "https://research.example.test", ["research.example.test"])
-    assert [c["name"] for c in filtered["cookies"]] == ["sid"]
+def test_final_fence_full_predicate():
+    # AUTHORIZED requires: active + session not expired + lease_owner==attempt + token + lease not
+    # expired + version. A fenced-and-owned lease authorizes.
+    ok = SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", NOW + 50)
+    assert final_fence(ok, "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZED
+
+    # timeout -> UNKNOWN (never blind retry)
+    assert final_fence(ok, "tok-1", 3, "att-1", NOW, timed_out=True) is Outcome.UNKNOWN_AUTHORIZATION_STATE
+
+    # session inactive/expired -> precondition failed
+    assert final_fence(SessionMeta("revoked", NOW + 100, 3, "att-1", "tok-1", NOW + 50), "tok-1", 3, "att-1", NOW) is Outcome.AUTHENTICATION_PRECONDITION_FAILED
+    assert final_fence(SessionMeta("active", NOW - 1, 3, "att-1", "tok-1", NOW + 50), "tok-1", 3, "att-1", NOW) is Outcome.AUTHENTICATION_PRECONDITION_FAILED
+
+    # P1-1 regressions: an OLD Attempt must NOT publish on a stale/expired lease.
+    # lease EXPIRED (same owner/token/version) -> authorization failure (no publish)
+    assert final_fence(SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", NOW - 1), "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE
+    assert final_fence(SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", NOW), "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE  # == now is expired
+    assert final_fence(SessionMeta("active", NOW + 100, 3, "att-1", "tok-1", None), "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE
+    # lease OWNER is a different Attempt -> authorization failure
+    assert final_fence(SessionMeta("active", NOW + 100, 3, "att-2", "tok-1", NOW + 50), "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE
+    # token / version mismatch -> authorization failure
+    assert final_fence(SessionMeta("active", NOW + 100, 3, "att-1", "tok-OTHER", NOW + 50), "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE
+    assert final_fence(SessionMeta("active", NOW + 100, 4, "att-1", "tok-1", NOW + 50), "tok-1", 3, "att-1", NOW) is Outcome.AUTHORIZATION_SESSION_FAILURE
+
+
+_STORAGE_STATE = {
+    "cookies": [
+        {"domain": "research.example.test", "name": "sid"},         # exact host -> kept
+        {"domain": ".example.test", "name": "sso"},                 # cross-subdomain -> dropped by default
+        {"domain": "billing.example.test", "name": "b"},            # unrelated subdomain -> dropped
+    ],
+    "origins": [
+        {"origin": "https://research.example.test"},                # exact approved Origin -> kept
+        {"origin": "https://billing.example.test"},                 # dropped
+    ],
+}
+
+
+def test_default_cookie_domains_is_host_only_not_the_origin():
+    # P1-2: the DEFAULT allowlist is the Origin's HOST, never the full Origin string.
+    assert default_cookie_domains("https://research.example.test") == ["research.example.test"]
+    assert "https://research.example.test" not in default_cookie_domains("https://research.example.test")
+
+
+def test_storage_state_default_path_keeps_host_cookie_rejects_cross_subdomain():
+    # End-to-end DEFAULT path: no explicit allowlist -> derive host-only domain from the Origin.
+    filtered = filter_storage_state(
+        _STORAGE_STATE, "https://research.example.test",
+        default_cookie_domains("https://research.example.test"),
+    )
+    assert [c["name"] for c in filtered["cookies"]] == ["sid"]      # host cookie survives the default
     assert [o["origin"] for o in filtered["origins"]] == ["https://research.example.test"]
 
 
-def test_login_persist_orphan_on_metadata_failure():
+def test_storage_state_cross_subdomain_only_via_explicit_allowlist():
+    # `.example.test` is kept ONLY when explicitly, auditably added to the allowlist.
+    filtered = filter_storage_state(_STORAGE_STATE, "https://research.example.test",
+                                    ["research.example.test", ".example.test"])
+    assert sorted(c["name"] for c in filtered["cookies"]) == ["sid", "sso"]
+
+
+def test_login_persist_all_combinations():
+    # identity NOT verified -> rejected, regardless of the rest (4 combos)
+    for sp in (True, False):
+        for mc in (True, False):
+            assert classify_login_persist(False, sp, mc) is PersistOutcome.REJECTED_NOT_VERIFIED
+    # identity verified:
     assert classify_login_persist(True, True, True) is PersistOutcome.ACTIVATED
-    assert classify_login_persist(True, True, False) is PersistOutcome.ORPHAN_INACTIVE   # protected but inactive
-    assert classify_login_persist(False, True, True) is PersistOutcome.REJECTED_NOT_VERIFIED
+    assert classify_login_persist(True, True, False) is PersistOutcome.ORPHAN_INACTIVE   # ONLY orphan case
+    # P2-2: state NOT saved is NEVER an orphan (no protected material exists)
+    assert classify_login_persist(True, False, True) is PersistOutcome.PERSIST_CONSISTENCY_FAILED  # impossible combo
+    assert classify_login_persist(True, False, False) is PersistOutcome.PERSIST_CONSISTENCY_FAILED  # nothing saved
 
 
 def test_non_authorized_blocks_publication_and_no_blind_retry():
@@ -161,10 +207,12 @@ def _run(spy, meta=ACTIVE, job=JOB, fence_meta=None, fence_timed_out=False, work
                                   fence_timed_out=fence_timed_out)
 
 
-def test_happy_path_publishes_and_closes():
+def test_happy_path_publishes_and_closes_is_success():
     spy = _Spy()
     r = _run(spy)
     assert r.outcome is Outcome.AUTHORIZED and r.published is True
+    assert r.status is TaskCompletion.SUCCESS and task_succeeded(r) is True   # cleanup completed
+    assert r.cleanup_error is None
     assert spy.calls == ["read_credential", "create_context", "probe_identity",
                          "observe_origin", "publish_result", "close_context"]
 
@@ -216,11 +264,36 @@ def test_final_fence_superseded_blocks_publish():
     assert "publish_result" not in spy.calls
 
 
-def test_cleanup_failure_is_recorded_not_hidden():
+def test_business_success_but_cleanup_failure_is_incomplete_not_success():
+    # P1-3: a published result whose context.close() FAILED is INCOMPLETE, never SUCCESS. The
+    # published flag stays True (we don't fake un-publish), but the task is not fully successful.
     spy = _Spy(close_raises=True)
     r = _run(spy)
-    assert r.outcome is Outcome.AUTHORIZED and r.published is True   # business succeeded
+    assert r.outcome is Outcome.AUTHORIZED and r.published is True        # result WAS published
+    assert r.status is TaskCompletion.INCOMPLETE and task_succeeded(r) is False
     assert r.cleanup_error is not None and "close failed" in r.cleanup_error
+    assert r.primary_error is None                                       # no business error to preserve
+
+
+def test_business_failure_and_cleanup_failure_preserves_primary_error():
+    # publish raises (business error) AND close raises: primary error is the business one, the
+    # cleanup error is recorded separately (never overwrites it), status FAILED, nothing published.
+    spy = _Spy(publish_raises=True, close_raises=True)
+    r = _run(spy)
+    assert r.status is TaskCompletion.FAILED and r.published is False
+    assert r.primary_error is not None and "publish failed" in r.primary_error   # ORIGINAL error kept
+    assert r.cleanup_error is not None and "close failed" in r.cleanup_error      # separate diagnostics
+    assert r.outcome is Outcome.UNKNOWN_AUTHORIZATION_STATE                       # exception -> unknown, no publish
+
+
+def test_non_authorized_business_failure_with_cleanup_failure_is_failed():
+    # identity mismatch (business failure, not an exception) + cleanup failure -> FAILED, no publish.
+    spy = _Spy(identity=ObservedIdentity(False, "prin_WRONG", "org_B"), close_raises=True)
+    r = _run(spy)
+    assert r.status is TaskCompletion.FAILED and r.published is False
+    assert r.outcome is Outcome.AUTHORIZATION_SESSION_FAILURE
+    assert r.cleanup_error is not None                                            # recorded
+    assert "publish_result" not in spy.calls
 
 
 # ---- STATIC gate-source contract (always run; no Playwright) ------------------------------

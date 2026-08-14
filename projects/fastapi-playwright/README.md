@@ -54,7 +54,7 @@ storage-state allowlist filtering, and an orchestrator that proves the negative 
 `src/day63_controlled_login_page.py` (a synthetic loopback account page with account/redirect/
 unapproved-origin modes). Run the Day63 suite with
 `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py`
-(= 23 passed, 1 skipped; the real-Chromium isolation suite is gated on `playwright`). The LIVE
+(= 28 passed, 1 skipped; the real-Chromium isolation suite is gated on `playwright`). The LIVE
 classroom artifact was `CONCEPTUAL_STATIC`; real PostgreSQL atomic claim, a credential/secret store,
 and real Chromium isolation are NOT RUN. See the
 [Day63 design/runbook](docs/day63-browser-authentication-storage-state-and-tenant-isolation-design.md)

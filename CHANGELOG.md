@@ -9,6 +9,53 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.156 — Day63 review fixes: final-fence lease predicate, host-only Cookie default, task completion status, persist consistency
+
+Date: 2026-08-14
+
+Day: Day63 (Phase 5). Five review findings fixed in `projects/fastapi-playwright/src/day63_session_gate.py`
+and its tests; Day63 docs synced.
+
+- P1-1 (final fence): `final_fence()` now takes `attempt_id` and authorizes publication ONLY when the session
+  is active and not expired AND `lease_owner == attempt_id` AND `lease_token == worker_token` AND
+  `lease_expires_at > now` AND `version == claimed version`. An old Attempt whose lease has EXPIRED (or is now
+  owned by a successor) gets `AUTHORIZATION_SESSION_FAILURE` and can never publish on a stale token/version;
+  timeout stays `UNKNOWN_AUTHORIZATION_STATE` (no blind retry). New tests cover expired lease, `== now` expiry,
+  `lease_expires_at is None`, owner mismatch, and token/version mismatch.
+- P1-2 (Cookie allowlist default): added `default_cookie_domains(origin)` which derives the HOST-ONLY domain
+  from the Origin's hostname (e.g. `https://research.example.test` -> `research.example.test`); the orchestrator
+  no longer passes the full Origin string as a Cookie domain, so a legitimate host cookie is kept while
+  `.example.test`/`billing.example.test` stay rejected by default. End-to-end pure tests assert the default path
+  keeps the host cookie, rejects cross-subdomain, and keeps only the exact approved Origin's Local Storage.
+- P1-3 (cleanup ≠ success): `TaskReport` gains a `TaskCompletion` status (SUCCESS / INCOMPLETE / FAILED) plus
+  `task_succeeded()`. A published result whose `context.close()` failed is now INCOMPLETE (published stays True —
+  no fake un-publish), never SUCCESS; the cleanup error never overwrites the primary business error. Tests cover
+  business-success+cleanup-fail (INCOMPLETE), business-fail+cleanup-fail (FAILED, primary preserved), and the
+  clean success (SUCCESS).
+- P2-1 (real popup/redirect): the gated real-Chromium suite now drives a REAL popup to an unapproved Origin
+  through the Gate to `SECURITY_FAILURE` (Context closed, nothing published) and a login-redirect proving no
+  auto-login yields `AUTHENTICATION_PRECONDITION_FAILED`. It remains GATED on `playwright` and is NOT RUN by the
+  updating agent — these browser facts are NOT claimed verified until Playwright/Chromium actually run them.
+- P2-2 (login persistence): `classify_login_persist()` returns `ORPHAN_INACTIVE` ONLY for
+  `state saved + metadata failed`; `state NOT saved` (including the impossible `state=False, metadata=True`) is a
+  new `PERSIST_CONSISTENCY_FAILED` (no protected material exists — never an orphan, never active). A test covers
+  all combinations.
+
+Validation (actual): `cd projects/fastapi-playwright && python3 -m pytest -q tests/test_day63_session_gate.py
+tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = **28 passed, 1
+skipped** (25 pure gate + 3 HTTP-loopback pass; the 1 skip is the real-Chromium isolation module, gated on
+`playwright`), plus `py_compile` — EXECUTED_LOCAL_RUNTIME. NOT RUN: the real-Chromium isolation/popup/redirect
+suite; real PostgreSQL `UPDATE ... RETURNING` atomic claim; credential encryption/KMS/Object Storage; a real
+Worker; queue integration (Day66); production. Day62's counts are not reused as Day63 evidence. Files updated:
+`docs/fastapi/day63-...-interaction.md` had no change; the Day63 lesson, `projects/fastapi-playwright/docs/day63-...-design.md`,
+`projects/fastapi-playwright/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`,
+`PROJECT_STATUS.md`, `TASKS.md` synced to 28 passed/1 skipped and the corrected predicates. No secrets, real
+credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed;
+`prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`, `LESSON_TEMPLATE_v2.md` unchanged. Not
+expanded to Day64/65/66.
+
+---
+
 ## v0.1.155 — Day63 released: Browser Authentication, Storage State and Tenant Isolation
 
 Date: 2026-08-13

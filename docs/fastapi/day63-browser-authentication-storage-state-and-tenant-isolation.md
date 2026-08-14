@@ -30,7 +30,7 @@ and stays authorized all the way through result publication.
 >   tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py
 > ```
 >
-> Result: **23 passed, 1 skipped, `EXECUTED_LOCAL_RUNTIME`**. The 1 skipped item is the
+> Result: **28 passed, 1 skipped, `EXECUTED_LOCAL_RUNTIME`**. The 1 skipped item is the
 > real-Chromium isolation module, gated on the `playwright` package (absent in the agent
 > environment). **NOT RUN:** real Chromium `BrowserContext` state isolation / redirect-popup
 > observation; real PostgreSQL `UPDATE ... RETURNING` atomic claim; real credential
@@ -159,12 +159,18 @@ Lease/Fencing  = short-lived, attempt-owned CONTINUING authorization
 
 Task Success
 = business fact asserted
-AND BrowserContext cleanup completed
+AND BrowserContext cleanup completed          (a published result whose close() FAILED is INCOMPLETE, not success)
 AND trusted Job -> exact approved Session binding
 AND current authenticated principal/org matches expected identity
 AND allowed Origin is maintained
-AND lease/version fencing passes before critical actions and final publication
+AND the FINAL fence passes before critical actions and final publication, where the fence predicate is:
+      session active AND session not expired
+      AND lease_owner == this attempt_id AND lease_token == worker_token AND lease_expires_at > now
+      AND session version == claimed version
 ```
+
+The final fence must check the FULL lease, not just token/version: an OLD Attempt whose lease has
+EXPIRED (or is now owned by a successor) can NEVER publish, even with a matching old token/version.
 
 The one sentence to remember: **a Session authorizes; a Context isolates; a lease keeps you
 authorized; and only a positive identity fact — verified in that Context and re-fenced at
@@ -239,7 +245,7 @@ comes from protected, encrypted, audited credential management with least-privil
 not from a file format. Persist a protected credential *reference* + metadata in PostgreSQL; store
 the encrypted credential content in a protected credential/object/secret store. Never commit, log,
 screenshot indiscriminately, put it in a Job payload, or pass the whole storage state in a queue
-message — even encrypted. And filter exported Origins/Cookie domains to explicit allowlists.
+message — even encrypted. And filter exported Origins/Cookie domains to explicit allowlists — the DEFAULT Cookie-domain allowlist is the approved Origin's HOST (e.g. `https://research.example.test` → `research.example.test`), never the full Origin string, so a host-only Cookie survives while a `.example.test` cross-subdomain Cookie is rejected unless it is explicitly, auditably added.
 
 #### Engineering Thinking
 
@@ -402,7 +408,7 @@ All correct. The four publication-blocking outcomes are: identity mismatch ⇒
 `AUTHENTICATION_PRECONDITION_FAILED`; final lease/fencing check timeout ⇒
 `UNKNOWN_AUTHORIZATION_STATE`; observed unapproved Origin navigation/popup ⇒ `SECURITY_FAILURE`.
 Every non-AUTHORIZED outcome blocks business-result publication, and none becomes a business
-`no result` or a blind-retry license. On identity mismatch, write only a SAFE identifier and close
+`no result` or a blind-retry license. The FINAL fence authorizes publication only when the session is active and not expired AND `lease_owner == this attempt_id` AND `lease_token == worker_token` AND `lease_expires_at > now` AND `version == claimed version`; an expired lease or a lease now owned by a successor ⇒ `AUTHORIZATION_SESSION_FAILURE`, so an old Attempt can never publish on a stale/expired lease. On identity mismatch, write only a SAFE identifier and close
 the Context (no raw identity in diagnostics). A second Attempt cannot seize a still-unexpired lease
 just because the first looks unhealthy; after expiry it atomically claims a new token and the old
 token loses authority at the next fence boundary. Revocation/version replacement prevents new claims
@@ -756,7 +762,10 @@ identity proof   = positive principal_id/organization_id (not "no redirect", not
 outcomes         = AUTHENTICATION_PRECONDITION_FAILED | AUTHORIZATION_SESSION_FAILURE
                    | UNKNOWN_AUTHORIZATION_STATE | SECURITY_FAILURE  (all block publication; never blind retry)
 task success     = fact asserted AND cleanup done AND exact Session AND matching identity
-                   AND approved Origin AND fence passes before critical action + publication
+                   AND approved Origin AND FULL fence (owner+token+lease-not-expired+version) before publish
+task completion  = SUCCESS (published + cleaned up) | INCOMPLETE (published but close() failed) | FAILED
+login persist    = ACTIVATED (state saved + metadata committed) | ORPHAN_INACTIVE (state saved, metadata failed)
+                   | PERSIST_CONSISTENCY_FAILED (state NOT saved — never an orphan) | REJECTED_NOT_VERIFIED
 ```
 
 ---
@@ -791,7 +800,7 @@ task success     = fact asserted AND cleanup done AND exact Session AND matching
 - [ ] I can defend the arbitrary-subdomain rollback drill.
 - [ ] I can distinguish `EXECUTED_LOCAL_RUNTIME` (pure gate + fake Context) from `INTEGRATION_RUNTIME`
       (real PostgreSQL/credential store/Playwright).
-- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` (= 23 passed, 1 skipped; the real-Chromium suite is gated on `playwright`).
+- [ ] I can run the artifact: `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` (= 28 passed, 1 skipped; the real-Chromium suite is gated on `playwright`).
 
 ---
 
