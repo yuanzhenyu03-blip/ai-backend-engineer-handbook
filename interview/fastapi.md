@@ -1519,3 +1519,33 @@ Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/` �
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day62), the
 [Day62 lesson](../docs/fastapi/day62-playwright-runtime-locators-and-reliable-async-interaction.md), and the
 [Day62 design/runbook](../projects/fastapi-playwright/docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md).
+
+## Day63 — Browser Authentication, Storage State and Tenant Isolation
+
+### Beginner Question
+
+Q: Why isn't `tenant_id` enough to isolate two tenants' browser tasks?
+
+Strong Answer: "`tenant_id` is a business scope label; it doesn't isolate Cookies, Local Storage, Pages, or in-flight requests. The runtime isolation boundary is a fresh `BrowserContext` per task, resolved from a server-authorized Session bound to the tenant, owner, origin, and expected identity. Sharing one live Context and cleaning it up can't prove one tenant's state never reached the other."
+
+### Intermediate Question
+
+Q: A Task Context loads with no login redirect. Can you publish the result?
+
+Strong Answer: "Not yet — the absence of a redirect isn't proof of the right identity. I verify a positive, stable identity fact (a `principal_id`/`organization_id` from an account page or a protected `/me` endpoint) against the expected Session binding, not a mutable display name, and then run a final lease/version fence right before publishing. Identity mismatch is `AUTHORIZATION_SESSION_FAILURE`; a login redirect is `AUTHENTICATION_PRECONDITION_FAILED`; either way I don't publish and I don't blind-retry."
+
+### Senior Question
+
+Q: A release let Task Contexts navigate to arbitrary `*.example.com` Origins. Walk me through the response.
+
+Strong Answer: "Contain first: roll back the code/policy and pause affected new Browser Task claims. Preserve the audit facts — version/time-window, session/attempt/job, and approved-vs-actual Origin. Scope impact from the actual unapproved-Origin navigation evidence, then selectively revoke only the potentially exposed or unbounded Sessions — not every Session by reflex. Mark affected results untrusted and add redirect/popup allowlist regression tests. I wouldn't claim the rollback reverses a request already sent — un-sending external effects is a Day65 recovery/reconciliation problem."
+
+### Common Weak Answer
+
+"There was no login redirect and the account page showed, so it's the right user and I published." This infers identity from the absence of a failure and a mutable display, and skips the positive-fact verification, the exact session binding, and the final fence. Task success = business fact asserted AND Context cleanup completed AND the trusted Job maps to the exact approved Session AND the authenticated principal/org matches the expected identity AND the approved Origin held AND lease/version fencing passed before the critical action and final publication.
+
+Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` → 23 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME (pure authorization/claim + negative-effect logic + the controlled account page over real HTTP loopback). The LIVE classroom artifact was CONCEPTUAL_STATIC. NOT RUN: real Chromium isolation/redirect observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; Worker/queue (Day66); production. Day62's `13 passed, 1 skipped` is not reused as Day63 evidence. No secrets, credentials, real URLs, tenant data, cookies, tokens, or storage-state exports are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day63), the
+[Day63 lesson](../docs/fastapi/day63-browser-authentication-storage-state-and-tenant-isolation.md), and the
+[Day63 design/runbook](../projects/fastapi-playwright/docs/day63-browser-authentication-storage-state-and-tenant-isolation-design.md).

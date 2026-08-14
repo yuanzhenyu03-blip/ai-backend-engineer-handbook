@@ -47,7 +47,21 @@ import the modules under test directly. See
 [`docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md`](docs/day62-playwright-runtime-locators-and-reliable-async-interaction-design.md)
 and the [Day62 lesson](../../docs/fastapi/day62-playwright-runtime-locators-and-reliable-async-interaction.md).
 
-Current focus: reliable async interaction primitives; Day63 adds tenant-authenticated Context
+The Day63 artifact adds an authenticated, tenant-bound, revocable browser-session gate:
+`src/day63_session_gate.py` (pure authorization/claim decision core — binding validation, atomic
+claim, credential-load gating, positive-identity verification, Origin/security check, final fence,
+storage-state allowlist filtering, and an orchestrator that proves the negative effects) and
+`src/day63_controlled_login_page.py` (a synthetic loopback account page with account/redirect/
+unapproved-origin modes). Run the Day63 suite with
+`python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py`
+(= 23 passed, 1 skipped; the real-Chromium isolation suite is gated on `playwright`). The LIVE
+classroom artifact was `CONCEPTUAL_STATIC`; real PostgreSQL atomic claim, a credential/secret store,
+and real Chromium isolation are NOT RUN. See the
+[Day63 design/runbook](docs/day63-browser-authentication-storage-state-and-tenant-isolation-design.md)
+and the [Day63 lesson](../../docs/fastapi/day63-browser-authentication-storage-state-and-tenant-isolation.md).
+
+Current focus: authenticated, tenant-bound, revocable browser sessions (Day63); Day64 adds dynamic
+extraction and artifact evidence from the authorized session. Earlier: Day62 reliable-interaction Context
 isolation on this ownership model.
 
 ## Future Milestones

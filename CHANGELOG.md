@@ -9,6 +9,61 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.155 — Day63 released: Browser Authentication, Storage State and Tenant Isolation
+
+Date: 2026-08-13
+
+Day: Day63 (Phase 5). Turns Day62's per-task BrowserContext ownership into an AUTHENTICATED, tenant-bound,
+revocable browser-session capability. The LIVE CLASSROOM session executed nothing — its artifact is
+CONCEPTUAL_STATIC. The repository artifact added here is a PURE Session-Gate decision core (authored + run by
+the updating agent) plus a controlled loopback account page.
+
+Files added:
+- `docs/fastapi/day63-browser-authentication-storage-state-and-tenant-isolation.md` — 16-section
+  LESSON_TEMPLATE_v2 lesson (real classroom answers, misconceptions, corrections, interview record).
+- `projects/fastapi-playwright/src/day63_session_gate.py` — pure authorization/claim decision core:
+  Job-binding validation, atomic-claim classifier (`UPDATE ... RETURNING` semantics), credential-load gating,
+  positive-identity verification (principal_id/organization_id, never "no redirect"/display name),
+  Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, connection-flow
+  persist classifier, and an orchestrator that PROVES the negative effects (rejected claim reads no credential
+  and builds no Context; identity mismatch performs no business action and publishes nothing; a failed/UNKNOWN
+  final fence publishes nothing; an unapproved Origin closes the Context and marks SECURITY_FAILURE).
+- `projects/fastapi-playwright/src/day63_controlled_login_page.py` — a synthetic loopback account page
+  (account / login_redirect / unapproved_origin modes; synthetic identifiers only).
+- `projects/fastapi-playwright/tests/test_day63_session_gate.py` (pure + negative-effect + static gate-source
+  contract), `.../tests/test_day63_controlled_login_page_http.py` (real HTTP loopback),
+  `.../tests/test_day63_playwright_isolation.py` (real-Chromium isolation, GATED on `playwright`),
+  `.../docs/day63-...-design.md` (design/runbook + validation matrix + threat boundaries).
+
+Files updated:
+- `cheat_sheets/fastapi.md`, `interview/fastapi.md` (Day63 sections); `CURRICULUM.md` (Day63 Status ✅
+  Completed + artifacts), `ROADMAP.md` (Day63 ✅ Completed), `PROJECT_STATUS.md`, `TASKS.md` (Day63 released,
+  Day64 current), `projects/fastapi-playwright/README.md`.
+
+Main learning outcome: Tenant authorizes and the BrowserContext isolates; storage_state is protected
+credential material (a reference in the DB, encrypted content in a secret store), never in a payload/queue/log;
+the atomic claim is the authoritative concurrency/current-state check; verify a POSITIVE identity fact and
+re-fence before publishing; each of AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE /
+UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE blocks publication and is never a business `no result` or a blind
+retry; a second Attempt cannot seize an unexpired lease; revocation is forward-looking and cannot un-send a
+request already made (Day65).
+
+Validation: the LIVE classroom artifact was CONCEPTUAL_STATIC. The updating agent ran
+`python3 -m pytest -q projects/fastapi-playwright/tests/test_day63_session_gate.py
+projects/fastapi-playwright/tests/test_day63_controlled_login_page_http.py
+projects/fastapi-playwright/tests/test_day63_playwright_isolation.py` = **23 passed, 1 skipped**, plus
+`py_compile` — EXECUTED_LOCAL_RUNTIME (pure authorization/claim + negative-effect logic + the controlled
+account page over a REAL HTTP loopback + static gate-source contract checks). The 1 skipped item is the
+real-Chromium isolation module, gated on the `playwright` package (absent in the agent environment). NOT RUN:
+real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL `UPDATE ... RETURNING`
+atomic claim; real credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66);
+production. Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real
+target URLs, tenant data, cookies, tokens, or storage-state exports are committed; all identifiers are
+synthetic and the page is served on 127.0.0.1. `prompts/master-prompt.md`, `prompts/teaching-session-prompt.md`
+and `LESSON_TEMPLATE_v2.md` unchanged.
+
+---
+
 ## v0.1.154 — Day62 review fix: standard pytest path config (pytest.ini pythonpath=src)
 
 Date: 2026-08-13
