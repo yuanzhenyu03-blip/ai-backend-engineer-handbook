@@ -1585,3 +1585,39 @@ Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day64), the
 [Day64 lesson](../docs/fastapi/day64-dynamic-extraction-network-events-and-artifact-evidence.md), and the
 [Day64 design/runbook](../projects/fastapi-playwright/docs/day64-dynamic-extraction-network-events-and-artifact-evidence-design.md).
+
+## Day65 — Browser Failure Recovery and Security Boundaries
+
+### Beginner Question
+
+Q: Why not retry immediately after a post-action timeout?
+
+Student answer (preserved): "Because it is unknown whether there are side effects or other unforeseen outcomes."
+
+Strong Answer: "A post-action timeout is an UNKNOWN_OUTCOME, not a proven failure — the server may have accepted and executed the action, so replaying it could cause a duplicate side effect. I reconcile the original action using its strict identity (client_request_id/report_id/verified export_id) and a server audit lookup, and only retry if I can prove it never started or the operation is safely idempotent."
+
+### Intermediate Question
+
+Q: What must be true before a Worker schedules a bounded retry?
+
+Student answer (preserved): retryability, idempotency/non-start, UNKNOWN_OUTCOME, safety stop, authorization, deadline, and budget.
+
+Strong Answer: "An explicit retryable failure class; either proof the action never started or well-defined idempotency semantics; no UNKNOWN_OUTCOME; no security stop such as a CAPTCHA; valid tenant/session/lease/task authorization revalidated at the Day63 final fence; remaining deadline and budget; and exactly one active owner. The policy bounds it with max attempts, a total budget, a per-attempt timeout, exponential backoff with jitter, an idempotency identity, and an audit trail. Only then may the worker schedule a bounded retry — and if the server's Retry-After exceeds the remaining deadline, I don't create a new Attempt."
+
+### Senior Question
+
+Q: An exact-Origin allow-list was weakened to a wildcard and authenticated tasks may have been redirected. Walk me through the response.
+
+Student answer (preserved): containment, scope, classification, and recovery.
+
+Strong Answer: "Contain first: roll back the wildcard navigation policy, pause affected tasks and new Attempts, block the targets, and — according to exposure evidence — revoke affected Sessions or rotate credentials and open a security incident. Scope the blast radius from the release version/window, task audits, navigation decisions, and minimized safe evidence. Classify each item: blocked-before-navigation, unapproved-navigation-with-no-credential-release, possible-credential-exposure, published-artifact-affected, and unknown — and unknown items are reconciled and investigated, never blindly retried. Recover by restoring the exact-Origin policy and adding regression tests for redirects, DNS/IP validation, cookie release, and prompt injection, then re-enable in a controlled rollout."
+
+### Common Weak Answer
+
+"It timed out, so I retry; I'll save the screenshot to the logs to debug; and I'll follow the page's link to continue." This retries an unknown outcome (duplicate side-effect risk), leaks secrets into logs, and treats page content as authorization (SSRF / prompt injection). A timeout is an unknown to reconcile, diagnostics are private and redacted, navigation/credentials are server-side policy decisions, and page content is never authorization; a CAPTCHA is a human stop, retries are bounded by deadline and idempotency, and incidents run contain -> scope -> classify -> repair -> controlled rollout.
+
+Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test_day65_recovery_security_policy.py` -> 12 passed, EXECUTED_LOCAL_RUNTIME (pure recovery/security decision core). The LIVE classroom artifact was CONCEPTUAL_STATIC. NOT RUN: real Playwright timeout/reconciliation, trace/screenshot redaction, redirect/DNS/IP policy, storage-state/Cookie behaviour, CAPTCHA handling, audit lookup, real Worker/queue (Day66), integration, production. Day64's 25 passed is not reused as Day65 evidence. No secrets, real credentials, target URLs, Cookies, tokens, customer data, raw payloads, screenshots, or CAPTCHA-bypass logic are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day65), the
+[Day65 lesson](../docs/fastapi/day65-browser-failure-recovery-and-security-boundaries.md), and the
+[Day65 design/runbook](../projects/fastapi-playwright/docs/day65-browser-failure-recovery-and-security-boundaries-design.md).

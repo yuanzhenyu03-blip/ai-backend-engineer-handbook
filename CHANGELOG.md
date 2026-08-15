@@ -9,6 +9,23 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.161 — Day65: Browser Failure Recovery and Security Boundaries
+
+Date: 2026-08-15
+
+Day: Day65 (Phase 5). Turns Day64's trusted-Artifact browser flow into a recoverable, security-bounded capability: distinguish a safe retry from an unknown outcome, handle diagnostics safely, constrain navigation and credentials, and STOP rather than bypass website security controls.
+
+Added:
+
+- `docs/fastapi/day65-browser-failure-recovery-and-security-boundaries.md` — the 16-section `LESSON_TEMPLATE_v2` lesson, preserving the real student answers and the Beginner/Intermediate/Senior English interview record.
+- `projects/fastapi-playwright/src/day65_recovery_security_policy.py` — a pure standard-library decision core (no parallel project): timeout classification (UNKNOWN_OUTCOME vs SAFE_TO_RETRY); unknown-outcome reconciliation by strict Day64 action identity + server audit (never URL+200); diagnostics policy (private/redacted/access-controlled/retention-bounded/audited only, never ordinary logs/model context/prompt/public Artifact); navigation & redirect SSRF gate by scheme + exact Origin (host:port) + resolved IP, blocking loopback/private/link-local/reserved/cloud-metadata (169.254.169.254) and revalidating redirect/DNS hops; scoped credential release (current tenant/session/attempt + approved Origin + explicit purpose + valid session) with no cross-Origin storage-state forwarding; instruction authority (task contract + server policy only) -> PROMPT_INJECTION_BLOCKED; CAPTCHA -> HUMAN_VERIFICATION_REQUIRED (never bypassed); bounded retry eligibility (retryable class + proven non-start/idempotency + no UNKNOWN + no security stop + valid authorization + one active owner + deadline/budget, Retry-After > remaining deadline -> RETRY_DEFERRED) with exponential backoff; and incident classification (contain -> scope -> classify -> repair -> controlled rollout). Reuses `day63_session_gate.final_fence` to revalidate before a retry or credential release.
+- `projects/fastapi-playwright/tests/test_day65_recovery_security_policy.py` — focused failure/security tests.
+- `projects/fastapi-playwright/docs/day65-browser-failure-recovery-and-security-boundaries-design.md` — design/runbook + Browser Task Decision Contract v1.0 + run command + evidence matrix.
+
+Updated: `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `projects/fastapi-playwright/README.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`.
+
+Validation: `python3 -m pytest -q tests/test_day65_recovery_security_policy.py` = 12 passed; full `projects/fastapi-playwright/` suite = 86 passed, 2 skipped (real-Chromium suites gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC. NOT RUN: real Playwright timeout/reconciliation; trace/screenshot redaction; redirect/DNS/IP enforcement; storage-state/Cookie behaviour; CAPTCHA handling; audit lookup; a real Worker/queue (Day66); integration; production. Day64's `25 passed` is NOT reused as Day65 evidence. No secrets, real credentials, target URLs, Cookies, tokens, customer data, raw sensitive payloads, screenshots, or CAPTCHA-bypass logic are committed.
+
 ## v0.1.160 — Day64 review fix: download validation from actual parsed content (no forgeable booleans)
 
 Date: 2026-08-14
