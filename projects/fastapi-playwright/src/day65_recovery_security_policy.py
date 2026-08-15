@@ -41,7 +41,7 @@ raw sensitive payloads, screenshots, or CAPTCHA-bypass logic live here.
 from __future__ import annotations
 
 import ipaddress
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import List, Optional, Sequence
 
@@ -78,17 +78,24 @@ class ActionIdentity:
     normalized_endpoint: str
     report_id: str
     client_request_id: str
+    export_id: Optional[str] = None   # set ONLY for a follow-up query already bound to this initial action
 
 
 @dataclass(frozen=True)
 class ServerActionRecord:
-    """An authoritative server-side status/audit record, looked up by OUR action identity — not by a
-    broad URL match. ``found=False`` with ``authoritative_negative=True`` means the server proved the
-    action never started."""
+    """An authoritative server-side status/audit record, looked up by OUR FULL action identity — not by
+    a broad URL match. The record MUST carry every security field needed to prove it is the SAME Origin,
+    the SAME HTTP method, the SAME normalized endpoint, the SAME report, the SAME initial
+    ``client_request_id`` and, when that phase uses it, the SAME verified ``export_id``. ``found=False``
+    with ``authoritative_negative=True`` means the server proved the action never started."""
     found: bool
-    client_request_id: Optional[str]
+    allowed_origin: Optional[str]
+    method: Optional[str]
+    normalized_endpoint: Optional[str]
     report_id: Optional[str]
+    client_request_id: Optional[str]
     status: Optional[str]                  # e.g. "completed" / "accepted" / "not_found"
+    export_id: Optional[str] = None
     authoritative_negative: bool = False
 
 
@@ -99,13 +106,28 @@ class ReconcileResult(str, Enum):
 
 
 def reconcile_unknown(expected: ActionIdentity, record: ServerActionRecord) -> ReconcileResult:
-    """Reconcile an ``UNKNOWN_OUTCOME`` by matching the ORIGINAL action's strict identity against an
-    authoritative server record. A record whose ``client_request_id``/``report_id`` do not exactly match
-    is NOT our action (never a broad URL + 200 match) -> STILL_UNKNOWN."""
+    """Reconcile an ``UNKNOWN_OUTCOME`` by matching the ORIGINAL action's FULL strict identity against an
+    authoritative server record. EVERY security field must match exactly — a different Origin, HTTP
+    method, normalized endpoint, ``report_id``, or ``client_request_id`` means this is NOT our action
+    (never a broad URL + 200) -> STILL_UNKNOWN. The initial action is ALWAYS keyed by
+    ``client_request_id``; a non-empty ``export_id`` can NEVER substitute for that match. When the
+    follow-up phase carries a verified ``export_id`` (``expected.export_id`` is set), the record's
+    ``export_id`` must ALSO match exactly and be bound to the same initial identity."""
     if not record.found:
         return ReconcileResult.CONFIRMED_NOT_STARTED if record.authoritative_negative else ReconcileResult.STILL_UNKNOWN
-    if record.client_request_id != expected.client_request_id or record.report_id != expected.report_id:
+    # Full strict-identity match, always keyed on the initial client_request_id.
+    if (
+        record.allowed_origin != expected.allowed_origin
+        or record.method != expected.method
+        or record.normalized_endpoint != expected.normalized_endpoint
+        or record.report_id != expected.report_id
+        or record.client_request_id != expected.client_request_id
+    ):
         return ReconcileResult.STILL_UNKNOWN   # a different action; do not attribute it to ours
+    # Verified-export phase: a bound export_id must match exactly (it never replaces the crid match above).
+    if expected.export_id is not None:
+        if record.export_id is None or record.export_id != expected.export_id:
+            return ReconcileResult.STILL_UNKNOWN
     if record.status in ("completed", "accepted", "imported"):
         return ReconcileResult.CONFIRMED_COMPLETED
     if record.status in ("not_found", "never_started"):
@@ -365,8 +387,9 @@ class RetryContext:
     failure_class: str
     timeout_class: TimeoutClass
     security_stop: SecurityStop
-    authorized: bool             # tenant/session/lease/task authorization still valid (see Day63 fence)
+    authorized: bool             # RECOMPUTED from the Day63 fence by authorize_retry() — not caller-trusted
     one_active_owner: bool
+    proven_non_start: bool = False   # the action is PROVEN never to have started (side-effect-free replay)
     retry_after_ms: Optional[int] = None
 
 
@@ -375,23 +398,45 @@ class RetryDecision(str, Enum):
     SECURITY_STOP_BLOCK = "SECURITY_STOP_BLOCK"
     UNKNOWN_OUTCOME_BLOCK = "UNKNOWN_OUTCOME_BLOCK"   # reconcile first; never blind-retry
     NOT_RETRYABLE = "NOT_RETRYABLE"
+    NOT_IDEMPOTENT_UNPROVEN = "NOT_IDEMPOTENT_UNPROVEN"  # neither proven non-start NOR a usable idempotency key
     UNAUTHORIZED = "UNAUTHORIZED"
     MULTIPLE_OWNERS = "MULTIPLE_OWNERS"
     MAX_ATTEMPTS_EXCEEDED = "MAX_ATTEMPTS_EXCEEDED"
-    DEADLINE_EXCEEDED = "DEADLINE_EXCEEDED"
+    DEADLINE_EXCEEDED = "DEADLINE_EXCEEDED"           # wait + one attempt timeout won't fit the deadline
+    BUDGET_EXCEEDED = "BUDGET_EXCEEDED"               # elapsed + wait + one attempt timeout won't fit budget
     RETRY_DEFERRED = "RETRY_DEFERRED"                 # Retry-After beyond the deadline -> no new Attempt
+
+
+def compute_backoff_ms(attempt_number: int, base_backoff_ms: int, jitter_ms: int = 0) -> int:
+    """Exponential backoff with (caller-supplied, deterministic) jitter: ``base * 2^(n-1) + jitter``,
+    safely clamped so a negative jitter can NEVER produce a negative wait."""
+    n = max(1, attempt_number)
+    return max(0, base_backoff_ms * (2 ** (n - 1)) + jitter_ms)
+
+
+def _next_retry_delay_ms(policy: RetryPolicy, ctx: RetryContext) -> int:
+    """The conservative wait before the next attempt: the LARGER of the local (nominal, jitter-free)
+    exponential backoff and any server ``Retry-After`` — clamped so it is never negative."""
+    backoff = compute_backoff_ms(ctx.attempt_number, policy.base_backoff_ms)
+    server_wait = ctx.retry_after_ms if ctx.retry_after_ms is not None else 0
+    return max(0, backoff, server_wait)
 
 
 def retry_eligibility(policy: RetryPolicy, ctx: RetryContext) -> RetryDecision:
     """A bounded retry needs, in order: NO security stop; NO ``UNKNOWN_OUTCOME`` (reconcile first); an
-    explicit retryable failure class; valid tenant/session/lease/task authorization; exactly ONE active
-    owner; attempts left; remaining deadline/budget; and a ``Retry-After`` that fits inside the deadline."""
+    explicit retryable failure class; a PROVEN non-start OR a usable ``idempotency_key``; valid
+    tenant/session/lease/task authorization; exactly ONE active owner; attempts left; and the FULL time
+    cost — the conservative wait (max of nominal backoff and ``Retry-After``) PLUS one
+    ``per_attempt_timeout_ms`` — still fitting inside BOTH the remaining task deadline AND the total
+    budget. A ``Retry-After`` beyond the remaining deadline is ``RETRY_DEFERRED`` (never a new Attempt)."""
     if is_security_stop(ctx.security_stop):
         return RetryDecision.SECURITY_STOP_BLOCK
     if ctx.timeout_class is TimeoutClass.UNKNOWN_OUTCOME:
         return RetryDecision.UNKNOWN_OUTCOME_BLOCK
     if ctx.failure_class not in set(policy.retryable_errors):
         return RetryDecision.NOT_RETRYABLE
+    if not ctx.proven_non_start and not policy.idempotency_key:
+        return RetryDecision.NOT_IDEMPOTENT_UNPROVEN   # unsafe to replay a possible side effect
     if not ctx.authorized:
         return RetryDecision.UNAUTHORIZED
     if not ctx.one_active_owner:
@@ -400,22 +445,58 @@ def retry_eligibility(policy: RetryPolicy, ctx: RetryContext) -> RetryDecision:
         return RetryDecision.MAX_ATTEMPTS_EXCEEDED
     if ctx.remaining_deadline_ms <= 0 or ctx.elapsed_ms >= policy.total_budget_ms:
         return RetryDecision.DEADLINE_EXCEEDED
+    # A Retry-After that alone exceeds the remaining deadline defers the task with no new Attempt.
     if ctx.retry_after_ms is not None and ctx.retry_after_ms > ctx.remaining_deadline_ms:
-        return RetryDecision.RETRY_DEFERRED   # e.g. Retry-After 60s but only 30s of deadline left
+        return RetryDecision.RETRY_DEFERRED
+    delay = _next_retry_delay_ms(policy, ctx)
+    cost = delay + policy.per_attempt_timeout_ms
+    # The next wait AND the next per-attempt timeout must both fit inside the remaining deadline ...
+    if cost > ctx.remaining_deadline_ms:
+        return RetryDecision.DEADLINE_EXCEEDED
+    # ... and inside the total time budget once elapsed time is included.
+    if ctx.elapsed_ms + cost > policy.total_budget_ms:
+        return RetryDecision.BUDGET_EXCEEDED
     return RetryDecision.RETRY
 
 
-def compute_backoff_ms(attempt_number: int, base_backoff_ms: int, jitter_ms: int = 0) -> int:
-    """Exponential backoff with (caller-supplied, deterministic) jitter: ``base * 2^(n-1) + jitter``."""
-    n = max(1, attempt_number)
-    return base_backoff_ms * (2 ** (n - 1)) + jitter_ms
+# ---------------------------------------------------------------------------
+# 8b) Enforced Day63-fence gates for RETRY and credential RELEASE.
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class FenceInputs:
+    """The Day63 ``final_fence`` inputs re-checked BEFORE any RETRY or credential RELEASE."""
+    meta: SessionMeta
+    worker_token: str
+    claimed_version: int
+    attempt_id: str
+    now: int
+    timed_out: bool = False
 
 
-def authorization_still_valid(fence_meta: SessionMeta, worker_token: str, claimed_version: int,
-                              attempt_id: str, now: int) -> bool:
-    """Revalidate the Day63 final fence BEFORE a retry or a credential release (active + session-expiry
-    + lease_owner + lease_token + lease_expires_at + version)."""
-    return final_fence(fence_meta, worker_token, claimed_version, attempt_id, now) is Outcome.AUTHORIZED
+def authorization_still_valid(fence: FenceInputs) -> bool:
+    """Revalidate the Day63 final fence (active + session-expiry + lease_owner + lease_token +
+    lease_expires_at + version). This is the SINGLE source of the ``authorized`` / ``session_valid``
+    truth used by the enforced gates below — a caller can NOT bypass it with a hand-written flag."""
+    return final_fence(fence.meta, fence.worker_token, fence.claimed_version, fence.attempt_id,
+                       fence.now, timed_out=fence.timed_out) is Outcome.AUTHORIZED
+
+
+def authorize_retry(policy: RetryPolicy, ctx: RetryContext, fence: FenceInputs) -> RetryDecision:
+    """ENFORCED retry entry point. It RECOMPUTES ``authorized`` from the live Day63 ``final_fence`` and
+    IGNORES any ``ctx.authorized`` the caller supplied, so ``RETRY`` is possible ONLY while the fence
+    currently returns ``AUTHORIZED`` (a revoked/expired session, a lost/expired lease, or a superseded
+    token/version can never be retried)."""
+    enforced = replace(ctx, authorized=authorization_still_valid(fence))
+    return retry_eligibility(policy, enforced)
+
+
+def authorize_credential_release(req: CredentialRequest, ctx: ReleaseContext,
+                                 fence: FenceInputs) -> ReleaseDecision:
+    """ENFORCED credential-release entry point. It RECOMPUTES ``session_valid`` from the live Day63
+    ``final_fence`` and IGNORES any ``ctx.session_valid`` the caller supplied, so credentials are
+    released ONLY while the fence currently returns ``AUTHORIZED``."""
+    enforced = replace(ctx, session_valid=authorization_still_valid(fence))
+    return credential_release_allowed(req, enforced)
 
 
 # ---------------------------------------------------------------------------

@@ -9,6 +9,22 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.162 — Day65 review fixes: strict reconciliation, bounded retry, enforced final-fence gates
+
+Date: 2026-08-15
+
+Day: Day65 (Phase 5). Three P1 review findings in `projects/fastapi-playwright/src/day65_recovery_security_policy.py`.
+
+P1-1 — strict unknown-outcome reconciliation. `ServerActionRecord` now carries the full security identity (`allowed_origin`, `method`, `normalized_endpoint`, `report_id`, `client_request_id`, `export_id`) and `ActionIdentity` gains an optional bound `export_id`. `reconcile_unknown()` rejects ANY single mismatched field with `STILL_UNKNOWN`; the initial action stays keyed on `client_request_id`, and a verified `export_id` is only checked in the follow-up phase, must be bound to the same initial identity, and can never substitute for the `client_request_id` match.
+
+P1-2 — the retry policy's idempotency and time bounds are now enforced. `retry_eligibility()` refuses to replay unless the action is a proven non-start OR the policy carries a usable `idempotency_key` (`NOT_IDEMPOTENT_UNPROVEN`), and it requires the conservative next wait (the larger of nominal exponential backoff and any `Retry-After`, clamped non-negative) PLUS one `per_attempt_timeout_ms` to fit inside BOTH the remaining deadline (`DEADLINE_EXCEEDED`) and the total budget (`BUDGET_EXCEEDED`). `compute_backoff_ms()` clamps negative jitter so it can never produce a negative wait.
+
+P1-3 — the Day63 final fence is wired into the actual permit decision. New enforced entry points `authorize_retry(policy, ctx, fence)` and `authorize_credential_release(req, ctx, fence)` recompute `authorized`/`session_valid` from `day63_session_gate.final_fence` (via `authorization_still_valid(FenceInputs)`) and ignore any caller-supplied flag, so a revoked/expired session, a lost/expired lease, or a superseded token/version can never be retried or released.
+
+Tests: `tests/test_day65_recovery_security_policy.py` gains wrong-origin/method/endpoint/report_id/client_request_id and wrong/unbound `export_id` reconciliation cases; non-idempotent-unproven, deadline-cost, budget, Retry-After+timeout-overflow and negative-jitter retry cases; and full final-fence gate cases (session revoked/expired, lease owner/token/expiry, version mismatch) proving the caller flag cannot bypass the fence.
+
+Validation: `python3 -m pytest -q tests/test_day65_recovery_security_policy.py` = 18 passed (was 12); full `projects/fastapi-playwright/` suite = 92 passed, 2 skipped (real-Chromium suites gated on `playwright`), EXECUTED_LOCAL_RUNTIME. Docs (lesson, design/runbook, cheat sheet, interview, README, CURRICULUM, PROJECT_STATUS, TASKS) updated to the enforced retry rule, the full strict-identity + bound-export wording, the wired-in fence, and the count 18/92. Day64's `25 passed` is NOT reused as Day65 evidence. Day63/Day64 security boundaries are unchanged; no real CAPTCHA bypass, real credential handling, or real external-site access. NOT RUN: real Playwright timeout/reconciliation; trace/screenshot redaction; redirect/DNS/IP enforcement; storage-state/Cookie behaviour; CAPTCHA handling; audit lookup; a real Worker/queue (Day66); real PostgreSQL atomic claim; real KMS; real BrowserContext; integration; production.
+
 ## v0.1.161 — Day65: Browser Failure Recovery and Security Boundaries
 
 Date: 2026-08-15

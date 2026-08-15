@@ -46,8 +46,11 @@ Incident
 
 - A possible POST-ACTION timeout is `UNKNOWN_OUTCOME` (the action may have executed) — never
   `SAFE_TO_RETRY`; a missing captured response is not proof the server never accepted the action.
-  Reconcile by the ORIGINAL action's strict `client_request_id`/`report_id`/verified `export_id` + a
-  server status/audit lookup — never a broad URL + HTTP 200.
+  Reconcile by the ORIGINAL action's FULL strict identity (`allowed_origin` + `method` +
+  `normalized_endpoint` + `report_id` + `client_request_id`) against an authoritative server record —
+  never a broad URL + HTTP 200. ANY single mismatched field is `STILL_UNKNOWN`. The initial action is
+  always keyed by `client_request_id`; a verified `export_id` is checked only in the follow-up phase,
+  must be bound to that same initial identity, and never substitutes for the `client_request_id` match.
 - Diagnostics (screenshots/traces/headers/raw payloads/DOM/Cookies/Authorization/tokens/PII/tenant
   data) may only go to a private, access-controlled, retention-bounded, audited store, redacted when
   sensitive — never ordinary logs, the model context, a prompt, or a public Artifact. A screenshot
@@ -62,10 +65,16 @@ Incident
 - The task contract + server-side policy are the sole authority; DOM/page/download/network/model
   output are untrusted, and their overreach is `PROMPT_INJECTION_BLOCKED`. A CAPTCHA is
   `HUMAN_VERIFICATION_REQUIRED` — never bypassed/evaded/outsourced/disguised as a retryable failure.
-- A bounded retry needs an explicit retryable class, proven non-start/idempotency (no
-  `UNKNOWN_OUTCOME`), no security stop, valid authorization, remaining deadline/budget, and one active
-  owner. A `Retry-After` beyond the remaining deadline ends the task (`RETRY_DEFERRED`) — never a new
-  Attempt.
+- A bounded retry needs an explicit retryable class; a PROVEN non-start OR a usable `idempotency_key`
+  (otherwise `NOT_IDEMPOTENT_UNPROVEN` — never replay a possible side effect); no `UNKNOWN_OUTCOME`; no
+  security stop; valid authorization; and one active owner. The conservative next wait (the larger of
+  nominal exponential backoff and any `Retry-After`, never negative) PLUS one `per_attempt_timeout_ms`
+  must fit inside BOTH the remaining deadline (else `DEADLINE_EXCEEDED`) and the total budget (else
+  `BUDGET_EXCEEDED`). A `Retry-After` beyond the remaining deadline ends the task (`RETRY_DEFERRED`) —
+  never a new Attempt. Authorization is NOT a caller flag: `authorize_retry(policy, ctx, fence)` and
+  `authorize_credential_release(req, ctx, fence)` recompute it from the Day63 `final_fence`
+  (`authorization_still_valid(FenceInputs)`), so a revoked/expired session, a lost/expired lease, or a
+  superseded token/version can never be retried or released.
 - An incident is handled `contain -> scope -> classify -> repair -> controlled rollout`; items are
   classified from actually-preserved evidence (`BLOCKED_BEFORE_NAVIGATION` /
   `UNAPPROVED_NAVIGATION_NO_CREDENTIAL_RELEASE` / `POSSIBLE_CREDENTIAL_EXPOSURE` /
@@ -77,7 +86,7 @@ Incident
 cd projects/fastapi-playwright
 python3 -m pip install pytest==7.4.3
 python3 -m pytest -q tests/test_day65_recovery_security_policy.py
-# -> 12 passed: pure decision-core failure/security rules. No browser, trace, Object Storage,
+# -> 18 passed: pure decision-core failure/security rules. No browser, trace, Object Storage,
 #    PostgreSQL, or queue is involved.
 ```
 
@@ -89,7 +98,7 @@ python3 -m pytest -q tests/test_day65_recovery_security_policy.py
                          Worker, or production ran in class.
 [EXECUTED_LOCAL_RUNTIME] Run by the updating agent: py_compile + the pure recovery/security decision
                          core (timeout/reconcile/diagnostics/SSRF/credential/instruction/CAPTCHA/retry/
-                         Retry-After/incident) = 12 passed.
+                         Retry-After/incident) = 18 passed.
 [NOT RUN]                Real Playwright timeout/reconciliation; real trace/screenshot redaction; real
                          redirect/DNS/IP enforcement; real storage-state/Cookie behaviour; real CAPTCHA
                          handling; a real audit lookup; a real Worker/queue; integration; production.

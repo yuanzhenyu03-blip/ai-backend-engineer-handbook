@@ -23,9 +23,12 @@ from day65_recovery_security_policy import (
     RetryDecision,
     RetryPolicy,
     SecurityStop,
+    FenceInputs,
     ServerActionRecord,
     TimeoutClass,
     authorization_still_valid,
+    authorize_credential_release,
+    authorize_retry,
     classify_captcha,
     classify_incident_item,
     classify_timeout,
@@ -59,19 +62,49 @@ def test_post_action_timeout_is_unknown_not_safe_to_retry():
 
 
 # ---- 2) reconciliation by strict action identity ----------------------------------------
+def _identity(**over):
+    d = dict(allowed_origin=ORIGIN, method="POST", normalized_endpoint="/api/exports",
+             report_id="42", client_request_id="crq-1", export_id=None)
+    d.update(over)
+    return ActionIdentity(**d)
+
+
+def _record(**over):
+    d = dict(found=True, allowed_origin=ORIGIN, method="POST", normalized_endpoint="/api/exports",
+             report_id="42", client_request_id="crq-1", status="completed", export_id=None)
+    d.update(over)
+    return ServerActionRecord(**d)
+
+
 def test_reconcile_uses_strict_identity_not_broad_match():
-    expected = ActionIdentity(ORIGIN, "POST", "/api/exports", "42", "crq-1")
-    completed = ServerActionRecord(True, "crq-1", "42", "completed")
-    assert reconcile_unknown(expected, completed) is ReconcileResult.CONFIRMED_COMPLETED
-    # a DIFFERENT action's record (wrong client_request_id) must NOT be attributed to ours
-    other = ServerActionRecord(True, "crq-other", "42", "completed")
-    assert reconcile_unknown(expected, other) is ReconcileResult.STILL_UNKNOWN
-    # authoritative negative proves non-start -> now safe to retry
-    negative = ServerActionRecord(False, None, None, "not_found", authoritative_negative=True)
-    assert reconcile_unknown(expected, negative) is ReconcileResult.CONFIRMED_NOT_STARTED
-    # a non-authoritative miss stays unknown
-    miss = ServerActionRecord(False, None, None, None, authoritative_negative=False)
-    assert reconcile_unknown(expected, miss) is ReconcileResult.STILL_UNKNOWN
+    expected = _identity()
+    # all fields match + terminal status -> confirmed
+    assert reconcile_unknown(expected, _record(status="completed")) is ReconcileResult.CONFIRMED_COMPLETED
+    assert reconcile_unknown(expected, _record(status="never_started")) is ReconcileResult.CONFIRMED_NOT_STARTED
+    # EVERY security field must match exactly; any single mismatch -> STILL_UNKNOWN (not our action)
+    assert reconcile_unknown(expected, _record(allowed_origin="https://evil.example.test:443")) is ReconcileResult.STILL_UNKNOWN
+    assert reconcile_unknown(expected, _record(method="GET")) is ReconcileResult.STILL_UNKNOWN
+    assert reconcile_unknown(expected, _record(normalized_endpoint="/api/other")) is ReconcileResult.STILL_UNKNOWN
+    assert reconcile_unknown(expected, _record(report_id="99")) is ReconcileResult.STILL_UNKNOWN
+    assert reconcile_unknown(expected, _record(client_request_id="crq-other")) is ReconcileResult.STILL_UNKNOWN
+    # authoritative negative proves non-start; a non-authoritative miss stays unknown
+    assert reconcile_unknown(expected, ServerActionRecord(False, None, None, None, None, None, "not_found",
+                                                          authoritative_negative=True)) is ReconcileResult.CONFIRMED_NOT_STARTED
+    assert reconcile_unknown(expected, ServerActionRecord(False, None, None, None, None, None, None)) is ReconcileResult.STILL_UNKNOWN
+
+
+def test_reconcile_verified_export_id_must_be_bound_and_never_substitute():
+    # follow-up phase carries a verified export_id -> the record's export_id must match AND be bound to
+    # the same initial client_request_id (which is still required).
+    expected = _identity(export_id="exp-7")
+    assert reconcile_unknown(expected, _record(export_id="exp-7", status="completed")) is ReconcileResult.CONFIRMED_COMPLETED
+    # a wrong export_id -> not our export
+    assert reconcile_unknown(expected, _record(export_id="exp-BAD", status="completed")) is ReconcileResult.STILL_UNKNOWN
+    # an UNBOUND record (no export_id) cannot satisfy the verified-export phase
+    assert reconcile_unknown(expected, _record(export_id=None, status="completed")) is ReconcileResult.STILL_UNKNOWN
+    # a matching export_id can NEVER substitute for a mismatched initial client_request_id
+    assert reconcile_unknown(expected, _record(export_id="exp-7", client_request_id="crq-other",
+                                               status="completed")) is ReconcileResult.STILL_UNKNOWN
 
 
 # ---- 3) diagnostics ---------------------------------------------------------------------
@@ -161,7 +194,7 @@ def _policy(**over):
 def _ctx(**over):
     d = dict(attempt_number=1, elapsed_ms=1_000, remaining_deadline_ms=30_000, failure_class="http_503",
              timeout_class=TimeoutClass.SAFE_TO_RETRY, security_stop=SecurityStop.NONE, authorized=True,
-             one_active_owner=True, retry_after_ms=None)
+             one_active_owner=True, proven_non_start=False, retry_after_ms=None)
     d.update(over)
     return RetryContext(**d)
 
@@ -178,6 +211,26 @@ def test_proven_pre_request_503_is_bounded_retry():
     assert retry_eligibility(_policy(), _ctx(attempt_number=3)) is RetryDecision.MAX_ATTEMPTS_EXCEEDED
 
 
+def test_retry_requires_proven_non_start_or_idempotency_key():
+    # default policy carries an idempotency_key -> a non-proven-non-start retry may proceed
+    assert retry_eligibility(_policy(), _ctx(proven_non_start=False)) is RetryDecision.RETRY
+    # no idempotency key AND not proven non-start -> refuse to replay a possible side effect
+    assert retry_eligibility(_policy(idempotency_key=None), _ctx(proven_non_start=False)) is RetryDecision.NOT_IDEMPOTENT_UNPROVEN
+    # no idempotency key but PROVEN non-start -> may proceed
+    assert retry_eligibility(_policy(idempotency_key=None), _ctx(proven_non_start=True)) is RetryDecision.RETRY
+
+
+def test_retry_time_cost_must_fit_deadline_and_budget():
+    # deadline can't hold the next backoff + one per-attempt timeout (200 + 5000 > 4000) -> DEADLINE_EXCEEDED
+    assert retry_eligibility(_policy(), _ctx(remaining_deadline_ms=4_000)) is RetryDecision.DEADLINE_EXCEEDED
+    # deadline is fine, but elapsed + backoff + attempt timeout exceeds the total budget
+    assert retry_eligibility(_policy(total_budget_ms=5_500), _ctx(elapsed_ms=1_000, remaining_deadline_ms=30_000)) is RetryDecision.BUDGET_EXCEEDED
+    # Retry-After sits inside the deadline, but Retry-After + attempt timeout overflows it -> DEADLINE_EXCEEDED
+    assert retry_eligibility(_policy(), _ctx(retry_after_ms=8_000, remaining_deadline_ms=10_000)) is RetryDecision.DEADLINE_EXCEEDED
+    # a comfortable window succeeds
+    assert retry_eligibility(_policy(), _ctx(retry_after_ms=1_000, remaining_deadline_ms=30_000)) is RetryDecision.RETRY
+
+
 # ---- 9) Retry-After exceeding the task deadline -----------------------------------------
 def test_retry_after_exceeding_deadline_creates_no_new_attempt():
     # Retry-After 60s but only 30s of task deadline remain -> no new Attempt
@@ -186,11 +239,53 @@ def test_retry_after_exceeding_deadline_creates_no_new_attempt():
     assert retry_eligibility(_policy(), _ctx(remaining_deadline_ms=0)) is RetryDecision.DEADLINE_EXCEEDED
 
 
-def test_authorization_revalidated_before_retry():
-    ok = SessionMeta("active", NOW + 100, 3, "att-1", "wtok-1", NOW + 50)
-    assert authorization_still_valid(ok, "wtok-1", 3, "att-1", NOW) is True
-    revoked = SessionMeta("revoked", NOW + 100, 3, "att-1", "wtok-1", NOW + 50)
-    assert authorization_still_valid(revoked, "wtok-1", 3, "att-1", NOW) is False
+def test_backoff_jitter_never_produces_negative_wait():
+    assert compute_backoff_ms(1, 200, jitter_ms=-10_000) >= 0
+    assert compute_backoff_ms(2, 200, jitter_ms=50) == 400 + 50
+
+
+# ---- 8b) enforced Day63 final-fence gates for RETRY / RELEASE ----------------------------
+def _fence(**over):
+    meta = SessionMeta("active", NOW + 100, 3, "att-1", "wtok-1", NOW + 50)
+    d = dict(meta=meta, worker_token="wtok-1", claimed_version=3, attempt_id="att-1", now=NOW)
+    d.update(over)
+    return FenceInputs(**d)
+
+
+def _bad_fences():
+    return {
+        "session_revoked": _fence(meta=SessionMeta("revoked", NOW + 100, 3, "att-1", "wtok-1", NOW + 50)),
+        "session_expired": _fence(meta=SessionMeta("active", NOW - 1, 3, "att-1", "wtok-1", NOW + 50)),
+        "lease_owner_mismatch": _fence(meta=SessionMeta("active", NOW + 100, 3, "other", "wtok-1", NOW + 50)),
+        "lease_token_mismatch": _fence(meta=SessionMeta("active", NOW + 100, 3, "att-1", "wrong", NOW + 50)),
+        "lease_expired": _fence(meta=SessionMeta("active", NOW + 100, 3, "att-1", "wtok-1", NOW - 1)),
+        "version_mismatch": _fence(claimed_version=99),
+    }
+
+
+def test_authorization_still_valid_uses_full_fence():
+    assert authorization_still_valid(_fence()) is True
+    for name, bad in _bad_fences().items():
+        assert authorization_still_valid(bad) is False, name
+
+
+def test_authorize_retry_recomputes_authorized_from_fence_not_caller_flag():
+    # a caller-supplied authorized=True can NOT bypass a failing fence
+    for name, bad in _bad_fences().items():
+        assert authorize_retry(_policy(), _ctx(authorized=True), bad) is RetryDecision.UNAUTHORIZED, name
+    # only a valid fence permits RETRY — even when the caller forgot to set authorized
+    assert authorize_retry(_policy(), _ctx(authorized=False), _fence()) is RetryDecision.RETRY
+
+
+def test_authorize_credential_release_recomputes_session_valid_from_fence():
+    req = CredentialRequest("tenantA", "sessA", "att-1", ORIGIN, "export")
+    ctx = ReleaseContext("tenantA", "sessA", "att-1", [ORIGIN], session_valid=True)
+    # a caller-supplied session_valid=True can NOT bypass a failing fence
+    for name, bad in _bad_fences().items():
+        assert authorize_credential_release(req, ctx, bad) is ReleaseDecision.DENY_SESSION_INVALID, name
+    # a valid fence permits RELEASE even when the caller passed session_valid=False
+    ctx_false = ReleaseContext("tenantA", "sessA", "att-1", [ORIGIN], session_valid=False)
+    assert authorize_credential_release(req, ctx_false, _fence()) is ReleaseDecision.RELEASE
 
 
 # ---- 10) incident classification (wildcard rollback) ------------------------------------

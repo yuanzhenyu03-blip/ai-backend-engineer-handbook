@@ -27,7 +27,7 @@ credentials, and STOP rather than bypass website controls.
 > python3 -m pytest -q tests/test_day65_recovery_security_policy.py
 > ```
 >
-> Result: **12 passed, `EXECUTED_LOCAL_RUNTIME`** (pure decision-core failure/security rules; no
+> Result: **18 passed, `EXECUTED_LOCAL_RUNTIME`** (pure decision-core failure/security rules; no
 > browser, trace, Object Storage, PostgreSQL, or queue involved). **NOT RUN:** real Playwright
 > timeout/reconciliation; real trace/screenshot redaction; real redirect/DNS/IP enforcement; real
 > storage-state/Cookie behaviour; real CAPTCHA handling; a real audit lookup; a real Worker/queue;
@@ -226,7 +226,11 @@ exactly match is not our action.
 #### Framework Connection
 
 `reconcile_unknown(expected_identity, server_record)` → `CONFIRMED_COMPLETED` /
-`CONFIRMED_NOT_STARTED` / `STILL_UNKNOWN`.
+`CONFIRMED_NOT_STARTED` / `STILL_UNKNOWN`. The server record must carry the FULL identity
+(`allowed_origin`, `method`, `normalized_endpoint`, `report_id`, `client_request_id`) and any single
+mismatch is `STILL_UNKNOWN`. The initial action is always keyed by `client_request_id`; a verified
+`export_id` is only checked in the follow-up phase, must be bound to that same initial identity, and can
+never substitute for the `client_request_id` match.
 
 ---
 
@@ -384,8 +388,13 @@ Attempt.
 #### Framework Connection
 
 `retry_eligibility(policy, ctx)` → `RETRY` / `UNKNOWN_OUTCOME_BLOCK` / `SECURITY_STOP_BLOCK` /
-`DEADLINE_EXCEEDED` / `RETRY_DEFERRED` / …; `authorization_still_valid(...)` revalidates the Day63
-fence first.
+`NOT_IDEMPOTENT_UNPROVEN` / `DEADLINE_EXCEEDED` / `BUDGET_EXCEEDED` / `RETRY_DEFERRED` / …. It refuses to
+replay unless the action is a proven non-start OR the policy carries a usable `idempotency_key`, and it
+requires the conservative next wait (the larger of nominal backoff and `Retry-After`) PLUS one
+`per_attempt_timeout_ms` to still fit inside BOTH the remaining deadline and the total budget. The
+ENFORCED entry points `authorize_retry(policy, ctx, fence)` and
+`authorize_credential_release(req, ctx, fence)` RECOMPUTE authorization from `final_fence` — a caller
+can never bypass the fence with a hand-written `authorized=True` / `session_valid=True`.
 
 ---
 
@@ -531,8 +540,9 @@ Question: Reconcile using strict action identity vs a broad URL match.
 
 Starter Artifact: `reconcile_unknown`.
 
-Expected Output: a matching `client_request_id`/`report_id` → `CONFIRMED_COMPLETED`; a mismatched one →
-`STILL_UNKNOWN`.
+Expected Output: a record matching the FULL identity (`allowed_origin`/`method`/`normalized_endpoint`/
+`report_id`/`client_request_id`, plus a bound verified `export_id` when that phase uses it) → the
+`CONFIRMED_COMPLETED`/`CONFIRMED_NOT_STARTED` status; ANY single mismatched field → `STILL_UNKNOWN`.
 
 Follow-up: why isn't a URL + 200 sufficient?
 
@@ -592,7 +602,9 @@ server-side policy. What to trust: the task contract + policy. What NOT to trust
 downloads, network responses, or model output as authorization.
 
 **Day63 Session Gate**: revalidate tenant/session/lease and the final fence before a retry or a
-credential release (`authorization_still_valid` wraps `final_fence`).
+credential release. The fence is WIRED IN, not a bystander helper: `authorize_retry` and
+`authorize_credential_release` call `final_fence` (via `authorization_still_valid(FenceInputs)`) and use
+its result as the sole source of the `authorized`/`session_valid` truth.
 
 **Day64 Extraction Contract**: reuse the strict `client_request_id`/`export_id` correlation and the
 safe-metadata allow-list for reconciliation and evidence; reuse the rollback discipline for incidents.
@@ -754,7 +766,7 @@ incident           = contain -> scope -> classify -> repair -> controlled rollou
 - [ ] I can run `contain -> scope -> classify -> repair -> controlled rollout` and classify items,
       reconciling `UNKNOWN`.
 - [ ] I can run the artifact: `python3 -m pytest -q tests/test_day65_recovery_security_policy.py`
-      (= 12 passed).
+      (= 18 passed).
 - [ ] I can distinguish `EXECUTED_LOCAL_RUNTIME` (pure decision core) from real Playwright / Object
       Storage / PostgreSQL / Worker (`NOT RUN`).
 
