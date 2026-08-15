@@ -51,6 +51,12 @@ Incident
   never a broad URL + HTTP 200. ANY single mismatched field is `STILL_UNKNOWN`. The initial action is
   always keyed by `client_request_id`; a verified `export_id` is checked only in the follow-up phase,
   must be bound to that same initial identity, and never substitutes for the `client_request_id` match.
+  `202 Accepted != terminal import/completed != published Artifact` (Day64): only `completed`/`imported`
+  is `CONFIRMED_COMPLETED`; `accepted`/`pending`/`running` is `CONFIRMED_ACCEPTED_OR_IN_FLIGHT` — it was
+  received but is NOT done, so it NEVER replays the original action and NEVER authorizes publication
+  (`reconcile_permits_replay`/`reconcile_permits_publication` are both `False`); the only next step is to
+  keep reconciling the SAME identity/`export_id` (`CONTINUE_RECONCILING`). Only `CONFIRMED_NOT_STARTED`
+  (an authoritative negative) may enter bounded-retry eligibility.
 - Diagnostics (screenshots/traces/headers/raw payloads/DOM/Cookies/Authorization/tokens/PII/tenant
   data) may only go to a private, access-controlled, retention-bounded, audited store, redacted when
   sensitive — never ordinary logs, the model context, a prompt, or a public Artifact. A screenshot
@@ -86,7 +92,7 @@ Incident
 cd projects/fastapi-playwright
 python3 -m pip install pytest==7.4.3
 python3 -m pytest -q tests/test_day65_recovery_security_policy.py
-# -> 18 passed: pure decision-core failure/security rules. No browser, trace, Object Storage,
+# -> 20 passed: pure decision-core failure/security rules. No browser, trace, Object Storage,
 #    PostgreSQL, or queue is involved.
 ```
 
@@ -98,7 +104,7 @@ python3 -m pytest -q tests/test_day65_recovery_security_policy.py
                          Worker, or production ran in class.
 [EXECUTED_LOCAL_RUNTIME] Run by the updating agent: py_compile + the pure recovery/security decision
                          core (timeout/reconcile/diagnostics/SSRF/credential/instruction/CAPTCHA/retry/
-                         Retry-After/incident) = 18 passed.
+                         Retry-After/incident) = 20 passed.
 [NOT RUN]                Real Playwright timeout/reconciliation; real trace/screenshot redaction; real
                          redirect/DNS/IP enforcement; real storage-state/Cookie behaviour; real CAPTCHA
                          handling; a real audit lookup; a real Worker/queue; integration; production.

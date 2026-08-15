@@ -9,6 +9,18 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.163 — Day65 review fix: accepted/in-flight reconciliation is not a completion
+
+Date: 2026-08-15
+
+Day: Day65 (Phase 5). P1 in `projects/fastapi-playwright/src/day65_recovery_security_policy.py`: `reconcile_unknown()` folded `accepted` into `CONFIRMED_COMPLETED`, breaking the Day64 lifecycle boundary `202 Accepted != terminal import/completed != published Artifact`.
+
+Fix. Reconciliation outcomes are split by lifecycle state. `completed`/`imported` stay `CONFIRMED_COMPLETED`. A new `CONFIRMED_ACCEPTED_OR_IN_FLIGHT` covers `accepted`/`pending`/`running`/`in_progress`/`processing`/`queued` — the original action was received but is NOT done. Authoritative `not_found`/`never_started` remain the only `CONFIRMED_NOT_STARTED`. Three pure guards make the downstream rule unbypassable: `reconcile_permits_replay()` is `True` ONLY for `CONFIRMED_NOT_STARTED`; `reconcile_permits_publication()` is `True` ONLY for `CONFIRMED_COMPLETED`; and `reconcile_next_step()` maps completed -> `PUBLISH_TERMINAL_RESULT`, not-started -> `ELIGIBLE_FOR_BOUNDED_RETRY`, and accepted/in-flight (or still-unknown) -> `CONTINUE_RECONCILING` (keep polling the SAME identity/`export_id`, never a licence to re-click Export). The full strict-identity boundary (allowed_origin + method + normalized_endpoint + report_id + client_request_id + bound verified export_id) is unchanged and still applies to every status.
+
+Tests: added `accepted`/`pending`/`running`/`in_progress`/`processing`/`queued` in-flight cases (no completed, no replay, no publication, keep reconciling), terminal completed/imported publication cases, authoritative not_found/never_started non-start cases, and strict-identity mismatch guards for accepted/in-flight records.
+
+Validation: `python3 -m pytest -q tests/test_day65_recovery_security_policy.py` = 20 passed (was 18); full `projects/fastapi-playwright/` suite = 94 passed, 2 skipped (real-Chromium suites gated on `playwright`), EXECUTED_LOCAL_RUNTIME. Docs (lesson, design/runbook, cheat sheet, interview, README, CURRICULUM, PROJECT_STATUS, TASKS) updated to state `accepted != completed` and that accepted/in-flight never publishes. No real Playwright, real server-side audit, real download, real Object Storage, PostgreSQL, or queue Worker ran. Day64's `25 passed` is NOT reused as Day65 evidence. NOT RUN: real Playwright timeout/reconciliation; trace/screenshot redaction; redirect/DNS/IP enforcement; storage-state/Cookie behaviour; CAPTCHA handling; audit lookup; a real Worker/queue (Day66); integration; production.
+
 ## v0.1.162 — Day65 review fixes: strict reconciliation, bounded retry, enforced final-fence gates
 
 Date: 2026-08-15

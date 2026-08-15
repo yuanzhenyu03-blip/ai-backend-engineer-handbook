@@ -16,6 +16,7 @@ from day65_recovery_security_policy import (
     InstructionSource,
     NavigationDecision,
     NavigationRequest,
+    ReconcileNextStep,
     ReconcileResult,
     ReleaseContext,
     ReleaseDecision,
@@ -41,6 +42,9 @@ from day65_recovery_security_policy import (
     is_prohibited_ip,
     is_retryable_business_failure,
     navigation_allowed,
+    reconcile_next_step,
+    reconcile_permits_publication,
+    reconcile_permits_replay,
     reconcile_unknown,
     retry_eligibility,
     screenshot_proves_publication,
@@ -105,6 +109,40 @@ def test_reconcile_verified_export_id_must_be_bound_and_never_substitute():
     # a matching export_id can NEVER substitute for a mismatched initial client_request_id
     assert reconcile_unknown(expected, _record(export_id="exp-7", client_request_id="crq-other",
                                                status="completed")) is ReconcileResult.STILL_UNKNOWN
+
+
+def test_accepted_and_in_flight_are_not_completed_no_replay_no_publish():
+    expected = _identity()
+    # accepted / pending / running are RECEIVED but NOT terminal -> in-flight, never completed
+    for st in ("accepted", "pending", "running", "in_progress", "processing", "queued"):
+        r = reconcile_unknown(expected, _record(status=st))
+        assert r is ReconcileResult.CONFIRMED_ACCEPTED_OR_IN_FLIGHT, st
+        assert r is not ReconcileResult.CONFIRMED_COMPLETED
+        # in-flight: no replay of the original side effect, no Artifact publication -> keep reconciling
+        assert reconcile_permits_replay(r) is False
+        assert reconcile_permits_publication(r) is False
+        assert reconcile_next_step(r) is ReconcileNextStep.CONTINUE_RECONCILING
+    # accepted/in-flight still requires the FULL strict identity; any mismatch is STILL_UNKNOWN
+    assert reconcile_unknown(expected, _record(status="accepted", method="GET")) is ReconcileResult.STILL_UNKNOWN
+    assert reconcile_unknown(_identity(export_id="exp-7"),
+                             _record(status="running", export_id="exp-BAD")) is ReconcileResult.STILL_UNKNOWN
+
+
+def test_terminal_completed_and_not_started_semantics():
+    expected = _identity()
+    for st in ("completed", "imported"):
+        r = reconcile_unknown(expected, _record(status=st))
+        assert r is ReconcileResult.CONFIRMED_COMPLETED, st
+        assert reconcile_permits_publication(r) is True       # ONLY a terminal completion may publish
+        assert reconcile_permits_replay(r) is False
+        assert reconcile_next_step(r) is ReconcileNextStep.PUBLISH_TERMINAL_RESULT
+    # only an AUTHORITATIVE negative is CONFIRMED_NOT_STARTED (which alone permits replay/retry)
+    neg = ServerActionRecord(False, None, None, None, None, None, "not_found", authoritative_negative=True)
+    assert reconcile_unknown(expected, neg) is ReconcileResult.CONFIRMED_NOT_STARTED
+    assert reconcile_permits_replay(reconcile_unknown(expected, neg)) is True
+    assert reconcile_next_step(ReconcileResult.CONFIRMED_NOT_STARTED) is ReconcileNextStep.ELIGIBLE_FOR_BOUNDED_RETRY
+    # a server 'not_found' record that is NOT authoritative-negative stays unknown (never a false non-start)
+    assert reconcile_unknown(expected, _record(found=False, status="not_found")) is ReconcileResult.STILL_UNKNOWN
 
 
 # ---- 3) diagnostics ---------------------------------------------------------------------

@@ -100,9 +100,18 @@ class ServerActionRecord:
 
 
 class ReconcileResult(str, Enum):
-    CONFIRMED_COMPLETED = "CONFIRMED_COMPLETED"    # server proves the original action completed
-    CONFIRMED_NOT_STARTED = "CONFIRMED_NOT_STARTED"  # server proves it never started -> now safe to retry
-    STILL_UNKNOWN = "STILL_UNKNOWN"                # cannot prove either way -> reconcile/investigate
+    CONFIRMED_COMPLETED = "CONFIRMED_COMPLETED"          # server proves a TERMINAL completion (completed/imported)
+    CONFIRMED_ACCEPTED_OR_IN_FLIGHT = "CONFIRMED_ACCEPTED_OR_IN_FLIGHT"  # accepted/pending/running: received but
+                                                        # NOT terminal — never replay, never publish; keep polling
+    CONFIRMED_NOT_STARTED = "CONFIRMED_NOT_STARTED"      # server proves it never started -> may enter retry eligibility
+    STILL_UNKNOWN = "STILL_UNKNOWN"                      # cannot prove either way -> reconcile/investigate
+
+
+class ReconcileNextStep(str, Enum):
+    PUBLISH_TERMINAL_RESULT = "PUBLISH_TERMINAL_RESULT"        # ONLY for CONFIRMED_COMPLETED
+    ELIGIBLE_FOR_BOUNDED_RETRY = "ELIGIBLE_FOR_BOUNDED_RETRY"  # ONLY for CONFIRMED_NOT_STARTED (then retry_eligibility)
+    CONTINUE_RECONCILING = "CONTINUE_RECONCILING"             # accepted/in-flight OR still-unknown: poll the SAME
+                                                              # identity/export_id — never replay, never publish
 
 
 def reconcile_unknown(expected: ActionIdentity, record: ServerActionRecord) -> ReconcileResult:
@@ -128,11 +137,38 @@ def reconcile_unknown(expected: ActionIdentity, record: ServerActionRecord) -> R
     if expected.export_id is not None:
         if record.export_id is None or record.export_id != expected.export_id:
             return ReconcileResult.STILL_UNKNOWN
-    if record.status in ("completed", "accepted", "imported"):
+    # 202 Accepted != terminal import/completed != published Artifact (Day64). Only a TERMINAL status is
+    # a completion; an accepted/pending/running action was received but is NOT done -> keep reconciling.
+    if record.status in ("completed", "imported"):
         return ReconcileResult.CONFIRMED_COMPLETED
+    if record.status in ("accepted", "pending", "running", "in_progress", "processing", "queued"):
+        return ReconcileResult.CONFIRMED_ACCEPTED_OR_IN_FLIGHT
     if record.status in ("not_found", "never_started"):
         return ReconcileResult.CONFIRMED_NOT_STARTED
     return ReconcileResult.STILL_UNKNOWN
+
+
+def reconcile_permits_replay(result: ReconcileResult) -> bool:
+    """Only a server-proven NON-START permits replaying the original side-effectful action. An
+    accepted/in-flight (or still-unknown) result must NEVER replay — the action may already have run."""
+    return result is ReconcileResult.CONFIRMED_NOT_STARTED
+
+
+def reconcile_permits_publication(result: ReconcileResult) -> bool:
+    """Only a proven TERMINAL completion permits publishing the Artifact. ``accepted``/pending/running is
+    202-Accepted-level evidence and NEVER authorizes publication (202 != import != published Artifact)."""
+    return result is ReconcileResult.CONFIRMED_COMPLETED
+
+
+def reconcile_next_step(result: ReconcileResult) -> ReconcileNextStep:
+    """Map a reconciliation outcome to the ONLY permitted next step: publish a terminal result; become
+    eligible for a bounded retry (proven non-start); or keep reconciling the SAME identity/export_id
+    (accepted/in-flight and still-unknown) — the latter is never a licence to re-click Export."""
+    if result is ReconcileResult.CONFIRMED_COMPLETED:
+        return ReconcileNextStep.PUBLISH_TERMINAL_RESULT
+    if result is ReconcileResult.CONFIRMED_NOT_STARTED:
+        return ReconcileNextStep.ELIGIBLE_FOR_BOUNDED_RETRY
+    return ReconcileNextStep.CONTINUE_RECONCILING
 
 
 # ---------------------------------------------------------------------------
