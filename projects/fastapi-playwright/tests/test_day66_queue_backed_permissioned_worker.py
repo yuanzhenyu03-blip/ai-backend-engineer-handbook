@@ -30,6 +30,7 @@ from day66_queue_backed_permissioned_worker import (
     ProposalDecision,
     QueueEnvelope,
     RequestFingerprint,
+    ServerAuthorizedContract,
     TaskState,
     ToolCallProposal,
     ToolResultDecision,
@@ -81,29 +82,47 @@ def _proposal(**over):
     return ToolCallProposal(**d)
 
 
-def test_tool_proposal_is_untrusted_and_bound_to_fingerprint():
-    allowed = ["browser.export_report"]
-    assert validate_tool_proposal(_proposal(), allowed) is ProposalDecision.ACCEPT_NEW
+def _contract(**over):
+    d = dict(tenant_id="tenantA", allowed_operation="browser.export_report", approved_origin=ORIGIN,
+             allowed_report_scope="q3", session_authorized=True)
+    d.update(over)
+    return ServerAuthorizedContract(**d)
+
+
+def test_tool_proposal_must_match_server_authorized_contract():
+    c = _contract()
+    assert validate_tool_proposal(_proposal(), c) is ProposalDecision.ACCEPT_NEW
     # a raw model text (not a tool call) is not acceptance
-    assert validate_tool_proposal(_proposal(is_tool_call=False), allowed) is ProposalDecision.REJECT_NOT_A_TOOL_CALL
+    assert validate_tool_proposal(_proposal(is_tool_call=False), c) is ProposalDecision.REJECT_NOT_A_TOOL_CALL
     # idempotency key is required
-    assert validate_tool_proposal(_proposal(idempotency_key=None), allowed) is ProposalDecision.REJECT_MISSING_IDEMPOTENCY
-    # user approval is necessary
-    assert validate_tool_proposal(_proposal(user_approved=False), allowed) is ProposalDecision.REJECT_UNAPPROVED
-    # ... but not sufficient: backend policy still blocks a disallowed operation
-    assert validate_tool_proposal(_proposal(operation="browser.delete_all"), allowed) is ProposalDecision.REJECT_POLICY_BLOCKED
+    assert validate_tool_proposal(_proposal(idempotency_key=None), c) is ProposalDecision.REJECT_MISSING_IDEMPOTENCY
+    # user approval is necessary ...
+    assert validate_tool_proposal(_proposal(user_approved=False), c) is ProposalDecision.REJECT_UNAPPROVED
+    # ... but not sufficient: the proposal's untrusted fields cannot widen the server contract
+    assert validate_tool_proposal(_proposal(operation="browser.delete_all"), c) is ProposalDecision.REJECT_POLICY_BLOCKED
+    assert validate_tool_proposal(_proposal(tenant_id="tenantB"), c) is ProposalDecision.REJECT_TENANT_MISMATCH
+    # a malicious Origin in the proposal is rejected (never trusted)
+    assert validate_tool_proposal(_proposal(target_origin="https://evil.example.test:443"), c) is ProposalDecision.REJECT_ORIGIN_NOT_APPROVED
+    assert validate_tool_proposal(_proposal(target_origin="http://169.254.169.254:80"), c) is ProposalDecision.REJECT_ORIGIN_NOT_APPROVED
+    # a report/data scope outside the contract is rejected
+    assert validate_tool_proposal(_proposal(report_scope="q4"), c) is ProposalDecision.REJECT_SCOPE_NOT_ALLOWED
+    # no valid Session/authorization binding -> rejected even when everything else matches
+    assert validate_tool_proposal(_proposal(), _contract(session_authorized=False)) is ProposalDecision.REJECT_SESSION_UNAUTHORIZED
 
 
-def test_same_key_different_fingerprint_is_rejected_same_is_replay():
-    allowed = ["browser.export_report"]
+def test_same_key_same_authorized_intent_is_replay_different_is_rejected():
+    c = _contract()
     fp = RequestFingerprint("tenantA", "browser.export_report", ORIGIN, "q3")
     existing = ExistingAcceptance("idem-1", fp)
     assert fingerprint_of(_proposal()) == fp
-    # same key + same intent -> idempotent replay of the existing task
-    assert validate_tool_proposal(_proposal(), allowed, existing) is ProposalDecision.REPLAY_EXISTING
-    # same key + DIFFERENT intent (different scope/origin) -> rejected
-    assert validate_tool_proposal(_proposal(report_scope="q4"), allowed, existing) is ProposalDecision.REJECT_FINGERPRINT_MISMATCH
-    assert validate_tool_proposal(_proposal(target_origin="https://evil.example.test:443"), allowed, existing) is ProposalDecision.REJECT_FINGERPRINT_MISMATCH
+    # same key + same authorized intent -> idempotent replay of the existing task
+    assert validate_tool_proposal(_proposal(), c, existing) is ProposalDecision.REPLAY_EXISTING
+    # same key + a DIFFERENT scope: the scope now falls outside the contract, so it is rejected BEFORE
+    # the fingerprint check (the contract is the authority, not the prior acceptance)
+    assert validate_tool_proposal(_proposal(report_scope="q4"), c, existing) is ProposalDecision.REJECT_SCOPE_NOT_ALLOWED
+    # same key + a different-but-contract-allowed intent still trips the fingerprint mismatch guard
+    c2 = _contract(allowed_report_scope="q4")
+    assert validate_tool_proposal(_proposal(report_scope="q4"), c2, existing) is ProposalDecision.REJECT_FINGERPRINT_MISMATCH
 
 
 # ---- 2) acceptance lifecycle boundary -----------------------------------------------------
@@ -127,21 +146,25 @@ def test_atomic_acceptance_all_or_nothing_and_relay():
 
 # ---- 4) minimal versioned queue envelope --------------------------------------------------
 def _env(**over):
-    d = dict(envelope_version=1, event_id="ev-1", task_id="task-1", trace_id="tr-1", event_type="browser.dispatch")
+    d = dict(envelope_version=1, event_id="ev-1", task_id="task-1", trace_id="tr-1",
+             event_type="browser.task.dispatch")
     d.update(over)
     return QueueEnvelope(**d)
 
 
-def test_envelope_validation_version_identity_and_no_secrets():
+def test_envelope_is_a_strict_allowlist_with_event_type_and_no_secrets():
     assert validate_envelope(_env()) is EnvelopeDecision.ACCEPT
     # unsupported version -> dead-letter + ACK, load nothing
     assert validate_envelope(_env(envelope_version=2)) is EnvelopeDecision.DEAD_LETTER_UNSUPPORTED_VERSION
-    # a credential/secret/bulk field in the payload is rejected
-    assert validate_envelope(_env(extra_field_names=frozenset({"cookies"}))) is EnvelopeDecision.REJECT_FORBIDDEN_FIELD
-    assert validate_envelope(_env(extra_field_names=frozenset({"storage_state"}))) is EnvelopeDecision.REJECT_FORBIDDEN_FIELD
-    assert validate_envelope(_env(extra_field_names=frozenset({"provider_key"}))) is EnvelopeDecision.REJECT_FORBIDDEN_FIELD
+    # ANY field beyond the five allowed ones is rejected — a known credential, a session_token, OR an
+    # unknown/future field (the security boundary is the allowlist, not a denylist)
+    assert validate_envelope(_env(extra_field_names=frozenset({"cookies"}))) is EnvelopeDecision.REJECT_UNKNOWN_FIELD
+    assert validate_envelope(_env(extra_field_names=frozenset({"session_token"}))) is EnvelopeDecision.REJECT_UNKNOWN_FIELD
+    assert validate_envelope(_env(extra_field_names=frozenset({"some_future_field"}))) is EnvelopeDecision.REJECT_UNKNOWN_FIELD
     # missing identity is rejected
     assert validate_envelope(_env(task_id="")) is EnvelopeDecision.REJECT_MISSING_IDENTITY
+    # an event type that is not a browser-task dispatch is rejected
+    assert validate_envelope(_env(event_type="billing.invoice.created")) is EnvelopeDecision.REJECT_EVENT_TYPE
     # a valid envelope is a notification, never authorization
     assert envelope_payload_is_authorization() is False
 
@@ -185,7 +208,9 @@ def test_delivery_dedupe_and_commit_before_ack():
     # a redelivered message for a terminal task -> ACK duplicate, do NOT re-run Playwright
     assert on_delivery(TaskState.SUCCEEDED, lease_expired=False) is DeliveryDecision.SKIP_TERMINAL_ACK
     assert on_delivery(TaskState.CANCELLED, lease_expired=False) is DeliveryDecision.SKIP_TERMINAL_ACK
-    # a RUNNING task whose lease expired -> Day65 reconciliation, not a blind re-run
+    # a RUNNING task whose lease is STILL LIVE is owned by another Attempt -> ACK duplicate, do NOT run
+    assert on_delivery(TaskState.RUNNING, lease_expired=False) is DeliveryDecision.SKIP_ACTIVE_LEASE_ACK
+    # only a RUNNING task whose lease EXPIRED -> Day65 reconciliation, not a blind re-run
     assert on_delivery(TaskState.RUNNING, lease_expired=True) is DeliveryDecision.RECONCILE_IN_FLIGHT
     # cancellation requested -> cooperative stop
     assert on_delivery(TaskState.CANCELLATION_REQUESTED, lease_expired=False) is DeliveryDecision.STOP_CANCELLATION_REQUESTED
@@ -272,10 +297,14 @@ def test_tool_result_is_safe_summary_only():
 def test_identity_and_safe_audit():
     assert task_id_stable_across_attempts() is True
     assert attempt_id_changes_per_attempt() is True
-    assert audit_event_is_safe(["task_id", "attempt_id", "lease_token", "state_transition", "timestamp"]) is True
-    # credentials / raw content must never be in an audit event
+    # a non-reversible lease_token_fingerprint is allowlisted; the RAW lease_token capability is NOT
+    assert audit_event_is_safe(["task_id", "attempt_id", "lease_token_fingerprint", "state_transition", "timestamp"]) is True
+    assert audit_event_is_safe(["task_id", "lease_token"]) is False
+    # credentials / unknown / future fields must never be in an audit event (strict allowlist)
+    assert audit_event_is_safe(["task_id", "session_token"]) is False
     assert audit_event_is_safe(["task_id", "cookies"]) is False
     assert audit_event_is_safe(["task_id", "raw_csv"]) is False
+    assert audit_event_is_safe(["task_id", "some_future_field"]) is False
 
 
 # ---- 13) incident rollback (stale-Worker fence removal) ----------------------------------

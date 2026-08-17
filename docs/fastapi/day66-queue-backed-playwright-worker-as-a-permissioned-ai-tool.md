@@ -117,14 +117,19 @@ The Provider may return a `browser.export_report` tool-call proposal, but it own
 durable state, credentials, lease, or publication authority. The student's opening answer was right in
 spirit: *“必须持久化intent以及idempotency key。防止被重放以及任务成为无人认领状态。浏览器权限应该有用户批准”*.
 The sharpening: an `idempotency_key` identifies one business intent **only** when bound to a request
-fingerprint — tenant, operation, exact Origin, and report/data scope. Same key + different fingerprint is
-rejected; same key + same fingerprint is an idempotent replay of the existing task. User approval is
-necessary but **not** sufficient: backend policy validates and narrows the call and still blocks SSRF,
-cross-Origin credential forwarding, CAPTCHA bypass, and other security stops.
+fingerprint — tenant, operation, exact Origin, and report/data scope. The authorization facts come from a
+**server-authorized contract** (`ServerAuthorizedContract`: the authenticated tenant, the allowed
+operation, the exact approved Origin, the allowed report/data scope, and a valid Session binding), never
+from the proposal itself. The proposal's `tenant_id`, `target_origin`, and `report_scope` are untrusted
+and must match the contract EXACTLY — they can never widen it — so a malicious Origin (e.g. cloud
+metadata), a foreign tenant, or an out-of-scope report is rejected. User approval is necessary but **not**
+sufficient. Same key + different fingerprint is rejected; same key + same authorized fingerprint is an
+idempotent replay of the existing task.
 
-`validate_tool_proposal(proposal, policy_allowed_operations, existing)` →
+`validate_tool_proposal(proposal, contract, existing)` →
 `ACCEPT_NEW / REPLAY_EXISTING / REJECT_NOT_A_TOOL_CALL / REJECT_MISSING_IDEMPOTENCY / REJECT_UNAPPROVED /
-REJECT_POLICY_BLOCKED / REJECT_FINGERPRINT_MISMATCH`.
+REJECT_POLICY_BLOCKED / REJECT_TENANT_MISMATCH / REJECT_ORIGIN_NOT_APPROVED / REJECT_SCOPE_NOT_ALLOWED /
+REJECT_SESSION_UNAUTHORIZED / REJECT_FINGERPRINT_MISMATCH`.
 
 ### Concept 2: Four separate responsibilities
 
@@ -178,10 +183,13 @@ Store 重新加载”*). Example envelope fields: `envelope_version`, `event_id`
 `event_type`. **Never** carry Cookies, storage state, Authorization headers, Provider keys, raw
 diagnostics, raw page data, or complete executable browser capabilities in Broker messages. Queue payload
 fields are never authorization — fresh DB/policy/session checks are needed because a queued message may
-outlive revocation, cancellation, a policy change, or a lease change. An unsupported envelope version is
-classified, durably dead-lettered, and ACKed without loading a Job, credentials, or Playwright.
-`validate_envelope(env)` → `ACCEPT / DEAD_LETTER_UNSUPPORTED_VERSION / REJECT_FORBIDDEN_FIELD /
-REJECT_MISSING_IDENTITY`.
+outlive revocation, cancellation, a policy change, or a lease change. The envelope is validated by a
+**strict allowlist** — it may carry ONLY `envelope_version`, `event_id`, `task_id`, `trace_id`, and
+`event_type`; ANY extra field (a `session_token`, any credential, or an unknown/future field) is rejected
+without relying on a denylist, and the `event_type` must be an approved browser-task dispatch. An
+unsupported envelope version is classified, durably dead-lettered, and ACKed without loading a Job,
+Session, or Playwright. `validate_envelope(env)` → `ACCEPT / DEAD_LETTER_UNSUPPORTED_VERSION /
+REJECT_UNKNOWN_FIELD / REJECT_MISSING_IDENTITY / REJECT_EVENT_TYPE`.
 
 ### Concept 6: Day65 recovery enforced on the durable Worker lifecycle
 
@@ -230,8 +238,10 @@ responses, or diagnostics; the Artifact reference itself stays access-controlled
 `task_id` identifies the durable business task and must not change across repeated execution;
 `attempt_id` must change per attempt (*“不应改变。attempt应该改变”*). `lease_token` fences one authority
 grant; `outbox_event_id` identifies dispatch intent; `trace_id` provides observability linkage. Safe audit
-events include task/attempt/event/trace identity, the state transition, policy/contract version, a safe
-classification, and a timestamp — never credentials or raw sensitive content.
+events are validated by a **strict allowlist**: task/attempt/outbox/trace identity, the state transition,
+policy/contract version, a safe classification, and a timestamp — plus, for the lease, only a
+non-reversible `lease_token_fingerprint`. The **raw `lease_token` is a fencing capability and is never
+audit-safe**, and any unknown/future or credential field (e.g. `session_token`) is rejected.
 
 ## 8. Common Misconceptions
 
@@ -288,7 +298,8 @@ python3 -m pytest -q tests/test_day66_queue_backed_permissioned_worker.py
    terminal state, and non-claimable state.
 6. **Stale-write rejection** — `terminal_publish_allowed`: block a superseded token, a taken-over owner,
    an expired lease, and a bumped version.
-7. **Commit-before-ACK** — `on_delivery`: terminal → ACK duplicate; running+expired → reconcile;
+7. **Commit-before-ACK** — `on_delivery`: terminal → ACK duplicate; running + live lease → ACK duplicate
+   (`SKIP_ACTIVE_LEASE_ACK`, another Attempt owns it, no re-run); running + expired lease → reconcile;
    cancellation → stop; fresh → execute.
 8. **Recovery hand-off** — `recovery_next_step`/`recovery_permits_publication`/`recovery_permits_replay`.
 9. **Safe retry** — `worker_retry_decision`: proven non-start + valid fence → RETRY; revoked fence →

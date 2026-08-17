@@ -24,21 +24,24 @@ LLM tool-call proposal (UNTRUSTED request input)
 
 ## Rules enforced
 
-- An LLM `browser.export_report` tool call is UNTRUSTED request input. `idempotency_key` identifies one
-  intent ONLY bound to a request fingerprint (tenant + operation + exact Origin + report scope); same key +
-  different fingerprint is rejected; same key + same fingerprint is an idempotent replay. User approval is
-  necessary but NOT sufficient — backend policy is the enforceable authority.
+- An LLM `browser.export_report` tool call is UNTRUSTED request input. Authorization comes from a
+  SERVER-authorized contract (`ServerAuthorizedContract`: authenticated tenant, allowed operation, exact
+  approved Origin, allowed report/data scope, valid Session binding). The proposal's tenant/Origin/scope
+  are untrusted and must match the contract EXACTLY — never widening it — so a foreign tenant, a malicious
+  Origin, or an out-of-scope report is rejected. `idempotency_key` identifies one intent ONLY bound to a
+  request fingerprint; same key + different fingerprint is rejected; same key + same authorized fingerprint
+  is an idempotent replay. User approval is necessary but NOT sufficient.
 - A tool call is a PROPOSAL (Provider response = step 3); validation is next; durable acceptance happens
   ONLY at the committed transaction (`becomes_durable_task_at(DURABLY_ACCEPTED)`).
 - Browser Task + Permissioned Tool Contract + Outbox dispatch intent commit in ONE transaction or roll back
   together; only a full commit returns `202 + task_id`. Dispatch is emitted by an INDEPENDENT Outbox Relay
   AFTER commit — never a direct in-request broker publish (which can be lost after commit before send).
-- The Queue Envelope carries identity only (`envelope_version`, `event_id`, `task_id`, `trace_id`,
-  `event_type`). NEVER Cookies, storage state, Authorization, Provider keys, raw diagnostics, raw page
-  data, or executable capabilities. An unsupported version is durably dead-lettered and ACKed WITHOUT
-  loading a Job/credentials/Playwright. Queue payload fields are NEVER authorization — fresh
-  DB/policy/session checks are always required because a message may outlive revocation/cancellation/policy
-  or a lease change.
+- The Queue Envelope is validated by a STRICT ALLOWLIST — it may carry ONLY `envelope_version`,
+  `event_id`, `task_id`, `trace_id`, `event_type`. ANY extra field (a `session_token`, any credential, or
+  an unknown/future field) is rejected without a denylist, and the `event_type` must be an approved
+  browser-task dispatch. An unsupported version is durably dead-lettered and ACKed WITHOUT loading a
+  Job/Session/Playwright. Queue payload fields are NEVER authorization — fresh DB/policy/session checks are
+  always required because a message may outlive revocation/cancellation/policy or a lease change.
 - A queue message is a NOTIFICATION; a guarded PostgreSQL `UPDATE ... RETURNING` claim (attempt_id + lease
   owner/token/expiry) grants temporary EXECUTION AUTHORITY to exactly one Worker. A terminal task is never
   re-executed; an unexpired foreign lease blocks a claim.
@@ -47,8 +50,10 @@ LLM tool-call proposal (UNTRUSTED request input)
   Worker whose token/version was superseded or whose lease expired can NEVER publish — valid bytes are not
   a trusted Artifact.
 - Commit the durable result BEFORE ACK. A redelivered Worker that reads a terminal state does NOT re-run
-  Playwright; it ACKs the duplicate and does NOT return a result to the Broker. A RUNNING task with an
-  expired lease goes to Day65 UNKNOWN_OUTCOME reconciliation, not a blind re-run.
+  Playwright; it ACKs the duplicate and does NOT return a result to the Broker. A RUNNING task whose lease
+  is STILL LIVE is owned by another Attempt, so the duplicate is ACKed WITHOUT entering the Playwright path
+  (`SKIP_ACTIVE_LEASE_ACK`); only a RUNNING task with an EXPIRED lease goes to Day65 UNKNOWN_OUTCOME
+  reconciliation, not a blind re-run.
 - Lease expiry = loss of authority, NOT proof the external action did not happen. Recovery hands off to the
   Day65 outcomes: `CONFIRMED_COMPLETED` publishes only under the current fence; `ACCEPTED_OR_IN_FLIGHT`
   keeps reconciling (no replay); `CONFIRMED_NOT_STARTED` may enter the bounded-retry gate; `STILL_UNKNOWN`
@@ -62,9 +67,10 @@ LLM tool-call proposal (UNTRUSTED request input)
   the Provider/LLM is a tenant-authorized, verified, safe summary + a protected Artifact REFERENCE only —
   never raw CSV/trace/Cookie/storage-state/headers/DOM/network/diagnostics.
 - Identity: `task_id` is stable across attempts; `attempt_id` changes per attempt; `lease_token` fences one
-  authority grant; `outbox_event_id` is dispatch intent; `trace_id` links observability. Audit events carry
-  identity + state transition + policy/contract version + classification + timestamp — never credentials or
-  raw sensitive content.
+  authority grant; `outbox_event_id` is dispatch intent; `trace_id` links observability. Audit events are a
+  STRICT ALLOWLIST — identity + state transition + policy/contract version + classification + timestamp,
+  plus only a non-reversible `lease_token_fingerprint`; the raw `lease_token` capability and any
+  unknown/credential field (e.g. `session_token`) are never audit-safe.
 - Incident (stale-Worker fence removal): `contain -> scope -> classify -> repair -> controlled rollout`;
   roll back the faulty WORKER RELEASE (not merely config), pause risky claims/Attempts, quarantine any
   stale-published Artifact (never trust/return it to the LLM), reconcile, restore the fencing predicate,

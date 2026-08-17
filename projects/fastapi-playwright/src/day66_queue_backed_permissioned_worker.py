@@ -98,6 +98,19 @@ class ToolCallProposal:
 
 
 @dataclass(frozen=True)
+class ServerAuthorizedContract:
+    """The SERVER-authorized context/contract — the ONLY source of authorization facts. Built by the
+    backend from the authenticated tenant, its policy, and an approved Session binding. The LLM proposal's
+    ``tenant_id`` / ``target_origin`` / ``report_scope`` are UNTRUSTED and must match this EXACTLY; the
+    proposal never widens what the contract permits."""
+    tenant_id: str
+    allowed_operation: str
+    approved_origin: str          # exact scheme+host+port the Session is bound to
+    allowed_report_scope: str
+    session_authorized: bool      # a valid Session/authorization binding exists for this tenant+Origin
+
+
+@dataclass(frozen=True)
 class ExistingAcceptance:
     """A previously committed acceptance for the same idempotency_key (or ``None`` if new)."""
     idempotency_key: str
@@ -110,7 +123,11 @@ class ProposalDecision(str, Enum):
     REJECT_NOT_A_TOOL_CALL = "REJECT_NOT_A_TOOL_CALL"
     REJECT_MISSING_IDEMPOTENCY = "REJECT_MISSING_IDEMPOTENCY"
     REJECT_UNAPPROVED = "REJECT_UNAPPROVED"               # user approval is necessary (not sufficient)
-    REJECT_POLICY_BLOCKED = "REJECT_POLICY_BLOCKED"       # operation not permitted by backend policy
+    REJECT_POLICY_BLOCKED = "REJECT_POLICY_BLOCKED"       # operation not permitted by the server contract
+    REJECT_TENANT_MISMATCH = "REJECT_TENANT_MISMATCH"     # proposal tenant != authorized tenant
+    REJECT_ORIGIN_NOT_APPROVED = "REJECT_ORIGIN_NOT_APPROVED"  # target Origin not the approved Origin
+    REJECT_SCOPE_NOT_ALLOWED = "REJECT_SCOPE_NOT_ALLOWED"  # report/data scope outside the contract
+    REJECT_SESSION_UNAUTHORIZED = "REJECT_SESSION_UNAUTHORIZED"  # no valid Session/authorization binding
     REJECT_FINGERPRINT_MISMATCH = "REJECT_FINGERPRINT_MISMATCH"  # same key, DIFFERENT intent -> reject
 
 
@@ -121,21 +138,31 @@ def fingerprint_of(proposal: ToolCallProposal) -> RequestFingerprint:
 
 def validate_tool_proposal(
     proposal: ToolCallProposal,
-    policy_allowed_operations: Sequence[str],
+    contract: ServerAuthorizedContract,
     existing: Optional[ExistingAcceptance] = None,
 ) -> ProposalDecision:
-    """Backend validation of an untrusted proposal. A tool call is NOT authorization or durable
-    acceptance: it must be a real tool call, carry an idempotency key, be user-approved AND policy-allowed,
-    and — when the key was seen before — carry the SAME request fingerprint (same key + different intent is
-    rejected; same key + same intent is an idempotent replay of the existing task)."""
+    """Backend validation of an UNTRUSTED proposal against the SERVER-authorized contract. A tool call is
+    NOT authorization or durable acceptance: it must be a real tool call, carry an idempotency key, be
+    user-approved, and match the server contract EXACTLY on tenant, operation, approved Origin, and report
+    scope, with a valid Session/authorization binding — the proposal's own tenant/Origin/scope are never
+    trusted and can never widen the contract. When the key was seen before, the request fingerprint must
+    match (same key + same authorized intent = idempotent replay; same key + different intent = reject)."""
     if not proposal.is_tool_call:
         return ProposalDecision.REJECT_NOT_A_TOOL_CALL
     if not proposal.idempotency_key:
         return ProposalDecision.REJECT_MISSING_IDEMPOTENCY
     if not proposal.user_approved:
         return ProposalDecision.REJECT_UNAPPROVED
-    if proposal.operation not in set(policy_allowed_operations):
+    if proposal.tenant_id != contract.tenant_id:
+        return ProposalDecision.REJECT_TENANT_MISMATCH
+    if proposal.operation != contract.allowed_operation:
         return ProposalDecision.REJECT_POLICY_BLOCKED
+    if proposal.target_origin != contract.approved_origin:
+        return ProposalDecision.REJECT_ORIGIN_NOT_APPROVED
+    if proposal.report_scope != contract.allowed_report_scope:
+        return ProposalDecision.REJECT_SCOPE_NOT_ALLOWED
+    if not contract.session_authorized:
+        return ProposalDecision.REJECT_SESSION_UNAUTHORIZED
     if existing is not None and existing.idempotency_key == proposal.idempotency_key:
         return (ProposalDecision.REPLAY_EXISTING
                 if existing.fingerprint == fingerprint_of(proposal)
@@ -197,12 +224,14 @@ def direct_in_request_publish_is_safe() -> bool:
 # ---------------------------------------------------------------------------
 SUPPORTED_ENVELOPE_VERSIONS: FrozenSet[int] = frozenset({1})
 
-# Fields that must NEVER travel in a Broker message (they are authority/secrets/bulk data).
-FORBIDDEN_ENVELOPE_FIELDS: FrozenSet[str] = frozenset({
-    "cookies", "storage_state", "authorization", "auth_header", "provider_key", "api_key",
-    "credentials", "raw_diagnostics", "raw_page_data", "trace_blob", "screenshot", "dom", "network_body",
-    "browser_capability",
+# The COMPLETE, exclusive set of fields a valid envelope may carry — a strict ALLOWLIST, not a denylist.
+# ANY field outside this set (a credential, a future field, an unknown key) is rejected on sight.
+ALLOWED_ENVELOPE_FIELDS: FrozenSet[str] = frozenset({
+    "envelope_version", "event_id", "task_id", "trace_id", "event_type",
 })
+
+# The only event types that are a browser-task dispatch notification.
+ALLOWED_EVENT_TYPES: FrozenSet[str] = frozenset({"browser.task.dispatch"})
 
 _REQUIRED_ENVELOPE_IDENTITY = ("event_id", "task_id", "trace_id", "event_type")
 
@@ -214,27 +243,33 @@ class QueueEnvelope:
     task_id: str
     trace_id: str
     event_type: str
-    extra_field_names: FrozenSet[str] = frozenset()   # any additional field names present on the message
+    extra_field_names: FrozenSet[str] = frozenset()   # any field names present BEYOND the five allowed ones
 
 
 class EnvelopeDecision(str, Enum):
     ACCEPT = "ACCEPT"
     DEAD_LETTER_UNSUPPORTED_VERSION = "DEAD_LETTER_UNSUPPORTED_VERSION"  # classify + ACK, load nothing
-    REJECT_FORBIDDEN_FIELD = "REJECT_FORBIDDEN_FIELD"                    # credential/secret/bulk in payload
+    REJECT_UNKNOWN_FIELD = "REJECT_UNKNOWN_FIELD"        # any field outside the strict allowlist -> reject
     REJECT_MISSING_IDENTITY = "REJECT_MISSING_IDENTITY"
+    REJECT_EVENT_TYPE = "REJECT_EVENT_TYPE"              # not a browser-task dispatch event
 
 
 def validate_envelope(env: QueueEnvelope) -> EnvelopeDecision:
-    """An unsupported ``envelope_version`` is durably dead-lettered and ACKed WITHOUT loading a Job,
-    credentials, or Playwright. A message carrying any forbidden field (Cookies/storage state/Authorization/
-    Provider key/raw diagnostics/…) is rejected. Missing identity is rejected. A valid envelope is only a
+    """The envelope is validated by a STRICT ALLOWLIST — it may carry ONLY ``envelope_version``,
+    ``event_id``, ``task_id``, ``trace_id`` and ``event_type``; ANY extra field (a credential like
+    ``session_token``, or any unknown/future field) is rejected without a denylist. An unsupported
+    ``envelope_version`` is durably dead-lettered and ACKed WITHOUT loading a Job, Session, or Playwright.
+    A message whose ``event_type`` is not a browser-task dispatch is rejected. A valid envelope is only a
     NOTIFICATION — never authorization."""
     if env.envelope_version not in SUPPORTED_ENVELOPE_VERSIONS:
         return EnvelopeDecision.DEAD_LETTER_UNSUPPORTED_VERSION
-    if set(env.extra_field_names) & FORBIDDEN_ENVELOPE_FIELDS:
-        return EnvelopeDecision.REJECT_FORBIDDEN_FIELD
+    # Strict allowlist: any field beyond the five canonical identity fields is rejected.
+    if set(env.extra_field_names) - ALLOWED_ENVELOPE_FIELDS:
+        return EnvelopeDecision.REJECT_UNKNOWN_FIELD
     if not all(getattr(env, f) for f in _REQUIRED_ENVELOPE_IDENTITY):
         return EnvelopeDecision.REJECT_MISSING_IDENTITY
+    if env.event_type not in ALLOWED_EVENT_TYPES:
+        return EnvelopeDecision.REJECT_EVENT_TYPE
     return EnvelopeDecision.ACCEPT
 
 
@@ -320,22 +355,26 @@ def stale_bytes_are_trusted_artifact() -> bool:
 # 7) Delivery handling — commit-before-ACK, terminal dedupe, in-flight, cancellation.
 # ---------------------------------------------------------------------------
 class DeliveryDecision(str, Enum):
-    EXECUTE = "EXECUTE"                              # claimable, not cancelled -> claim + run
+    EXECUTE = "EXECUTE"                              # ACCEPTED, no live lease -> claim + run
     SKIP_TERMINAL_ACK = "SKIP_TERMINAL_ACK"          # already SUCCEEDED/FAILED/CANCELLED -> ACK duplicate, no run
-    RECONCILE_IN_FLIGHT = "RECONCILE_IN_FLIGHT"      # RUNNING with an expired lease -> Day65 reconciliation
+    SKIP_ACTIVE_LEASE_ACK = "SKIP_ACTIVE_LEASE_ACK"  # RUNNING with a LIVE lease -> another Attempt owns it; ACK duplicate, no run
+    RECONCILE_IN_FLIGHT = "RECONCILE_IN_FLIGHT"      # RUNNING with an EXPIRED lease -> Day65 reconciliation
     STOP_CANCELLATION_REQUESTED = "STOP_CANCELLATION_REQUESTED"  # cooperative stop / reconcile if needed
 
 
 def on_delivery(task_state: TaskState, lease_expired: bool) -> DeliveryDecision:
     """Decide what a (possibly duplicate) Broker delivery should do from CURRENT durable truth. A
     redelivered message whose task is already terminal is ACKed WITHOUT re-running Playwright; a RUNNING
-    task whose lease expired is reconciled (Day65), not blindly re-run; a cancellation request stops."""
+    task whose lease is STILL LIVE is owned by another Attempt, so this duplicate is ACKed WITHOUT entering
+    the Playwright path (``SKIP_ACTIVE_LEASE_ACK``); only a RUNNING task whose lease EXPIRED is reconciled
+    (Day65); a cancellation request stops."""
     if is_terminal(task_state):
         return DeliveryDecision.SKIP_TERMINAL_ACK
     if task_state is TaskState.CANCELLATION_REQUESTED:
         return DeliveryDecision.STOP_CANCELLATION_REQUESTED
-    if task_state is TaskState.RUNNING and lease_expired:
-        return DeliveryDecision.RECONCILE_IN_FLIGHT
+    if task_state is TaskState.RUNNING:
+        return (DeliveryDecision.RECONCILE_IN_FLIGHT if lease_expired
+                else DeliveryDecision.SKIP_ACTIVE_LEASE_ACK)
     return DeliveryDecision.EXECUTE
 
 
@@ -475,22 +514,22 @@ def attempt_id_changes_per_attempt() -> bool:
     return True
 
 
-# Identity fields that are safe to record in an audit event (never credentials or raw sensitive content).
+# The COMPLETE, exclusive set of fields an audit event may carry — a strict ALLOWLIST, not a denylist.
+# NOTE: the raw ``lease_token`` is a fencing CAPABILITY and is NOT audit-safe; only an irreversible
+# ``lease_token_fingerprint`` (a controlled, non-reversible digest/reference) may be recorded.
 SAFE_AUDIT_FIELDS: FrozenSet[str] = frozenset({
-    "task_id", "attempt_id", "outbox_event_id", "trace_id", "lease_token", "state_transition",
+    "task_id", "attempt_id", "outbox_event_id", "trace_id", "lease_token_fingerprint", "state_transition",
     "policy_version", "contract_version", "classification", "timestamp",
-})
-
-_UNSAFE_AUDIT_FIELDS = frozenset({
-    "cookies", "storage_state", "authorization", "provider_key", "api_key", "raw_csv", "raw_dom",
-    "screenshot", "trace_blob", "network_body", "credentials",
 })
 
 
 def audit_event_is_safe(field_names: Sequence[str]) -> bool:
-    """A safe audit event carries task/attempt/event/trace identity, state transition, policy/contract
-    version, safe classification and timestamp — never credentials or raw sensitive content."""
-    return not (set(field_names) & _UNSAFE_AUDIT_FIELDS)
+    """A safe audit event carries ONLY allowlisted identity/metadata: task/attempt/outbox/trace identity, a
+    non-reversible ``lease_token_fingerprint`` (never the raw ``lease_token`` capability), the state
+    transition, policy/contract version, a safe classification and a timestamp. ANY field outside the
+    allowlist — a raw ``lease_token``, a ``session_token``, or any unknown/future field — makes the event
+    unsafe (strict allowlist, not a denylist)."""
+    return set(field_names) <= SAFE_AUDIT_FIELDS
 
 
 # ---------------------------------------------------------------------------
