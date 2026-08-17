@@ -1621,3 +1621,39 @@ Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day65), the
 [Day65 lesson](../docs/fastapi/day65-browser-failure-recovery-and-security-boundaries.md), and the
 [Day65 design/runbook](../projects/fastapi-playwright/docs/day65-browser-failure-recovery-and-security-boundaries-design.md).
+
+## Day66 — Queue-backed Playwright Worker as a Permissioned AI Tool
+
+### Beginner Question
+
+Q: Who decides whether a browser Worker may execute a task?
+
+Student answer (preserved): "Execution permissions should be determined by the database and actual policies, rather than by the worker itself."
+
+Strong Answer: "A queue delivery is only a notification, never authority. Execution authority comes from a guarded PostgreSQL claim plus a lease — a single `UPDATE ... RETURNING` that exactly one Worker wins — and every sensitive action and the final publication are gated again by the Day63 final fence (current session, matching lease owner/token, unexpired lease, and version). The Worker never authorizes itself."
+
+### Intermediate Question
+
+Q: When should a Worker ACK a queue message, and what does a redelivered Worker do?
+
+Student answer (preserved): "Early ACK; if the worker crashes, the task will be lost. An ACK should be sent, and the previous successful result returned."
+
+Strong Answer: "ACK only AFTER the durable result commit. If a Worker crashes after commit but before ACK, the message is redelivered; the redelivered Worker reads the terminal state from PostgreSQL, does NOT re-run Playwright, and ACKs the duplicate — it does not return a result to the Broker. Commit-before-ACK plus idempotent terminal handling is what makes at-least-once delivery safe; a RUNNING task whose lease expired goes to Day65 UNKNOWN_OUTCOME reconciliation, not a blind re-run."
+
+### Senior Question
+
+Q: A Worker release removed the `lease_token` predicate from the final `succeeded` write, so a stale Worker can publish after a new one takes over. Walk me through the response.
+
+Student answer (preserved): a containment, scope, classification, remediation, and controlled-rollout plan with release/time-window/task/attempt/lease/Artifact evidence.
+
+Strong Answer: "contain -> scope -> classify -> repair -> controlled rollout. Contain by rolling back the faulty WORKER RELEASE (not merely configuration), pausing affected Browser Task claims and new Attempts so bad terminal writes stop, and preserving evidence; new API acceptance can stay safely queued. Scope by release version/window, task ID, attempt ID, lease token, Outbox/Worker records, and Artifact reference. Classify blocked stale writes, potentially published stale Artifacts, conflicting attempts, and unknown cases. Quarantine suspect Artifacts from models and users; reconcile against authority and external evidence; only retry when a non-start is proven and the retry gate passes; restore the fencing predicate; add concurrent A/B Worker regression tests; and roll out in a limited way while monitoring audit and metrics. An Artifact published by a stale Attempt cannot immediately be trusted or returned to the LLM."
+
+### Common Weak Answer
+
+"The Provider returned a `browser.export_report` tool call and the user approved it, so I run the browser, trust the queue message to tell the Worker what to do, ACK early, and return the CSV to the model." This treats an untrusted proposal as authorization, treats user approval as sufficient, treats a queue message as execution authority and possibly as a credential carrier, risks losing the task on an early-ACK crash, and leaks raw data into model context. The correct model: validate the proposal against a request fingerprint + policy, commit Task+Contract+Outbox atomically for `202 + task_id`, dispatch via a Relay, claim with a guarded lease, fence every sensitive action and publication, commit before ACK, and return only a safe verified summary + a protected Artifact reference.
+
+Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test_day66_queue_backed_permissioned_worker.py` -> 14 passed, EXECUTED_LOCAL_RUNTIME (pure queue-backed permissioned-worker decision core reusing the Day63 fence + Day65 recovery). The LIVE classroom artifact was CONCEPTUAL_STATIC. NOT RUN: a real Provider/LLM tool loop, real guarded PostgreSQL concurrent claims, a real Outbox Relay/Broker, real Celery ACK/redelivery, real lease expiry/recovery, real Playwright BrowserContext execution, real Session revocation/cancellation, real Object Storage publication, integration, production. Day65's 20 passed and earlier evidence are not reused as Day66 evidence. No secrets, real credentials, target URLs, Cookies, storage state, Authorization headers, Provider keys, customer data, or raw traces/screenshots/DOM/network payloads are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day66), the
+[Day66 lesson](../docs/fastapi/day66-queue-backed-playwright-worker-as-a-permissioned-ai-tool.md), and the
+[Day66 design/runbook](../projects/fastapi-playwright/docs/day66-queue-backed-playwright-worker-as-a-permissioned-ai-tool-design.md).

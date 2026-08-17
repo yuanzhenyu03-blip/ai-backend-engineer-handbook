@@ -9,6 +9,23 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.164 — Day66: Queue-backed Playwright Worker as a Permissioned AI Tool
+
+Date: 2026-08-17
+
+Day: Day66 (Phase 5, final lesson). Turns the Day62-Day65 browser capability into a durable, queue-backed, permissioned AI tool: the LLM may PROPOSE a tool call, but the backend owns authorization, durable task truth, queue dispatch, Worker execution authority, recovery, and audit.
+
+Added:
+
+- `docs/fastapi/day66-queue-backed-playwright-worker-as-a-permissioned-ai-tool.md` — the 16-section `LESSON_TEMPLATE_v2` lesson, preserving the real student answers, the Provider/backend-role question, and the corrections.
+- `projects/fastapi-playwright/src/day66_queue_backed_permissioned_worker.py` — a pure standard-library decision/orchestration core (no parallel project) that REUSES the Day63 `final_fence` and the Day65 recovery/retry core: tool-call proposal validation with `idempotency_key` bound to a request fingerprint (tenant + operation + exact Origin + report scope; same key + different fingerprint rejected; user approval necessary but not sufficient); the acceptance lifecycle boundary (Provider response = proposal/step 3, then validation, then durable acceptance only at the committed transaction); atomic Browser Task + Permissioned Tool Contract + Outbox dispatch intent acceptance -> `202 + task_id` dispatched by an independent Outbox Relay AFTER commit (never a direct in-request publish); a minimal versioned Queue Envelope carrying identity only (`envelope_version`/`event_id`/`task_id`/`trace_id`/`event_type`) and never Cookies/storage state/Authorization/Provider keys/raw diagnostics, with an unsupported version dead-lettered + ACKed without loading a Job; a guarded PostgreSQL claim + lease for execution ownership (one winner; the queue is only a notification); stale-write rejection via the final fence; commit-before-ACK terminal dedupe (a redelivered Worker reads terminal state, does not re-run Playwright, and ACKs the duplicate); Day65 UNKNOWN_OUTCOME reconciliation hand-off (lease expiry != no external effect); a fenced bounded-retry gate (a retry is a NEW auditable Attempt); durable cooperative cancellation (`cancellation_requested`, not immediate `cancelled`) with fence-revalidation checkpoints; a safe Tool Result boundary (verified safe summary + protected Artifact reference only, never raw CSV/trace/Cookie/DOM/network); task/attempt/event/lease/trace identity + safe audit; and stale-Worker fence-removal incident classification.
+- `projects/fastapi-playwright/tests/test_day66_queue_backed_permissioned_worker.py` — focused decision tests.
+- `projects/fastapi-playwright/docs/day66-queue-backed-playwright-worker-as-a-permissioned-ai-tool-design.md` — design/runbook + the Permissioned Queue-backed Browser Task Contract v1.0 + run command + evidence matrix.
+
+Updated: `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `projects/fastapi-playwright/README.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md` (Day66 marked Completed, Phase 5 complete, Day67 current and beginning Phase 6).
+
+Validation: `python3 -m pytest -q tests/test_day66_queue_backed_permissioned_worker.py` = 14 passed; full `projects/fastapi-playwright/` suite = 108 passed, 2 skipped (real-Chromium suites gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC. NOT RUN: a real Provider/LLM tool loop; real guarded PostgreSQL concurrent claims; a real Outbox Relay/Broker duplicate delivery; real Celery ACK/redelivery; real lease expiry/recovery; real Playwright BrowserContext execution; real Session revocation/cancellation; real Object Storage Artifact publication; integration; production. Day65's `20 passed` and prior Day59-Day61 evidence are NOT reused as Day66 validation. No secrets, real credentials, real URLs, Cookies, storage state, Authorization headers, Provider keys, customer data, raw traces/screenshots/DOM/network payloads, or real Provider calls are committed.
+
 ## v0.1.163 — Day65 review fix: accepted/in-flight reconciliation is not a completion
 
 Date: 2026-08-15
