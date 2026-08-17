@@ -1657,3 +1657,39 @@ Validation: `projects/fastapi-playwright/` runs `python3 -m pytest -q tests/test
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day66), the
 [Day66 lesson](../docs/fastapi/day66-queue-backed-playwright-worker-as-a-permissioned-ai-tool.md), and the
 [Day66 design/runbook](../projects/fastapi-playwright/docs/day66-queue-backed-playwright-worker-as-a-permissioned-ai-tool-design.md).
+
+## Day67 — n8n Workflow Model, Triggers, FastAPI Integration and Responsibility Boundaries
+
+### Beginner Question
+
+Q: Why should an n8n workflow call FastAPI instead of the database directly?
+
+Student answer (preserved): "因为FastAPI是受信任的业务与安全边界" — FastAPI is the trusted business and security boundary.
+
+Strong Answer: "n8n is an orchestration layer with no authority to create or change a durable Task. If it wrote the database directly it would bypass authentication, policy, idempotency, and audit, and could misread transient lease/state. So the workflow only asks FastAPI over an authenticated call, and FastAPI's transaction decides what durably happens. No n8n node may create the durable Browser Task."
+
+### Intermediate Question
+
+Q: An n8n Webhook received the event. Can the workflow return `202 + task_id`?
+
+Student answer (preserved): "在 FastAPI 耐久接受任务后就返回安全的 202 + task_id" — only after FastAPI durably accepts.
+
+Strong Answer: "Receiving a Webhook is not FastAPI durably accepting the task. `202 + task_id` is honest only after FastAPI commits acceptance; if n8n fails before that commit it returns a failure such as 502/503 or lets the caller retry, never inventing a task_id. Retries are layered: n8n may re-send an uncertain HTTP call, FastAPI collapses the same intent by its idempotency key so redelivery returns the existing task_id, and the worker owns execution retry separately."
+
+### Senior Question
+
+Q: A bad workflow release is causing problems in production. Walk me through the response.
+
+Student answer (preserved): "第一步应该回滚/停用 n8n 工作流入口" — first roll back / deactivate the n8n workflow entrypoint; and "不接受" to giving n8n read-only direct DB access.
+
+Strong Answer: "Stop the blast radius first: deactivate the bad workflow or publish a prior version so no new bad orchestration runs. Then scope the affected requests from n8n execution history and authoritative FastAPI records. Repair through FastAPI only — controlled cancellation, compensation, or reconciliation — because durable facts and any external side effects live in the backend; I never delete Task records as a rollback mechanism and never give n8n direct database access. Identity is resolved by FastAPI via request_id or a short-lived signed delegation token, never a forwarded long-lived user login token, and idempotency is enforced atomically so a re-sent request returns the existing task_id."
+
+### Common Weak Answer
+
+"The Webhook fired and n8n mapped the fields, so I return 202 + task_id, trust the tenant_id in the body because our shared service key is attached, and if something breaks I delete the task rows to roll back." This treats receipt as acceptance, treats a service credential as a user/tenant identity, and destroys durable audit/recovery evidence (and cannot un-run an external effect). The correct model: FastAPI commits acceptance before any 202, resolves trusted context server-side, enforces idempotency, and compensates via controlled backend APIs while n8n only stops future orchestration.
+
+Validation: DOCUMENTATION + a single classroom EXECUTED_LOCAL_RUNTIME proof — a local invalid-webhook test returned HTTP 400 with the documented JSON error; the IF false branch and its Respond to Webhook node ran and the HTTP Request node did NOT run (after correcting `$json...` to explicit `{{ $json... }}`; the earlier attempt misrouted and returned an empty 200). NOT RUN / NOT CONFIGURED: a valid FastAPI success path, service authentication, durable Task creation, PostgreSQL persistence, queue/Outbox dispatch, browser-worker execution, a published Production URL, production. The HTTP endpoint was an unverified local placeholder with authentication `None`; no exported workflow JSON was captured. No secrets, real credentials, or production endpoints are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day67), the
+[Day67 lesson](../docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md), and the
+[n8n-workflows project](../projects/n8n-workflows/README.md).

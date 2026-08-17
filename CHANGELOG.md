@@ -9,6 +9,20 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.165 — Day67: n8n Workflow Model, Triggers, FastAPI Integration and Responsibility Boundaries
+
+Date: 2026-08-17
+
+Day: Day67 (Phase 6 begins). Introduces n8n as a permissioned ORCHESTRATION layer around a FastAPI-owned durable task system: n8n may trigger and coordinate, but authorization, durable acceptance, idempotency, recovery, and audit stay under FastAPI control (the Day66 ownership boundaries are unchanged).
+
+Added: `docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md` — the 16-section `LESSON_TEMPLATE_v2` lesson, preserving the real student answers, misconceptions, and corrections, with a dedicated Mental Model Evolution (Day66 queue-backed permissioned worker -> Day67 n8n as permissioned orchestration only).
+
+Updated: `projects/n8n-workflows/README.md` (Planned-only -> a Day67 draft-workflow CONFIGURATION RECORD + ownership boundary + validation matrix + limitations), `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md` (Day67 marked Completed; Day68 current; Day68 prep tasks added).
+
+Artifact: a local n8n DRAFT workflow `Day67 - FastAPI Orchestration Boundary` (`Webhook -> Edit Fields -> IF -> HTTP Request | Respond 400`, test path `day67/research-report`, inputs `report_scope`/`request_id`). No exported workflow JSON was captured, so it is documented as a configuration record, not an importable/runnable file.
+
+Validation: DOCUMENTATION + a single classroom EXECUTED_LOCAL_RUNTIME proof — a local invalid-webhook test (missing `request_id` / empty `report_scope`) returned HTTP 400 with `{ "error": "invalid_request", "message": "report_scope and request_id are required" }`; the IF false branch and its Respond to Webhook node ran and the HTTP Request node did NOT run (after correcting `$json...` to explicit `{{ $json... }}`; the earlier attempt misrouted a malformed request and returned an empty 200). NOT RUN / NOT CONFIGURED: a valid FastAPI success path; service authentication; durable Task creation; PostgreSQL persistence; queue/Outbox dispatch; browser-worker execution; a published Production URL; production. The HTTP endpoint was an unverified local placeholder (`http://host.docker.internal:8000/api/v1/browser-tasks`) with authentication `None`. Day66's `14 passed` and prior evidence are NOT reused as Day67 validation. No secrets, real credentials, tokens, or production endpoints are committed.
+
 ## v0.1.164 — Day66: Queue-backed Playwright Worker as a Permissioned AI Tool
 
 Date: 2026-08-17

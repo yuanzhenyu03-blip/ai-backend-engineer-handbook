@@ -1352,7 +1352,7 @@ validation are only claimed when actually run and recorded.
 ## Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Status:
-Complete (Day59–Day66 Completed). Day67 begins Phase 6.
+Complete (Day59–Day66 Completed). Phase 6 has begun: Day67 Completed, Day68 current.
 
 Objective:
 Close the Phase 4 evidence gap first, then add a browser capability. Day59–Day61 are a **Production
@@ -1499,7 +1499,7 @@ runtime / integration / production evidence only when actually executed and save
 ## Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Status:
-Planned
+In Progress (Day67 Completed; Day68–Day70 Planned)
 
 Objective:
 Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
@@ -1522,6 +1522,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   the backend rather than the low-code layer.
   Connection: Phase 5 produced real backends and a browser tool but no orchestration across them; Day67 adds
   n8n as an orchestration layer with clear responsibility boundaries; Day68 handles long-running AI jobs.
+  Status: ✅ Completed. Released Lesson: `docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md`. Engineering Artifact: `projects/n8n-workflows/` (a Day67 draft-workflow CONFIGURATION RECORD — `Day67 - FastAPI Orchestration Boundary`: `Webhook -> Edit Fields -> IF -> HTTP Request | Respond 400`, test path `day67/research-report`, inputs `report_scope`/`request_id`; NO exported workflow JSON was captured, so it is not an importable/runnable artifact). Core model: n8n is permissioned ORCHESTRATION only; FastAPI stays the trusted business + security boundary (Day66 ownership UNCHANGED) — a workflow node may ASK FastAPI over an authenticated call but never creates/mutates a durable Task and never gets direct DB/queue/worker access; a Webhook receipt != durable acceptance, so `202 + task_id` is honest only after FastAPI commits; a shared service credential != tenant/user identity; retries are three layers (n8n transport re-send | FastAPI business idempotency collapsing the reused `request_id` | worker execution); rollback stops orchestration first, then compensates durable facts via FastAPI, never deleting Task records. Evidence: DOCUMENTATION + a single classroom EXECUTED_LOCAL_RUNTIME proof — a local invalid-webhook test returned HTTP 400 with the documented JSON error, the IF false branch + its Respond to Webhook node ran, and the HTTP Request node did NOT run (after correcting `$json...` to explicit `{{ $json... }}`; the earlier attempt misrouted and returned an empty 200). NOT RUN / NOT CONFIGURED: a valid FastAPI success path; service authentication; durable Task creation; PostgreSQL persistence; queue/Outbox dispatch; browser-worker execution; a published Production URL; production. The HTTP endpoint was an unverified local placeholder (`http://host.docker.internal:8000/api/v1/browser-tasks`) with authentication `None`. Day66's `14 passed` and earlier evidence are NOT reused as Day67 validation. No secrets, real credentials, tokens, or production endpoints committed. Next: Day68 makes the FastAPI <-> n8n boundary observable and retry-safe (polling/callback contracts, correlation IDs, idempotency).
 - Day68 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency.
   Scope: polling/callback patterns, correlation-ID propagation, and idempotency for long AI jobs.
   Connection: Day67 could trigger the backend but not manage long async jobs safely; Day68 adds
