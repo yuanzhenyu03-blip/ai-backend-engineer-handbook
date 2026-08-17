@@ -30,7 +30,9 @@ LLM tool-call proposal (UNTRUSTED request input)
   are untrusted and must match the contract EXACTLY — never widening it — so a foreign tenant, a malicious
   Origin, or an out-of-scope report is rejected. `idempotency_key` identifies one intent ONLY bound to a
   request fingerprint; same key + different fingerprint is rejected; same key + same authorized fingerprint
-  is an idempotent replay. User approval is necessary but NOT sufficient.
+  is an idempotent replay. Approval is a SERVER-side fact recorded in the contract (`approval_granted` /
+  `approval_id`) — the proposal has no `user_approved` field and can never self-assert it — and is
+  necessary but NOT sufficient.
 - A tool call is a PROPOSAL (Provider response = step 3); validation is next; durable acceptance happens
   ONLY at the committed transaction (`becomes_durable_task_at(DURABLY_ACCEPTED)`).
 - Browser Task + Permissioned Tool Contract + Outbox dispatch intent commit in ONE transaction or roll back
@@ -44,7 +46,10 @@ LLM tool-call proposal (UNTRUSTED request input)
   always required because a message may outlive revocation/cancellation/policy or a lease change.
 - A queue message is a NOTIFICATION; a guarded PostgreSQL `UPDATE ... RETURNING` claim (attempt_id + lease
   owner/token/expiry) grants temporary EXECUTION AUTHORITY to exactly one Worker. A terminal task is never
-  re-executed; an unexpired foreign lease blocks a claim.
+  re-executed; a claim takes ONLY a task with no lease or an EXPIRED lease, so ANY still-valid lease
+  blocks it — including the SAME `attempt_id`'s (no duplicate re-claim/overwrite). An Attempt extends its
+  OWN live lease via `renew_lease()` (matching owner + token, a pushed-out expiry, no token rotation, and
+  never a re-execution); an expired lease is re-acquired through `guarded_claim`, not renewed.
 - A terminal `succeeded` write / Artifact publication is allowed ONLY under the current Day63 final fence
   (active + session-expiry + lease_owner==attempt + lease_token + unexpired lease + version). A stale
   Worker whose token/version was superseded or whose lease expired can NEVER publish — valid bytes are not
@@ -64,8 +69,10 @@ LLM tool-call proposal (UNTRUSTED request input)
   the final fence before credential load, before each critical action, and before publication. The
   cancellation request and the external outcome are separate auditable facts.
 - `202 Accepted + task_id`; `accepted != running != succeeded != published Artifact`. The Tool Result to
-  the Provider/LLM is a tenant-authorized, verified, safe summary + a protected Artifact REFERENCE only —
-  never raw CSV/trace/Cookie/storage-state/headers/DOM/network/diagnostics.
+  the Provider/LLM is validated by a STRICT ALLOWLIST — ONLY `task_id`, `status`, `safe_summary`, and
+  `artifact_ref`; ANY other field (a `session_token`, `authorization`, `raw_prompt`, `cookies`, `trace`,
+  `raw_csv`, or an unknown/future field) is rejected without a denylist. The Artifact reference is a
+  protected, access-controlled REFERENCE only — it never grants the model object-read access.
 - Identity: `task_id` is stable across attempts; `attempt_id` changes per attempt; `lease_token` fences one
   authority grant; `outbox_event_id` is dispatch intent; `trace_id` links observability. Audit events are a
   STRICT ALLOWLIST — identity + state transition + policy/contract version + classification + timestamp,

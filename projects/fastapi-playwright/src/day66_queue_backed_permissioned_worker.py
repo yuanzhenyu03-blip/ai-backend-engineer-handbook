@@ -87,14 +87,15 @@ class RequestFingerprint:
 
 @dataclass(frozen=True)
 class ToolCallProposal:
-    """An LLM/Provider tool-call proposal — UNTRUSTED request input, never authorization."""
+    """An LLM/Provider tool-call proposal — UNTRUSTED request input, never authorization. It carries NO
+    self-asserted approval: a proposal can never prove the user approved it (any such claim would be
+    forgeable). Approval is a SERVER fact carried by ``ServerAuthorizedContract``."""
     is_tool_call: bool
     operation: str
     tenant_id: str
     target_origin: str
     report_scope: str
     idempotency_key: Optional[str]
-    user_approved: bool
 
 
 @dataclass(frozen=True)
@@ -108,6 +109,8 @@ class ServerAuthorizedContract:
     approved_origin: str          # exact scheme+host+port the Session is bound to
     allowed_report_scope: str
     session_authorized: bool      # a valid Session/authorization binding exists for this tenant+Origin
+    approval_granted: bool        # a durable, server-side user-approval fact (never taken from the proposal)
+    approval_id: Optional[str] = None  # an auditable reference to the persisted approval decision
 
 
 @dataclass(frozen=True)
@@ -122,7 +125,7 @@ class ProposalDecision(str, Enum):
     REPLAY_EXISTING = "REPLAY_EXISTING"                   # same key + same fingerprint -> return existing task_id
     REJECT_NOT_A_TOOL_CALL = "REJECT_NOT_A_TOOL_CALL"
     REJECT_MISSING_IDEMPOTENCY = "REJECT_MISSING_IDEMPOTENCY"
-    REJECT_UNAPPROVED = "REJECT_UNAPPROVED"               # user approval is necessary (not sufficient)
+    REJECT_UNAPPROVED = "REJECT_UNAPPROVED"               # no server-side approval fact (never self-asserted)
     REJECT_POLICY_BLOCKED = "REJECT_POLICY_BLOCKED"       # operation not permitted by the server contract
     REJECT_TENANT_MISMATCH = "REJECT_TENANT_MISMATCH"     # proposal tenant != authorized tenant
     REJECT_ORIGIN_NOT_APPROVED = "REJECT_ORIGIN_NOT_APPROVED"  # target Origin not the approved Origin
@@ -142,17 +145,18 @@ def validate_tool_proposal(
     existing: Optional[ExistingAcceptance] = None,
 ) -> ProposalDecision:
     """Backend validation of an UNTRUSTED proposal against the SERVER-authorized contract. A tool call is
-    NOT authorization or durable acceptance: it must be a real tool call, carry an idempotency key, be
-    user-approved, and match the server contract EXACTLY on tenant, operation, approved Origin, and report
-    scope, with a valid Session/authorization binding — the proposal's own tenant/Origin/scope are never
-    trusted and can never widen the contract. When the key was seen before, the request fingerprint must
-    match (same key + same authorized intent = idempotent replay; same key + different intent = reject)."""
+    NOT authorization or durable acceptance: it must be a real tool call, carry an idempotency key, and
+    match the server contract EXACTLY on tenant, operation, approved Origin, and report scope, with a valid
+    Session/authorization binding AND a server-side approval fact (``contract.approval_granted``) — the
+    proposal's own tenant/Origin/scope are never trusted and can never widen the contract, and the proposal
+    can never self-assert approval. When the key was seen before, the request fingerprint must match (same
+    key + same authorized intent = idempotent replay; same key + different intent = reject)."""
     if not proposal.is_tool_call:
         return ProposalDecision.REJECT_NOT_A_TOOL_CALL
     if not proposal.idempotency_key:
         return ProposalDecision.REJECT_MISSING_IDEMPOTENCY
-    if not proposal.user_approved:
-        return ProposalDecision.REJECT_UNAPPROVED
+    if not contract.approval_granted:
+        return ProposalDecision.REJECT_UNAPPROVED   # approval is a SERVER fact, never from the proposal
     if proposal.tenant_id != contract.tenant_id:
         return ProposalDecision.REJECT_TENANT_MISMATCH
     if proposal.operation != contract.allowed_operation:
@@ -323,15 +327,60 @@ def guarded_claim(req: ClaimRequest) -> ClaimDecision:
         return ClaimDecision.DENIED_TERMINAL
     if req.task_state not in _CLAIMABLE_STATES:
         return ClaimDecision.DENIED_NOT_CLAIMABLE
-    lease_active = (
+    # A claim may ONLY take a task with NO lease or an EXPIRED lease. A still-valid lease is rejected even
+    # for the SAME attempt_id — a duplicate/concurrent path must NOT re-claim (that would overwrite the
+    # live lease). Extending a lease held by this Attempt is a separate operation: renew_lease().
+    lease_present_and_valid = (
         req.lease_owner is not None
-        and req.lease_owner != req.attempt_id
         and req.lease_expires_at is not None
         and req.lease_expires_at > req.now
     )
-    if lease_active:
+    if lease_present_and_valid:
         return ClaimDecision.DENIED_LEASE_ACTIVE
     return ClaimDecision.CLAIMED
+
+
+@dataclass(frozen=True)
+class RenewLeaseRequest:
+    task_state: TaskState
+    lease_owner: Optional[str]        # attempt_id currently holding the lease
+    lease_token: Optional[str]        # the token currently fencing the lease
+    lease_expires_at: Optional[int]   # epoch seconds
+    now: int
+    attempt_id: str                   # the Attempt asking to extend ITS OWN lease
+    worker_token: str                 # the token the Attempt currently holds
+    new_expires_at: int               # the requested extended expiry
+
+
+class RenewDecision(str, Enum):
+    RENEWED = "RENEWED"                          # same owner+token, still-valid lease -> extend expiry only
+    DENIED_NOT_RUNNING = "DENIED_NOT_RUNNING"
+    DENIED_OWNER_MISMATCH = "DENIED_OWNER_MISMATCH"
+    DENIED_TOKEN_MISMATCH = "DENIED_TOKEN_MISMATCH"
+    DENIED_LEASE_EXPIRED = "DENIED_LEASE_EXPIRED"  # an expired lease is re-acquired via guarded_claim, not renewed
+
+
+def renew_lease(req: RenewLeaseRequest) -> RenewDecision:
+    """Extend an Attempt's OWN still-valid lease. Renewal is NOT a re-claim and NEVER re-executes
+    Playwright: it requires a RUNNING task, the CURRENT ``lease_owner`` == this ``attempt_id``, the
+    CURRENT ``lease_token`` == this ``worker_token``, and an UNEXPIRED lease; it then pushes out only the
+    expiry (via ``renewed_expiry``) and preserves the existing token (a renewal never rotates the token).
+    An expired lease can never be renewed — it must be re-acquired through ``guarded_claim``."""
+    if req.task_state is not TaskState.RUNNING:
+        return RenewDecision.DENIED_NOT_RUNNING
+    if req.lease_owner != req.attempt_id:
+        return RenewDecision.DENIED_OWNER_MISMATCH
+    if req.lease_token != req.worker_token:
+        return RenewDecision.DENIED_TOKEN_MISMATCH
+    if req.lease_expires_at is None or req.lease_expires_at <= req.now:
+        return RenewDecision.DENIED_LEASE_EXPIRED
+    return RenewDecision.RENEWED
+
+
+def renewed_expiry(req: RenewLeaseRequest) -> Optional[int]:
+    """The new lease expiry to persist on a successful renewal (the token is left unchanged); ``None`` when
+    the renewal is denied."""
+    return req.new_expires_at if renew_lease(req) is RenewDecision.RENEWED else None
 
 
 # ---------------------------------------------------------------------------
@@ -462,10 +511,11 @@ def accepted_is_not_succeeded() -> bool:
     return True
 
 
-# Fields that must NEVER be returned to the Provider/LLM as a Tool Result.
-_UNSAFE_RESULT_FIELDS = frozenset({
-    "raw_csv", "csv", "trace", "cookies", "storage_state", "headers", "raw_dom", "dom",
-    "network_body", "network_response", "diagnostics", "screenshot",
+# The COMPLETE, exclusive set of fields a Tool Result may return to the Provider/LLM — a strict ALLOWLIST,
+# not a denylist. The Artifact reference is a protected, access-controlled REFERENCE only; it never grants
+# the model object-read access.
+ALLOWED_TOOL_RESULT_FIELDS: FrozenSet[str] = frozenset({
+    "task_id", "status", "safe_summary", "artifact_ref",
 })
 
 
@@ -482,19 +532,22 @@ class ToolResultDecision(str, Enum):
     RETURN_SAFE_SUMMARY = "RETURN_SAFE_SUMMARY"                 # safe summary (+ protected Artifact ref)
     DENY_NOT_AUTHORIZED = "DENY_NOT_AUTHORIZED"
     DENY_NOT_TERMINAL = "DENY_NOT_TERMINAL"                     # no guarded successful terminal write yet
-    DENY_UNSAFE_FIELD = "DENY_UNSAFE_FIELD"                     # raw CSV/trace/Cookie/DOM/… must not leave
+    DENY_UNSAFE_FIELD = "DENY_UNSAFE_FIELD"                     # any field outside the strict allowlist
     DENY_UNVERIFIED_SUMMARY = "DENY_UNVERIFIED_SUMMARY"
 
 
 def shape_tool_result(draft: ToolResultDraft) -> ToolResultDecision:
-    """The Tool Result to the Provider/LLM is a tenant-authorized, verified, safe summary plus (optionally)
-    a protected Artifact REFERENCE — never raw CSV, trace, Cookie, storage state, headers, raw DOM/network,
-    or diagnostics. The Artifact reference itself stays access-controlled."""
+    """The Tool Result to the Provider/LLM is validated by a STRICT ALLOWLIST — it may carry ONLY
+    ``task_id``, ``status``, ``safe_summary`` and ``artifact_ref``. ANY other field (a ``session_token``,
+    ``authorization``, ``raw_prompt``, ``cookies``, ``trace``, ``raw_csv``, or any unknown/future field) is
+    rejected without a denylist. The result must be tenant-authorized, backed by a guarded successful
+    terminal write, and carry a verified safe summary. The Artifact reference is a protected,
+    access-controlled REFERENCE only — it never grants the model object-read access."""
     if not draft.tenant_authorized:
         return ToolResultDecision.DENY_NOT_AUTHORIZED
     if not draft.terminal_succeeded:
         return ToolResultDecision.DENY_NOT_TERMINAL
-    if set(draft.field_names) & _UNSAFE_RESULT_FIELDS:
+    if set(draft.field_names) - ALLOWED_TOOL_RESULT_FIELDS:
         return ToolResultDecision.DENY_UNSAFE_FIELD
     if not draft.summary_is_safe:
         return ToolResultDecision.DENY_UNVERIFIED_SUMMARY

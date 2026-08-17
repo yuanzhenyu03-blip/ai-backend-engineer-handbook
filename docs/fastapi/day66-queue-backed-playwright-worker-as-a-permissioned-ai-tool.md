@@ -122,11 +122,13 @@ fingerprint — tenant, operation, exact Origin, and report/data scope. The auth
 operation, the exact approved Origin, the allowed report/data scope, and a valid Session binding), never
 from the proposal itself. The proposal's `tenant_id`, `target_origin`, and `report_scope` are untrusted
 and must match the contract EXACTLY — they can never widen it — so a malicious Origin (e.g. cloud
-metadata), a foreign tenant, or an out-of-scope report is rejected. User approval is necessary but **not**
-sufficient. Same key + different fingerprint is rejected; same key + same authorized fingerprint is an
+metadata), a foreign tenant, or an out-of-scope report is rejected. Approval is a **server-side fact**
+recorded in the contract (`approval_granted` / `approval_id`) — the proposal can never self-assert it — and
+is necessary but **not** sufficient. Same key + different fingerprint is rejected; same key + same authorized fingerprint is an
 idempotent replay of the existing task.
 
-`validate_tool_proposal(proposal, contract, existing)` →
+`validate_tool_proposal(proposal, contract, existing)` (the proposal has no `user_approved` field;
+approval comes only from `contract.approval_granted`) →
 `ACCEPT_NEW / REPLAY_EXISTING / REJECT_NOT_A_TOOL_CALL / REJECT_MISSING_IDEMPOTENCY / REJECT_UNAPPROVED /
 REJECT_POLICY_BLOCKED / REJECT_TENANT_MISMATCH / REJECT_ORIGIN_NOT_APPROVED / REJECT_SCOPE_NOT_ALLOWED /
 REJECT_SESSION_UNAUTHORIZED / REJECT_FINGERPRINT_MISMATCH`.
@@ -160,12 +162,17 @@ at the committed transaction**. `becomes_durable_task_at(DURABLY_ACCEPTED)` is t
 Execution ownership is decided by a PostgreSQL guarded claim plus a lease — **not** exactly-once queue
 delivery (*“依靠 PostgreSQL 的 guarded claim 与 lease 决定谁拥有执行权”*). A queue message is a
 notification; the guarded `UPDATE ... RETURNING` (with `lease_owner`, `lease_token`, `lease_expires_at`)
-grants temporary execution authority to exactly one concurrent Worker. A terminal write must require the
-current task state, matching owner/token, and an unexpired lease. A stale Worker cannot publish merely
+grants temporary execution authority to exactly one concurrent Worker — a claim takes ONLY a task with no
+lease or an EXPIRED lease, so ANY still-valid lease is rejected, **including the same `attempt_id`'s** (a
+duplicate/concurrent path must never re-claim and overwrite a live lease); an Attempt extends its OWN live
+lease through a separate `renew_lease()` (same owner + token, a pushed-out expiry, no token rotation, and
+never a re-execution of Playwright). A terminal write must require the current task state, matching
+owner/token, and an unexpired lease. A stale Worker cannot publish merely
 because it holds valid bytes: the student correctly answered that Worker A cannot publish after its token
 expires and Worker B takes a new token, and that A's candidate data is not automatically a trusted
 Artifact (*“不能”*). `guarded_claim(...)` and `terminal_publish_allowed(fence)` (reusing
-`day63_session_gate.final_fence`) encode this.
+`day63_session_gate.final_fence`) encode this, and `renew_lease(...)` / `renewed_expiry(...)` extend a live
+lease without re-claiming.
 
 Commit the durable task result **before** ACK. If a Worker crashes after commit but before ACK, the
 redelivered Worker reads `succeeded`, does not run Playwright again, ACKs the duplicate, and lets the
@@ -228,10 +235,12 @@ cancellation request and the external outcome are separate, auditable facts.
 A long-running browser Tool invocation returns `202 Accepted + task_id`, not an immediate complete report
 (*“回 202 Accepted + task_id”*). The exact distinction: `accepted != running != succeeded != published
 Artifact`. A task/status API is tenant-authorized and returns only safe state; a result reference appears
-only after a guarded successful terminal write. The Tool Result for the Provider/LLM is only an
-authorized, verified safe summary plus a protected Artifact reference (*“只包含经过授权与验证的安全摘要和
-Artifact 引用”*) — never raw CSV by default, trace, Cookie, storage state, headers, raw DOM/network
-responses, or diagnostics; the Artifact reference itself stays access-controlled.
+only after a guarded successful terminal write. The Tool Result for the Provider/LLM is validated by a
+**strict allowlist** — it may carry ONLY `task_id`, `status`, `safe_summary` and `artifact_ref`
+(*“只包含经过授权与验证的安全摘要和 Artifact 引用”*); ANY other field (a `session_token`, `authorization`,
+`raw_prompt`, `cookies`, `trace`, `raw_csv`, or any unknown/future field) is rejected without a denylist.
+The Artifact reference is a protected, access-controlled REFERENCE only — it never grants the model
+object-read access.
 
 ### Concept 9: Correlation and audit identity
 
@@ -247,8 +256,9 @@ audit-safe**, and any unknown/future or credential field (e.g. `session_token`) 
 
 * **`idempotency_key` alone prevents replay** — incomplete. It must bind to a request fingerprint; same
   key with a different intent is rejected.
-* **User approval alone authorizes browser execution** — incomplete. Backend policy is the enforceable
-  authority and remains able to deny unsafe actions.
+* **User approval alone authorizes browser execution** — incomplete, and the proposal cannot self-assert
+  it. Approval is a durable server-side fact in the contract; backend policy is the enforceable authority
+  and remains able to deny unsafe actions.
 * **A Provider tool-call response (step 3) creates an executable Task** — wrong lifecycle boundary. A tool
   call is a proposal; a committed authorized Task/Contract/Outbox is durable acceptance.
 * **Queue delivery gives the Worker execution authority** — corrected to a guarded PostgreSQL claim plus
@@ -294,8 +304,9 @@ python3 -m pytest -q tests/test_day66_queue_backed_permissioned_worker.py
    `dispatch_via_relay_after_commit` / `direct_in_request_publish_is_safe`.
 4. **Envelope** — `validate_envelope`: accept a minimal identity envelope; dead-letter an unsupported
    version; reject Cookies/storage-state/provider-key fields and missing identity.
-5. **Guarded claim** — `guarded_claim`: one winner; re-claim on expired lease; deny on active lease,
-   terminal state, and non-claimable state.
+5. **Guarded claim** — `guarded_claim`: one winner; re-claim only on a no/expired lease; deny ANY live
+   lease (even the SAME Attempt), terminal state, and non-claimable state; `renew_lease` extends an
+   Attempt's own live lease (matching owner + token, no token rotation, no re-execution).
 6. **Stale-write rejection** — `terminal_publish_allowed`: block a superseded token, a taken-over owner,
    an expired lease, and a bumped version.
 7. **Commit-before-ACK** — `on_delivery`: terminal → ACK duplicate; running + live lease → ACK duplicate
@@ -305,8 +316,9 @@ python3 -m pytest -q tests/test_day66_queue_backed_permissioned_worker.py
 9. **Safe retry** — `worker_retry_decision`: proven non-start + valid fence → RETRY; revoked fence →
    UNAUTHORIZED; UNKNOWN → block; `retry_is_new_attempt_identity`.
 10. **Cancellation** — `classify_cancellation` + `cancellation_checkpoints`.
-11. **Safe Tool Result** — `shape_tool_result`: deny unauthorized, non-terminal, unsafe-field, unverified;
-    return a safe summary otherwise.
+11. **Safe Tool Result** — `shape_tool_result`: strict allowlist (`task_id`/`status`/`safe_summary`/
+    `artifact_ref`); deny unauthorized, non-terminal, any non-allowlisted field, unverified; return a safe
+    summary otherwise.
 12. **Audit identity** — `audit_event_is_safe` + `task_id`/`attempt_id` semantics.
 13. **Incident rollback** — `classify_worker_incident` + `incident_phases` +
     `stale_published_artifact_is_trusted` + `rollback_target_is_worker_release`.
@@ -364,7 +376,8 @@ way while monitoring audit/metrics.
 ## 14. Mental Model Summary
 
 ```text
-proposal (untrusted)   -> validate: tool-call + idempotency bound to fingerprint + user-approved + policy
+proposal (untrusted)   -> validate vs server contract: tool-call + idempotency/fingerprint + server-side
+                          approval fact + exact tenant/operation/Origin/scope + Session (proposal never widens it)
 durable acceptance     -> ONE tx: Task + Permissioned Contract + Outbox intent -> 202 + task_id
 dispatch               -> independent Outbox Relay AFTER commit (never a direct in-request publish)
 envelope               -> minimal identity only (version/event_id/task_id/trace_id/event_type); no secrets

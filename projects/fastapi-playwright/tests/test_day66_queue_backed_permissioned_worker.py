@@ -24,6 +24,8 @@ from day66_queue_backed_permissioned_worker import (
     CancellationDecision,
     ClaimDecision,
     ClaimRequest,
+    RenewDecision,
+    RenewLeaseRequest,
     DeliveryDecision,
     EnvelopeDecision,
     ExistingAcceptance,
@@ -58,6 +60,8 @@ from day66_queue_backed_permissioned_worker import (
     recovery_permits_publication,
     recovery_permits_replay,
     redelivered_worker_returns_result_to_broker,
+    renew_lease,
+    renewed_expiry,
     retry_is_new_attempt_identity,
     rollback_target_is_worker_release,
     shape_tool_result,
@@ -77,14 +81,15 @@ ORIGIN = "https://reports.example.test:443"
 # ---- 1) tool-call proposal validation -----------------------------------------------------
 def _proposal(**over):
     d = dict(is_tool_call=True, operation="browser.export_report", tenant_id="tenantA",
-             target_origin=ORIGIN, report_scope="q3", idempotency_key="idem-1", user_approved=True)
+             target_origin=ORIGIN, report_scope="q3", idempotency_key="idem-1")
     d.update(over)
     return ToolCallProposal(**d)
 
 
 def _contract(**over):
     d = dict(tenant_id="tenantA", allowed_operation="browser.export_report", approved_origin=ORIGIN,
-             allowed_report_scope="q3", session_authorized=True)
+             allowed_report_scope="q3", session_authorized=True, approval_granted=True,
+             approval_id="appr-1")
     d.update(over)
     return ServerAuthorizedContract(**d)
 
@@ -96,9 +101,10 @@ def test_tool_proposal_must_match_server_authorized_contract():
     assert validate_tool_proposal(_proposal(is_tool_call=False), c) is ProposalDecision.REJECT_NOT_A_TOOL_CALL
     # idempotency key is required
     assert validate_tool_proposal(_proposal(idempotency_key=None), c) is ProposalDecision.REJECT_MISSING_IDEMPOTENCY
-    # user approval is necessary ...
-    assert validate_tool_proposal(_proposal(user_approved=False), c) is ProposalDecision.REJECT_UNAPPROVED
-    # ... but not sufficient: the proposal's untrusted fields cannot widen the server contract
+    # approval must be a SERVER fact: even a (hypothetical) self-asserted proposal cannot approve itself,
+    # and a contract without a server-side approval is rejected regardless of the proposal
+    assert validate_tool_proposal(_proposal(), _contract(approval_granted=False)) is ProposalDecision.REJECT_UNAPPROVED
+    # the proposal's untrusted fields cannot widen the server contract
     assert validate_tool_proposal(_proposal(operation="browser.delete_all"), c) is ProposalDecision.REJECT_POLICY_BLOCKED
     assert validate_tool_proposal(_proposal(tenant_id="tenantB"), c) is ProposalDecision.REJECT_TENANT_MISMATCH
     # a malicious Origin in the proposal is rejected (never trusted)
@@ -177,11 +183,34 @@ def test_guarded_claim_one_winner_not_queue_delivery():
     assert guarded_claim(ClaimRequest(TaskState.RUNNING, "att-old", NOW - 1, NOW, "att-2")) is ClaimDecision.CLAIMED
     # another Attempt holds an UNEXPIRED lease -> denied
     assert guarded_claim(ClaimRequest(TaskState.RUNNING, "att-old", NOW + 100, NOW, "att-2")) is ClaimDecision.DENIED_LEASE_ACTIVE
+    # the SAME Attempt cannot re-claim its own still-valid lease (no overwrite via a duplicate path)
+    assert guarded_claim(ClaimRequest(TaskState.RUNNING, "att-1", NOW + 100, NOW, "att-1")) is ClaimDecision.DENIED_LEASE_ACTIVE
     # a terminal task is never re-executed
     assert guarded_claim(ClaimRequest(TaskState.SUCCEEDED, None, None, NOW, "att-1")) is ClaimDecision.DENIED_TERMINAL
     # a cancellation-requested task is not claimable
     assert guarded_claim(ClaimRequest(TaskState.CANCELLATION_REQUESTED, None, None, NOW, "att-1")) is ClaimDecision.DENIED_NOT_CLAIMABLE
     assert is_terminal(TaskState.CANCELLED) is True and is_terminal(TaskState.RUNNING) is False
+
+
+def _renew(**over):
+    d = dict(task_state=TaskState.RUNNING, lease_owner="att-1", lease_token="tok-1",
+             lease_expires_at=NOW + 50, now=NOW, attempt_id="att-1", worker_token="tok-1",
+             new_expires_at=NOW + 500)
+    d.update(over)
+    return RenewLeaseRequest(**d)
+
+
+def test_renew_lease_only_current_owner_and_token_on_unexpired_lease():
+    # the current owner + token may extend an unexpired lease; the expiry moves, the token does NOT rotate
+    assert renew_lease(_renew()) is RenewDecision.RENEWED
+    assert renewed_expiry(_renew()) == NOW + 500
+    # wrong token / wrong owner / expired lease / not-running can never renew
+    assert renew_lease(_renew(worker_token="tok-BAD")) is RenewDecision.DENIED_TOKEN_MISMATCH
+    assert renew_lease(_renew(attempt_id="att-2")) is RenewDecision.DENIED_OWNER_MISMATCH
+    assert renew_lease(_renew(lease_expires_at=NOW - 1)) is RenewDecision.DENIED_LEASE_EXPIRED
+    assert renew_lease(_renew(task_state=TaskState.ACCEPTED)) is RenewDecision.DENIED_NOT_RUNNING
+    # a denied renewal yields no new expiry (and an expired lease is re-acquired via guarded_claim instead)
+    assert renewed_expiry(_renew(lease_expires_at=NOW - 1)) is None
 
 
 # ---- 6) stale-write rejection via the Day63 final fence -----------------------------------
@@ -275,21 +304,25 @@ def test_cancellation_is_durable_cooperative_and_checkpointed():
 # ---- 11) async permissioned-tool response + safe Tool Result -----------------------------
 def _draft(**over):
     d = dict(tenant_authorized=True, terminal_succeeded=True, summary_is_safe=True,
-             field_names=frozenset({"summary", "artifact_ref"}), includes_artifact_reference=True)
+             field_names=frozenset({"task_id", "status", "safe_summary", "artifact_ref"}),
+             includes_artifact_reference=True)
     d.update(over)
     return ToolResultDraft(**d)
 
 
-def test_tool_result_is_safe_summary_only():
+def test_tool_result_is_a_strict_allowlist():
     assert accepted_is_not_succeeded() is True
     assert shape_tool_result(_draft()) is ToolResultDecision.RETURN_SAFE_SUMMARY
+    # a minimal task_id + status only is also fine
+    assert shape_tool_result(_draft(field_names=frozenset({"task_id", "status"}))) is ToolResultDecision.RETURN_SAFE_SUMMARY
     assert shape_tool_result(_draft(tenant_authorized=False)) is ToolResultDecision.DENY_NOT_AUTHORIZED
     # no result reference until a guarded successful terminal write exists
     assert shape_tool_result(_draft(terminal_succeeded=False)) is ToolResultDecision.DENY_NOT_TERMINAL
-    # raw CSV / trace / cookies / DOM must never leave to the model
-    assert shape_tool_result(_draft(field_names=frozenset({"summary", "raw_csv"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
-    assert shape_tool_result(_draft(field_names=frozenset({"summary", "cookies"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
-    assert shape_tool_result(_draft(field_names=frozenset({"summary", "trace"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
+    # ANY field outside the allowlist is rejected — a known leak, a credential, OR an unknown/future field
+    assert shape_tool_result(_draft(field_names=frozenset({"safe_summary", "raw_csv"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
+    assert shape_tool_result(_draft(field_names=frozenset({"safe_summary", "session_token"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
+    assert shape_tool_result(_draft(field_names=frozenset({"safe_summary", "authorization"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
+    assert shape_tool_result(_draft(field_names=frozenset({"safe_summary", "some_future_field"}))) is ToolResultDecision.DENY_UNSAFE_FIELD
     assert shape_tool_result(_draft(summary_is_safe=False)) is ToolResultDecision.DENY_UNVERIFIED_SUMMARY
 
 
