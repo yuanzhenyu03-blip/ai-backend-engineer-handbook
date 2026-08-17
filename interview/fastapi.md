@@ -1688,6 +1688,20 @@ Strong Answer: "Stop the blast radius first: deactivate the bad workflow or publ
 
 "The Webhook fired and n8n mapped the fields, so I return 202 + task_id, trust the tenant_id in the body because our shared service key is attached, and if something breaks I delete the task rows to roll back." This treats receipt as acceptance, treats a service credential as a user/tenant identity, and destroys durable audit/recovery evidence (and cannot un-run an external effect). The correct model: FastAPI commits acceptance before any 202, resolves trusted context server-side, enforces idempotency, and compensates via controlled backend APIs while n8n only stops future orchestration.
 
+### Follow-up Questions
+
+Beginner follow-up: Even if n8n is given read-only database access, why should it still not scan `browser_tasks` directly?
+
+Strong Answer: "Read-only still couples n8n to the schema, bypasses FastAPI's policy and tenant boundary, and lets a low-code layer misread transient lease/state. It should call an authenticated FastAPI reconciliation API instead, so the backend stays the single authorized, audited door to durable state."
+
+Intermediate follow-up: When n8n resends a create request after an HTTP timeout, which value must be reused?
+
+Strong Answer: "The same `request_id` / idempotency key. n8n owns whether to resend; FastAPI atomically collapses the same intent onto one `task_id`, so redelivery returns the existing task rather than creating a duplicate."
+
+Senior follow-up: After deactivating a bad workflow, how do you locate and handle the Tasks that were already affected?
+
+Strong Answer: "Use n8n execution history for orchestration evidence and correlation, but treat FastAPI/the database as the authoritative business facts. Scope the affected `request_id`s/`task_id`s, then handle them through FastAPI cancellation, compensation, or reconciliation — never by deleting Task records."
+
 Validation: DOCUMENTATION + a single classroom EXECUTED_LOCAL_RUNTIME proof — a local invalid-webhook test (`POST http://localhost:5678/webhook-test/day67/research-report` with `{"report_scope":""}`) returned HTTP 400 with the documented JSON error; the IF false branch and its Respond to Webhook node ran and the HTTP Request node did NOT run (after correcting `$json...` to explicit `{{ $json... }}`; the earlier attempt misrouted and returned an empty 200). This covers the false branch only on a local Test URL — not CI, automated testing, or production. Note: n8n execution history is real orchestration evidence but is not the authoritative business audit source and cannot atomically commit business state with an external side effect; FastAPI/DB remain the authoritative boundary. NOT RUN / NOT CONFIGURED: a valid FastAPI success path, service authentication, durable Task creation, PostgreSQL persistence, queue/Outbox dispatch, browser-worker execution, a published Production URL, production. The HTTP endpoint was an unverified local placeholder with authentication `None`; no exported workflow JSON was captured. No secrets, real credentials, or production endpoints are committed.
 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day67), the
