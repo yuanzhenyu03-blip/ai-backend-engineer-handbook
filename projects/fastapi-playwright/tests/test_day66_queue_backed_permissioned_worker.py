@@ -213,6 +213,23 @@ def test_renew_lease_only_current_owner_and_token_on_unexpired_lease():
     assert renewed_expiry(_renew(lease_expires_at=NOW - 1)) is None
 
 
+def test_renew_lease_must_strictly_extend_into_the_future():
+    # current lease expires at NOW + 50; a valid renewal must move it strictly FORWARD
+    # new expiry in the past / at now -> rejected, current expiry untouched
+    assert renew_lease(_renew(new_expires_at=NOW - 10)) is RenewDecision.DENIED_NOT_EXTENDING
+    assert renew_lease(_renew(new_expires_at=NOW)) is RenewDecision.DENIED_NOT_EXTENDING
+    # new expiry EQUAL to the current lease expiry -> not an extension -> rejected
+    assert renew_lease(_renew(new_expires_at=NOW + 50)) is RenewDecision.DENIED_NOT_EXTENDING
+    # new expiry EARLIER than the current lease expiry (would shorten) -> rejected
+    assert renew_lease(_renew(new_expires_at=NOW + 20)) is RenewDecision.DENIED_NOT_EXTENDING
+    # a strict, forward extension -> RENEWED and returns the new expiry
+    assert renew_lease(_renew(new_expires_at=NOW + 51)) is RenewDecision.RENEWED
+    assert renewed_expiry(_renew(new_expires_at=NOW + 51)) == NOW + 51
+    # every rejected renewal writes NO new expiry (the original lease expiry is preserved)
+    for bad in (NOW - 10, NOW, NOW + 20, NOW + 50):
+        assert renewed_expiry(_renew(new_expires_at=bad)) is None
+
+
 # ---- 6) stale-write rejection via the Day63 final fence -----------------------------------
 def _fence(**over):
     meta = SessionMeta("active", NOW + 100, 3, "att-1", "wtok-1", NOW + 50)

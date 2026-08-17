@@ -165,8 +165,10 @@ notification; the guarded `UPDATE ... RETURNING` (with `lease_owner`, `lease_tok
 grants temporary execution authority to exactly one concurrent Worker — a claim takes ONLY a task with no
 lease or an EXPIRED lease, so ANY still-valid lease is rejected, **including the same `attempt_id`'s** (a
 duplicate/concurrent path must never re-claim and overwrite a live lease); an Attempt extends its OWN live
-lease through a separate `renew_lease()` (same owner + token, a pushed-out expiry, no token rotation, and
-never a re-execution of Playwright). A terminal write must require the current task state, matching
+lease through a separate `renew_lease()` (same owner + token, an expiry pushed STRICTLY into the future —
+`new_expires_at` must be `> now` AND `> the current lease_expires_at`, so a renewal can never shorten the
+lease or write a past/equal time; a non-extending value is rejected and the current expiry is left
+untouched — no token rotation, and never a re-execution of Playwright). A terminal write must require the current task state, matching
 owner/token, and an unexpired lease. A stale Worker cannot publish merely
 because it holds valid bytes: the student correctly answered that Worker A cannot publish after its token
 expires and Worker B takes a new token, and that A's candidate data is not automatically a trusted
@@ -306,7 +308,8 @@ python3 -m pytest -q tests/test_day66_queue_backed_permissioned_worker.py
    version; reject Cookies/storage-state/provider-key fields and missing identity.
 5. **Guarded claim** — `guarded_claim`: one winner; re-claim only on a no/expired lease; deny ANY live
    lease (even the SAME Attempt), terminal state, and non-claimable state; `renew_lease` extends an
-   Attempt's own live lease (matching owner + token, no token rotation, no re-execution).
+   Attempt's own live lease ONLY strictly into the future (rejects `new_expires_at <= now` or `<= current
+   expiry`), matching owner + token, no token rotation, no re-execution.
 6. **Stale-write rejection** — `terminal_publish_allowed`: block a superseded token, a taken-over owner,
    an expired lease, and a bumped version.
 7. **Commit-before-ACK** — `on_delivery`: terminal → ACK duplicate; running + live lease → ACK duplicate

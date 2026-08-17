@@ -48,8 +48,12 @@ LLM tool-call proposal (UNTRUSTED request input)
   owner/token/expiry) grants temporary EXECUTION AUTHORITY to exactly one Worker. A terminal task is never
   re-executed; a claim takes ONLY a task with no lease or an EXPIRED lease, so ANY still-valid lease
   blocks it — including the SAME `attempt_id`'s (no duplicate re-claim/overwrite). An Attempt extends its
-  OWN live lease via `renew_lease()` (matching owner + token, a pushed-out expiry, no token rotation, and
-  never a re-execution); an expired lease is re-acquired through `guarded_claim`, not renewed.
+  OWN live lease via `renew_lease()` (matching owner + token, an expiry pushed STRICTLY into the future —
+  `new_expires_at` must be `> now` AND `> current lease_expires_at`; a non-extending/past/equal value is
+  rejected (`DENIED_NOT_EXTENDING`) and the current expiry is left untouched, so a renewal can never
+  shorten the lease or write an already-expired time and let another Worker reclaim while this one still
+  runs — no token rotation, and never a re-execution); an expired lease is re-acquired through
+  `guarded_claim`, not renewed.
 - A terminal `succeeded` write / Artifact publication is allowed ONLY under the current Day63 final fence
   (active + session-expiry + lease_owner==attempt + lease_token + unexpired lease + version). A stale
   Worker whose token/version was superseded or whose lease expired can NEVER publish — valid bytes are not

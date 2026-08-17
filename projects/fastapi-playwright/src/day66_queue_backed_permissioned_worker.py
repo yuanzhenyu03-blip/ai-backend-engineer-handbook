@@ -358,14 +358,20 @@ class RenewDecision(str, Enum):
     DENIED_OWNER_MISMATCH = "DENIED_OWNER_MISMATCH"
     DENIED_TOKEN_MISMATCH = "DENIED_TOKEN_MISMATCH"
     DENIED_LEASE_EXPIRED = "DENIED_LEASE_EXPIRED"  # an expired lease is re-acquired via guarded_claim, not renewed
+    DENIED_NOT_EXTENDING = "DENIED_NOT_EXTENDING"  # new expiry is in the past/now or <= the current expiry
 
 
 def renew_lease(req: RenewLeaseRequest) -> RenewDecision:
-    """Extend an Attempt's OWN still-valid lease. Renewal is NOT a re-claim and NEVER re-executes
-    Playwright: it requires a RUNNING task, the CURRENT ``lease_owner`` == this ``attempt_id``, the
-    CURRENT ``lease_token`` == this ``worker_token``, and an UNEXPIRED lease; it then pushes out only the
-    expiry (via ``renewed_expiry``) and preserves the existing token (a renewal never rotates the token).
-    An expired lease can never be renewed — it must be re-acquired through ``guarded_claim``."""
+    """Extend an Attempt's OWN still-valid lease STRICTLY INTO THE FUTURE. Renewal is NOT a re-claim and
+    NEVER re-executes Playwright: it requires a RUNNING task, the CURRENT ``lease_owner`` == this
+    ``attempt_id``, the CURRENT ``lease_token`` == this ``worker_token``, an UNEXPIRED lease, AND a
+    ``new_expires_at`` that is both in the future (``> now``) and a strict extension of the current lease
+    (``> lease_expires_at``). A renewal that would move the expiry to the past/now or shorten it is REJECTED
+    (``DENIED_NOT_EXTENDING``) and the current expiry is left untouched — otherwise a Worker could renew its
+    lease into an already-expired/shorter window, letting another Worker immediately reclaim while the
+    original is still executing (concurrent execution + UNKNOWN_OUTCOME risk). It pushes out only the expiry
+    (via ``renewed_expiry``) and preserves the existing token (a renewal never rotates the token). An
+    expired lease can never be renewed — it must be re-acquired through ``guarded_claim``."""
     if req.task_state is not TaskState.RUNNING:
         return RenewDecision.DENIED_NOT_RUNNING
     if req.lease_owner != req.attempt_id:
@@ -374,6 +380,8 @@ def renew_lease(req: RenewLeaseRequest) -> RenewDecision:
         return RenewDecision.DENIED_TOKEN_MISMATCH
     if req.lease_expires_at is None or req.lease_expires_at <= req.now:
         return RenewDecision.DENIED_LEASE_EXPIRED
+    if req.new_expires_at <= req.now or req.new_expires_at <= req.lease_expires_at:
+        return RenewDecision.DENIED_NOT_EXTENDING   # never shorten or write a past/equal expiry
     return RenewDecision.RENEWED
 
 
