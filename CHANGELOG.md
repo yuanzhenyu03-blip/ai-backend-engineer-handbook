@@ -9,6 +9,20 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.166 — Day68: Long-running AI Jobs: Polling, Callback, Correlation and Idempotency
+
+Date: 2026-08-17
+
+Day: Day68 (Phase 6). Makes the n8n <-> FastAPI boundary safe for long-running AI Tasks by separating orchestration observation from durable Task truth and making polling/callback delivery retry-safe, duplicate-safe, correlation-safe, and ordering-safe. The Day67 boundary is unchanged: n8n orchestrates and observes; FastAPI/PostgreSQL owns durable truth, authorization, idempotency, recovery, and audit.
+
+Added: `docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md` — the 16-section `LESSON_TEMPLATE_v2` lesson (classroom-loop Concepts, conceptual design exercises, full English Interview), preserving the real short student answers and the one real technical correction (audit logs support investigation, not authoritative recovery) and noting the final Chinese synthesis was taught directly by the Tech Lead at the student's request.
+
+Updated: `projects/n8n-workflows/README.md` (added the Day68 Long-running Job Orchestration Contract — Acceptance/Polling/Callback/Incident branches + the six-identity table + evidence limits), `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md` (Day68 marked Completed (classroom scope); Day69 current; Day69 prep tasks added).
+
+Key rules: after `202 + task_id`, an n8n timeout / Poll timeout / HTTP 503 / missing/duplicate/out-of-order Callback does NOT by itself change business state; acceptance retries reuse the same `request_id` + fingerprint (different meaning -> 409); Polling observes the same `task_id` with bounded backoff + observation deadline + max attempts; the identity contract is `request_id`/`task_id`/`correlation_id`/`event_id`/`task_version`/`trace_id`; Callback delivery is AT-LEAST-ONCE (authenticate -> validate -> correlate -> dedupe `event_id` -> `task_version` ordering -> legal transition -> optional authoritative confirm -> one idempotent downstream action) with correlation_id an association key (not authentication) and `arrival order != business-state order`; the incident flow is contain -> scope -> classify -> cancel/reconcile/compensate -> verify -> controlled rollout, never deleting durable facts or blindly recreating paid work.
+
+Validation: Day68 is CONCEPTUAL_STATIC (state-machine/contract design reviewed in class). NOT RUN: the Day68 n8n workflow runtime; a valid FastAPI acceptance/status integration; a real Polling loop (Wait/Switch, 503/backoff, deadline); real Callback reachability/authentication/duplicate/ack-loss/replay/correlation-mismatch/out-of-order behaviour; real PostgreSQL idempotency/version/terminal enforcement; real Worker/Provider duplicate-call prevention and cancellation/reconciliation; production. No exported n8n JSON was created or captured. Day67's invalid-input local 400 is NOT reused as Day68 validation, and nothing is upgraded to EXECUTED_LOCAL_RUNTIME/INTEGRATION_RUNTIME/PRODUCTION. Delivery is at-least-once (not exactly-once). No secrets, tokens, real callback URLs, tenant data, or Provider payloads are committed.
+
 ## v0.1.165 — Day67: n8n Workflow Model, Triggers, FastAPI Integration and Responsibility Boundaries
 
 Date: 2026-08-17

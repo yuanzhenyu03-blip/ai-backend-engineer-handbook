@@ -1707,3 +1707,57 @@ Validation: DOCUMENTATION + a single classroom EXECUTED_LOCAL_RUNTIME proof — 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day67), the
 [Day67 lesson](../docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md), and the
 [n8n-workflows project](../projects/n8n-workflows/README.md).
+
+## Day68 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency
+
+Key vocabulary: orchestration run vs durable business commitment · polling vs callback vs hybrid · observation deadline / bounded backoff · at-least-once delivery · idempotency key / request fingerprint · request_id / task_id / correlation_id / event_id / task_version / trace_id · dedupe · stale / out-of-order event · reconciliation vs compensation vs cancellation.
+
+### Beginner Question
+
+Q: What is the difference between an n8n workflow execution and a durable AI task?
+
+Student answer (preserved): "An n8n execution is merely a process of invocation, whereas a persistent AI task represents a persistent business commitment." (Review: correct; "process of invocation" -> "orchestration run", use "durable" consistently.)
+
+Strong Answer: "An n8n execution is an orchestration run that may start, observe, or coordinate work. A durable AI task is a committed business fact stored by the backend. If the n8n execution times out or disappears, the task may still be running, so the workflow must query or reconcile the existing task instead of creating a replacement."
+
+### Intermediate Question
+
+Q: A polling request returns HTTP 503 while an eight-minute AI task is running. How should the workflow respond, and what trade-off does polling introduce?
+
+Student answer (preserved): "Returning a 503 status does not mean the service has stopped; it can be recovered using audit logs. The polling mechanism increases the request load on FastAPI." (Review: correctly rejected 503-as-failure and named request load; corrected the audit-log boundary — logs support investigation, not authoritative recovery.)
+
+Strong Answer: "An HTTP 503 means the workflow could not observe the task state; it does not prove the durable task failed. The workflow retains the same task ID, retries the status request with bounded backoff, and enters reconciliation if its observation deadline expires. Polling is simple and needs no callback endpoint, but it increases API and database read load — shorter intervals give fresher updates but generate more requests."
+
+### Senior Question
+
+Q: A faulty n8n release creates replacement tasks after five failed polls; some original and replacement tasks may already have called a paid provider. Walk through containment, classification, recovery, and safe rollout.
+
+Student answer (preserved): "contain -> scope -> classify -> cancel/reconcile/compensate -> verify -> controlled rollout" (Review: correct structure, initially too compressed).
+
+Strong Answer: "Contain by deactivating the faulty workflow and restoring the last safe version so it cannot create more replacement tasks. Build a bounded affected set from workflow version, release window, request IDs, task IDs, correlation IDs, Worker Attempts, and Provider-dispatch evidence. Classify from durable evidence: a queued replacement with no execution evidence gets a durable cancellation through FastAPI; a running task that may already have called the Provider enters reconciliation and is not blindly retried; a succeeded task and its verified Artifact stay durable facts, and duplicate external effects are compensated, not deleted. Then verify authoritative PostgreSQL/Provider/Artifact/idempotency records, add regression coverage for failed polling and replacement creation, and roll out gradually while monitoring duplicate creation, reconciliation backlog, and callback/polling errors. Rollback stops future harm but does not undo committed tasks or external side effects."
+
+### Common Weak Answer
+
+"The poll returned 503 and the n8n run timed out, so the task failed — I create a new task with a fresh request_id, and when two completion callbacks arrive I publish both."
+
+Strong Answer: "This treats observation failure as task failure, treats an orchestration timeout as a terminal business state, mints a new command that duplicates paid work, and treats at-least-once delivery as two completions. Instead: keep the same task_id and back off, reuse the same request_id so FastAPI returns the existing task, and dedupe callbacks on event_id with an idempotent downstream effect so the report publishes once."
+
+### Follow-up Questions
+
+Beginner follow-up: If the n8n execution disappears entirely, is the task lost?
+
+Strong Answer: "No — the task is a durable backend fact; a new or restarted execution re-observes the same task_id. The orchestrator disappearing changes nothing about the committed task."
+
+Intermediate follow-up: Why is a stable event_id (not the payload) the right dedupe key for at-least-once callbacks?
+
+Strong Answer: "The same completion can be delivered more than once with identical contents; a stable event_id lets the gate recognise the redelivery and make the downstream action a no-op — exactly-once effect without exactly-once delivery."
+
+Senior follow-up: A running replacement task may already have called the paid Provider. Why PENDING_RECONCILIATION rather than cancel or retry?
+
+Strong Answer: "The external effect is unknown: cancelling could strand a real charge/result and retrying could double it. Reconciliation determines the authoritative outcome from Provider/Artifact evidence before any irreversible action; only a proven non-start is safe to cancel or retry."
+
+Validation: DOCUMENTATION — Day68 is CONCEPTUAL_STATIC (state-machine/contract design reviewed in class). The final Chinese synthesis was taught directly by the Tech Lead after the student asked for it (`你帮我总结`), not independently authored. NOT RUN: the Day68 n8n workflow runtime, a valid FastAPI acceptance/status integration, a real Polling loop, real Callback reachability/authentication/duplicate/ack-loss/replay/correlation-mismatch/out-of-order behaviour, real PostgreSQL idempotency/version/terminal enforcement, real Worker/Provider duplicate-call prevention and cancellation/reconciliation, and production. No exported workflow JSON was captured; Day67's invalid-input 400 is not reused as Day68 evidence. Delivery is at-least-once (not exactly-once); correlation_id is not authentication. No secrets, tokens, real callback URLs, tenant data, or Provider payloads are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day68), the
+[Day68 lesson](../docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md), and the
+[n8n-workflows project](../projects/n8n-workflows/README.md).

@@ -1352,7 +1352,7 @@ validation are only claimed when actually run and recorded.
 ## Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Status:
-Complete (Day59–Day66 Completed). Phase 6 has begun: Day67 Completed, Day68 current.
+Complete (Day59–Day66 Completed). Phase 6 in progress: Day67–Day68 Completed, Day69 current.
 
 Objective:
 Close the Phase 4 evidence gap first, then add a browser capability. Day59–Day61 are a **Production
@@ -1499,7 +1499,7 @@ runtime / integration / production evidence only when actually executed and save
 ## Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Status:
-In Progress (Day67 Completed; Day68–Day70 Planned)
+In Progress (Day67–Day68 Completed; Day69–Day70 Planned)
 
 Objective:
 Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
@@ -1528,6 +1528,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Connection: Day67 could trigger the backend but not manage long async jobs safely; Day68 adds
   polling/callback correlation and idempotency reusing the Phase 4/5 job lifecycle; Day69 adds human approval
   and hardening.
+  Status: ✅ Completed (classroom scope). Released Lesson: `docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md`. Engineering Artifact: `projects/n8n-workflows/` (the Day68 Long-running Job Orchestration Contract + identity table added to the README; NO exported workflow JSON was created or captured). Core model (Day67 boundary unchanged — n8n orchestrates/observes, FastAPI/PostgreSQL owns durable truth/authz/idempotency/recovery/audit): after `202 + task_id`, an n8n execution timeout, Poll timeout, HTTP 503, or missing/duplicate/out-of-order Callback does NOT by itself change the Task's business state; acceptance retries reuse the same business `request_id` + fingerprint (same intent -> existing task_id; different meaning -> 409); Polling always observes the same `task_id` with bounded backoff/observation-deadline/max-attempts and stops only on an authoritative terminal state or reconciliation; the identity contract is `request_id`/`task_id`/`correlation_id`/`event_id`/`task_version`/`trace_id`; Callback delivery is AT-LEAST-ONCE (authenticate -> validate -> correlate -> dedupe `event_id` -> `task_version` ordering -> legal transition -> optional authoritative confirm -> one idempotent downstream action) with correlation_id an association key (NOT authentication) and `arrival order != business-state order`; the incident flow is contain -> scope -> classify -> cancel/reconcile/compensate -> verify -> controlled rollout (never delete durable Task facts, never blindly recreate expensive/side-effecting work). Evidence: CONCEPTUAL_STATIC (state-machine/contract design reviewed in class); the final Chinese synthesis was taught directly by the Tech Lead after the student requested it. NOT RUN: the Day68 n8n workflow runtime; a valid FastAPI acceptance/status integration; a real Polling loop (Wait/Switch, 503/backoff, deadline); real Callback reachability/authentication/duplicate/ack-loss/replay/correlation-mismatch/out-of-order behaviour; real PostgreSQL idempotency/version/terminal enforcement; real Worker/Provider duplicate-call prevention and cancellation/reconciliation; production. No exported n8n JSON. Day67's invalid-input local 400 is NOT reused as Day68 validation, and nothing is upgraded to EXECUTED_LOCAL_RUNTIME/INTEGRATION_RUNTIME/PRODUCTION. Delivery is at-least-once (not exactly-once). No secrets, tokens, real callback URLs, tenant data, or Provider payloads committed. Next: Day69 adds human approval, retry/error workflows, Secrets, and audit on top of Day68's identity and delivery contracts.
 - Day69 — Human Approval, Retry, Secrets, Audit and Error Workflows.
   Scope: human-in-the-loop approval, retry/error workflows, secrets handling, and audit.
   Connection: Day68 handled long jobs but had no human gate or hardening; Day69 adds approval, retry/error
