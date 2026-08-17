@@ -68,13 +68,30 @@ Acceptance:
   stable business request_id + request fingerprint -> FastAPI durable commit -> 202 + task_id + correlation_id
 
 Polling branch (observation of an EXISTING task; retrying a poll != retrying the job):
-  Wait (bounded interval/backoff) -> GET same task_id -> authoritative-state Switch
-    -> terminal result  OR  continue observation  OR  reconciliation (on observation deadline)
+  Wait (bounded interval/backoff) -> GET /api/v1/browser-tasks/{task_id} (same task_id)
+    -> Switch on the Day66 TaskState:
+         ACCEPTED / RUNNING             -> backoff -> poll the same task_id
+         CANCELLATION_REQUESTED         -> keep observing until terminal (or reconcile); no replacement
+         SUCCEEDED                      -> consume verified artifact_ref
+         FAILED / CANCELLED             -> terminal
+         timeout/429/503/invalid        -> retain task_id; retry observation or reconcile (on deadline)
+  (CONCEPTUAL CONTRACT: the status route + TaskState switch are design only -- ROUTE NOT IMPLEMENTED,
+   RUNTIME NOT RUN. The Day66 `TaskState` is a pure decision-core enum, not a live HTTP status route; this
+   contract uses ONLY the Browser Task state names, never a second generic queued/expired vocabulary.)
 
-Callback branch (AT-LEAST-ONCE; never claim exactly-once):
-  authenticate -> validate schema -> match task_id + correlation_id -> dedupe stable event_id
+Callback branch (AT-LEAST-ONCE; no exactly-once delivery or exactly-once cross-system effect claim):
+  authenticate -> validate schema -> match task_id + correlation_id
+    -> compute/validate event fingerprint
+    -> atomically enforce event_id + fingerprint:
+         same event_id + same meaning      -> idempotent no-op
+         same event_id + different meaning  -> integration/security CONFLICT (do not act; investigate)
     -> task_version ordering (reject stale/conflicting) -> verify legal transition
-    -> optional authoritative FastAPI confirmation -> ONE idempotent downstream action
+    -> authoritative FastAPI confirmation when required
+    -> ONE idempotent downstream action at a boundary that durably enforces the idempotency key
+       (duplicate-safe idempotent logical outcome; external targets enforce their own key or are reconciled)
+
+Event fingerprint covers only safe, stable business meaning (NO Secrets, raw Provider payloads, or
+sensitive data): event_type + task_id + correlation_id + task_version + artifact_ref / result identity.
 
 Incident branch:
   deactivate/rollback workflow -> preserve evidence -> bound affected set
@@ -88,10 +105,16 @@ Identity table:
 business request_id / idempotency key : one logical acceptance command; stable across lost-response retries
 task_id                               : durable backend Task identity
 correlation_id                        : stable business-chain association (NOT authentication/authorization)
-event_id                              : stable callback event identity, for dedupe
-task_version                          : monotonic ordering / conflict evidence
+event_id                              : stable callback event identity; deduped AND bound to an event fingerprint
+task_version                          : monotonic ordering / conflict evidence -- MODELED / NOT IMPLEMENTED
 trace_id / poll-attempt identity      : one concrete execution attempt; may change
 ```
+
+`task_version` is **MODELED / NOT IMPLEMENTED**: it is not in the Day66 Task model or any published durable
+schema, and neither FastAPI, PostgreSQL, nor the Callback currently provides it. A real run first needs an
+API-response/callback contract field, a durable monotonic version (or authoritative event sequence), a
+Day48-style forward-safe additive migration where applicable, atomic version increment/read semantics, and
+legal-transition enforcement.
 
 Evidence limits (Day68):
 

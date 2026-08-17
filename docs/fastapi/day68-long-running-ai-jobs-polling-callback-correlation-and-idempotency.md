@@ -40,7 +40,8 @@ By the end of Day68 you can:
   fingerprint, and know when a new `request_id` is a new command.
 * Hold the identity contract: `request_id` vs `task_id` vs `correlation_id` vs callback `event_id` vs
   `task_version` vs per-attempt `trace_id`.
-* Build a safe at-least-once Callback gate (authenticate → validate → correlate → dedupe `event_id` →
+* Build a safe at-least-once Callback gate (authenticate → validate → correlate → compute/validate the
+  event fingerprint → atomically enforce `event_id` + fingerprint → order by `task_version` →
   version ordering → legal transition → optional authoritative confirm → one idempotent downstream action).
 * Reject correlation mismatch and out-of-order/stale events, and run a production incident:
   contain → scope → classify → cancel/reconcile/compensate → verify → controlled rollout.
@@ -97,7 +98,8 @@ After 202 + task_id, none of these change the Task's business state by itself:
 Acceptance retries reuse the SAME business request_id + fingerprint.
 Polling ALWAYS observes the SAME task_id (retrying a Poll is not retrying the Job).
 correlation_id stays stable across the business chain; each concrete HTTP/trace attempt may be new.
-Delivery is AT-LEAST-ONCE: authenticate, validate, correlate, dedupe event_id, reject stale/conflicting
+Delivery is AT-LEAST-ONCE: authenticate, validate, correlate, fingerprint + atomically enforce event_id
+(same event_id+meaning=no-op; same event_id+different meaning=conflict), reject stale/conflicting
 versions, verify legal transitions, make downstream effects idempotent.
 arrival order != business-state order. n8n history/logs/traces are orchestration evidence, not truth,
 and never permission to retry expensive/side-effecting work.
@@ -160,7 +162,8 @@ State the three concrete harms of recreating a still-running paid Task. (See Sec
 
 Tech Lead Question:
 
-FastAPI can expose `GET /tasks/{task_id}` but cannot call n8n (no inbound reachability). How do you follow
+FastAPI can expose a Browser Task status route (`GET /api/v1/browser-tasks/{task_id}`, the same Day66/Day67
+Browser Task Artifact evolved) but cannot call n8n (no inbound reachability). How do you follow
 the Task to completion?
 
 Student Thinking:
@@ -179,15 +182,23 @@ retry the Job. The state machine:
 
 ```text
 Webhook -> POST FastAPI -> 202 + task_id + correlation_id -> Wait
-  -> GET /tasks/{task_id} -> switch on the AUTHORITATIVE status:
-       queued / running          -> bounded wait/backoff -> poll the SAME task_id
-       succeeded                 -> consume the verified result / Artifact reference
-       failed / cancelled / expired -> finish with the matching terminal outcome
-       timeout / 429 / 503 / invalid -> retain task_id; retry observation or reconcile
+  -> GET /api/v1/browser-tasks/{task_id} -> switch on the AUTHORITATIVE Day66 TaskState:
+       ACCEPTED / RUNNING             -> bounded wait/backoff -> poll the SAME task_id
+       CANCELLATION_REQUESTED         -> keep observing until a terminal outcome (or reconcile); no replacement
+       SUCCEEDED                      -> consume the verified result / Artifact reference
+       FAILED / CANCELLED             -> finish with the matching terminal outcome
+       timeout / 429 / 503 / invalid  -> retain task_id; retry observation or reconcile
 ```
 
 It needs a bounded interval/backoff, an overall observation deadline, a max-attempts cap, and terminal
 stop conditions.
+
+> CONCEPTUAL CONTRACT — the status route `GET /api/v1/browser-tasks/{task_id}` and the Day66 `TaskState`
+> switch above are a design contract: **ROUTE NOT IMPLEMENTED, RUNTIME NOT RUN** for Day68. Day66's
+> `TaskState` (`ACCEPTED`/`RUNNING`/`SUCCEEDED`/`FAILED`/`CANCELLATION_REQUESTED`/`CANCELLED`) is a pure
+> decision-core enum, not a live HTTP status route. This lesson uses the Browser Task state names only —
+> not a second, generic queued/expired vocabulary; if a generic AI-Job status is ever discussed, it needs
+> an explicit adapter mapping to these Day66 states.
 
 Engineering Thinking:
 
@@ -212,7 +223,8 @@ List the four bounding controls a polling loop needs. (See Section 10, Exercise 
 
 Tech Lead Question:
 
-`GET /tasks/{task_id}` returns HTTP 503 while the 8-minute Task runs. Does that mean the Task failed?
+`GET /api/v1/browser-tasks/{task_id}` returns HTTP 503 while the 8-minute Task runs. Does that mean the
+Task failed?
 
 Student Thinking:
 
@@ -322,11 +334,18 @@ business request_id / idempotency key = stable identity of ONE logical acceptanc
 task_id            = durable Task identity created by FastAPI AFTER commit
 correlation_id     = stable business-chain association across n8n/FastAPI/Outbox/Worker/Poll/Callback/downstream
 event_id           = stable callback event identity, used for dedupe
-task_version       = monotonic ordering / conflict evidence
+task_version       = monotonic ordering / conflict evidence  (MODELED / NOT IMPLEMENTED — see note below)
 trace_id / poll-attempt id = identity of ONE concrete HTTP/execution attempt; MAY be new each time
 ```
 
 `correlation_id` is an **association key, not authentication or authorization**.
+
+> Schema honesty — `task_version` is `MODELED / NOT IMPLEMENTED`. It is **not** part of the Day66 Task
+> model or any published durable schema, and neither FastAPI, PostgreSQL, nor the Callback currently
+> provides it. Before any real run it requires: an API-response/callback contract field; a durable
+> monotonic version (or an authoritative event sequence); a Day48-style forward-safe additive migration
+> where applicable; atomic version increment/read semantics; and legal-transition enforcement. Day68
+> reasons about `task_version` as a contract, not as an implemented column.
 
 Engineering Thinking:
 
@@ -366,32 +385,43 @@ Student Answer:
 Tech Lead Review:
 
 Correct. Callback delivery is **at-least-once**. Contract fields: `event_id`, `event_type`, `task_id`,
-`correlation_id`, `task_version`, and a safe `artifact_ref`. The safe gate:
+`correlation_id`, `task_version` (MODELED / NOT IMPLEMENTED), and a safe `artifact_ref`. The `event_id`
+must be bound to the event's **meaning** via an event fingerprint, so a redelivery of the *same* event is a
+no-op while a *reused `event_id` carrying different meaning* is caught as a conflict rather than silently
+swallowed. The safe gate:
 
 ```text
 authenticate caller
   -> validate payload schema
   -> match task_id + correlation_id
-  -> deduplicate stable event_id
-  -> compare task_version / reject stale or conflicting events
+  -> compute / validate the event fingerprint
+  -> atomically enforce event_id + fingerprint:
+       same event_id + same meaning      -> idempotent no-op
+       same event_id + different meaning  -> integration / security CONFLICT (do not act; investigate)
+  -> compare task_version -> reject stale / conflicting events
   -> verify a legal transition
-  -> optionally confirm authoritative FastAPI state when uncertain
+  -> confirm authoritative FastAPI state when required
   -> perform ONE idempotent downstream action
 ```
 
-n8n execution history is **not** the authoritative idempotency store; a durable downstream action goes
-through an idempotent FastAPI API (or another target with a stable idempotency key such as
-`event_id:publish-report`).
+The event fingerprint covers only safe, stable business meaning — at least `event_type`, `task_id`,
+`correlation_id`, `task_version`, and the `artifact_ref` / result identity — and stores **no** Secrets, raw
+Provider payloads, or sensitive data. n8n execution history is **not** the authoritative idempotency store;
+a durable downstream action goes through an idempotent FastAPI API (or another target that durably enforces
+a stable idempotency key such as `event_id:publish-report`).
 
 Engineering Thinking:
 
-Design for redelivery: stable event identity + idempotent effect makes "delivered twice" harmless without
-claiming exactly-once.
+Design for redelivery: a fingerprint-bound event identity + an idempotent effect at a boundary that
+durably enforces the idempotency key makes "delivered twice" a duplicate-safe no-op — with no exactly-once
+delivery claim and no exactly-once cross-system effect claim.
 
 Production Example:
 
-The "publish report" step keys on `event_id:publish-report`; a duplicate callback re-runs the step as a
-no-op and the report is published exactly once in effect.
+The "publish report" step keys on `event_id:publish-report` at a boundary that durably enforces that key, so
+a duplicate callback yields a duplicate-safe idempotent logical outcome (the second delivery is a no-op).
+This is **not** an exactly-once delivery claim and **not** an exactly-once cross-system effect claim: any
+external system that receives the publish must enforce its own idempotency key or be reconciled.
 
 Framework Connection:
 
@@ -532,11 +562,13 @@ Think First: How do you keep "observe again" from becoming "do again," and how d
 Starter Artifact:
 
 ```text
-Wait -> GET /tasks/{task_id} -> Switch(status):
-  queued/running -> backoff -> poll same task_id
-  succeeded -> consume artifact_ref
-  failed/cancelled/expired -> terminal
+Wait -> GET /api/v1/browser-tasks/{task_id} -> Switch(Day66 TaskState):
+  ACCEPTED/RUNNING -> backoff -> poll same task_id
+  CANCELLATION_REQUESTED -> keep observing until terminal (or reconcile)
+  SUCCEEDED -> consume artifact_ref
+  FAILED/CANCELLED -> terminal
   timeout/429/503/invalid -> retain task_id; retry or reconcile
+(CONCEPTUAL CONTRACT: route + status switch are design only — ROUTE NOT IMPLEMENTED, RUNTIME NOT RUN)
 ```
 
 Expected Output: A loop that always GETs the same `task_id`, with a bounded interval/backoff, an overall
@@ -549,12 +581,12 @@ Follow-up Question: What changes if you add a Callback as well (Hybrid), and wha
 
 ### Exercise 3 — Classify HTTP 503 (and 404) from the status endpoint
 
-Question: `GET /tasks/{task_id}` returns 503 mid-Task. Then consider a 404. Classify each and give the safe
+Question: `GET /api/v1/browser-tasks/{task_id}` returns 503 mid-Task. Then consider a 404. Classify each and give the safe
 next action.
 
 Think First: Is this about the channel or the Task?
 
-Starter Artifact: `503 from GET /tasks/task-8421` … `404 from GET /tasks/task-8421`.
+Starter Artifact: `503 from GET /api/v1/browser-tasks/task-8421` … `404 from GET /api/v1/browser-tasks/task-8421`.
 
 Expected Output: 503 = observation channel temporarily unavailable (retain `task_id`, backoff, reconcile on
 deadline) — not `failed`. 404 = not automatically a business failure; investigate identity/tenant/retention/
@@ -593,15 +625,18 @@ Question: The same completion Callback is delivered twice. May both trigger the 
 
 Think First: What makes at-least-once delivery safe without claiming exactly-once?
 
-Starter Artifact: Callback gate (authenticate → validate → match `task_id`+`correlation_id` → dedupe
-`event_id` → version → legal transition → idempotent action).
+Starter Artifact: Callback gate (authenticate → validate → match `task_id`+`correlation_id` → event
+fingerprint + atomic `event_id` enforce → `task_version` → legal transition → idempotent action).
 
 Expected Output: No. Deduplicate on the stable `event_id` and make the downstream action idempotent (e.g.
-`event_id:publish-report`), so the second delivery is a no-op; the report is published once in effect.
+`event_id:publish-report`) at a boundary that durably enforces that key, so the second delivery is a
+duplicate-safe idempotent no-op. This is NOT an exactly-once delivery or exactly-once cross-system effect
+claim: an external publish target must enforce its own idempotency key or be reconciled.
 
 Explanation: n8n history is not the idempotency store; a backend idempotent API is.
 
-Follow-up Question: Which single field carries dedupe, and what happens if it is missing?
+Follow-up Question: Why must the `event_id` be bound to an event fingerprint rather than deduped alone,
+and what should happen on a reused `event_id` that carries different meaning?
 
 ### Exercise 6 — Ordering and correlation: incident classification
 
@@ -741,8 +776,10 @@ Intermediate follow-up: Why is a stable `event_id` (not the payload contents) th
 at-least-once callbacks?
 
 Strong Answer: "Because the same completion can be delivered more than once with identical contents; a
-stable `event_id` lets the gate recognise the redelivery and make the downstream action a no-op, giving
-exactly-once *effect* without claiming exactly-once *delivery*."
+stable, fingerprint-bound `event_id` lets the gate recognise an identical redelivery as a duplicate-safe
+idempotent no-op, and a reused `event_id` carrying different meaning as a conflict — with no exactly-once
+delivery claim and no exactly-once cross-system effect claim; an external target enforces its own
+idempotency or is reconciled."
 
 Senior follow-up: A running replacement task may already have called the paid Provider. Why
 `PENDING_RECONCILIATION` rather than cancel or retry?
@@ -759,7 +796,8 @@ n8n timeout / Poll timeout / 503 / missing|dup|out-of-order Callback  ->  busine
 acceptance retry   = same request_id + fingerprint (same->existing task_id; different->409).
 polling            = same task_id, bounded backoff + deadline + max attempts; terminal or reconcile.
 identities         = request_id · task_id · correlation_id · event_id · task_version · trace_id(new per attempt).
-callback           = AT-LEAST-ONCE: authenticate -> validate -> correlate -> dedupe event_id -> version ->
+callback           = AT-LEAST-ONCE: authenticate -> validate -> correlate -> event fingerprint + atomic
+                     event_id enforce (same meaning=no-op; different meaning=conflict) -> task_version ->
                      legal transition -> optional authoritative confirm -> ONE idempotent downstream action.
 ordering           = order by task_version, not arrival; stale=no-op, conflict=integration error.
 correlation_id     = association key, NOT authentication.
@@ -791,7 +829,8 @@ side effect.
 - [ ] I can keep acceptance idempotent by reusing `request_id` + fingerprint (and know when a new
       `request_id` is a new command / when to return 409).
 - [ ] I can name the six identities and their roles, and know `correlation_id` is not authentication.
-- [ ] I can run the at-least-once callback gate (authenticate → validate → correlate → dedupe `event_id` →
+- [ ] I can run the at-least-once callback gate (authenticate → validate → correlate → compute/validate the
+      event fingerprint → atomically enforce `event_id` + fingerprint → `task_version` order →
       version → legal transition → idempotent action) and reject stale/out-of-order and correlation-mismatch
       events.
 - [ ] I can run the incident flow (contain → scope → classify → cancel/reconcile/compensate → verify →

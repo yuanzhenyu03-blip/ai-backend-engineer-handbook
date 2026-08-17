@@ -1710,7 +1710,7 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day67), the
 
 ## Day68 — Long-running AI Jobs: Polling, Callback, Correlation and Idempotency
 
-Key vocabulary: orchestration run vs durable business commitment · polling vs callback vs hybrid · observation deadline / bounded backoff · at-least-once delivery · idempotency key / request fingerprint · request_id / task_id / correlation_id / event_id / task_version / trace_id · dedupe · stale / out-of-order event · reconciliation vs compensation vs cancellation.
+Key vocabulary: orchestration run vs durable business commitment · polling vs callback vs hybrid · observation deadline / bounded backoff · at-least-once delivery (no exactly-once claim) · idempotency key / request fingerprint · event fingerprint (event_type+task_id+correlation_id+task_version+artifact_ref) · request_id / task_id / correlation_id / event_id / task_version (MODELED / NOT IMPLEMENTED) / trace_id · dedupe + conflict detection · stale / out-of-order event · reconciliation vs compensation vs cancellation. Status route `GET /api/v1/browser-tasks/{task_id}` and the Day66 TaskState switch are a CONCEPTUAL CONTRACT — ROUTE NOT IMPLEMENTED, RUNTIME NOT RUN.
 
 ### Beginner Question
 
@@ -1740,7 +1740,7 @@ Strong Answer: "Contain by deactivating the faulty workflow and restoring the la
 
 "The poll returned 503 and the n8n run timed out, so the task failed — I create a new task with a fresh request_id, and when two completion callbacks arrive I publish both."
 
-Strong Answer: "This treats observation failure as task failure, treats an orchestration timeout as a terminal business state, mints a new command that duplicates paid work, and treats at-least-once delivery as two completions. Instead: keep the same task_id and back off, reuse the same request_id so FastAPI returns the existing task, and dedupe callbacks on event_id with an idempotent downstream effect so the report publishes once."
+Strong Answer: "This treats observation failure as task failure, treats an orchestration timeout as a terminal business state, mints a new command that duplicates paid work, and treats at-least-once delivery as two completions. Instead: keep the same task_id and back off, reuse the same request_id so FastAPI returns the existing task, and process callbacks through a fingerprint-bound event_id gate with an idempotent downstream effect so a redelivery is a duplicate-safe no-op (no exactly-once delivery or cross-system effect claim)."
 
 ### Follow-up Questions
 
@@ -1750,13 +1750,13 @@ Strong Answer: "No — the task is a durable backend fact; a new or restarted ex
 
 Intermediate follow-up: Why is a stable event_id (not the payload) the right dedupe key for at-least-once callbacks?
 
-Strong Answer: "The same completion can be delivered more than once with identical contents; a stable event_id lets the gate recognise the redelivery and make the downstream action a no-op — exactly-once effect without exactly-once delivery."
+Strong Answer: "The same completion can be delivered more than once with identical contents; a stable, fingerprint-bound event_id lets the gate recognise an identical redelivery as a duplicate-safe idempotent no-op, and a reused event_id carrying different meaning as a conflict. There is no exactly-once delivery claim and no exactly-once cross-system effect claim — an external target enforces its own idempotency key or is reconciled."
 
 Senior follow-up: A running replacement task may already have called the paid Provider. Why PENDING_RECONCILIATION rather than cancel or retry?
 
 Strong Answer: "The external effect is unknown: cancelling could strand a real charge/result and retrying could double it. Reconciliation determines the authoritative outcome from Provider/Artifact evidence before any irreversible action; only a proven non-start is safe to cancel or retry."
 
-Validation: DOCUMENTATION — Day68 is CONCEPTUAL_STATIC (state-machine/contract design reviewed in class). The final Chinese synthesis was taught directly by the Tech Lead after the student asked for it (`你帮我总结`), not independently authored. NOT RUN: the Day68 n8n workflow runtime, a valid FastAPI acceptance/status integration, a real Polling loop, real Callback reachability/authentication/duplicate/ack-loss/replay/correlation-mismatch/out-of-order behaviour, real PostgreSQL idempotency/version/terminal enforcement, real Worker/Provider duplicate-call prevention and cancellation/reconciliation, and production. No exported workflow JSON was captured; Day67's invalid-input 400 is not reused as Day68 evidence. Delivery is at-least-once (not exactly-once); correlation_id is not authentication. No secrets, tokens, real callback URLs, tenant data, or Provider payloads are committed.
+Validation: DOCUMENTATION — Day68 is CONCEPTUAL_STATIC (state-machine/contract design reviewed in class). The final Chinese synthesis was taught directly by the Tech Lead after the student asked for it (`你帮我总结`), not independently authored. NOT RUN: the Day68 n8n workflow runtime, a valid FastAPI acceptance/status integration, a real Polling loop, real Callback reachability/authentication/duplicate/ack-loss/replay/correlation-mismatch/out-of-order behaviour, real PostgreSQL idempotency/version/terminal enforcement, real Worker/Provider duplicate-call prevention and cancellation/reconciliation, and production. No exported workflow JSON was captured; Day67's invalid-input 400 is not reused as Day68 evidence. Delivery is at-least-once (not exactly-once); correlation_id is not authentication. `task_version` is MODELED / NOT IMPLEMENTED (not in the Day66 Task model or any published schema); the status route `GET /api/v1/browser-tasks/{task_id}` and the Day66 TaskState switch are a CONCEPTUAL CONTRACT (ROUTE NOT IMPLEMENTED). No secrets, tokens, real callback URLs, tenant data, or Provider payloads are committed.
 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day68), the
 [Day68 lesson](../docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md), and the
