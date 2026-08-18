@@ -1761,3 +1761,57 @@ Validation: DOCUMENTATION — Day68 is CONCEPTUAL_STATIC (state-machine/contract
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day68), the
 [Day68 lesson](../docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md), and the
 [n8n-workflows project](../projects/n8n-workflows/README.md).
+
+## Day69 — Human Approval, Retry, Secrets, Audit and Error Workflows
+
+Key vocabulary: risk-based human approval · requester vs approver · tenant role (Report Owner/Manager/Tenant Admin/Compliance) · validation vs authorization vs approval vs audit · exact binding (tenant/actor/action/artifact-version/policy/expiry) · Approval lifecycle (PENDING/APPROVED/REJECTED/EXPIRED/CANCELLED) · OUTCOME_UNKNOWN · idempotency key / operation_id · PENDING_RECONCILIATION · credential reference vs Secret Manager · redaction · append-only audit vs current state · duplicate delivery vs business decision · event-identity conflict · smallest-safe-boundary resume.
+
+### Beginner Question
+
+Q: Why do some AI-generated reports need human approval before external publication, and where is the approval state stored?
+
+Student answer (preserved): "These are high-risk documents intended for external clients that require tenant management or specialized manual navigation; the authorization status should be stored in a database." (Review: correct direction; "tenant management / specialized manual navigation" -> "approval from an authorized user in the tenant organization"; "authorization status" -> "approval state"; make FastAPI verification + PostgreSQL authority explicit.)
+
+Strong Answer: "Human approval is a risk-control step before a high-impact action such as publishing an AI-generated report to an external client. An authorized user in the customer's organization approves or rejects the exact action and artifact version. n8n may request and wait for the decision, but FastAPI must verify the approver's authorization and store the authoritative approval state in PostgreSQL."
+
+### Intermediate Question
+
+Q: A publish request times out while a report is being published. How should the workflow respond, and why?
+
+Student answer (preserved): "Retries cannot be performed casually; the current status of the FastAPI result is unknown … Directly re-invoking the service could trigger a duplicate call to the provider and incur additional costs." (Review: strong direction; "must not retry blindly"; replace "FastAPI result" with the publication-operation outcome; make the status/reconciliation API + PostgreSQL authority + same idempotency identity explicit.)
+
+Strong Answer: "The workflow must not retry blindly because a timeout means the outcome is unknown, not that the operation failed. It keeps the same operation ID and idempotency key, then queries FastAPI for the authoritative publication state. If it succeeded it continues without publishing again; if it is still processing it keeps observing; if the external outcome cannot be verified it enters reconciliation instead of replaying. A blind retry could cause a duplicate publication, duplicate Provider work, extra cost, or another irreversible side effect."
+
+### Senior Question
+
+Q: A faulty n8n release bypassed approval for some artifacts, restarted whole workflows, and leaked an Authorization header. Walk through containment, classification, recovery, and safe rollout.
+
+Student answer (preserved): "contain -> revoke/rotate -> preserve evidence -> scope -> classify -> cancel/reconcile/compensate -> verify -> regression checks -> controlled rollout" (Review: correct structure, too compressed for a senior spoken answer).
+
+Strong Answer: "Contain: deactivate the faulty workflow, stop automatic Error-Workflow replay, activate a backend publication kill switch, and restore the last known-safe version without immediate full traffic. Because a credential leaked, revoke/rotate it and review its use from exposure to revocation — the exposure window can exceed the failure window. Preserve workflow/execution/audit/DB/log evidence and bound the affected set by workflow/release version and a padded time window, joining request/task/correlation/tenant IDs to approval/event/artifact-version to publication operation/idempotency/external-message IDs. Classify from durable evidence: a publication that succeeded without approval stays a real success but gets a policy-violation record and compensation, never a retroactive approval; a provably unstarted duplicate Task gets a FastAPI durable cancellation; a Provider-dispatched unknown-outcome Task enters PENDING_RECONCILIATION because cancel could strand a charge and retry could double it. Verify authoritative PostgreSQL/Provider/Artifact/idempotency evidence, add regression coverage for approval-bypass, duplicate publication, Error-Workflow boundary, error classification, and Secret redaction, and roll out test tenant -> canary -> monitored expansion with stop conditions on approval bypass, duplicate publication, fingerprint-conflict spikes, auth-error spikes, reconciliation backlog, or Secret exposure. Rollback stops future harm but does not undo committed Tasks, Provider cost, or external publications."
+
+### Common Weak Answer
+
+"The publish timed out and the notification failed, so I restart the whole workflow, retry the publish, mark the Approval expired because the n8n Wait ended, and log the Authorization header to debug the 401."
+
+Strong Answer: "This redoes completed business operations, risks a duplicate publication and Provider cost, expires an Approval on the wrong (orchestration) clock, and leaks a secret. Instead: resume only the failed notification on its own idempotency key; recover the publish by querying the authoritative status on the same idempotency key; leave the Approval PENDING until the backend expires_at; and never log the Authorization header — rotate the credential and record only redacted evidence."
+
+### Follow-up Questions
+
+Beginner follow-up: Is human approval required for every AI output?
+
+Strong Answer: "No — approval is risk-based. Low-risk reversible actions (like saving an internal draft) can be auto-authorized under a durable tenant policy; high-risk irreversible actions (external publication, payment, deletion) need an explicit authorized decision."
+
+Intermediate follow-up: Why can a v7 approval never authorize publishing v8?
+
+Strong Answer: "The approver accepted the consequence of that exact artifact version and action. Changed content is a new business intent needing a new approval_id, a new event_id, and a new publication operation/idempotency identity, while task_id/correlation_id/tenant_id stay stable as chain association."
+
+Senior follow-up: Why is 'publication succeeded' separate from 'publication complied with policy'?
+
+Strong Answer: "Success is a durable external fact; compliance is an authorization fact. A publication that bypassed approval is genuinely SUCCEEDED and is preserved as such, with a separate policy-violation record and a compensation operation — post-incident acknowledgement can never be rewritten as pre-publication approval, because audit preserves what actually happened."
+
+Validation: DOCUMENTATION — Day69 is CONCEPTUAL_STATIC (interactive scenario-driven design review). The final Chinese synthesis was taught directly by the Tech Lead after the student asked (`你帮我总结吧`), not independently authored. NOT RUN: the Day69 n8n workflow runtime, a valid authenticated FastAPI acceptance/approval/publication integration, real Approval callback/approver auth/tenant checks, real PostgreSQL Approval schema/migration/audit-events/Outbox, real retry/backoff/error workflow, real callback duplicate/ACK-loss/fingerprint-conflict, real credential-store/revoke/rotate/redaction/access-review, real publication/notification target or external reconciliation, real Worker/Provider/Browser-Tool execution, real rollback/kill-switch/canary rollout, and production. No exported workflow JSON; Day67's 400 and Day68's contract are not reused as Day69 evidence. Delivery is at-least-once (not exactly-once); correlation_id is not authentication; append-only audit is not automatically tamper-proof; approval is risk-based (not every AI output). No secrets, tokens, real callback URLs, tenant data, raw prompts, or Provider responses are committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day69), the
+[Day69 lesson](../docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md), and the
+[n8n-workflows project](../projects/n8n-workflows/README.md).

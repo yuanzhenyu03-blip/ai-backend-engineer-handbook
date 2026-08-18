@@ -128,21 +128,93 @@ Evidence limits (Day68):
                      Day67's invalid-input local 400 is NOT reused as Day68 evidence.
 ```
 
+## Day69 Contract — Risk-based Approval Gate & workflow hardening (CONCEPTUAL_STATIC)
+
+Day69 evolves the same project (no parallel structure, no exported JSON) with risk-based human approval,
+classified recovery, Secret boundaries, authoritative audit, and incident hardening on top of the Day68
+contract. The Day67/Day68 boundary is unchanged: n8n orchestrates; FastAPI/PostgreSQL owns durable truth,
+authorization, idempotency, recovery, and audit.
+
+```text
+Approval Gate (risk-based; NOT every AI output):
+  Validation evidence -> policy(risk/irreversibility/impact/tenant) ->
+    low-risk reversible  -> auto-authorize under durable tenant pre-authorization policy
+    high-risk irreversible -> durable Approval Request -> tenant approver decides ->
+                              FastAPI verifies identity/role/scope/policy/object/version/expiry -> persist
+
+Approval binding (a v7 approval can NEVER authorize v8):
+  approval_id + tenant_id + task_id + artifact_id/artifact_version + action + status +
+  requested_by + required role/policy version + decided_by + decided_at + expires_at
+  stable across the chain: task_id, correlation_id, tenant_id
+  NEW for changed content/action: approval_id, event_id, publication operation_id, publication idempotency key
+
+Approval lifecycle (independent of the n8n execution lifecycle):
+  PENDING -> APPROVED | REJECTED | EXPIRED | CANCELLED
+  n8n Wait timeout != state change; PENDING holds until the backend-owned expires_at; a late approve on an
+  EXPIRED approval is rejected + audited.
+
+Classified retry/recovery (timeout = OUTCOME_UNKNOWN, not failure; keep operation_id + idempotency key):
+  status: SUCCEEDED=no republish | PROCESSING=observe | FAILED_TERMINAL=no blind retry |
+          PENDING_RECONCILIATION=reconcile | NOT_FOUND=reissue same logical command, same idempotency key
+  errors: 429/503 -> backoff+jitter+Retry-After | write timeout -> query/reconcile first |
+          400/422 -> fix, no auto-retry | 401 -> stop + credential rotation | 403 -> stop + investigate |
+          409 idempotency-meaning conflict -> stop + investigate |
+          rejected/expired approval -> business terminal | unknown external outcome -> PENDING_RECONCILIATION
+
+Secrets: workflow artifact = credential reference; Credential Store/Secret Manager = real secret; runtime
+  = controlled injection; logs/audit/export/evidence-pack = NEVER a Token/Authorization header/API key/
+  cookie/private key/raw Provider payload/tenant-sensitive content. 401 -> stop, rotate, revalidate, resume
+  same operation_id.
+
+Audit: approvals (current state) + append-only approval_events (business transition history) committed
+  ATOMICALLY; callback receipts = delivery evidence; logs/traces = diagnosis; n8n history != authoritative
+  audit. Append-only is NOT automatically tamper-proof (needs perms/retention/monitoring/backup).
+  Delivery is AT-LEAST-ONCE (no exactly-once claim): same event_id + same fingerprint = duplicate-safe no-op
+  (one business event, many receipts); same event_id + different fingerprint = integration/security conflict,
+  no action.
+
+Error Workflow: resume the SMALLEST safe operation boundary (workflow retry != business operation retry);
+  completed Task/Approval/Publication are facts, not steps to redo.
+
+Incident: contain -> revoke/rotate -> preserve evidence -> scope -> classify ->
+  cancel/reconcile/compensate -> verify -> regression checks -> controlled rollout.
+  Rollback stops future harm only; never delete/bulk-cancel/retro-approve/overwrite history/reuse a
+  compromised credential/infer terminal state from n8n history.
+```
+
+Evidence limits (Day69):
+
+```text
+[CONCEPTUAL_STATIC]  Interactive scenario-driven design review; Approval/identity/retry/audit/error/incident
+                     reasoning; conceptual state machines and recovery matrices; English interview review.
+[NOT RUN]            Day69 n8n workflow runtime; valid authenticated FastAPI acceptance/approval/publication
+                     integration; real Approval UI/Form/Slack/email callback; real approver auth/authz/tenant
+                     checks; real PostgreSQL Approval schema/migration/constraints/transactions/audit-events/
+                     Outbox; real retry/backoff/error workflow; real callback duplicate/ACK-loss/fingerprint
+                     conflict; real credential-store integration/revoke/rotate/log-redaction/access-review;
+                     real publication/notification target or external reconciliation; real Worker/Provider/
+                     Browser-Tool execution; real rollback/kill-switch/canary rollout; production. No exported
+                     Day69 n8n JSON. Day67's 400 and Day68's contract are NOT reused as Day69 evidence.
+```
+
 ## Progress
 
-Status: Day68 completed (classroom scope) — lesson + the Long-running Job Orchestration Contract above
-(CONCEPTUAL_STATIC; no runtime; no exported JSON). Day67 completed earlier. Next: Day69 — Human Approval,
-Retry, Secrets, Audit and Error Workflows.
+Status: Day69 completed (classroom scope) — lesson + the Risk-based Approval Gate contract above
+(CONCEPTUAL_STATIC; no runtime; no exported JSON). Day67–Day68 completed earlier. Next: Day70 — n8n +
+FastAPI + AI Tool Integration Capstone and Interview (Day70 directly consumes the Day69 hardened contract
+and should attempt real cumulative integration evidence).
 
 ## Future Milestones
 
-- Day69: human approval, error workflows, retry control, secret handling, auditability (built on Day68's
-  stable task_id/request_id/correlation_id/event_id/version contract).
-- Day70: n8n + FastAPI + AI Tool integration capstone.
+- Day70: n8n + FastAPI + AI Tool integration capstone (DIRECT consumer of Day69; attempt real cumulative
+  integration evidence).
+- Day71 begins Phase 7A (LLM Application Engineering) as a PHASE TRANSITION built on Day53–Day61 — not a
+  technical dependency on Day69/Day70/n8n.
 - Capture a safe, credential-placeholder workflow JSON export when available.
 
 ## Related
 
+- Day69 lesson: [`docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md`](../../docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md)
 - Day68 lesson: [`docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md`](../../docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md)
 - Day67 lesson: [`docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md`](../../docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md)
 - Previous backend: [`projects/fastapi-playwright/`](../fastapi-playwright/README.md) (Day66 permissioned worker)

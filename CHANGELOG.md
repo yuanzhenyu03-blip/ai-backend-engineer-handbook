@@ -9,6 +9,20 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.167 — Day69: Human Approval, Retry, Secrets, Audit and Error Workflows
+
+Date: 2026-08-18
+
+Day: Day69 (Phase 6). Hardens the Day68 long-running orchestration contract with risk-based human approval, classified retry/error recovery, safe credential handling, authoritative business audit, and evidence-driven incident rollback/reconciliation/compensation — without moving durable truth or authorization into n8n (the Day67/Day68 boundary is unchanged).
+
+Added: `docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md` — the 16-section `LESSON_TEMPLATE_v2` lesson (classroom-loop Concepts, conceptual design exercises, full English Interview), preserving the real short student answers, the two-stage event-identity misconception and its direct correction, and the Tech-Lead-taught final Chinese synthesis (the student asked for it).
+
+Updated: `projects/n8n-workflows/README.md` (added the Day69 Risk-based Approval Gate contract + evidence limits), `cheat_sheets/fastapi.md`, `interview/fastapi.md`, `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md` (Day69 marked Completed (classroom scope); Day70 current; Day70 prep tasks; the smallest Day70/Day71 wording fix so chronological adjacency is not misread as a technical dependency — Day71 begins Phase 7A built on Day53–Day61, not on n8n).
+
+Key rules: human approval is RISK-BASED (an authorized tenant role, not platform staff; validation is evidence, not permission); an Approval binds exact tenant + actor + action + artifact/version + policy + expiry (a v7 approval cannot authorize v8); the Approval lifecycle (PENDING/APPROVED/REJECTED/EXPIRED/CANCELLED) is independent of the n8n execution lifecycle (an n8n timeout changes no state; PENDING holds until the backend-owned expires_at); retry is classified recovery (HTTP timeout = OUTCOME_UNKNOWN; keep operation_id + idempotency key; query authenticated FastAPI; 429/503 | 400/422 | 401 rotate | 403 | 409 | business-terminal | unknown -> PENDING_RECONCILIATION); Secrets live only in a Credential Store (401 -> rotate, never log the Authorization header); Business Audit is current-state + append-only approval_events committed atomically (not automatically tamper-proof); delivery is at-least-once (same event_id + same fingerprint = duplicate-safe no-op; same event_id + different fingerprint = conflict); the Error Workflow resumes the smallest safe operation boundary; the incident flow is contain -> revoke/rotate -> preserve -> scope -> classify -> cancel/reconcile/compensate -> verify -> regression -> controlled rollout.
+
+Validation: Day69 is CONCEPTUAL_STATIC (interactive scenario-driven design review). NOT RUN: the Day69 n8n workflow runtime; a valid authenticated FastAPI acceptance/approval/publication integration; a real Approval UI/callback + approver auth/tenant checks; a real PostgreSQL Approval schema/migration/constraints/transactions/audit-events/Outbox; real retry/backoff/error workflow; real callback duplicate/ACK-loss/fingerprint conflict; real credential-store/revoke/rotate/redaction/access-review; real publication/notification target or external reconciliation; real Worker/Provider/Browser-Tool execution; real rollback/kill-switch/canary rollout; production. No exported n8n JSON was created or captured. Day67's invalid-input local 400 and Day68's conceptual contract are NOT reused as Day69 validation, and nothing is upgraded to EXECUTED_LOCAL_RUNTIME/INTEGRATION_RUNTIME/PRODUCTION. Delivery is at-least-once (not exactly-once); correlation_id is not authentication; append-only audit is not automatically tamper-proof; approval is risk-based. No secrets, tokens, real callback URLs, tenant data, raw prompts, or Provider responses are committed.
+
 ## v0.1.166 — Day68: Long-running AI Jobs: Polling, Callback, Correlation and Idempotency
 
 Date: 2026-08-17

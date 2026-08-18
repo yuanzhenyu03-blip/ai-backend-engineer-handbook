@@ -1352,7 +1352,7 @@ validation are only claimed when actually run and recorded.
 ## Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Status:
-Complete (Day59–Day66 Completed). Phase 6 in progress: Day67–Day68 Completed, Day69 current.
+Complete (Day59–Day66 Completed). Phase 6 in progress: Day67–Day69 Completed, Day70 current.
 
 Objective:
 Close the Phase 4 evidence gap first, then add a browser capability. Day59–Day61 are a **Production
@@ -1499,7 +1499,7 @@ runtime / integration / production evidence only when actually executed and save
 ## Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Status:
-In Progress (Day67–Day68 Completed; Day69–Day70 Planned)
+In Progress (Day67–Day69 Completed; Day70 Planned)
 
 Objective:
 Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
@@ -1533,10 +1533,13 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Scope: human-in-the-loop approval, retry/error workflows, secrets handling, and audit.
   Connection: Day68 handled long jobs but had no human gate or hardening; Day69 adds approval, retry/error
   workflows, secrets, and audit; Day70 integrates it all into a workflow capstone.
+  Status: ✅ Completed (classroom scope). Released Lesson: `docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md`. Engineering Artifact: `projects/n8n-workflows/` (the Day69 Risk-based Approval Gate contract added to the README; NO exported workflow JSON was created or captured). Core model (Day67/Day68 boundary unchanged — n8n orchestrates; FastAPI/PostgreSQL owns durable truth/authz/idempotency/recovery/audit): human approval is RISK-BASED (not every AI output) and decided by an authorized TENANT role, not platform staff; validation is evidence, not permission; an Approval binds exact tenant + actor + action + artifact/version + policy + expiry, so a v7 approval can never authorize v8 (task_id/correlation_id/tenant_id stay stable; approval_id/event_id/publication operation_id/idempotency key are new); the Approval lifecycle (PENDING/APPROVED/REJECTED/EXPIRED/CANCELLED) is independent of the n8n execution lifecycle (an n8n timeout changes no state; PENDING holds until the backend-owned expires_at); retry is classified recovery not replay (HTTP timeout = OUTCOME_UNKNOWN; keep operation_id + idempotency key; query authenticated FastAPI; classify 429/503 vs 400/422 vs 401 vs 403 vs 409 vs business-terminal vs unknown -> PENDING_RECONCILIATION); Secrets live only in a Credential Store (workflow holds a reference; logs/audit/export never carry a Token/Authorization header; 401 -> rotate, not blind retry); Business Audit is current-state + append-only approval_events committed atomically (append-only is not automatically tamper-proof); delivery is at-least-once (same event_id + same fingerprint = duplicate-safe no-op; same event_id + different fingerprint = integration/security conflict); the Error Workflow resumes the smallest safe operation boundary (workflow retry != business operation retry); and the incident flow is contain -> revoke/rotate -> preserve -> scope -> classify -> cancel/reconcile/compensate -> verify -> regression -> controlled rollout, never deleting durable facts or reversing external effects. Evidence: CONCEPTUAL_STATIC (design review); the final Chinese synthesis was taught directly by the Tech Lead after the student requested it. NOT RUN: the Day69 n8n workflow runtime; a valid authenticated FastAPI acceptance/approval/publication integration; a real Approval UI/callback + approver auth/tenant checks; a real PostgreSQL Approval schema/migration/constraints/transactions/audit-events/Outbox; real retry/backoff/error workflow; real callback duplicate/ACK-loss/fingerprint conflict; real credential-store/revoke/rotate/redaction/access-review; real publication/notification target or external reconciliation; real Worker/Provider/Browser-Tool execution; real rollback/kill-switch/canary rollout; production. No exported workflow JSON. Day67's invalid-input local 400 and Day68's conceptual contract are NOT reused as Day69 validation, and nothing is upgraded to EXECUTED_LOCAL_RUNTIME/INTEGRATION_RUNTIME/PRODUCTION. Delivery is at-least-once (not exactly-once). No secrets, tokens, real callback URLs, tenant data, raw prompts, or Provider responses committed. Next: Day70 directly consumes this hardened contract in the Phase 6 capstone.
 - Day70 — n8n + FastAPI + AI Tool Integration Capstone and Interview.
   Scope: integrate workflows with the real backend and browser tool; phase-level English interview.
   Connection: Day69 completed workflow hardening; Day70 integrates n8n + FastAPI + AI tools into a capstone
-  and runs the phase interview; Phase 7 (Day71) builds the AI agent backend these workflows will call.
+  and runs the phase interview. Day71 then begins Phase 7A (LLM Application Engineering) as a PHASE TRANSITION
+  built on the Day53–Day61 Provider/resilience/observability/runtime foundations — not a technical dependency
+  on Day69/Day70/n8n; n8n may later be an external consumer/orchestrator of an LLM Application Runtime.
 
 Phase deliverable:
 
