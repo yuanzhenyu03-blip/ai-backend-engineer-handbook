@@ -93,7 +93,7 @@ chronological adjacency is not technical dependency.
 3. Durable Approval Gate & exact binding (v7 approval cannot authorize v8)
 4. Approval lifecycle is independent of the n8n execution lifecycle
 5. Retry is classified recovery, not replay (+ the retry/error matrix)
-6. Secrets & credential recovery (401 -> rotate, never blind retry)
+6. Secrets & credential recovery (401 -> stop + classify; rotate only when established, else fix config)
 7. Current-state + append-only Business Audit; delivery attempts != business decisions; event-identity conflict
 8. Error Workflow resumes at the smallest safe boundary
 9. Production incident: contain -> revoke/rotate -> preserve -> scope -> classify -> cancel/reconcile/compensate -> verify -> rollout
@@ -334,8 +334,28 @@ SUCCEEDED              -> do not publish again
 PROCESSING             -> observe the same operation_id
 FAILED_TERMINAL        -> no blind retry
 PENDING_RECONCILIATION -> reconcile the external outcome
-NOT_FOUND              -> reissue the SAME logical command with the SAME idempotency key
+NOT_FOUND              -> do NOT immediately reissue (see below)
 ```
+
+`NOT_FOUND` is ambiguous: it may mean a wrong `task_id`/`correlation_id`/`tenant_id`/`operation_id`, a
+query-routing/integration error, a state record past its retention window, an expired idempotency record, a
+store-vs-provider-side-effect inconsistency, or simply that whether the original command executed is still
+unknown. Treat it as `OUTCOME_UNKNOWN`, not "safe to resend":
+
+```text
+NOT_FOUND
+-> do not immediately reissue
+-> verify task_id / correlation_id / tenant_id / operation_id
+-> inspect audit, database, logs and provider evidence
+-> verify routing and retention boundaries
+-> reissue with the SAME idempotency key ONLY when BOTH hold:
+     1. authoritative backend state proves NEVER_ACCEPTED / NOT_STARTED, and
+     2. the idempotency retention contract is still valid
+-> otherwise enter PENDING_RECONCILIATION or coordinated human handling
+```
+
+`same idempotency key != unconditional proof of safety`: if the idempotency record has already expired,
+re-sending the same key can still cause a duplicate external publication or extra Provider cost.
 
 Error classification:
 
@@ -343,11 +363,24 @@ Error classification:
 429 / transient 503                 -> bounded backoff + jitter + Retry-After
 write timeout                       -> unknown outcome; query/reconcile first
 400 / 422                           -> contract/input error; fix, do not auto-retry
-401                                 -> stop; credential recovery/rotation
+401                                 -> stop blind retries; CLASSIFY the auth failure (see below)
 403                                 -> stop; investigate authorization/policy
 409 idempotency meaning conflict    -> stop and investigate
 rejected / expired Approval         -> business terminal; do not retry
 unknown external outcome            -> PENDING_RECONCILIATION; no blind replay
+```
+
+A `401` is not automatically "rotate the credential" — first classify the cause:
+
+```text
+401
+-> stop blind retries
+-> classify the authentication failure
+-> refresh or rotate ONLY when expiration, compromise, revocation, or an invalid credential is established
+-> fix CONFIGURATION when the cause is audience, issuer, auth scheme, a missing header, the wrong endpoint,
+   or clock skew
+-> verify the recovery
+-> perform a controlled retry
 ```
 
 If the external target offers neither status lookup nor idempotency, unknown high-risk side effects enter
@@ -388,9 +421,14 @@ Student Answer:
 
 Tech Lead Review:
 
-Correct. For a 401: stop retry → preserve safe evidence → mark orchestration blocked by authentication (not
-business failure) → notify ops/security → revoke/rotate/fix the credential in the Credential Store →
-revalidate Approval/action/version → resume the **same** `operation_id`/idempotency key.
+Correct. A 401 is not automatically "rotate": stop blind retries → preserve safe evidence → mark
+orchestration blocked by authentication (not business failure) → **classify** the auth failure. Rotate/
+refresh the credential ONLY when expiration, compromise, revocation, or an invalid credential is
+established; **fix configuration** instead when the cause is audience/issuer/auth-scheme/missing-header/
+wrong-endpoint/clock-skew. In this scenario the credential expired, so rotation is the **scenario-specific**
+recovery — not the universal response to every 401. After the fix: notify ops/security → revalidate
+Approval/action/version → verify the recovery → resume the **same** `operation_id`/idempotency key with a
+controlled retry.
 
 ```text
 Workflow artifact = credential reference
@@ -646,8 +684,11 @@ Starter Artifact: stable `operation_id` + `idempotency_key = approval-301:publis
 status/error matrices.
 
 Expected Output: keep the same operation/idempotency identity, query the authenticated FastAPI status/
-reconciliation API, and act on `SUCCEEDED/PROCESSING/FAILED_TERMINAL/PENDING_RECONCILIATION/NOT_FOUND`; 401 →
-stop + credential rotation; 409 → stop + investigate; 429/503 → bounded backoff + jitter + Retry-After.
+reconciliation API, and act on `SUCCEEDED/PROCESSING/FAILED_TERMINAL/PENDING_RECONCILIATION/NOT_FOUND` (where
+`NOT_FOUND` is ambiguous → verify identity/routing/retention + evidence and reissue only if the backend
+proves NEVER_ACCEPTED and the idempotency retention is still valid, else reconcile); 401 → stop + classify
+the auth failure (rotate only when expiry/compromise/revocation/invalid is established, else fix config);
+409 → stop + investigate; 429/503 → bounded backoff + jitter + Retry-After.
 
 Explanation: timeout is unknown outcome; recover by identity + authoritative query, classify by error
 meaning.
@@ -868,9 +909,9 @@ approver          = authorized tenant role; platform enforces identity/policy/du
 validation        = quality/safety evidence != permission to publish.
 approval binding  = tenant + actor + action + artifact/version + policy + expiry; v7 approval != v8.
 lifecycles        = n8n execution timeout != Approval state; PENDING until backend expires_at.
-retry             = OUTCOME_UNKNOWN on timeout; same operation_id + idempotency key; query FastAPI; classify.
-error classes     = 429/503 backoff | 400/422 fix | 401 rotate | 403 investigate | 409 stop | terminal no-retry | unknown -> reconcile.
-secrets           = workflow=reference; Secret Manager=real; logs/audit/export = NO secret (401 -> rotate, not retry).
+retry             = OUTCOME_UNKNOWN on timeout; same operation_id + idempotency key; query FastAPI; classify. NOT_FOUND is ambiguous -> verify identity/routing/retention + evidence; reissue only if backend proves NEVER_ACCEPTED AND idempotency retention still valid; else reconcile (same key != unconditional safety).
+error classes     = 429/503 backoff | 400/422 fix | 401 stop+classify (rotate only if expired/compromised/revoked/invalid, else fix config) | 403 investigate | 409 stop | terminal no-retry | unknown -> reconcile.
+secrets           = workflow=reference; Secret Manager=real; logs/audit/export = NO secret (401 -> stop+classify; rotate only when established, else fix config; never blind retry).
 audit             = current state + append-only events (atomic); delivery attempt != decision;
                     same event_id+same fingerprint=no-op; same event_id+different fingerprint=conflict; not tamper-proof.
 error workflow    = resume smallest safe operation boundary (workflow retry != business operation retry).
@@ -901,8 +942,8 @@ publication.
       `expires_at`).
 - [ ] I can recover a lost-response publish by identity + authoritative query, and classify 429/503 vs
       400/422 vs 401 vs 403 vs 409 vs terminal vs unknown.
-- [ ] I can keep Secrets in a Credential Store, redact evidence, and recover a 401 by rotation not blind
-      retry.
+- [ ] I can keep Secrets in a Credential Store, redact evidence, and recover a 401 by first classifying it
+      (rotate only when expiry/compromise/revocation/invalid is established, else fix config), never blind retry.
 - [ ] I can model current-state + append-only audit, treat duplicate deliveries as one decision, and reject a
       reused `event_id` with a different fingerprint as a conflict.
 - [ ] I can resume an Error Workflow at the smallest safe boundary and run contain → revoke/rotate → preserve

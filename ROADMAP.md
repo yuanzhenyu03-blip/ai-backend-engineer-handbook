@@ -480,7 +480,8 @@ Day42 Data Ownership and Failure Contracts
     -> Real local integration gate — FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry (Phase 5, Day59–61)
     -> Playwright browser automation as a permissioned, queue-backed AI tool (Phase 5, Day62–66)
     -> n8n Workflow Integration — orchestration over correct backends (Phase 6, Day67–70)
-    -> LLM Application Runtime (Phase 7A, Day71–78)
+    == PHASE TRANSITION (not a technical prerequisite: n8n is only a possible upstream caller/integration client) ==
+    -> LLM Application Runtime (Phase 7A, Day71–78; primary foundations = the Day53–61 Provider and runtime boundaries)
     -> Agent Runtime + MCP (Phase 7B, Day79–94; Framework/Job-Market Refresh at Day87, framework chosen Day88 behind a replaceable adapter)
     -> Production RAG (Phase 7C, Day95–106)
     -> AI Evaluation, Safety and Operations (Phase 7D, Day107–116)

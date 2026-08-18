@@ -40,9 +40,9 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day58 — Production AI API Capstone, Observability and English Interview.
-- Current / Next Lesson: Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Planned / Not started).
-- Current phase being entered: Phase 5 — Production Runtime Integration and Browser Tool Engineering.
+- Last Completed Lesson: Day69 — Human Approval, Retry, Secrets, Audit and Error Workflows (Phase 6; CONCEPTUAL_STATIC classroom scope).
+- Current / Next Lesson: Day70 — n8n + FastAPI + AI Tool Integration Capstone and Interview (Phase 6; Current / Not started; no runtime evidence yet).
+- Current phase: Phase 6 — n8n AI Workflow Integration (in progress; Day67–Day69 Completed, Day70 current). Phase 4 and Phase 5 are COMPLETE.
 
 Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
 permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008 in DECISIONS.md):
@@ -64,7 +64,8 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Do not skip Day59. Day59+ has not started and has no runtime evidence yet.
+- Day59–Day69 are complete; Day70 (the Phase 6 capstone) is Current / Not started and has no runtime evidence yet. Do not skip ahead, and do not claim Day70 is complete or has runtime evidence.
+- Day70 directly consumes Day69's hardened contract. Day71 begins Phase 7A (LLM Application Engineering) as a PHASE TRANSITION built on the Day53–Day61 provider/runtime foundations — not a technical dependency on Day69/Day70/n8n.
 
 Do not skip ahead unless explicitly instructed.
 

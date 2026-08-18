@@ -155,16 +155,27 @@ Approval lifecycle (independent of the n8n execution lifecycle):
 
 Classified retry/recovery (timeout = OUTCOME_UNKNOWN, not failure; keep operation_id + idempotency key):
   status: SUCCEEDED=no republish | PROCESSING=observe | FAILED_TERMINAL=no blind retry |
-          PENDING_RECONCILIATION=reconcile | NOT_FOUND=reissue same logical command, same idempotency key
+          PENDING_RECONCILIATION=reconcile | NOT_FOUND=ambiguous, do NOT immediately reissue
   errors: 429/503 -> backoff+jitter+Retry-After | write timeout -> query/reconcile first |
-          400/422 -> fix, no auto-retry | 401 -> stop + credential rotation | 403 -> stop + investigate |
+          400/422 -> fix, no auto-retry | 401 -> stop + classify (rotate only if expiry/compromise/revocation/invalid; else fix config) | 403 -> stop + investigate |
           409 idempotency-meaning conflict -> stop + investigate |
           rejected/expired approval -> business terminal | unknown external outcome -> PENDING_RECONCILIATION
+  NOT_FOUND is ambiguous (wrong identity/routing, retention window passed, expired idempotency record,
+  store-vs-provider inconsistency, or still-unknown execution): verify task_id/correlation_id/tenant_id/
+  operation_id + audit/DB/logs/provider evidence + routing/retention boundaries; reissue with the SAME
+  idempotency key ONLY when the backend proves NEVER_ACCEPTED/NOT_STARTED AND the idempotency retention
+  contract is still valid; otherwise PENDING_RECONCILIATION or coordinated human handling. same idempotency
+  key != unconditional proof of safety (an expired record can still cause a duplicate publish / extra cost).
+  401 is not automatically rotate: classify first — rotate/refresh only when expiration/compromise/
+  revocation/invalid is established; fix configuration for audience/issuer/auth-scheme/missing-header/
+  wrong-endpoint/clock-skew; then verify and perform a controlled retry.
 
 Secrets: workflow artifact = credential reference; Credential Store/Secret Manager = real secret; runtime
   = controlled injection; logs/audit/export/evidence-pack = NEVER a Token/Authorization header/API key/
-  cookie/private key/raw Provider payload/tenant-sensitive content. 401 -> stop, rotate, revalidate, resume
-  same operation_id.
+  cookie/private key/raw Provider payload/tenant-sensitive content. 401 -> stop + classify (rotate only when
+  expiry/compromise/revocation/invalid is established; else fix config), revalidate, verify, then controlled
+  retry on the same operation_id (in the Day69 scenario the credential expired, so rotation is the
+  scenario-specific recovery — not the universal response to every 401).
 
 Audit: approvals (current state) + append-only approval_events (business transition history) committed
   ATOMICALLY; callback receipts = delivery evidence; logs/traces = diagnosis; n8n history != authoritative
