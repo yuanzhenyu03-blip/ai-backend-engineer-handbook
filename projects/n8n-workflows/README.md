@@ -25,13 +25,19 @@ Boundary`.
 
 ```text
 Webhook (test path: day67/research-report)
-  -> Edit Fields (map report_scope, request_id)
+  -> Edit Fields (map report_scope, request_id, document_id)
   -> IF ({{ $json... }} both present?)
        true  -> HTTP Request (POST placeholder) -> Respond to Webhook (202 JSON)
        false -> Respond to Webhook (400 JSON)
 ```
 
-- Allowed inputs: `report_scope`, `request_id`.
+- Allowed inputs: `report_scope`, `request_id`, `document_id` (the IF node requires all three non-empty).
+- FastAPI request body: `{ "document_ids": [document_id], "business_input": { "report_scope": ... } }` so
+  `report_scope` enters the Day59 request fingerprint (a changed `report_scope` is a different fingerprint,
+  i.e. 409, not a replay).
+- Two independent auth boundaries: inbound caller -> n8n (Webhook `headerAuth`, a Credential Store reference,
+  NOT RUN / NOT CONFIGURED at run time) and n8n -> FastAPI (HTTP `httpHeaderAuth`, a Credential Store
+  reference).
 - Invalid response body: `{ "error": "invalid_request", "message": "report_scope and request_id are required" }`.
 - Intended success body: `{ "status": "accepted", "task_id": "..." }` (INTENDED — never executed).
 - HTTP endpoint (unverified local **placeholder**): `http://host.docker.internal:8000/api/v1/browser-tasks`.
@@ -218,16 +224,23 @@ Day70 integrates Day67–Day69 into one failure-aware cumulative path and runs t
 - `day70_capstone.py` — a standalone deterministic decision model (acceptance recovery, event dedupe/
   conflict, exact Approval binding, Publication recovery, credential classification, incident Task
   classification, polling boundary).
-- `test_day70_capstone.py` — 14 deterministic tests.
+- `test_day70_capstone.py` — 18 deterministic tests (the classroom's 14 pre-fix tests are superseded; the
+  four added areas are the full Approval authorization binding, the workflow body contract, the three-field
+  IF validation, the inbound-auth reference, and the Day59 report_scope fingerprint).
 - `day70_minimal_acceptance_workflow.json` — Secret-free importable Workflow SOURCE (`Day70 - FastAPI
-  Durable Acceptance Gate`: Webhook `day70/research-report` -> validate -> IF -> POST FastAPI `/v1/jobs`
-  with an `Idempotency-Key` -> Respond 202 | 400). HTTP auth is a Credential Store reference by name only;
-  the base URL is an env placeholder. It is the importable SOURCE, not a captured post-run export.
+  Durable Acceptance Gate`: Webhook `day70/research-report` -> validate `report_scope`+`request_id`+
+  `document_id` -> IF (all three present) -> POST FastAPI Day59 `/v1/jobs` with body
+  `{document_ids:[document_id], business_input:{report_scope}}` and an `Idempotency-Key` -> Respond 202 |
+  400). Two independent auth boundaries — inbound Webhook `headerAuth` (caller -> n8n) and outbound HTTP
+  `httpHeaderAuth` (n8n -> FastAPI) — both Credential Store references by name only; the base URL is an env
+  placeholder. It is the importable SOURCE, not a captured post-run export. The inbound Webhook
+  authentication is a source reference only and was NOT RUN / NOT CONFIGURED at run time.
 
 Cumulative path:
 
 ```text
-Authenticated Trigger -> map/validate input -> FastAPI durable acceptance -> honest 202 + stable Task id
+Authenticated-service trigger (two independent auth boundaries; inbound caller -> n8n auth NOT RUN)
+-> map/validate report_scope+request_id+document_id -> FastAPI durable acceptance -> honest 202 + stable Task id
 -> observe the same durable Task -> permissioned execution boundary -> verified protected Artifact reference
 -> durable exact-version Approval -> idempotent Publication -> correlated audit + terminal result
 ```
@@ -235,17 +248,23 @@ Authenticated Trigger -> map/validate input -> FastAPI durable acceptance -> hon
 Evidence matrix:
 
 ```text
-EXECUTED_LOCAL_RUNTIME  day70_capstone.py via test_day70_capstone.py:
-                          classroom Python 3.11.5 -> 14 passed; first attempt Python 3.9.6 -> pytest missing
-                          -> NOT RUN (skip, not failure); updating agent Python 3.10.12 -> 14 passed;
-                          repo-standard Python 3.12 -> NOT RUN. Real n8n inspection alone (n8n 2.25.6;
-                          /healthz 200) is EXECUTED_LOCAL_RUNTIME, not cumulative integration.
-INTEGRATION_RUNTIME     (in class; NOT re-run by the updating agent) bounded real
-                          n8n Workflow -> FastAPI/Uvicorn -> PostgreSQL ACCEPTANCE slice:
+EXECUTED_LOCAL_RUNTIME  day70_capstone.py + workflow static contract via test_day70_capstone.py:
+                          classroom Python 3.11.5 -> 14 passed (pre-fix suite, SUPERSEDED); first attempt
+                          Python 3.9.6 -> pytest missing -> NOT RUN (skip, not failure); updating agent
+                          Python 3.10.12 -> 18 passed (the FIXED suite); the affected Day59 fingerprint test
+                          also re-run -> 12 passed; repo-standard Python 3.12 -> NOT RUN. Real n8n inspection
+                          alone (n8n 2.25.6; /healthz 200) is EXECUTED_LOCAL_RUNTIME, not cumulative
+                          integration.
+INTEGRATION_RUNTIME     (in class; NOT re-run by the updating agent) bounded real authenticated
+                          n8n -> FastAPI/Uvicorn -> PostgreSQL SERVICE-call ACCEPTANCE slice, for the PRE-FIX
+                          workflow (top-level report_scope; no inbound Webhook auth):
                           POST /webhook/day70/research-report -> 202 + stable Task id; exact redelivery ->
                           same id + idempotency_replayed=true; new-connection DB: jobs=1, outbox=1,
                           document_links=1, fingerprint length 64, state queued; invalid input -> 400, zero
-                          Jobs. Proves the acceptance boundary ONLY.
+                          Jobs. Proves the acceptance boundary ONLY; it does NOT prove inbound caller -> n8n
+                          auth and is NOT evidence for the FIXED workflow. The FIXED workflow's real
+                          integration is NOT RERUN; the different-report_scope 409 path is proven only by the
+                          Day59 fingerprint contract test, NOT by an integration run.
 CONCEPTUAL_STATIC/NOT RUN budget reservation in the acceptance tx; FastAPI-persisted/returned correlation_id
                           + propagation; real Polling/Callback/Approval/Publication/Error-Workflow runtime;
                           real Worker/Outbox-Relay/broker/Browser-Tool/Provider execution; verified Artifact
@@ -268,9 +287,10 @@ python3 -m pytest -q test_day70_capstone.py
 ## Progress
 
 Status: Day70 completed — Phase 6 integration capstone. Day67–Day69 completed earlier. Phase 6 is COMPLETE.
-Bounded real n8n -> FastAPI -> PostgreSQL acceptance + idempotent redelivery reached INTEGRATION_RUNTIME;
-the decision model is EXECUTED_LOCAL_RUNTIME (14 passed); the rest of the cumulative path is
-CONCEPTUAL_STATIC / NOT RUN. Next: Day71 — LLM Application Engineering (Phase 7A; a PHASE TRANSITION built
+A bounded, authenticated real n8n -> FastAPI -> PostgreSQL SERVICE-call acceptance + idempotent redelivery
+reached INTEGRATION_RUNTIME for the PRE-FIX workflow only (it did not prove inbound caller -> n8n auth and is
+not evidence for the FIXED workflow, which is NOT RERUN); the decision model + workflow static contract are
+EXECUTED_LOCAL_RUNTIME (18 passed); the rest of the cumulative path is CONCEPTUAL_STATIC / NOT RUN. Next: Day71 — LLM Application Engineering (Phase 7A; a PHASE TRANSITION built
 on Day53–Day61, not an n8n dependency).
 
 ## Future Milestones

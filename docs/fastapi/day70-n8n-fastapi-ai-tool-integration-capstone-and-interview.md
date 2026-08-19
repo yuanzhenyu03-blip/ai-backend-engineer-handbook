@@ -3,7 +3,7 @@
 ## 1. Lesson Metadata
 
 ```text
-Status:        ✅ Completed (Phase 6 capstone) — decision model EXECUTED_LOCAL_RUNTIME (14 passed); bounded acceptance slice INTEGRATION_RUNTIME; rest CONCEPTUAL_STATIC / NOT RUN
+Status:        ✅ Completed (Phase 6 capstone) — decision model + workflow static contract EXECUTED_LOCAL_RUNTIME (18 passed; the classroom's 14 pre-fix tests superseded); a bounded, authenticated real n8n → FastAPI service-call acceptance slice reached INTEGRATION_RUNTIME for the PRE-FIX workflow (the FIXED workflow is NOT RERUN; inbound caller → n8n auth NOT RUN); rest CONCEPTUAL_STATIC / NOT RUN
 Version:       v2 (LESSON_TEMPLATE_v2, 16 sections)
 Difficulty:    Advanced
 Estimated Time: 5-6 hours
@@ -19,18 +19,30 @@ the Phase 6 rollback exercise and English interview. n8n still gains no authorit
 
 > Evidence honesty — Day70 spans three tiers, and each is scoped narrowly:
 >
-> * `EXECUTED_LOCAL_RUNTIME` — the pure Python decision model (`day70_capstone.py`) driven by
->   `test_day70_capstone.py`: the classroom ran it on Python 3.11.5 → **14 passed**; a first attempt on
->   Python 3.9.6 reported "No module named pytest" (a missing-dependency skip, **NOT RUN**, not a failure);
->   the updating agent re-ran it on Python 3.10.12 → **14 passed**; repository-standard Python 3.12 is
->   **NOT RUN**. A real n8n inspection alone (n8n 2.25.6, `GET /healthz -> 200`) is also
->   `EXECUTED_LOCAL_RUNTIME`, not cumulative integration.
+> * `EXECUTED_LOCAL_RUNTIME` — the pure Python decision model (`day70_capstone.py`) plus the n8n workflow
+>   static contract, driven by `test_day70_capstone.py`: the classroom ran the pre-fix suite on Python 3.11.5
+>   → **14 passed** (now **superseded** — before the Approval-binding, request-body, IF-validation and
+>   inbound-auth fixes); a first attempt on Python 3.9.6 reported "No module named pytest" (a
+>   missing-dependency skip, **NOT RUN**, not a failure); the updating agent re-ran the **FIXED** suite on
+>   Python 3.10.12 → **18 passed**, and re-ran the affected Day59 fingerprint test → **12 passed**;
+>   repository-standard Python 3.12 is **NOT RUN**. The four added areas are: the full Approval authorization
+>   binding (a complete expected-authorization context plus one negative per mismatched field), the workflow
+>   request-body contract (`document_ids` + `business_input.report_scope`), the IF validation of
+>   `report_scope`/`request_id`/`document_id`, the inbound-Webhook-auth reference, and the Day59 proof that a
+>   changed `report_scope` is a different fingerprint (409, not a replay). A real n8n inspection alone (n8n
+>   2.25.6, `GET /healthz -> 200`) is also `EXECUTED_LOCAL_RUNTIME`, not cumulative integration.
 > * `INTEGRATION_RUNTIME` — performed **in class** against disposable local infra (NOT re-run by the
->   updating agent): a bounded real `n8n Workflow -> FastAPI/Uvicorn -> PostgreSQL` **acceptance** slice —
+>   updating agent), for the **PRE-FIX** workflow (top-level `report_scope`; no inbound Webhook auth): a
+>   bounded real **authenticated `n8n -> FastAPI/Uvicorn -> PostgreSQL` service-call acceptance** slice —
 >   `POST /webhook/day70/research-report -> 202` with a stable Task id, an exact redelivery -> the same id
 >   with `idempotency_replayed=true`, a new-connection DB check (`jobs=1, outbox=1, document_links=1`,
 >   64-char fingerprint, `queued`), and invalid input -> `400` with zero Jobs. This proves the acceptance
->   boundary only; it does **not** upgrade the rest of the capstone.
+>   boundary only; the credential exercised was the **n8n -> FastAPI** service identity, so it does **not**
+>   prove external-caller -> n8n Webhook authentication. It is **not** evidence for the **FIXED** workflow
+>   (report_scope in `business_input`, three-field IF, inbound `headerAuth` reference): that workflow's real
+>   integration is **NOT RERUN**, and the "different `report_scope` -> different fingerprint -> 409" behaviour
+>   is proven only by the Day59 fingerprint contract test, not by an integration run. It does **not** upgrade
+>   the rest of the capstone.
 > * `CONCEPTUAL_STATIC` / **NOT RUN** — everything else: budget reservation in the acceptance transaction;
 >   a FastAPI-persisted/returned `correlation_id` and its propagation; real Polling/Callback/Approval/
 >   Publication/Error-Workflow runtime; real Worker/Outbox-Relay/broker/Browser-Tool/Provider execution;
@@ -44,7 +56,8 @@ the Phase 6 rollback exercise and English interview. n8n still gains no authorit
 
 By the end of Day70 you can:
 
-* Integrate an authenticated n8n workflow with the real FastAPI acceptance boundary and prove a bounded
+* Configure an n8n workflow with two independent auth boundaries (inbound caller -> n8n and n8n -> FastAPI,
+  each a Credential Store reference) and prove a bounded authenticated n8n -> FastAPI service-call acceptance
   `n8n -> FastAPI -> PostgreSQL` acceptance + idempotent redelivery with new-connection DB evidence.
 * Keep the responsibility boundary exact: n8n orchestrates; FastAPI authenticates/authorizes and enforces
   transitions; PostgreSQL owns durable truth.
@@ -151,7 +164,9 @@ Tech Lead Review:
 
 Right split, one correction: n8n handles orchestration/mapping/waiting/branching/authenticated calls;
 **FastAPI** authenticates/authorizes and enforces transitions; **PostgreSQL** stores durable business
-truth. Do not assign authentication to PostgreSQL. The path is: authenticated trigger → map/validate →
+truth. Do not assign authentication to PostgreSQL. There are two independent auth boundaries — inbound caller → n8n
+(a Webhook credential reference, NOT RUN at run time) and n8n → FastAPI (the HTTP service credential). The
+path is: authenticated-service trigger → map/validate report_scope+request_id+document_id →
 FastAPI durable acceptance → honest `202` + stable Task identity → observe the same Task → permissioned
 execution boundary → verified protected Artifact reference → durable exact-version Approval → idempotent
 Publication → correlated audit + terminal result.
@@ -190,10 +205,17 @@ Tech Lead Review:
 Job/Task and Outbox intent are correct; the actual Day59 gate **also** required a request fingerprint and a
 verified Document link, read from a **new** DB connection. **Budget reservation belongs in the complete
 production acceptance bundle but is absent from the current Day59 implementation, so budget remained NOT
-RUN.** What ran, in class, `INTEGRATION_RUNTIME`: `POST /webhook/day70/research-report -> 202` with a stable
-Task id; an exact webhook redelivery -> the same id with `idempotency_replayed=true`; a new-connection DB
-check `jobs=1, outbox=1, document_links=1`, fingerprint length 64, state `queued`; invalid input -> `400`
-with zero Jobs for that request identity. That proves the acceptance boundary — nothing downstream.
+RUN.** What ran, in class, `INTEGRATION_RUNTIME` for the **PRE-FIX** workflow (top-level `report_scope`; no
+inbound Webhook auth): an authenticated **n8n → FastAPI service call** — `POST /webhook/day70/research-report
+-> 202` with a stable Task id; an exact webhook redelivery -> the same id with `idempotency_replayed=true`; a
+new-connection DB check `jobs=1, outbox=1, document_links=1`, fingerprint length 64, state `queued`; invalid
+input -> `400` with zero Jobs for that request identity. That proves the acceptance boundary — nothing
+downstream. It used the **n8n → FastAPI** service credential, so it did **not** prove external-caller → n8n
+Webhook authentication, and it is **not** evidence for the FIXED workflow (report_scope in `business_input`,
+three-field IF, inbound `headerAuth` reference), whose real integration is **NOT RERUN**. The corrected body
+contract is `{ "document_ids": [document_id], "business_input": { "report_scope": ... } }` so `report_scope`
+enters the Day59 fingerprint; a changed `report_scope` is a different fingerprint (**409, not a replay**),
+proven by the Day59 fingerprint contract test, not by an integration run.
 
 Engineering Thinking:
 
@@ -207,8 +229,8 @@ A dropped acceptance response is retried with the same `Idempotency-Key`; FastAP
 
 Framework Connection:
 
-FastAPI Day59 `POST /v1/jobs` (`Idempotency-Key` header, fingerprint over ordered `document_ids`);
-`day70_capstone.acceptance_recovery`.
+FastAPI Day59 `POST /v1/jobs` (`Idempotency-Key` header, fingerprint over ordered `document_ids` **and**
+sorted `business_input`, so `report_scope` is inside the fingerprint); `day70_capstone.acceptance_recovery`.
 
 Exercise:
 
@@ -294,7 +316,9 @@ publication identities.
 
 Framework Connection:
 
-`day70_capstone.approval_authorizes` / `approval_binding_complete` / `identity_is_stable_v7_to_v8` /
+`day70_capstone.approval_authorizes` (takes an `AuthorizationContext` and compares tenant/task/artifact
+id+version/action/policy **and** approver role, requires `decision == APPROVED` and not expired — presence of
+fields is not enough) / `approval_binding_complete` / `identity_is_stable_v7_to_v8` /
 `identity_is_new_v7_to_v8`.
 
 Exercise:
@@ -513,7 +537,8 @@ cd projects/n8n-workflows
 python3 -m pytest -q test_day70_capstone.py
 ```
 
-(Classroom: Python 3.11.5 → 14 passed. Updating agent: Python 3.10.12 → 14 passed. Python 3.12: NOT RUN.)
+(Classroom pre-fix suite: Python 3.11.5 → 14 passed, now superseded. Updating agent, FIXED suite: Python
+3.10.12 → 18 passed; affected Day59 fingerprint test → 12 passed. Python 3.12: NOT RUN.)
 
 ### Exercise 1 — Acceptance recovery after a lost response
 
@@ -539,7 +564,7 @@ Follow-up: What must a reused `event_id` for v8 trigger instead of publication?
 
 Question: `approval-301` approved v7; publish v8 now?
 Think First: What exactly did the approver accept?
-Starter Artifact: `day70_capstone.approval_authorizes` + the v7→v8 identity plan.
+Starter Artifact: `day70_capstone.approval_authorizes` (full `AuthorizationContext` match) + the v7→v8 identity plan.
 Expected Output: v8 → not authorized; stable = tenant_id/task_id/correlation_id; new =
 artifact_version/approval_id/approval_event_id/publication_operation_id/publication_idempotency_key;
 revalidate = policy_version/action/approver_actor.
@@ -754,7 +779,7 @@ not blind; and Day71 is a phase transition, not the next n8n layer.
       recovery matrices.
 - [ ] I can run the incident flow (contain → revoke/rotate → preserve → scope → classify →
       cancel/reconcile/compensate → verify → regression → controlled rollout).
-- [ ] I can run `python3 -m pytest -q test_day70_capstone.py` (= 14 passed) and tier every Day70 activity.
+- [ ] I can run `python3 -m pytest -q test_day70_capstone.py` (= 18 passed) and tier every Day70 activity.
 - [ ] I understand the evidence limits: only the acceptance slice reached INTEGRATION_RUNTIME; the rest is
       NOT RUN; Day59–Day69 evidence is a prerequisite, not Day70 validation; Day70→Day71 is a phase
       transition.

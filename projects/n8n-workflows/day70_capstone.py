@@ -30,6 +30,7 @@ secrets, tokens, real URLs, tenant data, or Provider payloads live here.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import FrozenSet, Optional, Sequence
@@ -99,7 +100,7 @@ def classify_event(seen: Optional[DeliveredEvent], incoming: DeliveredEvent) -> 
 # 3) Exact Approval binding.
 # ---------------------------------------------------------------------------
 REQUIRED_APPROVAL_FIELDS: FrozenSet[str] = frozenset({
-    "approval_id", "tenant_id", "task_id", "artifact_version", "action",
+    "approval_id", "tenant_id", "task_id", "artifact_id", "artifact_version", "action",
     "approver_actor", "approver_role", "policy_version", "expires_at", "decision", "decided_at",
 })
 
@@ -109,6 +110,7 @@ class Approval:
     approval_id: str
     tenant_id: str
     task_id: str
+    artifact_id: str
     artifact_version: str
     action: str
     approver_actor: str
@@ -119,21 +121,41 @@ class Approval:
     decided_at: int
 
 
+@dataclass(frozen=True)
+class AuthorizationContext:
+    """The COMPLETE expected authorization context the caller must pass. Every field is compared against
+    the persisted Approval; a match on only some fields never authorizes the action."""
+    tenant_id: str
+    task_id: str
+    artifact_id: str
+    artifact_version: str
+    action: str
+    policy_version: str
+    required_role: Optional[str] = None   # when set, the Approval's approver_role must match exactly
+
+
 def approval_binding_complete(field_names: Sequence[str]) -> bool:
     """An Approval must carry the complete exact-binding field set; a partial binding (e.g. only
     task_id + artifact_version + approval_id) is insufficient."""
     return REQUIRED_APPROVAL_FIELDS <= set(field_names)
 
 
-def approval_authorizes(approval: Approval, requested_action: str, requested_artifact_version: str,
-                        now: int) -> bool:
-    """An Approval authorizes ONLY its exact action on its exact artifact version, while APPROVED and not
-    expired. A v7 approval can never authorize v8, and a different action is never authorized."""
+def approval_authorizes(approval: Approval, ctx: AuthorizationContext, now: int) -> bool:
+    """An Approval authorizes an action ONLY when it is APPROVED, not expired, and EXACTLY binds the
+    requested tenant + task + artifact id/version + action + policy (and, when the context requires it, the
+    approver role). Any single mismatch — different tenant, task, artifact_id, artifact_version, action, or
+    policy, a REJECTED decision, or an expired Approval — denies authorization. A v7 approval can never
+    authorize v8."""
     return (
         approval.decision == "APPROVED"
-        and approval.action == requested_action
-        and approval.artifact_version == requested_artifact_version
         and approval.expires_at > now
+        and approval.tenant_id == ctx.tenant_id
+        and approval.task_id == ctx.task_id
+        and approval.artifact_id == ctx.artifact_id
+        and approval.artifact_version == ctx.artifact_version
+        and approval.action == ctx.action
+        and approval.policy_version == ctx.policy_version
+        and (ctx.required_role is None or approval.approver_role == ctx.required_role)
     )
 
 
@@ -307,3 +329,53 @@ def observation_failure_changes_durable_state() -> bool:
     """An observation failure (e.g. a 503) or a disappearing n8n execution never mutates or replaces the
     durable Task; a new execution may resume observation of the same task_id without a new command."""
     return False
+
+
+# ---------------------------------------------------------------------------
+# 8) Static contract inspection of the importable Workflow JSON (Fix 3 + Fix 4).
+# ---------------------------------------------------------------------------
+def _find_node(workflow: dict, node_type: str) -> dict:
+    for node in workflow.get("nodes", []):
+        if node.get("type") == node_type:
+            return node
+    raise KeyError(node_type)
+
+
+def http_request_body_expression(workflow: dict) -> str:
+    """Return the HTTP Request node's JSON body expression string (the source of the FastAPI request body)."""
+    node = _find_node(workflow, "n8n-nodes-base.httpRequest")
+    return str(node.get("parameters", {}).get("jsonBody", ""))
+
+
+def workflow_sends_report_scope_in_business_input(workflow: dict) -> bool:
+    """The Day59 route only reads ``document_ids`` + ``business_input``. ``report_scope`` MUST travel inside
+    ``business_input`` so it enters the request fingerprint; it must NOT be a top-level field Pydantic
+    ignores. This inspects the HTTP body expression statically."""
+    body = http_request_body_expression(workflow)
+    compact = body.replace(" ", "")
+    has_business_input_scope = "business_input:{report_scope:" in compact or "business_input:{" in compact and "report_scope" in compact
+    has_document_ids = "document_ids:" in compact
+    # report_scope must appear only under business_input, never as a sibling top-level key of document_ids
+    top_level_scope = "{report_scope:" in compact and "business_input" not in compact
+    return bool(has_business_input_scope and has_document_ids and not top_level_scope)
+
+
+def if_validated_fields(workflow: dict) -> set:
+    """Return the set of ``$json`` field names the IF node validates (leftValue expressions)."""
+    node = _find_node(workflow, "n8n-nodes-base.if")
+    fields = set()
+    conds = node.get("parameters", {}).get("conditions", {}).get("conditions", [])
+    for c in conds:
+        left = str(c.get("leftValue", ""))
+        m = re.search(r"\$json\.([A-Za-z_][A-Za-z0-9_]*)", left)
+        if m:
+            fields.add(m.group(1))
+    return fields
+
+
+def webhook_inbound_authentication(workflow: dict) -> str:
+    """Return the Webhook node's configured inbound ``authentication`` mode (e.g. "headerAuth"), or "none".
+    NOTE: configuring inbound authentication in the SOURCE is not the same as it having been RUN — the
+    actual class run did NOT exercise external-caller -> n8n authentication (see DAY70_CAPSTONE.md)."""
+    node = _find_node(workflow, "n8n-nodes-base.webhook")
+    return str(node.get("parameters", {}).get("authentication", "none"))

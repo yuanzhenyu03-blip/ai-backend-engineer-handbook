@@ -7,8 +7,9 @@ exercise, and the phase interview. **n8n owns permissioned orchestration, not du
 ## Cumulative path
 
 ```text
-Authenticated Trigger
--> map and validate allowed input
+Authenticated-service trigger boundary (two independent auth boundaries: inbound caller -> n8n, and
+   n8n -> FastAPI; inbound Webhook auth is a Credential Store reference, NOT RUN / NOT CONFIGURED at run time)
+-> map and validate report_scope + request_id + document_id
 -> FastAPI durable acceptance
 -> honest 202 + stable Task identity
 -> observe the same durable Task
@@ -40,14 +41,22 @@ truth.
 - `day70_capstone.py` — a standalone, deterministic decision model for the six capstone areas (acceptance
   recovery, event dedupe/conflict, exact Approval binding, Publication recovery, credential classification,
   incident Task classification) + the polling/observation boundary.
-- `test_day70_capstone.py` — 14 deterministic tests.
+- `test_day70_capstone.py` — 18 deterministic tests (the classroom's 14 pre-fix tests are superseded). The
+  four added areas: complete Approval authorization binding (full expected-authorization context + one
+  negative per mismatched field), the workflow request-body contract (`document_ids` + `business_input.report_scope`),
+  the IF validation of `report_scope`/`request_id`/`document_id`, the inbound-Webhook-auth reference, and the
+  Day59 fingerprint proof that a changed `report_scope` is a different fingerprint (409, not a replay).
 - `day70_minimal_acceptance_workflow.json` — the **importable Workflow source** for
-  `Day70 - FastAPI Durable Acceptance Gate` (Webhook `day70/research-report` -> validate -> IF -> POST the
-  FastAPI `/v1/jobs` acceptance route with an `Idempotency-Key` -> Respond 202 | Respond 400). It is
-  Secret-free: HTTP auth is a Credential Store **reference by name only**, the base URL is an environment
-  placeholder, and no token/URL/tenant value is stored. **This is the importable source, not a captured
-  post-run export** — an attempted post-run n8n export could not be captured because desktop execution
-  approval was unavailable.
+  `Day70 - FastAPI Durable Acceptance Gate` (Webhook `day70/research-report` -> validate
+  `report_scope`+`request_id`+`document_id` -> IF (all three present) -> POST the FastAPI Day59 `/v1/jobs`
+  acceptance route with body `{"document_ids":[document_id], "business_input":{"report_scope":...}}` and an
+  `Idempotency-Key` -> Respond 202 | Respond 400). **Two independent auth boundaries**: the inbound Webhook
+  (caller -> n8n) uses `headerAuth` and the outbound HTTP Request (n8n -> FastAPI) uses `httpHeaderAuth` —
+  both are Credential Store **references by name only**, the base URL is an environment placeholder, and no
+  token/URL/tenant value is stored. **This is the importable source, not a captured post-run export** — an
+  attempted post-run n8n export could not be captured because desktop execution approval was unavailable.
+  The inbound Webhook authentication (external caller -> n8n) is a source reference only; it was **NOT RUN /
+  NOT CONFIGURED at run time** and the class run did not prove caller -> n8n authentication.
 - `DAY70_CAPSTONE.md` — this file.
 
 ## Evidence matrix (canonical four tiers)
@@ -58,12 +67,15 @@ CONCEPTUAL_STATIC
   - static configuration review (n8n node-by-node inspection; a configured-looking node is not runtime proof)
 
 EXECUTED_LOCAL_RUNTIME
-  - the pure Python decision model driven by the deterministic tests.
-    Classroom run:            /Users/.../anaconda3/bin/python3.11 -m pytest -q test_day70_capstone.py
-                              -> Python 3.11.5 -> 14 passed in 0.01s
+  - the pure Python decision model + the workflow static contract, driven by the deterministic tests.
+    Classroom run (pre-fix):  /Users/.../anaconda3/bin/python3.11 -m pytest -q test_day70_capstone.py
+                              -> Python 3.11.5 -> 14 passed in 0.01s  (SUPERSEDED: the 14-test pre-fix suite,
+                              before the Approval-binding / request-body / IF / inbound-auth fixes)
     First classroom attempt:  python3 -m pytest ...  -> Python 3.9.6 -> "No module named pytest"
                               -> NOT RUN (a missing-dependency skip, not a test failure)
-    Updating-agent re-run:    python3 -m pytest -q test_day70_capstone.py -> Python 3.10.12 -> 14 passed
+    Updating-agent re-run:    python3 -m pytest -q test_day70_capstone.py -> Python 3.10.12 -> 18 passed
+                              (the FIXED 18-test suite; the affected Day59 fingerprint test also re-run
+                              -> python3 -m pytest -q test_day59_acceptance_logic.py -> 12 passed)
     Repository-standard Python 3.12 execution: NOT RUN.
   - a real n8n inspection alone (n8n 2.25.6; GET /healthz -> 200 {"status":"ok"}; the Day67 workflow is a
     six-node inactive/unpublished draft targeting /api/v1/browser-tasks with auth none). Inspection alone is
@@ -80,18 +92,26 @@ INTEGRATION_RUNTIME  (performed in class against disposable local infra; NOT re-
       idempotency_replayed=true.
     - new-connection PostgreSQL evidence: queued Job, 64-character fingerprint, one Outbox dispatch intent,
       one Document link.
-  Real n8n Workflow acceptance gate:
-    - imported a runtime-only local test identity into the n8n Credential Store; the temporary plaintext
-      import file was deleted immediately.
+  Real n8n Workflow acceptance gate (the PRE-FIX workflow: top-level `report_scope`+`document_ids`, and no
+  inbound Webhook authentication — this is an authenticated n8n -> FastAPI SERVICE call, NOT proof of
+  external caller -> n8n authentication):
+    - imported a runtime-only local test identity into the n8n Credential Store (the n8n -> FastAPI service
+      credential); the temporary plaintext import file was deleted immediately.
     - imported + published "Day70 - FastAPI Durable Acceptance Gate"; restarted n8n so the production Webhook
-      was active.
+      was active. The inbound Webhook authentication (external caller -> n8n) was NOT configured and NOT
+      exercised in this run.
     - POST /webhook/day70/research-report -> HTTP 202, a Task/Job id (a UUID; not committed here),
       idempotency_replayed=false.
     - exact Webhook redelivery -> HTTP 202, the SAME Task/Job id, idempotency_replayed=true.
     - a new DB connection: jobs=1, outbox=1, document_links=1, fingerprint length 64, state queued.
     - invalid input -> HTTP 400; a new DB query found zero Jobs for that request identity.
-  This is bounded real n8n Workflow -> FastAPI/Uvicorn -> PostgreSQL INTEGRATION_RUNTIME evidence for the
-  ACCEPTANCE slice only. It does NOT upgrade the rest of the capstone.
+  This is bounded real, authenticated **n8n -> FastAPI/Uvicorn -> PostgreSQL SERVICE-call** INTEGRATION_RUNTIME
+  evidence for the ACCEPTANCE slice of the PRE-FIX workflow only. It does NOT upgrade the rest of the
+  capstone, it does NOT prove inbound caller -> n8n authentication, and it is NOT evidence for the FIXED
+  workflow. The FIXED workflow (report_scope inside `business_input`, three-field IF validation, inbound
+  `headerAuth` reference) has NOT been re-run: its real n8n -> FastAPI -> PostgreSQL integration is
+  **NOT RERUN**, and the "different `report_scope` -> different fingerprint -> 409, not a replay" behaviour
+  is proven only by the Day59 fingerprint contract test (CONCEPTUAL_STATIC), not by an integration run.
 
 PRODUCTION
   - NOT RUN. No production, load, multi-replica, production secrets, or production traffic. No real or paid
@@ -108,7 +128,9 @@ migration/UI/callback/tenant-role authorization + atomic Approval audit; real Pu
 idempotency + external reconciliation; real Error Workflow smallest-boundary resume; real credential
 revoke/rotation/recovery + exposure review (only controlled local Credential Store injection was run); real
 rollback/deactivation/kill-switch/canary incident exercise; Python 3.12 execution; a captured n8n post-run
-export.
+export; inbound Webhook authentication (external caller -> n8n) — configured as a Credential Store reference
+in source only, **NOT RUN / NOT CONFIGURED at run time**; a real re-run of the FIXED workflow end-to-end
+(**NOT RERUN**); a real integration run of the different-`report_scope` 409 path.
 
 ## Production failure / rollback exercise (CONCEPTUAL_STATIC — not run against the real environment)
 
@@ -159,8 +181,10 @@ otherwise reconcile. Same event_id + same fingerprint = no-op; same event_id + d
 conflict.
 Rollback stops future harm; cancellation handles proven-safe work; reconciliation resolves unknown outcomes;
 compensation addresses completed effects; audit preserves history.
-Actual Day70 evidence is bounded: real n8n -> FastAPI -> PostgreSQL acceptance and idempotent redelivery
-reached INTEGRATION_RUNTIME. The remaining components stay explicitly NOT RUN.
+Actual Day70 evidence is bounded: an authenticated real n8n -> FastAPI -> PostgreSQL SERVICE-call acceptance
+and idempotent redelivery reached INTEGRATION_RUNTIME for the PRE-FIX workflow only. That run did not prove
+inbound caller -> n8n authentication, and it is not evidence for the FIXED workflow (which is NOT RERUN). The
+remaining components stay explicitly NOT RUN.
 Day70 closes Phase 6. Day71 is a PHASE TRANSITION whose main technical foundations are Day53–Day61; n8n is
 not an LLM Runtime prerequisite.
 ```
