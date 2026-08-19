@@ -208,23 +208,84 @@ Evidence limits (Day69):
                      Day69 n8n JSON. Day67's 400 and Day68's contract are NOT reused as Day69 evidence.
 ```
 
+## Day70 — Phase 6 Integration Capstone (mixed evidence tiers)
+
+Day70 integrates Day67–Day69 into one failure-aware cumulative path and runs the maximum feasible real
+`n8n -> FastAPI -> PostgreSQL` acceptance slice. Artifacts in this directory:
+
+- `DAY70_CAPSTONE.md` — cumulative path, responsibility boundary, evidence matrix, actual commands/results,
+  rollback exercise, and final Mental Model.
+- `day70_capstone.py` — a standalone deterministic decision model (acceptance recovery, event dedupe/
+  conflict, exact Approval binding, Publication recovery, credential classification, incident Task
+  classification, polling boundary).
+- `test_day70_capstone.py` — 14 deterministic tests.
+- `day70_minimal_acceptance_workflow.json` — Secret-free importable Workflow SOURCE (`Day70 - FastAPI
+  Durable Acceptance Gate`: Webhook `day70/research-report` -> validate -> IF -> POST FastAPI `/v1/jobs`
+  with an `Idempotency-Key` -> Respond 202 | 400). HTTP auth is a Credential Store reference by name only;
+  the base URL is an env placeholder. It is the importable SOURCE, not a captured post-run export.
+
+Cumulative path:
+
+```text
+Authenticated Trigger -> map/validate input -> FastAPI durable acceptance -> honest 202 + stable Task id
+-> observe the same durable Task -> permissioned execution boundary -> verified protected Artifact reference
+-> durable exact-version Approval -> idempotent Publication -> correlated audit + terminal result
+```
+
+Evidence matrix:
+
+```text
+EXECUTED_LOCAL_RUNTIME  day70_capstone.py via test_day70_capstone.py:
+                          classroom Python 3.11.5 -> 14 passed; first attempt Python 3.9.6 -> pytest missing
+                          -> NOT RUN (skip, not failure); updating agent Python 3.10.12 -> 14 passed;
+                          repo-standard Python 3.12 -> NOT RUN. Real n8n inspection alone (n8n 2.25.6;
+                          /healthz 200) is EXECUTED_LOCAL_RUNTIME, not cumulative integration.
+INTEGRATION_RUNTIME     (in class; NOT re-run by the updating agent) bounded real
+                          n8n Workflow -> FastAPI/Uvicorn -> PostgreSQL ACCEPTANCE slice:
+                          POST /webhook/day70/research-report -> 202 + stable Task id; exact redelivery ->
+                          same id + idempotency_replayed=true; new-connection DB: jobs=1, outbox=1,
+                          document_links=1, fingerprint length 64, state queued; invalid input -> 400, zero
+                          Jobs. Proves the acceptance boundary ONLY.
+CONCEPTUAL_STATIC/NOT RUN budget reservation in the acceptance tx; FastAPI-persisted/returned correlation_id
+                          + propagation; real Polling/Callback/Approval/Publication/Error-Workflow runtime;
+                          real Worker/Outbox-Relay/broker/Browser-Tool/Provider execution; verified Artifact
+                          generation; real credential revoke/rotation/exposure review (only controlled local
+                          Credential Store injection ran); rollback/kill-switch/canary incident exercise;
+                          production. No real/paid Provider call; no production credentials/customer data;
+                          no captured n8n post-run export.
+```
+
+A green test suite or a single acceptance run is not cumulative integration and is not production. Day59–
+Day69 evidence is a named prerequisite, not Day70 validation.
+
+Run the decision model:
+
+```bash
+cd projects/n8n-workflows
+python3 -m pytest -q test_day70_capstone.py
+```
+
 ## Progress
 
-Status: Day69 completed (classroom scope) — lesson + the Risk-based Approval Gate contract above
-(CONCEPTUAL_STATIC; no runtime; no exported JSON). Day67–Day68 completed earlier. Next: Day70 — n8n +
-FastAPI + AI Tool Integration Capstone and Interview (Day70 directly consumes the Day69 hardened contract
-and should attempt real cumulative integration evidence).
+Status: Day70 completed — Phase 6 integration capstone. Day67–Day69 completed earlier. Phase 6 is COMPLETE.
+Bounded real n8n -> FastAPI -> PostgreSQL acceptance + idempotent redelivery reached INTEGRATION_RUNTIME;
+the decision model is EXECUTED_LOCAL_RUNTIME (14 passed); the rest of the cumulative path is
+CONCEPTUAL_STATIC / NOT RUN. Next: Day71 — LLM Application Engineering (Phase 7A; a PHASE TRANSITION built
+on Day53–Day61, not an n8n dependency).
 
 ## Future Milestones
 
-- Day70: n8n + FastAPI + AI Tool integration capstone (DIRECT consumer of Day69; attempt real cumulative
-  integration evidence).
 - Day71 begins Phase 7A (LLM Application Engineering) as a PHASE TRANSITION built on Day53–Day61 — not a
   technical dependency on Day69/Day70/n8n.
-- Capture a safe, credential-placeholder workflow JSON export when available.
+- Day70 NOT RUN backlog toward production: budget reservation; correlation_id persist/propagate; real
+  Polling/Callback/Approval/Publication/Error-Workflow runtime; Worker/Outbox/Provider/Browser-Tool
+  participation; verified Artifact; real credential rotation/exposure review; rollback/kill-switch/canary;
+  Python 3.12; a captured n8n post-run export.
 
 ## Related
 
+- Day70 lesson: [`docs/fastapi/day70-n8n-fastapi-ai-tool-integration-capstone-and-interview.md`](../../docs/fastapi/day70-n8n-fastapi-ai-tool-integration-capstone-and-interview.md)
+- Day70 capstone: [`DAY70_CAPSTONE.md`](DAY70_CAPSTONE.md)
 - Day69 lesson: [`docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md`](../../docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md)
 - Day68 lesson: [`docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md`](../../docs/fastapi/day68-long-running-ai-jobs-polling-callback-correlation-and-idempotency.md)
 - Day67 lesson: [`docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md`](../../docs/fastapi/day67-n8n-workflow-model-triggers-fastapi-integration-and-responsibility-boundaries.md)

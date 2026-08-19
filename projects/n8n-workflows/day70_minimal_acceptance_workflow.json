@@ -1,0 +1,123 @@
+{
+  "name": "Day70 - FastAPI Durable Acceptance Gate",
+  "meta": {
+    "description": "Secret-free importable source for the Day70 minimal acceptance vertical slice. Webhook -> validate allowed input -> IF -> HTTP Request (POST the FastAPI Day59 acceptance route with an Idempotency-Key) -> Respond 202 | Respond 400. HTTP auth is a Credential Store REFERENCE by name only; the base URL is an environment placeholder. NO secret, token, real URL, tenant value, or credential value is stored here. This is the importable workflow SOURCE, not a captured post-run export."
+  },
+  "active": false,
+  "settings": {},
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "day70/research-report",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "day70-research-report"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "a1", "name": "report_scope", "type": "string", "value": "={{ $json.body.report_scope }}" },
+            { "id": "a2", "name": "request_id", "type": "string", "value": "={{ $json.body.request_id }}" },
+            { "id": "a3", "name": "document_id", "type": "string", "value": "={{ $json.body.document_id }}" }
+          ]
+        },
+        "options": {}
+      },
+      "id": "edit-fields",
+      "name": "Map & Validate Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "strict" },
+          "combinator": "and",
+          "conditions": [
+            { "id": "c1", "leftValue": "={{ $json.report_scope }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } },
+            { "id": "c2", "leftValue": "={{ $json.request_id }}", "rightValue": "", "operator": { "type": "string", "operation": "notEmpty" } }
+          ]
+        },
+        "options": {}
+      },
+      "id": "if-valid",
+      "name": "IF report_scope and request_id present",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.FASTAPI_BASE_URL }}/v1/jobs",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Idempotency-Key", "value": "={{ $json.request_id }}" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ report_scope: $json.report_scope, document_ids: [ $json.document_id ] }) }}",
+        "options": {}
+      },
+      "id": "http-accept",
+      "name": "POST FastAPI /v1/jobs (durable acceptance)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 220],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_WITH_CREDENTIAL_STORE_REFERENCE", "name": "day70-local-test-identity (reference only)" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 202,
+        "responseBody": "={{ JSON.stringify({ status: 'accepted', task_id: $json.job_id, idempotency_replayed: $json.idempotency_replayed }) }}",
+        "options": {}
+      },
+      "id": "respond-202",
+      "name": "Respond 202 Accepted",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1140, 220]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_request', message: 'report_scope and request_id are required' }) }}",
+        "options": {}
+      },
+      "id": "respond-400",
+      "name": "Respond 400 Invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [900, 400]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Map & Validate Input", "type": "main", "index": 0 }]] },
+    "Map & Validate Input": { "main": [[{ "node": "IF report_scope and request_id present", "type": "main", "index": 0 }]] },
+    "IF report_scope and request_id present": {
+      "main": [
+        [{ "node": "POST FastAPI /v1/jobs (durable acceptance)", "type": "main", "index": 0 }],
+        [{ "node": "Respond 400 Invalid", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST FastAPI /v1/jobs (durable acceptance)": { "main": [[{ "node": "Respond 202 Accepted", "type": "main", "index": 0 }]] }
+  }
+}

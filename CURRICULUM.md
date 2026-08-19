@@ -1352,7 +1352,7 @@ validation are only claimed when actually run and recorded.
 ## Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Status:
-Complete (Day59–Day66 Completed). Phase 6 in progress: Day67–Day69 Completed, Day70 current.
+Complete (Day59–Day66 Completed). Phase 6 COMPLETE: Day67–Day70 Completed. Day71 begins Phase 7A.
 
 Objective:
 Close the Phase 4 evidence gap first, then add a browser capability. Day59–Day61 are a **Production
@@ -1499,7 +1499,7 @@ runtime / integration / production evidence only when actually executed and save
 ## Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Status:
-In Progress (Day67–Day69 Completed; Day70 Planned)
+Complete (Day67–Day70 Completed). Day71 begins Phase 7A (phase transition).
 
 Objective:
 Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
@@ -1540,6 +1540,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   and runs the phase interview. Day71 then begins Phase 7A (LLM Application Engineering) as a PHASE TRANSITION
   built on the Day53–Day61 Provider/resilience/observability/runtime foundations — not a technical dependency
   on Day69/Day70/n8n; n8n may later be an external consumer/orchestrator of an LLM Application Runtime.
+  Status: ✅ Completed. Released Lesson: `docs/fastapi/day70-n8n-fastapi-ai-tool-integration-capstone-and-interview.md`. Engineering Artifacts under `projects/n8n-workflows/`: `DAY70_CAPSTONE.md`, `day70_capstone.py` (standalone decision model), `test_day70_capstone.py` (14 tests), and `day70_minimal_acceptance_workflow.json` (Secret-free importable Workflow SOURCE, Credential Store reference only — NOT a captured post-run export). Cumulative path: authenticated trigger -> map/validate -> FastAPI durable acceptance -> honest 202 + stable Task id -> observe same Task -> permissioned execution -> verified protected Artifact -> exact-version Approval -> idempotent Publication -> correlated audit. n8n orchestrates; FastAPI/PostgreSQL owns durable truth/authz/idempotency/transitions/recovery/audit (Day67–Day69 boundary unchanged). Evidence (four-tier taxonomy): EXECUTED_LOCAL_RUNTIME — `day70_capstone.py` via `test_day70_capstone.py` (classroom Python 3.11.5 = 14 passed; a first attempt on Python 3.9.6 reported pytest missing = NOT RUN, not a failure; the updating agent re-ran on Python 3.10.12 = 14 passed; repository-standard Python 3.12 = NOT RUN) plus a real n8n inspection alone (n8n 2.25.6, /healthz 200). INTEGRATION_RUNTIME (performed in class against disposable local infra; NOT re-run by the updating agent) — a bounded real n8n Workflow -> FastAPI/Uvicorn -> PostgreSQL ACCEPTANCE slice: POST /webhook/day70/research-report -> 202 + stable Task id; exact redelivery -> same id + idempotency_replayed=true; new-connection DB jobs=1/outbox=1/document_links=1 + 64-char fingerprint + queued; invalid input -> 400 with zero Jobs. This proves the acceptance boundary ONLY. NOT RUN: budget reservation in the acceptance transaction; a FastAPI-persisted/returned correlation_id and its propagation; real Polling/Callback/Approval/Publication/Error-Workflow runtime; real Worker/Outbox-Relay/broker/Browser-Tool/Provider execution; verified Artifact generation/lookup; real Approval schema/migration/UI/callback/tenant-role authorization + atomic audit; real Publication target/operation idempotency/external reconciliation; real credential revoke/rotation/exposure review (only controlled local Credential Store injection ran); rollback/kill-switch/canary incident exercise; Python 3.12; a captured n8n post-run export; production. No real or paid Provider call; the final Chinese synthesis was taught directly by the Tech Lead after the student requested it. A green test suite or a single integration run is not cumulative integration and is not production; Day59–Day69 evidence is a named prerequisite, not Day70 validation. No secrets, tokens, real URLs, tenant data, or Provider payloads committed. Day70 closes Phase 6.
 
 Phase deliverable:
 

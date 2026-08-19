@@ -1815,3 +1815,52 @@ Validation: DOCUMENTATION — Day69 is CONCEPTUAL_STATIC (interactive scenario-d
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day69), the
 [Day69 lesson](../docs/fastapi/day69-human-approval-retry-secrets-audit-and-error-workflows.md), and the
 [n8n-workflows project](../projects/n8n-workflows/README.md).
+
+## Day70 — n8n + FastAPI + AI Tool Integration Capstone and Interview
+
+Key vocabulary: responsibility boundary · durable acceptance bundle · honest 202 · idempotency_replayed · observe the same task_id · exact-version Approval binding · delivery identity vs business fingerprint · OUTCOME_UNKNOWN · classified recovery · credential classification (rotate vs fix-config) · four-tier evidence taxonomy · NOT RUN.
+
+### Beginner Question
+
+Q: What is the responsibility boundary between n8n and FastAPI/PostgreSQL?
+
+Student answer (preserved): "n8n handles workflow orchestration and data passing, while FastAPI and PostgreSQL manage the persistent storage of factual data and authoritative authentication." (Correction: n8n orchestrates/maps/waits/branches/calls; FastAPI authenticates/authorizes and enforces transitions; PostgreSQL stores durable truth — do not assign authentication to PostgreSQL.)
+
+Strong Answer: "n8n is a permissioned orchestrator whose history is orchestration evidence. FastAPI is the security boundary that authenticates, authorizes, and enforces legal transitions and idempotency. PostgreSQL holds durable business truth. n8n never owns the durable fact."
+
+### Intermediate Question
+
+Q: A long Task with Approval and Publication times out. How do retry and idempotency work?
+
+Student answer (preserved): "Retries should employ a combination of backoff and jitter, along with a deadline… Idempotency relies on a constraint formed by the event ID and the idempotency key; this ensures that a retry returns the result of the original request rather than generating a new one." (Correction: backoff/jitter only for safe observation or classified retryable failure; a Publication timeout is OUTCOME_UNKNOWN; separate the request fingerprint, the event fingerprint, and the Publication operation idempotency identity.)
+
+Strong Answer: "Backoff+jitter+deadline apply to safe observation and classified-retryable failures, not to a Publication whose outcome is unknown. On a publish timeout I keep the operation and idempotency identity and query the authoritative operation status plus a strictly-matching external receipt: succeeded -> don't republish; processing -> observe; unknown -> reconcile; rejected -> terminal. The request fingerprint, event fingerprint, and Publication operation idempotency identity are three separate things."
+
+### Senior Question
+
+Q: A bad release duplicated approvals/publications, some Provider outcomes are unknown, and an Authorization header leaked to logs. Walk through it.
+
+Student answer (preserved): "Deactivate/Unpublish; identify affected sets and classify them; remediate and contain; verify facts and recovery history; validate regression coverage; controlled rollout." (Correction: contain first; stop replay + backend kill switch; immediately revoke/rotate the exposed credential; preserve evidence; bound the affected set; explicitly cancel/reconcile/compensate; verify, regress, canary with stop conditions.)
+
+Strong Answer: "Contain first — deactivate the workflow, stop Error-Workflow replay, activate the backend publication kill switch, and immediately revoke/rotate the leaked credential and verify the old one is rejected before resuming traffic. Preserve evidence and scope with a padded window and stable joins (workflow/release/execution -> tenant/request/task/correlation -> Attempt/Provider -> Approval/event -> Artifact/version -> Publication operation/idempotency/receipt); the credential exposure window is separate. Classify from durable evidence: publications that succeeded without approval stay successes with a policy-violation record and compensation, never retro-approval; provably-unstarted Tasks get guarded durable cancellation; Provider-dispatched unknowns reconcile. Verify every durable/external fact, add regression coverage across the failure surface, and roll out synthetic -> test tenant -> canary -> allowlist -> gradual with stop conditions. Rollback stops future harm; it does not undo committed Tasks, Provider cost, or external publications."
+
+### Common Weak Answer
+
+"The acceptance call and the tests both passed, so the Phase 6 capstone is integrated and production-ready; if the publish times out I retry it, and I'll delete the bad rows to roll back."
+
+Strong Answer: "Only the bounded acceptance slice reached INTEGRATION_RUNTIME; the pure tests are EXECUTED_LOCAL_RUNTIME and the rest is NOT RUN — one run is not cumulative integration or production. A publish timeout is unknown, so I query authoritative status on the same identity rather than blind-retrying, and I never delete durable rows — I preserve, reconcile, and compensate while rollback only stops future harm."
+
+### Follow-up Questions
+
+Beginner follow-up: Why is n8n execution history not the authoritative business audit? Strong Answer: "It records orchestration attempts, not committed business truth, and cannot enforce tenant authorization or atomic transitions; the authoritative audit is FastAPI/PostgreSQL's append-only events."
+
+Intermediate follow-up: Why is budget reservation marked NOT RUN even though acceptance ran? Strong Answer: "Budget reservation belongs in the complete production acceptance bundle but is absent from the current Day59 implementation, so the acceptance slice that ran did not reserve budget; claiming it would be inventing evidence."
+
+Senior follow-up: Why is 'publication succeeded' separate from 'publication complied with policy'? Strong Answer: "Success is a durable external fact; compliance is an authorization fact. A publication that bypassed approval is genuinely SUCCEEDED and preserved as such, with a separate policy-violation record and compensation — post-incident acknowledgement can never be rewritten as pre-publication approval."
+
+Validation: MIXED tiers. EXECUTED_LOCAL_RUNTIME: `day70_capstone.py` via `test_day70_capstone.py` (classroom Python 3.11.5 = 14 passed; Python 3.9.6 -> pytest missing = NOT RUN, not a failure; updating agent Python 3.10.12 = 14 passed; Python 3.12 NOT RUN) + a real n8n inspection alone. INTEGRATION_RUNTIME (in class, not re-run by the updating agent): a bounded real n8n Workflow -> FastAPI/Uvicorn -> PostgreSQL ACCEPTANCE slice (202 + stable Task id; exact redelivery -> same id + idempotency_replayed=true; new-connection jobs=1/outbox=1/document_links=1 + 64-char fingerprint + queued; invalid input -> 400 with zero Jobs) — acceptance boundary only. The final Chinese synthesis was taught directly by the Tech Lead after the student asked. NOT RUN: budget reservation; correlation_id persist/propagate; real Polling/Callback/Approval/Publication/Error-Workflow runtime; real Worker/Outbox-Relay/broker/Browser-Tool/Provider execution; verified Artifact; real credential revoke/rotation/exposure review; rollback/kill-switch/canary; Python 3.12; a captured n8n post-run export; production. No real/paid Provider call; Day59–Day69 evidence is a prerequisite, not Day70 validation; no secrets, tokens, real URLs, tenant data, or Provider payloads committed.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day70), the
+[Day70 lesson](../docs/fastapi/day70-n8n-fastapi-ai-tool-integration-capstone-and-interview.md), the
+[Day70 capstone](../projects/n8n-workflows/DAY70_CAPSTONE.md), and the
+[n8n interview](n8n.md).
