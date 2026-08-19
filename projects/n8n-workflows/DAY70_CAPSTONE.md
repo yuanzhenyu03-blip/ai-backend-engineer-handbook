@@ -41,7 +41,7 @@ truth.
 - `day70_capstone.py` — a standalone, deterministic decision model for the six capstone areas (acceptance
   recovery, event dedupe/conflict, exact Approval binding, Publication recovery, credential classification,
   incident Task classification) + the polling/observation boundary.
-- `test_day70_capstone.py` — 18 deterministic tests (the classroom's 14 pre-fix tests are superseded). The
+- `test_day70_capstone.py` — 21 deterministic tests (the classroom's 14 pre-fix tests are superseded). The
   four added areas: complete Approval authorization binding (full expected-authorization context + one
   negative per mismatched field), the workflow request-body contract (`document_ids` + `business_input.report_scope`),
   the IF validation of `report_scope`/`request_id`/`document_id`, the inbound-Webhook-auth reference, and the
@@ -73,8 +73,8 @@ EXECUTED_LOCAL_RUNTIME
                               before the Approval-binding / request-body / IF / inbound-auth fixes)
     First classroom attempt:  python3 -m pytest ...  -> Python 3.9.6 -> "No module named pytest"
                               -> NOT RUN (a missing-dependency skip, not a test failure)
-    Updating-agent re-run:    python3 -m pytest -q test_day70_capstone.py -> Python 3.10.12 -> 18 passed
-                              (the FIXED 18-test suite; the affected Day59 fingerprint test also re-run
+    Updating-agent re-run:    python3 -m pytest -q test_day70_capstone.py -> Python 3.10.12 -> 21 passed
+                              (the FIXED 21-test suite; the affected Day59 fingerprint test also re-run
                               -> python3 -m pytest -q test_day59_acceptance_logic.py -> 12 passed)
     Repository-standard Python 3.12 execution: NOT RUN.
   - a real n8n inspection alone (n8n 2.25.6; GET /healthz -> 200 {"status":"ok"}; the Day67 workflow is a

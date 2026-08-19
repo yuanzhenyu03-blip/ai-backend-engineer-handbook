@@ -3,7 +3,7 @@
 ## 1. Lesson Metadata
 
 ```text
-Status:        ✅ Completed (Phase 6 capstone) — decision model + workflow static contract EXECUTED_LOCAL_RUNTIME (18 passed; the classroom's 14 pre-fix tests superseded); a bounded, authenticated real n8n → FastAPI service-call acceptance slice reached INTEGRATION_RUNTIME for the PRE-FIX workflow (the FIXED workflow is NOT RERUN; inbound caller → n8n auth NOT RUN); rest CONCEPTUAL_STATIC / NOT RUN
+Status:        ✅ Completed (Phase 6 capstone) — decision model + workflow static contract EXECUTED_LOCAL_RUNTIME (21 passed; the classroom's 14 pre-fix tests superseded); a bounded, authenticated real n8n → FastAPI service-call acceptance slice reached INTEGRATION_RUNTIME for the PRE-FIX workflow (the FIXED workflow is NOT RERUN; inbound caller → n8n auth NOT RUN); rest CONCEPTUAL_STATIC / NOT RUN
 Version:       v2 (LESSON_TEMPLATE_v2, 16 sections)
 Difficulty:    Advanced
 Estimated Time: 5-6 hours
@@ -24,7 +24,7 @@ the Phase 6 rollback exercise and English interview. n8n still gains no authorit
 >   → **14 passed** (now **superseded** — before the Approval-binding, request-body, IF-validation and
 >   inbound-auth fixes); a first attempt on Python 3.9.6 reported "No module named pytest" (a
 >   missing-dependency skip, **NOT RUN**, not a failure); the updating agent re-ran the **FIXED** suite on
->   Python 3.10.12 → **18 passed**, and re-ran the affected Day59 fingerprint test → **12 passed**;
+>   Python 3.10.12 → **21 passed**, and re-ran the affected Day59 fingerprint test → **12 passed**;
 >   repository-standard Python 3.12 is **NOT RUN**. The four added areas are: the full Approval authorization
 >   binding (a complete expected-authorization context plus one negative per mismatched field), the workflow
 >   request-body contract (`document_ids` + `business_input.report_scope`), the IF validation of
@@ -317,8 +317,9 @@ publication identities.
 Framework Connection:
 
 `day70_capstone.approval_authorizes` (takes an `AuthorizationContext` and compares tenant/task/artifact
-id+version/action/policy **and** approver role, requires `decision == APPROVED` and not expired — presence of
-fields is not enough) / `approval_binding_complete` / `identity_is_stable_v7_to_v8` /
+id+version/action/policy **and** approver identity (`approver_actor`) **and** approver role — all required,
+with no `Optional`/default that lets a caller skip the actor or role check — and requires `decision ==
+APPROVED` and not expired; presence of fields is not enough) / `approval_binding_complete` / `identity_is_stable_v7_to_v8` /
 `identity_is_new_v7_to_v8`.
 
 Exercise:
@@ -538,7 +539,7 @@ python3 -m pytest -q test_day70_capstone.py
 ```
 
 (Classroom pre-fix suite: Python 3.11.5 → 14 passed, now superseded. Updating agent, FIXED suite: Python
-3.10.12 → 18 passed; affected Day59 fingerprint test → 12 passed. Python 3.12: NOT RUN.)
+3.10.12 → 21 passed; affected Day59 fingerprint test → 12 passed. Python 3.12: NOT RUN.)
 
 ### Exercise 1 — Acceptance recovery after a lost response
 
@@ -779,7 +780,7 @@ not blind; and Day71 is a phase transition, not the next n8n layer.
       recovery matrices.
 - [ ] I can run the incident flow (contain → revoke/rotate → preserve → scope → classify →
       cancel/reconcile/compensate → verify → regression → controlled rollout).
-- [ ] I can run `python3 -m pytest -q test_day70_capstone.py` (= 18 passed) and tier every Day70 activity.
+- [ ] I can run `python3 -m pytest -q test_day70_capstone.py` (= 21 passed) and tier every Day70 activity.
 - [ ] I understand the evidence limits: only the acceptance slice reached INTEGRATION_RUNTIME; the rest is
       NOT RUN; Day59–Day69 evidence is a prerequisite, not Day70 validation; Day70→Day71 is a phase
       transition.

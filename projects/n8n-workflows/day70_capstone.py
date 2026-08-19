@@ -123,15 +123,18 @@ class Approval:
 
 @dataclass(frozen=True)
 class AuthorizationContext:
-    """The COMPLETE expected authorization context the caller must pass. Every field is compared against
-    the persisted Approval; a match on only some fields never authorizes the action."""
+    """The COMPLETE expected authorization context the caller must pass. EVERY field is required and is
+    compared against the persisted Approval; a match on only some fields never authorizes the action.
+    ``approver_actor`` and ``approver_role`` are mandatory — there is deliberately NO default that would let
+    a caller omit the approver identity or role and still obtain authorization."""
     tenant_id: str
     task_id: str
     artifact_id: str
     artifact_version: str
     action: str
     policy_version: str
-    required_role: Optional[str] = None   # when set, the Approval's approver_role must match exactly
+    approver_actor: str    # required: the exact approver identity the caller expects
+    approver_role: str     # required: the exact approver role the caller expects
 
 
 def approval_binding_complete(field_names: Sequence[str]) -> bool:
@@ -142,10 +145,12 @@ def approval_binding_complete(field_names: Sequence[str]) -> bool:
 
 def approval_authorizes(approval: Approval, ctx: AuthorizationContext, now: int) -> bool:
     """An Approval authorizes an action ONLY when it is APPROVED, not expired, and EXACTLY binds the
-    requested tenant + task + artifact id/version + action + policy (and, when the context requires it, the
-    approver role). Any single mismatch — different tenant, task, artifact_id, artifact_version, action, or
-    policy, a REJECTED decision, or an expired Approval — denies authorization. A v7 approval can never
-    authorize v8."""
+    requested tenant + task + artifact id/version + action + policy + approver identity + approver role.
+    Every field is compared unconditionally: a caller cannot skip the approver actor or role check, because
+    both are required fields of ``AuthorizationContext``. Any single mismatch — different tenant, task,
+    artifact_id, artifact_version, action, policy, approver_actor, or approver_role, a REJECTED decision, or
+    an expired Approval — denies authorization. A v7 approval can never authorize v8. The Approval itself is
+    a durable FastAPI/PostgreSQL fact; n8n never owns this decision, it only asks."""
     return (
         approval.decision == "APPROVED"
         and approval.expires_at > now
@@ -155,7 +160,8 @@ def approval_authorizes(approval: Approval, ctx: AuthorizationContext, now: int)
         and approval.artifact_version == ctx.artifact_version
         and approval.action == ctx.action
         and approval.policy_version == ctx.policy_version
-        and (ctx.required_role is None or approval.approver_role == ctx.required_role)
+        and approval.approver_actor == ctx.approver_actor
+        and approval.approver_role == ctx.approver_role
     )
 
 
@@ -347,17 +353,93 @@ def http_request_body_expression(workflow: dict) -> str:
     return str(node.get("parameters", {}).get("jsonBody", ""))
 
 
+def _extract_stringify_object(body: str) -> Optional[str]:
+    """Return the object-literal substring ``{...}`` passed to ``JSON.stringify(...)`` in the controlled n8n
+    HTTP body expression, or ``None`` if the shape is not recognised. Bracket-matched, not substring-based;
+    no JavaScript is executed."""
+    marker = "JSON.stringify("
+    i = body.find(marker)
+    if i == -1:
+        return None
+    j = body.find("{", i + len(marker))
+    if j == -1:
+        return None
+    depth = 0
+    for k in range(j, len(body)):
+        ch = body[k]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return body[j:k + 1]
+    return None
+
+
+def _object_entries(obj_literal: str) -> dict:
+    """Parse a single-level object literal ``{ key: value, ... }`` into ``{key: raw_value_str}``.
+    Depth-aware over ``()[]{}`` so nested objects/arrays stay intact as raw value strings; splits top-level
+    commas and the first top-level ``:`` of each entry. Keys are unquoted. No JavaScript is executed."""
+    s = obj_literal.strip()
+    if not (s.startswith("{") and s.endswith("}")):
+        return {}
+    inner = s[1:-1]
+    entries = []
+    depth = 0
+    start = 0
+    for idx, ch in enumerate(inner):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        elif ch == "," and depth == 0:
+            entries.append(inner[start:idx])
+            start = idx + 1
+    tail = inner[start:]
+    if tail.strip():
+        entries.append(tail)
+    out = {}
+    for entry in entries:
+        depth = 0
+        colon = -1
+        for idx, ch in enumerate(entry):
+            if ch in "([{":
+                depth += 1
+            elif ch in ")]}":
+                depth -= 1
+            elif ch == ":" and depth == 0:
+                colon = idx
+                break
+        if colon == -1:
+            continue
+        key = entry[:colon].strip().strip("'\"")
+        value = entry[colon + 1:].strip()
+        if key:
+            out[key] = value
+    return out
+
+
 def workflow_sends_report_scope_in_business_input(workflow: dict) -> bool:
-    """The Day59 route only reads ``document_ids`` + ``business_input``. ``report_scope`` MUST travel inside
-    ``business_input`` so it enters the request fingerprint; it must NOT be a top-level field Pydantic
-    ignores. This inspects the HTTP body expression statically."""
+    """The Day59 route only reads ``document_ids`` + ``business_input``. ``report_scope`` MUST travel INSIDE
+    the ``business_input`` object so it enters the request fingerprint; it must NOT be a top-level field
+    Pydantic ignores, and an empty ``business_input: {}`` with a sibling top-level ``report_scope`` must be
+    rejected. This performs a STRICT structural check of the controlled HTTP body expression (bracket-matched
+    parsing, no substring guessing, no JavaScript execution)."""
     body = http_request_body_expression(workflow)
-    compact = body.replace(" ", "")
-    has_business_input_scope = "business_input:{report_scope:" in compact or "business_input:{" in compact and "report_scope" in compact
-    has_document_ids = "document_ids:" in compact
-    # report_scope must appear only under business_input, never as a sibling top-level key of document_ids
-    top_level_scope = "{report_scope:" in compact and "business_input" not in compact
-    return bool(has_business_input_scope and has_document_ids and not top_level_scope)
+    obj = _extract_stringify_object(body)
+    if obj is None:
+        return False
+    top = _object_entries(obj)
+    # Required top-level keys.
+    if "document_ids" not in top or "business_input" not in top:
+        return False
+    # report_scope must NEVER be a top-level sibling key.
+    if "report_scope" in top:
+        return False
+    business_input = top["business_input"].strip()
+    if not (business_input.startswith("{") and business_input.endswith("}")):
+        return False
+    return "report_scope" in _object_entries(business_input)
 
 
 def if_validated_fields(workflow: dict) -> set:
@@ -379,3 +461,32 @@ def webhook_inbound_authentication(workflow: dict) -> str:
     actual class run did NOT exercise external-caller -> n8n authentication (see DAY70_CAPSTONE.md)."""
     node = _find_node(workflow, "n8n-nodes-base.webhook")
     return str(node.get("parameters", {}).get("authentication", "none"))
+
+
+def if_node_name(workflow: dict) -> str:
+    """Return the display name of the validation IF node."""
+    return str(_find_node(workflow, "n8n-nodes-base.if").get("name", ""))
+
+
+def respond_400_message(workflow: dict) -> str:
+    """Return the ``message`` string of the 400 invalid-request Respond node (responseCode 400)."""
+    for node in workflow.get("nodes", []):
+        if node.get("type") == "n8n-nodes-base.respondToWebhook" \
+                and node.get("parameters", {}).get("responseCode") == 400:
+            return str(node.get("parameters", {}).get("responseBody", ""))
+    return ""
+
+
+def workflow_connection_targets_all_exist(workflow: dict) -> bool:
+    """Every node named in ``connections`` (both the source keys and every target) must resolve to a real
+    node, so renaming a node cannot silently break the workflow graph."""
+    names = {n.get("name") for n in workflow.get("nodes", [])}
+    connections = workflow.get("connections", {})
+    for source, outputs in connections.items():
+        if source not in names:
+            return False
+        for output in outputs.get("main", []):
+            for link in output:
+                if link.get("node") not in names:
+                    return False
+    return True

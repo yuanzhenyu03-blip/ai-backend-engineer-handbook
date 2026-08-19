@@ -106,7 +106,7 @@
         "options": {}
       },
       "id": "if-valid",
-      "name": "IF report_scope and request_id present",
+      "name": "IF report_scope, request_id and document_id present",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2,
       "position": [
@@ -173,7 +173,7 @@
       "parameters": {
         "respondWith": "json",
         "responseCode": 400,
-        "responseBody": "={{ JSON.stringify({ error: 'invalid_request', message: 'report_scope and request_id are required' }) }}",
+        "responseBody": "={{ JSON.stringify({ error: 'invalid_request', message: 'report_scope, request_id and document_id are required' }) }}",
         "options": {}
       },
       "id": "respond-400",
@@ -202,14 +202,14 @@
       "main": [
         [
           {
-            "node": "IF report_scope and request_id present",
+            "node": "IF report_scope, request_id and document_id present",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "IF report_scope and request_id present": {
+    "IF report_scope, request_id and document_id present": {
       "main": [
         [
           {

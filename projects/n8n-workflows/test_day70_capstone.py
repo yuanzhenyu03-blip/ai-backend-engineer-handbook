@@ -3,7 +3,7 @@
 Standard-library only; no n8n, FastAPI, PostgreSQL, Worker/Provider, or credential store. Proves the RULES
 across the six capstone decision areas + the polling/observation boundary, plus the n8n workflow static
 contract (request body, IF validation, inbound-auth reference) and the Day59 report_scope fingerprint.
-Eighteen deterministic tests (the classroom's fourteen pre-fix tests are superseded).
+Twenty-one deterministic tests (the classroom's fourteen pre-fix tests are superseded).
 NOT integration evidence: they do not upgrade to INTEGRATION_RUNTIME/PRODUCTION.
 
 Run from ``projects/n8n-workflows/``:  python3 -m pytest -q test_day70_capstone.py
@@ -43,8 +43,11 @@ from day70_capstone import (
     poll_decision,
     publication_recovery,
     http_request_body_expression,
+    if_node_name,
     if_validated_fields,
+    respond_400_message,
     webhook_inbound_authentication,
+    workflow_connection_targets_all_exist,
     workflow_sends_report_scope_in_business_input,
 )
 
@@ -115,7 +118,8 @@ def _approval(**over):
 
 def _ctx(**over):
     d = dict(tenant_id="tenantA", task_id="task-8421", artifact_id="artifact-7", artifact_version="v7",
-             action="publish_report", policy_version="p1", required_role="Compliance")
+             action="publish_report", policy_version="p1", approver_actor="user-9",
+             approver_role="Compliance")
     d.update(over)
     return AuthorizationContext(**d)
 
@@ -136,12 +140,26 @@ def test_approval_authorizes_requires_exact_full_binding():
     assert approval_authorizes(_approval(artifact_version="v8"), _ctx(), NOW) is False           # v7 != v8
     assert approval_authorizes(_approval(action="delete_report"), _ctx(), NOW) is False          # action
     assert approval_authorizes(_approval(policy_version="p2"), _ctx(), NOW) is False              # policy
-    assert approval_authorizes(_approval(approver_role="Intern"), _ctx(required_role="Compliance"), NOW) is False  # role
+    assert approval_authorizes(_approval(approver_actor="user-OTHER"), _ctx(), NOW) is False       # actor
+    assert approval_authorizes(_approval(approver_role="Intern"), _ctx(), NOW) is False            # role
     assert approval_authorizes(_approval(decision="REJECTED"), _ctx(), NOW) is False              # rejected
     assert approval_authorizes(_approval(expires_at=NOW - 1), _ctx(), NOW) is False               # expired
     # completeness is not the same as authorization: full fields but wrong version still denies
     assert approval_binding_complete(list(_approval().__dict__.keys())) is True
     assert approval_authorizes(_approval(), _ctx(artifact_version="v8"), NOW) is False
+
+
+def test_authorization_context_cannot_omit_approver_actor_or_role():
+    # approver_actor and approver_role are REQUIRED fields: a caller cannot construct a context that skips
+    # the approver-identity or approver-role check (no Optional/default bypass).
+    import pytest
+    with pytest.raises(TypeError):
+        AuthorizationContext(tenant_id="tenantA", task_id="task-8421", artifact_id="artifact-7",
+                             artifact_version="v7", action="publish_report", policy_version="p1")  # no approver
+    with pytest.raises(TypeError):
+        AuthorizationContext(tenant_id="tenantA", task_id="task-8421", artifact_id="artifact-7",
+                             artifact_version="v7", action="publish_report", policy_version="p1",
+                             approver_actor="user-9")  # role still missing
 
 
 def test_v7_to_v8_identity_plan_stable_vs_new():
@@ -209,6 +227,13 @@ def test_poll_same_task_and_observation_failure_does_not_change_state():
 
 
 # ---- 8) Workflow static contract (Fix 2/3/4) ----------------------------------------------
+def _wf_with_body(body_expr):
+    """A minimal synthetic workflow carrying only an HTTP Request node with the given jsonBody expression,
+    for exercising the strict structural body check against malformed shapes."""
+    return {"nodes": [{"type": "n8n-nodes-base.httpRequest", "name": "http",
+                       "parameters": {"jsonBody": body_expr}}], "connections": {}}
+
+
 def test_workflow_body_sends_report_scope_in_business_input_not_top_level():
     wf = _load_workflow()
     body = http_request_body_expression(wf)
@@ -217,9 +242,43 @@ def test_workflow_body_sends_report_scope_in_business_input_not_top_level():
     assert workflow_sends_report_scope_in_business_input(wf) is True
 
 
+def test_workflow_body_structural_check_rejects_malformed_shapes():
+    # (a) the correct shape passes
+    ok = "={{ JSON.stringify({ document_ids: [ $json.document_id ], business_input: { report_scope: $json.report_scope } }) }}"
+    assert workflow_sends_report_scope_in_business_input(_wf_with_body(ok)) is True
+    # (b) top-level report_scope (no business_input) -> rejected
+    top = "={{ JSON.stringify({ document_ids: [ $json.document_id ], report_scope: $json.report_scope }) }}"
+    assert workflow_sends_report_scope_in_business_input(_wf_with_body(top)) is False
+    # (c) empty business_input + a sibling top-level report_scope -> rejected (the old loose check accepted this)
+    empty_plus_top = "={{ JSON.stringify({ document_ids: [ $json.document_id ], business_input: {}, report_scope: $json.report_scope }) }}"
+    assert workflow_sends_report_scope_in_business_input(_wf_with_body(empty_plus_top)) is False
+    # (d) missing business_input entirely -> rejected
+    no_bi = "={{ JSON.stringify({ document_ids: [ $json.document_id ] }) }}"
+    assert workflow_sends_report_scope_in_business_input(_wf_with_body(no_bi)) is False
+    # (e) missing document_ids -> rejected
+    no_docs = "={{ JSON.stringify({ business_input: { report_scope: $json.report_scope } }) }}"
+    assert workflow_sends_report_scope_in_business_input(_wf_with_body(no_docs)) is False
+    # (f) business_input present but report_scope missing -> rejected
+    no_scope = "={{ JSON.stringify({ document_ids: [ $json.document_id ], business_input: { note: $json.note } }) }}"
+    assert workflow_sends_report_scope_in_business_input(_wf_with_body(no_scope)) is False
+
+
 def test_workflow_if_validates_report_scope_request_id_and_document_id():
     fields = if_validated_fields(_load_workflow())
     assert {"report_scope", "request_id", "document_id"} <= fields
+
+
+def test_workflow_if_name_and_400_message_describe_all_three_fields():
+    wf = _load_workflow()
+    # exactly three validation conditions exist
+    assert len(if_validated_fields(wf)) == 3
+    name = if_node_name(wf)
+    for field in ("report_scope", "request_id", "document_id"):
+        assert field in name                      # IF node name names all three fields
+        assert field in respond_400_message(wf)   # 400 message names all three fields as required
+    # renaming the IF node must not break the graph: every connection reference resolves to a real node
+    assert workflow_connection_targets_all_exist(wf) is True
+    assert name in wf["connections"]              # the (renamed) IF node is a real connection source
 
 
 def test_workflow_webhook_configures_inbound_authentication_reference():
