@@ -9,6 +9,34 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.169 — Day71: LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes (Phase 7A begins)
+
+Date: 2026-08-20
+
+Day: Day71 (Phase 7A, foundations). Opens Phase 7A — LLM Application Engineering — by building the first provider-independent foundations of an LLM Application Runtime on top of the Day53 Provider boundary. `Day70 -> Day71` is a PHASE_TRANSITION (Phase 6 -> Phase 7A); the technical prerequisites are Day53–Day61, and n8n has NO direct dependency on Day71 (it may later be an external consumer/orchestrator).
+
+Added:
+
+- `docs/fastapi/day71-llm-application-architecture-tokens-context-sampling-and-model-failure-modes.md` — the 16-section `LESSON_TEMPLATE_v2` lesson (classroom-loop Concepts, misconceptions, trade-offs, design/reasoning exercises, full English Interview), preserving the real terse student answers (`我认为应该采用摘要` -> `使用分块`; `进行协调`; `创建新的 Attempt`; `不能，进入pending_reconcilation`; the verbatim Beginner/Intermediate English answers) and their technical + language corrections, and marking the final Chinese Mental Model synthesis as Tech-Lead-supplied at the student's explicit request.
+- `projects/ai-agent/docs/DAY71_FOUNDATIONS.md` — the released static, provider-independent design contract for the Phase 7A LLM Application Runtime (architecture boundary, token/context budget, overflow policy, chunk/aggregation contract, provider-independent vs provider-specific split, sampling policy, layered validation + failure taxonomy, recovery boundary, Job/Attempt, guarded completion, rollback).
+- `projects/ai-agent/docs/day71-llm-runtime-foundations-classroom-draft.md` — the recorded `CLASSROOM_DRAFT` of the live session.
+
+Updated:
+
+- `projects/ai-agent/README.md` — progress moved from Planned to Phase 7A foundations in progress (Day71 released, CONCEPTUAL + STATIC only); current focus Day72.
+- `cheat_sheets/fastapi.md` — added a compact Day71 rapid-recall section (tokens/context budget, overflow policy, chunk/aggregation, provider-independent contract, sampling, layered validation + failure taxonomy, recovery, Job/Attempt, guarded completion, rollback, evidence tiers).
+- `interview/fastapi.md` — added Day71 Beginner/Intermediate/Senior material with the verbatim student answers, weak-vs-strong answers, follow-ups, and trade-off prompts.
+- `CURRICULUM.md` — Phase 7A status In Progress; Day71 per-day entry marked ✅ Completed with the released lesson path, artifact, phase-transition wording, and evidence tiers.
+- `ROADMAP.md` — Day71 table row Planned -> ✅ Completed (classroom scope; CONCEPTUAL + STATIC, runtime NOT RUN).
+- `PROJECT_STATUS.md` — current phase/lesson advanced (Day71 Complete, Day72 current) with a Day71 detail bullet.
+- `TASKS.md` — current phase/lesson advanced; added a `Released — Day71` entry.
+
+Main learning outcome: an LLM Application Runtime owns a provider-independent contract and a finite token/context budget; the Provider is a versioned capability behind an Adapter that must never silently weaken the contract. A token is model-specific; the context window is a finite shared budget (input + reserved output + margin <= limit; reserved output is capacity, not a promise). Overflow policy (TRUNCATE/REJECT/SUMMARIZE-lossy/CHUNK) is a product decision (evidence-critical -> chunk; aggregate bounded candidates with provenance; RESOLVED/CONFLICT/INSUFFICIENT_EVIDENCE). Sampling (temperature/top_p) is selection behaviour, not factual control (deterministic != reproducible != true). Validation is layered (transport -> schema -> evidence -> policy -> guarded completion); HTTP 200 + valid schema do not prove correctness. Failure taxonomy = hallucination/unsupported, contradicted, format, truncation, timeout-unknown, provider-failure, separating root cause from symptom (output-budget exhaustion = primary TRUNCATION; incomplete JSON = derived FORMAT_FAILURE). Timeout after dispatch = TIMEOUT_UNKNOWN -> PENDING_RECONCILIATION (no blind retry). Job (stable) vs Attempt (one execution; new call = new Attempt, never overwritten/deleted); guarded completion needs a live Job + the exact authorized Attempt (stale/late = zero-effect); rollback stops future harm and never erases history.
+
+Evidence (four-tier taxonomy): CONCEPTUAL — completed in class. STATIC — `PASS` (required sections present, fenced blocks balanced, trailing-whitespace and common credential-pattern scans returned no matches, relative links resolve). EXECUTED_LOCAL_RUNTIME — NOT RUN (no runtime code or tests in Day71). INTEGRATION_RUNTIME — NOT RUN (no Provider, database, or external process). PRODUCTION — NOT RUN. No real or paid Provider call; no credentials, secrets, tenant data, or Provider payloads committed. Provider token counts, context sizes, and sampling behaviour are versioned capabilities, not permanent facts. Day53–Day61 runtime evidence is a named prerequisite, not Day71 validation; running Markdown/static checks during this repository update does not upgrade any tier.
+
+---
+
 ## v0.1.168 — Day70: n8n + FastAPI + AI Tool Integration Capstone and Interview (Phase 6 close)
 
 Date: 2026-08-19

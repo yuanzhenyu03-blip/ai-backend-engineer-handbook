@@ -1864,3 +1864,33 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day70), the
 [Day70 lesson](../docs/fastapi/day70-n8n-fastapi-ai-tool-integration-capstone-and-interview.md), the
 [Day70 capstone](../projects/n8n-workflows/DAY70_CAPSTONE.md), and the
 [n8n interview](n8n.md).
+
+
+## Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes (Phase 7A)
+
+Phase transition: Day70 is the chronological previous lesson; Day71's technical prerequisites are Day53–Day61 (Provider boundary, streaming, resilience/token cost, fake Provider tests, observability, Provider Adapter HTTP evidence). n8n is not a Day71 dependency.
+
+Key Vocabulary: token · tokenizer · context window · reserved output tokens · token budget · truncation · chunking · aggregation · provenance · temperature · top_p · deterministic · reproducible · hallucination · unsupported/contradicted evidence · format failure · timeout-unknown · reconciliation · Job · Attempt · guarded completion · rollback · affected set.
+
+Useful Expressions: "A token is a model-specific unit, so token counts are versioned, not constants." · "HTTP 200 and a valid schema are necessary but don't establish factual correctness." · "A timeout is unknown, not a proven non-event, so we reconcile instead of blindly retrying." · "Rollback stops future harm; it never erases prior calls, cost, or Attempt history."
+
+Beginner Q: What is a context window and what competes for it?
+Student's real answer (verbatim, then corrected): "The context window is the limit on the number of tokens for a single model invocation, encompassing input tokens, application instructions, documents, output tokens, and so on. Failure to implement construction production tokens could result in the interruption of production outcomes." — Language/technical fix: `construction production tokens` -> reserve output tokens; `interruption of production outcomes` -> truncated or incomplete output.
+Strong Answer: "The context window is the finite token budget for one model call. System instructions, user input, documents, request overhead, the reserved output, and a safety margin all compete inside it. Without reserved output tokens, generation can be truncated and the result is incomplete."
+
+Intermediate Q: A Provider call timed out after dispatch. What state is the Job in and why?
+Student's real answer (verbatim): "At this point, it is unclear whether a provider call was made, an artifact was generated, or costs were incurred; therefore, the process must enter the pending_reconciliation state." — Precision note: the application attempted/sent the call; what's unknown is whether the Provider received, executed, or completed it and incurred cost. (`pending_reconcilation` in class was a spelling slip only; correct: PENDING_RECONCILIATION.)
+Strong Answer: "It's TIMEOUT_UNKNOWN. We sent the call but don't know if the Provider received, executed, completed, or charged for it. The Job goes to PENDING_RECONCILIATION; we keep the original Attempt identity and cost uncertainty and reconcile using Provider request/status evidence rather than blindly retrying."
+
+Senior Q: A bad output-budget policy (v2) caused truncation across many Jobs. Contain and repair it.
+Common Weak Answer: "Halt all new requests and retry the failed Jobs." (Too broad; blind retry is unsafe on unknown outcomes.)
+Refinement made in class: stop new requests using the faulty v2; safe v1 traffic may continue, while uncertain impact can justify pausing admission.
+Strong Answer (the student's correct five-step answer): "Roll back the configuration to stop future harm; preserve failure evidence; scope the affected set by policy/release version, a bounded time window, and audit evidence; run per-Job eligibility checks; and issue controlled new Attempts only. No bulk success, no unconditional retry, no history deletion — each repaired Job gets a NEW Attempt and the old Attempt keeps its state."
+
+Follow-up Questions: Why is reproducible not the same as deterministic for a managed model? · A schema-valid answer cites a nonexistent document — is it a success, and at which gate is it caught? (No; evidence gate.) · Why can a late, better-worded result not replace an already accepted Artifact? (Guarded completion: it belongs to a stale Attempt; a new version needs an explicit authorized workflow.) · Why is chunking preferred over summarization for exact citations? · Why is low temperature not a factual-correctness control?
+
+Trade-off prompts: SUMMARIZE vs CHUNK (lossy speed vs provenance-preserving cost); REJECT vs TRUNCATE (honest failure vs silent contract violation); blind retry vs reconciliation after a timeout; Provider-specific vs Provider-independent contract.
+
+Validation honesty: Day71 is CONCEPTUAL + STATIC only. EXECUTED_LOCAL_RUNTIME / INTEGRATION_RUNTIME / PRODUCTION are NOT RUN; no runtime code, no real or paid Provider call, no secrets. The final Chinese Mental Model synthesis was supplied by the Tech Lead at the student's explicit request (`你帮我总结吧`), preserved as taught material, not an independently authored student answer.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day71), the [Day71 lesson](../docs/fastapi/day71-llm-application-architecture-tokens-context-sampling-and-model-failure-modes.md), and the [Day71 foundations](../projects/ai-agent/docs/DAY71_FOUNDATIONS.md). Next: Day72 — Provider Capabilities and the Replaceable Provider Adapter (Planned).

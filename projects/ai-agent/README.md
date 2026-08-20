@@ -34,9 +34,21 @@ ai-agent/
 
 ## Progress
 
-Status: Planned
+Status: Phase 7A foundations in progress (Day71 released — CONCEPTUAL + STATIC only).
 
-Current focus: prepare after OpenAI API and Tool Calling lessons.
+Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
+provider-independent LLM Application Runtime foundations for Phase 7A:
+[`docs/DAY71_FOUNDATIONS.md`](docs/DAY71_FOUNDATIONS.md) (released static design contract: architecture
+boundary, token/context budget, overflow policy, chunk/aggregation contract, provider-independent vs
+provider-specific split, sampling policy, layered validation + failure taxonomy, recovery boundary,
+Job/Attempt, guarded completion, rollback) and the raw
+[`docs/day71-llm-runtime-foundations-classroom-draft.md`](docs/day71-llm-runtime-foundations-classroom-draft.md).
+There is no runtime code yet: Day71 is CONCEPTUAL + STATIC; `EXECUTED_LOCAL_RUNTIME`, `INTEGRATION_RUNTIME`
+and `PRODUCTION` are NOT RUN, and no real or paid Provider call was made. Provider token counts, context
+sizes and sampling behaviour are versioned capabilities, not permanent facts.
+
+Current focus: Day72 — Provider Capabilities and the Replaceable Provider Adapter (evolves this same
+Artifact; do not pre-implement it here).
 
 ## Future Milestones
 
