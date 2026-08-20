@@ -324,22 +324,30 @@ bounded record, not free text.
 
 Tech Lead Question:
 
-You produced three overflow-driven chunks. Do you put all three into one Provider call to "solve" overflow?
+You produced three overflow-driven chunks. How many Provider calls is that?
 
 Student Thinking:
 
-Tempting — one call feels simpler.
+Genuinely unsure whether chunking fixes the number of calls or only the input size.
 
-Student Answer:
+Student Question:
 
-No — separate chunks normally mean separate calls with independent finite contexts.
+`我还有个问题，分块以后是分了三次调用provider吗还是都放在一个provider context里` — "one more question: after
+chunking, is it three separate Provider calls, or do they all go into one Provider context?"
 
 Tech Lead Review:
 
-Correct. Three overflow chunks mean **three Provider calls with independent finite contexts**; stuffing them
-into one call does not solve overflow, it recreates it. A later **aggregation** call receives **bounded
-structured candidates, necessary evidence excerpts, and source references** — not every complete document
-again.
+Good question — this is exactly the point people get wrong. Chunking is first an **input-division strategy**;
+by definition it does **not** fix a specific number of Provider calls. The number of calls is decided by the
+Runtime's **processing plan**, each call's **context budget**, the **evidence-completeness** requirement, and
+the **Provider capability** — not by the word "chunk." In **this** Day71 scenario the three chunks are
+overflow-driven: each one needs independent processing and they cannot all fit in one context, so it is
+normally **three independent processing calls**. If the results must then be combined, there is a **separate
+bounded aggregation call** — so this specific scenario is usually **three processing calls + one aggregation
+call**. Other product scenarios differ: a task might process only some chunks, or, when the budget allows,
+place several chunks in one call. Do **not** turn "one chunk = one Provider call" into a universal rule. The
+aggregation call receives **bounded structured candidates, necessary evidence excerpts, and source
+references** — not every complete document again.
 
 A conceptual candidate carries:
 
@@ -949,19 +957,15 @@ Job · Attempt · guarded completion · rollback · affected set.
 
 ### Beginner Question
 
-Q: What is a context window, and what competes for it?
+Actual Question: What is a context window, and why should an LLM application reserve output tokens?
 
-Student's real answer (verbatim, then corrected): *"The context window is the limit on the number of tokens
-for a single model invocation, encompassing input tokens, application instructions, documents, output tokens,
-and so on. Failure to implement construction production tokens could result in the interruption of production
-outcomes."*
+Student's Verbatim Answer: *"The context window is the limit on the number of tokens for a single model invocation, encompassing input tokens, application instructions, documents, output tokens, and so on.Failure to implement construction production tokens could result in the interruption of production outcomes."*
 
-Language + technical correction: `construction production tokens` -> **reserve output tokens**; `interruption
-of production outcomes` -> **truncated or incomplete output**.
+Language Correction: `construction production tokens` -> **reserve output tokens** (an English wording slip; the rest of the sentence is understandable).
 
-Strong Answer: "The context window is the finite token budget for a single model call. System instructions,
-user input, documents, request overhead, the reserved output, and a safety margin all compete inside it. If
-you don't reserve output tokens, generation can be truncated and the result is incomplete."
+Engineering Concept Correction: reserving output tokens matters because the reserved output competes for the same finite budget — if the application does not reserve enough output space, generation can hit the limit and produce **output truncation or an incomplete result**.
+
+Strong Interview Answer: "The context window is the finite token budget for a single model call. System instructions, user input, documents, request overhead, the reserved output, and a safety margin all compete inside it. We reserve output tokens so the model has room to finish; without that reservation, generation can be truncated and the result is incomplete."
 
 ### Intermediate Question
 

@@ -69,7 +69,12 @@ required exact citations, prefer `CHUNK`; reserve `REJECT` for requests no trans
 candidate = { claim_id, claim, document_id, chunk_id, evidence_excerpt, section/time_scope?, status=CANDIDATE }
 ```
 
-- Overflow chunks normally mean **separate Provider calls with independent finite contexts**.
+- Chunking is an input-division strategy; it does not by itself fix the number of Provider calls. The call
+  count depends on the processing plan, each call's context budget, the evidence-completeness requirement,
+  and the Provider capability. In the Day71 overflow scenario the three chunks each need independent
+  processing and cannot share one context, so it is normally **three processing calls plus one bounded
+  aggregation call**; other scenarios may process only some chunks or batch several chunks into one call
+  when the budget allows. "One chunk = one Provider call" is not a universal rule.
 - Aggregation receives **bounded candidates + necessary evidence excerpts + source references** — never every
   complete document again.
 - Aggregation outcome ∈ `{ RESOLVED, CONFLICT, INSUFFICIENT_EVIDENCE }`. Conflicting claims retain provenance
