@@ -2,33 +2,37 @@
 
 Provider-independent contract surface for the LLM Application Runtime. Standard library only.
 
-Core boundaries (decided in the Day72 class, built on Day53's ProviderRequest -> ProviderOutcome seam
-and Day61's real-HTTP Adapter foundation):
+Core boundaries (Day72, hardened across two code-review rounds; built on Day53's ProviderRequest ->
+ProviderOutcome seam and Day61's real-HTTP Adapter foundation):
 
 * The application owns a STABLE product contract (e.g. ``research_claims.v1``). Providers only offer
-  VERSIONED capabilities.
-* A ``CapabilityProfile`` is an immutable, versioned audit fact bound to Provider + model + API version +
-  profile version + Adapter version + verification tier. Published revisions are never edited in place;
-  drift disables/quarantines the old revision for NEW selections and a NEW revision is published.
-* Before any paid Provider call the Runtime enforces, in order: (1) the persisted Attempt execution-contract
-  binding (job/contract/profile/versions must match the Adapter exactly, else ``AttemptBindingError`` — an
-  application invariant error, NOT a Provider failure); (2) capability admission (incompatible ->
-  ``CAPABILITY_ERROR`` with zero Provider calls, never a lowest-common-denominator weakening); (3) a guarded,
-  compare-and-set Attempt state transition so one Attempt makes at most one external call.
-* The ``ProviderAdapter`` translates Provider-specific requests, responses and failures into the stable
-  surface using its OWN constructor-injected transport, keeping SDK/wire types behind the boundary. The
-  Adapter does NOT hide retries, switch Providers, decide Job terminal state, or create the next Attempt.
-* A Provider ``SUCCESS`` is still an UNTRUSTED candidate: it must pass schema, evidence and policy gates plus
-  guarded completion (owned by the Runtime, not this module).
-* ``TIMEOUT_UNKNOWN`` is reconciled, never blindly retried.
+  VERSIONED capabilities. A published ``CapabilityProfile`` revision is an IMMUTABLE audit fact; its current
+  operational lifecycle status (ACTIVE / DISABLED / QUARANTINED) is tracked in a SEPARATE overlay so a
+  lifecycle change never rewrites a historical revision or a bound Attempt's interpretation.
+* The Attempt state store holds the AUTHORITATIVE, immutable ``AttemptExecutionContract`` per Attempt (not
+  just an id -> state map). ``dispatch`` reads that authoritative contract and rejects any caller-supplied
+  contract that does not match it EXACTLY (``AttemptBindingError``) — a self-consistent forged
+  request+contract+Adapter trio cannot make a call.
+* Before any paid call the Runtime enforces, in order: (1) the authoritative binding; (2) the request/profile
+  binding; (3) capability admission against the CURRENT lifecycle status; (4) a thread-safe compare-and-set
+  Attempt-state transition (bound to identity + full binding + expected state) so one Attempt makes at most
+  one external call.
+* The ``ProviderAdapter`` owns its transport and translates Provider-specific requests, responses AND
+  failures into the stable surface via ``execute()``, keeping SDK/wire types behind the boundary. The Adapter
+  does NOT hide retries, switch Providers, decide Job terminal state, create the next Attempt, or turn
+  ``TIMEOUT_UNKNOWN`` into a retryable ``TRANSPORT_ERROR``.
+* A Provider ``SUCCESS`` is still an UNTRUSTED candidate: schema/evidence/policy + guarded completion are the
+  Runtime's, not this module's. ``TIMEOUT_UNKNOWN`` is reconciled, never blindly retried.
 
 This module is CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (deterministic in-process). It performs NO real
-SDK, HTTP, Provider, database, credential, cost or Production work. The in-memory Attempt state store models
-a compare-and-set boundary; it is NOT a production-grade durable database.
+SDK, HTTP, Provider, database, credential, cost or Production work. ``InMemoryAttemptStateStore`` uses a
+``threading.RLock`` to model an atomic compare-and-set for deterministic IN-PROCESS concurrency only; a
+production deployment needs a durable database conditional UPDATE / transaction (or equivalent).
 """
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Dict, FrozenSet, Mapping, Optional, Protocol, runtime_checkable
@@ -82,7 +86,7 @@ class ApplicationRequest:
 
 
 # ---------------------------------------------------------------------------
-# 3. Versioned Capability Profile (immutable, disable/quarantine-able audit fact).
+# 3. Versioned Capability Profile (immutable published revision) + lifecycle overlay.
 # ---------------------------------------------------------------------------
 class ProfileStatus(str, Enum):
     ACTIVE = "ACTIVE"
@@ -102,8 +106,10 @@ class VerificationTier(str, Enum):
 
 @dataclass(frozen=True)
 class CapabilityProfile:
-    """A current, versioned capability FACT. Immutable: a published revision is never mutated; drift
-    disables/quarantines it and a NEW revision (new profile_version) is published."""
+    """A current, versioned capability FACT (an immutable PUBLISHED revision). ``status`` is the status the
+    revision was published with; the CURRENT operational lifecycle status lives in a separate
+    ``ProfileLifecycle`` overlay so a live disable/quarantine never mutates this published fact and never
+    changes how an already-bound Attempt is interpreted."""
 
     profile_id: str
     provider_name: str
@@ -119,11 +125,8 @@ class CapabilityProfile:
     def supports(self, application_contract: str) -> bool:
         return application_contract in self.supported_contracts
 
-    def is_selectable(self) -> bool:
-        """Only ACTIVE profiles may be selected for NEW dispatches (fail closed)."""
-        return self.status is ProfileStatus.ACTIVE
-
-    # Lifecycle transitions return NEW frozen instances; the audit fact is never edited in place.
+    # Convenience revisions (used to publish a DIFFERENT starting status); the lifecycle overlay, not these,
+    # is what a live disable/quarantine changes.
     def disabled(self) -> "CapabilityProfile":
         return replace(self, status=ProfileStatus.DISABLED)
 
@@ -131,10 +134,40 @@ class CapabilityProfile:
         return replace(self, status=ProfileStatus.QUARANTINED)
 
 
+class ProfileLifecycle:
+    """Current operational status per profile_id (an overlay/catalog), SEPARATE from the immutable published
+    revisions. A lifecycle update affects NEW selections and dispatch admission; it never edits a published
+    revision's binding, and an already-bound Attempt is still interpreted by its original binding."""
+
+    def __init__(self) -> None:
+        self._status: Dict[str, ProfileStatus] = {}
+        self._lock = threading.RLock()
+
+    def register(self, profile: CapabilityProfile) -> None:
+        with self._lock:
+            self._status.setdefault(profile.profile_id, profile.status)
+
+    def set_status(self, profile_id: str, status: ProfileStatus) -> None:
+        with self._lock:
+            self._status[profile_id] = status
+
+    def disable(self, profile_id: str) -> None:
+        self.set_status(profile_id, ProfileStatus.DISABLED)
+
+    def quarantine(self, profile_id: str) -> None:
+        self.set_status(profile_id, ProfileStatus.QUARANTINED)
+
+    def status(self, profile_id: str) -> ProfileStatus:
+        with self._lock:
+            return self._status.get(profile_id, ProfileStatus.ACTIVE)
+
+    def is_active(self, profile_id: str) -> bool:
+        return self.status(profile_id) is ProfileStatus.ACTIVE
+
+
 # ---------------------------------------------------------------------------
-# 4. Immutable per-Attempt execution contract (persisted binding — NO mutable state here).
+# 4. Immutable per-Attempt execution contract (persisted binding).
 # ---------------------------------------------------------------------------
-# The BINDING fields the Adapter's profile must match exactly before any call.
 BINDING_FIELDS = (
     "profile_id", "provider_name", "model", "api_version", "profile_version", "adapter_version",
 )
@@ -142,10 +175,9 @@ BINDING_FIELDS = (
 
 @dataclass(frozen=True)
 class AttemptExecutionContract:
-    """Snapshot of the profile/versions bound to ONE Attempt when it was planned. The current configuration
-    governs NEW calls; this persisted contract governs interpretation of an already-issued call. It is
-    IMMUTABLE and is never rewritten to a different profile — a re-plan is an explicit NEW Attempt. Mutable
-    dispatch state lives in a separate ``AttemptStateStore`` (single source of truth), never here."""
+    """Snapshot of the profile/versions bound to ONE Attempt when it was planned. IMMUTABLE; never rewritten
+    to a different profile — a re-plan is an explicit NEW Attempt. Equality (frozen dataclass) covers every
+    binding field, so it can be compared as a whole for authoritative-binding checks."""
 
     attempt_id: str
     job_id: str
@@ -172,15 +204,15 @@ class AttemptExecutionContract:
 # 5. Application-invariant errors (NOT Provider failures).
 # ---------------------------------------------------------------------------
 class AttemptBindingError(Exception):
-    """The dispatch inputs do not match the Attempt's persisted execution contract (job/contract/profile/
-    versions). This is an APPLICATION INVARIANT violation — never a Provider failure. Zero Provider calls;
-    the original Attempt contract is never reinterpreted, overwritten, or auto-switched to another
-    Provider/Profile."""
+    """The dispatch inputs do not match the Attempt's AUTHORITATIVE persisted execution contract
+    (job/contract/profile/versions), or a caller-supplied contract differs from the stored one. This is an
+    APPLICATION INVARIANT violation — never a Provider failure. Zero Provider calls; the original contract is
+    never reinterpreted, overwritten, or auto-switched to another Provider/Profile."""
 
 
 class AttemptStateError(Exception):
-    """A guarded Attempt state transition was rejected (e.g. a second dispatch of the same Attempt, or a
-    dispatch of a non-PLANNED Attempt). Zero NEW Provider calls."""
+    """A guarded Attempt state transition was rejected (second dispatch, non-PLANNED dispatch, or a lost
+    compare-and-set race). Zero NEW Provider calls."""
 
 
 class DuplicateProfileRegistrationError(Exception):
@@ -190,12 +222,12 @@ class DuplicateProfileRegistrationError(Exception):
 
 class ProviderIncompatibleError(Exception):
     """A selected Profile does not support the required application contract. Selection fails closed BEFORE
-    any Attempt is persisted or any paid call is made; there is no lowest-common-denominator downgrade and
-    no automatic fallback to another Profile."""
+    any Attempt is persisted or any paid call is made; no lowest-common-denominator downgrade, no automatic
+    fallback."""
 
 
 # ---------------------------------------------------------------------------
-# 6. Guarded Attempt state store (compare-and-set; in-memory model, NOT a durable DB).
+# 6. Guarded Attempt state store (holds the AUTHORITATIVE contract; thread-safe compare-and-set).
 # ---------------------------------------------------------------------------
 class AttemptState(str, Enum):
     PLANNED = "PLANNED"
@@ -203,45 +235,64 @@ class AttemptState(str, Enum):
     BLOCKED_PROFILE_DISABLED = "BLOCKED_PROFILE_DISABLED"
 
 
+@dataclass(frozen=True)
+class AttemptRecord:
+    """The authoritative, immutable per-Attempt record: the persisted execution contract plus the current
+    guarded state."""
+
+    contract: AttemptExecutionContract
+    state: AttemptState
+
+
 @runtime_checkable
 class AttemptStateStore(Protocol):
-    """Guards the 'one Attempt makes at most one external call' invariant with compare-and-set semantics.
-    In a production slice this is a durable, atomic store (a DB row with a conditional UPDATE); the in-memory
-    implementation below only MODELS that boundary."""
+    """Holds each Attempt's AUTHORITATIVE ``AttemptExecutionContract`` and guards the 'one Attempt -> at most
+    one external call' invariant with a compare-and-set bound to (identity + full binding + expected state).
+    A production slice is a durable, atomic store (a DB row with a conditional UPDATE)."""
 
-    def plan(self, attempt_id: str) -> None:
-        """Register a new Attempt in the PLANNED state (rejects a duplicate attempt_id)."""
+    def plan(self, contract: AttemptExecutionContract) -> None:
+        """Register a NEW Attempt (PLANNED) with its authoritative contract; reject a duplicate attempt_id."""
         ...
 
-    def get(self, attempt_id: str) -> Optional[AttemptState]:
+    def get_record(self, attempt_id: str) -> Optional[AttemptRecord]:
         ...
 
-    def compare_and_set(self, attempt_id: str, expected: AttemptState, new: AttemptState) -> bool:
-        """Atomically set the Attempt state to ``new`` ONLY if it currently equals ``expected``. Returns
-        True on success, False if the current state does not match (no change)."""
+    def compare_and_set(self, contract: AttemptExecutionContract, expected: AttemptState,
+                        new: AttemptState) -> bool:
+        """Atomically set the state to ``new`` ONLY if the stored record for ``contract.attempt_id`` has
+        BOTH an equal authoritative ``contract`` AND state == ``expected``. Returns True on success, else
+        False (no change). Check and write occur in ONE critical section."""
         ...
 
 
 class InMemoryAttemptStateStore:
-    """A tiny, injectable in-memory ``AttemptStateStore`` for the deterministic local slice. NOT a
-    production-grade durable/atomic database — it only models compare-and-set."""
+    """A tiny, injectable in-memory ``AttemptStateStore`` for the deterministic local slice. Uses an
+    ``RLock`` so ``plan``, ``get_record`` and ``compare_and_set`` share one synchronization boundary and the
+    CAS check+write are atomic for IN-PROCESS threads. NOT a production-grade durable/atomic database — a
+    production deployment needs a DB conditional UPDATE / transaction."""
 
     def __init__(self) -> None:
-        self._states: Dict[str, AttemptState] = {}
+        self._records: Dict[str, AttemptRecord] = {}
+        self._lock = threading.RLock()
 
-    def plan(self, attempt_id: str) -> None:
-        if attempt_id in self._states:
-            raise AttemptStateError(f"attempt already registered: {attempt_id}")
-        self._states[attempt_id] = AttemptState.PLANNED
+    def plan(self, contract: AttemptExecutionContract) -> None:
+        with self._lock:
+            if contract.attempt_id in self._records:
+                raise AttemptStateError(f"attempt already registered: {contract.attempt_id}")
+            self._records[contract.attempt_id] = AttemptRecord(contract=contract, state=AttemptState.PLANNED)
 
-    def get(self, attempt_id: str) -> Optional[AttemptState]:
-        return self._states.get(attempt_id)
+    def get_record(self, attempt_id: str) -> Optional[AttemptRecord]:
+        with self._lock:
+            return self._records.get(attempt_id)
 
-    def compare_and_set(self, attempt_id: str, expected: AttemptState, new: AttemptState) -> bool:
-        if self._states.get(attempt_id) != expected:
-            return False
-        self._states[attempt_id] = new
-        return True
+    def compare_and_set(self, contract: AttemptExecutionContract, expected: AttemptState,
+                        new: AttemptState) -> bool:
+        with self._lock:
+            rec = self._records.get(contract.attempt_id)
+            if rec is None or rec.contract != contract or rec.state != expected:
+                return False
+            self._records[contract.attempt_id] = AttemptRecord(contract=rec.contract, state=new)
+            return True
 
 
 # ---------------------------------------------------------------------------
@@ -249,8 +300,8 @@ class InMemoryAttemptStateStore:
 # ---------------------------------------------------------------------------
 def validate_attempt_binding(request: ApplicationRequest, contract: AttemptExecutionContract,
                              profile: CapabilityProfile) -> None:
-    """Raise ``AttemptBindingError`` unless the dispatch inputs EXACTLY match the persisted Attempt contract:
-    request.job_id, request.application_contract, and every profile binding field
+    """Raise ``AttemptBindingError`` unless the dispatch inputs EXACTLY match the AUTHORITATIVE Attempt
+    contract: request.job_id, request.application_contract, and every profile binding field
     (profile_id/provider_name/model/api_version/profile_version/adapter_version). No reinterpretation,
     overwrite, or auto-switch is ever performed."""
 
@@ -268,7 +319,7 @@ def validate_attempt_binding(request: ApplicationRequest, contract: AttemptExecu
 
 
 # ---------------------------------------------------------------------------
-# 8. Capability admission (BEFORE any paid call).
+# 8. Capability admission (BEFORE any paid call) against the CURRENT lifecycle status.
 # ---------------------------------------------------------------------------
 @dataclass(frozen=True)
 class AdmissionResult:
@@ -276,16 +327,17 @@ class AdmissionResult:
     outcome: Optional[ProviderOutcome] = None    # a CAPABILITY_ERROR outcome when not admitted
 
 
-def admit_capability(profile: CapabilityProfile, application_contract: str) -> AdmissionResult:
-    """Pre-call admission. A selectable profile that VERIFIABLY supports the exact application contract is
-    admitted; otherwise a ``CAPABILITY_ERROR`` is returned and NO Provider call may be made. This never
-    weakens the contract to a lowest-common-denominator. A passing pre-call check does not guarantee runtime
+def admit_capability(profile: CapabilityProfile, application_contract: str,
+                     current_status: ProfileStatus) -> AdmissionResult:
+    """Pre-call admission. The profile must be ACTIVE by its CURRENT lifecycle status AND verifiably support
+    the exact application contract; otherwise a ``CAPABILITY_ERROR`` is returned and NO Provider call may be
+    made. Never a lowest-common-denominator weakening. A passing pre-call check does not guarantee runtime
     success — the actual response is still new evidence the Runtime must classify."""
 
-    if not profile.is_selectable():
+    if current_status is not ProfileStatus.ACTIVE:
         return AdmissionResult(False, ProviderOutcome(
             ProviderOutcomeKind.CAPABILITY_ERROR, detail="profile_not_selectable",
-            safe_evidence={"profile_id": profile.profile_id, "status": profile.status.value}))
+            safe_evidence={"profile_id": profile.profile_id, "status": current_status.value}))
     if not profile.supports(application_contract):
         return AdmissionResult(False, ProviderOutcome(
             ProviderOutcomeKind.CAPABILITY_ERROR, detail="contract_not_supported",
@@ -294,22 +346,24 @@ def admit_capability(profile: CapabilityProfile, application_contract: str) -> A
 
 
 # ---------------------------------------------------------------------------
-# 9. The stable ProviderAdapter Protocol + a Registry / selection boundary.
+# 9. The stable ProviderAdapter Protocol + a two-purpose Registry / selection boundary.
 # ---------------------------------------------------------------------------
 @runtime_checkable
 class ProviderAdapter(Protocol):
     """The ONLY seam business code depends on. Concrete Adapters own Provider-specific wire fields, reason
     codes, and their OWN constructor-injected transport/client. ``execute`` performs the full
-    build-request -> send -> translate cycle using that internal transport, so callers never pass a
-    transport. The Adapter observes and translates FACTS; it must not hide retries, switch Providers, decide
-    Job terminal state, or create the next Attempt."""
+    build-request -> send -> translate cycle using that internal transport AND translates Provider-specific
+    failures into the stable surface, so callers never pass a transport and never see an SDK exception. The
+    Adapter observes and translates FACTS; it must not hide retries, switch Providers, decide Job terminal
+    state, or create the next Attempt."""
 
     @property
     def capability_profile(self) -> CapabilityProfile: ...
 
     def execute(self, request: ApplicationRequest) -> ProviderOutcome:
         """Build the Provider-specific request, send it via the Adapter's OWN transport, and translate the
-        response into the stable ProviderOutcome. Exactly one external call per invocation."""
+        response OR the Provider-specific failure into the stable ProviderOutcome. Exactly one external send
+        attempt per invocation; never raises an SDK exception."""
         ...
 
     def build_wire_request(self, request: ApplicationRequest) -> Dict[str, object]:
@@ -318,41 +372,75 @@ class ProviderAdapter(Protocol):
         ...
 
     def translate_outcome(self, wire_response: Mapping[str, object]) -> ProviderOutcome:
-        """Translate a Provider-specific response/finish/error into the stable ProviderOutcome surface."""
+        """Translate a Provider-specific RESPONSE/finish into the stable ProviderOutcome surface."""
         ...
 
 
 class ProfileDisabledError(Exception):
-    """Raised when a disabled/quarantined profile is selected/fetched — the Registry fails closed."""
-
-
-def _same_binding(a: CapabilityProfile, b: CapabilityProfile) -> bool:
-    return all(getattr(a, f) == getattr(b, f) for f in BINDING_FIELDS)
+    """Raised when a disabled/quarantined profile is SELECTED for a new task — selection fails closed."""
 
 
 class ProviderRegistry:
-    """Injects the concrete Adapter for a selected profile through a composition boundary. Business code
-    never constructs concrete Adapters or branches on Provider identity."""
+    """Injects the concrete Adapter for a profile through a composition boundary, and tracks each profile's
+    current lifecycle status (an overlay, separate from the immutable revisions). Two distinct purposes:
 
-    def __init__(self) -> None:
+    * ``get_selectable(profile_id, application_contract)`` — for NEW tasks: returns the Adapter ONLY if the
+      profile is currently ACTIVE and supports the contract (fail closed otherwise). No fallback.
+    * ``resolve_bound_attempt(contract)`` — for an ALREADY-persisted Attempt: returns the Adapter bound to
+      that Attempt's exact profile/versions REGARDLESS of current status, so the Runtime can perform a
+      zero-call block, response interpretation, or audit. Returning it does NOT authorize a new call —
+      dispatch admission still sees the current lifecycle status and blocks a disabled profile.
+
+    Business code never constructs concrete Adapters or branches on Provider identity."""
+
+    def __init__(self, lifecycle: Optional[ProfileLifecycle] = None) -> None:
         self._by_profile: Dict[str, ProviderAdapter] = {}
+        self._lifecycle = lifecycle if lifecycle is not None else ProfileLifecycle()
+
+    @property
+    def lifecycle(self) -> ProfileLifecycle:
+        return self._lifecycle
 
     def register(self, adapter: ProviderAdapter) -> None:
         """Register an Adapter by its profile_id. A conflicting registration under an existing profile_id is
-        REJECTED (fail closed): changing a Profile's Adapter behaviour requires a NEW Profile revision.
-        Re-registering the EXACT same Adapter instance is an idempotent no-op."""
+        REJECTED (fail closed); re-registering the EXACT same Adapter instance is an idempotent no-op."""
         pid = adapter.capability_profile.profile_id
         existing = self._by_profile.get(pid)
         if existing is not None and existing is not adapter:
             raise DuplicateProfileRegistrationError(pid)
         self._by_profile[pid] = adapter
+        self._lifecycle.register(adapter.capability_profile)
 
-    def get(self, profile_id: str) -> ProviderAdapter:
+    # Lifecycle updates (affect NEW selection + dispatch admission; never edit a revision or a bound Attempt).
+    def disable(self, profile_id: str) -> None:
+        self._lifecycle.disable(profile_id)
+
+    def quarantine(self, profile_id: str) -> None:
+        self._lifecycle.quarantine(profile_id)
+
+    def get_selectable(self, profile_id: str, application_contract: str) -> ProviderAdapter:
         if profile_id not in self._by_profile:
             raise KeyError(profile_id)
+        if not self._lifecycle.is_active(profile_id):
+            raise ProfileDisabledError(profile_id)                 # fail closed for NEW selection
         adapter = self._by_profile[profile_id]
-        if not adapter.capability_profile.is_selectable():
-            raise ProfileDisabledError(profile_id)   # fail closed on DISABLED/QUARANTINED
+        if not adapter.capability_profile.supports(application_contract):
+            raise ProviderIncompatibleError(f"{profile_id} does not support {application_contract}")
+        return adapter
+
+    def resolve_bound_attempt(self, contract: AttemptExecutionContract) -> ProviderAdapter:
+        """Resolve the Adapter bound to an already-persisted Attempt by its EXACT profile/versions, even if
+        the profile is now disabled/quarantined. Raises ``AttemptBindingError`` if the registered Adapter's
+        immutable binding does not match the Attempt contract."""
+        pid = contract.profile_id
+        if pid not in self._by_profile:
+            raise KeyError(pid)
+        adapter = self._by_profile[pid]
+        p = adapter.capability_profile
+        for f in BINDING_FIELDS:
+            if getattr(p, f) != getattr(contract, f):
+                raise AttemptBindingError(
+                    f"bound adapter {f} mismatch: adapter={getattr(p, f)} contract={getattr(contract, f)}")
         return adapter
 
 
@@ -364,22 +452,27 @@ class ProductOption:
 
 
 class ProviderSelectionPolicy:
-    """Server-owned allowlist. Maps a constrained client ProductOption to an approved, selectable
-    CapabilityProfile that ALSO supports the required application contract. Clients cannot authorize
-    arbitrary Provider/model/profile identifiers."""
+    """Server-owned allowlist. Maps a constrained client ProductOption to an approved CapabilityProfile that
+    is currently ACTIVE (per the shared lifecycle overlay when provided) AND supports the required
+    application contract. Clients cannot authorize arbitrary Provider/model/profile identifiers."""
 
-    def __init__(self, allowlist: Mapping[str, CapabilityProfile]) -> None:
+    def __init__(self, allowlist: Mapping[str, CapabilityProfile],
+                 lifecycle: Optional[ProfileLifecycle] = None) -> None:
         self._allowlist = dict(allowlist)
+        self._lifecycle = lifecycle
+
+    def _current_status(self, profile: CapabilityProfile) -> ProfileStatus:
+        if self._lifecycle is not None:
+            return self._lifecycle.status(profile.profile_id)
+        return profile.status
 
     def select(self, option: ProductOption, application_contract: str) -> CapabilityProfile:
         if option.tier not in self._allowlist:
             raise KeyError(option.tier)
         profile = self._allowlist[option.tier]
-        if not profile.is_selectable():
-            raise ProfileDisabledError(profile.profile_id)   # fail closed
+        if self._current_status(profile) is not ProfileStatus.ACTIVE:
+            raise ProfileDisabledError(profile.profile_id)          # fail closed
         if not profile.supports(application_contract):
-            # Known incompatible BEFORE persisting an Attempt or making any paid call. No LCD downgrade,
-            # no automatic fallback to another Profile.
             raise ProviderIncompatibleError(
                 f"profile {profile.profile_id} does not support {application_contract}")
         return profile

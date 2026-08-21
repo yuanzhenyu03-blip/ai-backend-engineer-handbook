@@ -6,7 +6,7 @@ replaceable-Adapter boundary executable: versioned capability admission before a
 contract, and immutable per-Attempt execution contracts. The raw session notes are in
 [`day72-provider-adapter-classroom-draft.md`](day72-provider-adapter-classroom-draft.md).
 
-> Evidence tier — Day72 is **CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME** (21 deterministic in-process
+> Evidence tier — Day72 is **CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME** (28 deterministic in-process
 > tests — the
 > original translation/contract slice plus the Day72 review regressions). `INTEGRATION_RUNTIME` and `PRODUCTION` are **NOT RUN**: no real SDK, no real HTTP process boundary,
 > no Provider, no PostgreSQL, no credentials, no paid call, no production traffic. The tests use classroom
@@ -27,15 +27,19 @@ Day77 full Fake Provider/regression suite, or the Day78 capstone.
 ```text
 projects/ai-agent/
 ├── src/provider_contract.py        # stable surface: ProviderOutcomeKind, ApplicationRequest, immutable
-│                                    #   CapabilityProfile + AttemptExecutionContract (no mutable state),
-│                                    #   validate_attempt_binding + AttemptBindingError, AttemptStateStore
-│                                    #   Protocol + InMemoryAttemptStateStore (compare-and-set),
-│                                    #   admit_capability, ProviderAdapter Protocol (execute()),
-│                                    #   ProviderRegistry (rejects duplicate profile_id),
-│                                    #   ProviderSelectionPolicy (uses the application contract)
-├── src/provider_adapters.py        # RecordingTransport + ProviderAAdapter/ProviderBAdapter (each owns its
-│                                    #   transport, exposes execute()) + guarded single-call dispatch_attempt
-├── tests/test_provider_adapters.py # 21 deterministic EXECUTED_LOCAL_RUNTIME tests
+│                                    #   CapabilityProfile + ProfileLifecycle overlay (current status),
+│                                    #   immutable AttemptExecutionContract, AttemptRecord + AttemptStateStore
+│                                    #   Protocol holding the AUTHORITATIVE contract with a thread-safe
+│                                    #   (RLock) compare-and-set bound to identity+binding+state,
+│                                    #   validate_attempt_binding + AttemptBindingError, admit_capability,
+│                                    #   ProviderAdapter Protocol (execute()), ProviderRegistry with
+│                                    #   get_selectable() vs resolve_bound_attempt() (+ duplicate rejection),
+│                                    #   ProviderSelectionPolicy (uses the application contract + lifecycle)
+├── src/provider_adapters.py        # RecordingTransport (response OR scripted SDK error) + Provider A/B
+│                                    #   fictional SDK failure TYPES + ProviderAAdapter/ProviderBAdapter (each
+│                                    #   owns its transport, execute() translates responses AND failures)
+│                                    #   + authoritative-binding, lifecycle-aware, guarded dispatch_attempt
+├── tests/test_provider_adapters.py # 28 deterministic EXECUTED_LOCAL_RUNTIME tests
 └── docs/DAY72_PROVIDER_ADAPTER.md  # this file  (+ the classroom draft)
 ```
 
@@ -171,13 +175,44 @@ stale/terminal Job or superseded Attempt    -> zero-effect refusal
 No bulk retry, bulk success, Attempt overwrite, or evidence deletion. A new Attempt requires current
 deadline, budget, cancellation, execution evidence, application contract, and a guarded claim.
 
+## 8a. Round-2 review hardening
+
+- **Authoritative Attempt binding in the store.** The state store holds each Attempt's immutable
+  ``AttemptExecutionContract`` (an ``AttemptRecord`` of contract + state), not just ``attempt_id -> state``.
+  ``dispatch_attempt`` reads that authoritative contract and rejects any caller-supplied contract that does
+  not equal it (``AttemptBindingError``, zero calls, state unchanged) — a self-consistent forged
+  request+contract+Adapter trio that reuses an ``attempt_id`` cannot make a call. ``plan()`` rejects a
+  duplicate ``attempt_id``; the compare-and-set is bound to identity + full binding + expected state.
+- **Thread-safe compare-and-set.** ``InMemoryAttemptStateStore`` guards ``plan``/``get_record``/
+  ``compare_and_set`` with a ``threading.RLock`` so the CAS check-and-write is one critical section. Two
+  concurrent dispatches of one Attempt yield exactly one external call (proved with ``threading.Barrier``).
+  This is DETERMINISTIC IN-PROCESS evidence only; a production deployment needs a durable DB conditional
+  UPDATE / transaction (or equivalent). The in-memory store is NOT a database.
+- **Two-purpose Registry + lifecycle overlay.** Profile lifecycle status is a ``ProfileLifecycle`` overlay,
+  separate from the immutable published revisions. ``get_selectable(profile_id, contract)`` (NEW tasks)
+  returns an Adapter only if the profile is currently ACTIVE and supports the contract (fail closed, no
+  fallback). ``resolve_bound_attempt(contract)`` returns the Adapter bound to an already-persisted Attempt's
+  exact versions EVEN IF the profile is now disabled/quarantined — for a zero-call block, response
+  interpretation, or audit — without authorizing a new call. A live ``disable()``/``quarantine()`` affects
+  new selection and dispatch admission; it never edits a revision or a bound Attempt's interpretation. The
+  end-to-end path (Registry -> resolve_bound_attempt -> dispatch) is what drives ``PLANNED ->
+  BLOCKED_PROFILE_DISABLED``; tests never construct a disabled Adapter directly.
+- **Concrete failure translation.** Each Adapter's ``execute()`` catches its OWN Provider's fictional,
+  structured SDK exception TYPES (never message-string matching) and maps equivalent facts to the same stable
+  kind: REFUSAL, RATE_LIMITED, AUTHENTICATION_ERROR, TIMEOUT_UNKNOWN, TRANSPORT_ERROR,
+  PROVIDER_RESPONSE_INVALID, TRUNCATION, SUCCESS. ``TIMEOUT_UNKNOWN`` is never downgraded to a retryable
+  ``TRANSPORT_ERROR`` and never triggers a second call; the Adapter returns only minimized safe evidence
+  (no prompt/secret/SDK object/full payload) and never retries, switches Provider, or creates the next
+  Attempt. ``provider_calls`` is 0 before a send attempt and 1 once a send attempt begins (never the
+  transport's cumulative total).
+
 ## 9. Validation Status
 
 | Tier | Status | Evidence |
 |---|---|---|
 | `CONCEPTUAL` | Completed | admission, versioned profile, translation, ownership, execution contract, replaceability, selection, untrusted success, strict-vs-LCD, evidence ladder, rollback |
 | `STATIC` | `PASS` | `python3 -m py_compile src/provider_contract.py src/provider_adapters.py`; required sections; balanced fences; whitespace/credential scans |
-| `EXECUTED_LOCAL_RUNTIME` | `PASS` | `python3 -m unittest discover -s tests -v` → 21 tests OK (Python 3.10.12); RecordingTransport + fixtures only |
+| `EXECUTED_LOCAL_RUNTIME` | `PASS` | `python3 -m unittest discover -s tests -v` → 28 tests OK (Python 3.10.12); RecordingTransport + fixtures only |
 | `INTEGRATION_RUNTIME` | `NOT RUN` | no real SDK, HTTP process boundary, Provider, PostgreSQL or external process |
 | `PRODUCTION` | `NOT RUN` | no credentials, customer data, paid call, production traffic, or operational evidence |
 
