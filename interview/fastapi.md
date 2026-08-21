@@ -1900,7 +1900,7 @@ Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day71), the [
 
 ## Day72 — Provider Capabilities and the Replaceable Provider Adapter (Phase 7A)
 
-Direct prerequisites: Day71 (provider-independent runtime), Day53 (ProviderRequest -> ProviderOutcome seam), Day61 (real-HTTP Adapter foundation). Day72 makes the replaceable Adapter executable (7 in-process tests, EXECUTED_LOCAL_RUNTIME; no real Provider).
+Direct prerequisites: Day71 (provider-independent runtime), Day53 (ProviderRequest -> ProviderOutcome seam), Day61 (real-HTTP Adapter foundation). Day72 makes the replaceable Adapter executable (21 in-process tests, EXECUTED_LOCAL_RUNTIME; no real Provider).
 
 Key Vocabulary: Provider Adapter · capability profile · capability admission · versioned capability · verification tier · bidirectional translation · wire fields · finish reason · replaceability · Registry/composition · allowlist · selector vs authority · execution contract · immutable revision · disable/quarantine · PROVIDER_RESPONSE_INVALID · TIMEOUT_UNKNOWN · affected set.
 
@@ -1928,6 +1928,6 @@ Follow-up Questions: Why is TIMEOUT_UNKNOWN the most dangerous affected class? (
 
 Trade-off prompts: explicit CAPABILITY_ERROR vs wrapping ordinary text; strict product contract vs lowest common denominator; Adapter-owns-retries vs Runtime-owns-recovery; mutable profile vs immutable revisions; Protocol+Registry vs business-service conditionals.
 
-Validation honesty: Day72 is CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (7 in-process tests, Python 3.10.12). INTEGRATION_RUNTIME + PRODUCTION = NOT RUN; no real SDK/HTTP/Provider/PostgreSQL/credentials/paid call. Provider A/B are fictional fixtures; capabilities are versioned facts. The final Chinese Mental Model synthesis was Tech-Lead-supplied at the student's explicit request (`你帮我总结吧`), preserved as taught material — not an independently authored student answer.
+Validation honesty: Day72 is CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (21 in-process tests, Python 3.10.12). INTEGRATION_RUNTIME + PRODUCTION = NOT RUN; no real SDK/HTTP/Provider/PostgreSQL/credentials/paid call. Provider A/B are fictional fixtures; capabilities are versioned facts. The final Chinese Mental Model synthesis was Tech-Lead-supplied at the student's explicit request (`你帮我总结吧`), preserved as taught material — not an independently authored student answer.
 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day72), the [Day72 lesson](../docs/fastapi/day72-provider-capabilities-and-the-replaceable-provider-adapter.md), and the [Day72 design contract](../projects/ai-agent/docs/DAY72_PROVIDER_ADAPTER.md). Next: Day73 — Prompt Contracts, Prompt Versioning and Compatibility (Planned).

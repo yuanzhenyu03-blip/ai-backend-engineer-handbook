@@ -1,6 +1,8 @@
 # Day72 Provider Adapter — CLASSROOM_DRAFT
 
-> Local evolving classroom artifact only. It is not GitHub repository truth and has not been released.
+> Classroom-process record for Day72, now released in the repository as part of the Day72 update (see the
+> released design contract `DAY72_PROVIDER_ADAPTER.md` and the lesson). This file preserves the raw classroom
+> reasoning; the released, authoritative design is the design contract and the `src/` implementation.
 
 ## Decisions Reached
 
@@ -206,9 +208,9 @@ Attempt A1(profile-v3, PLANNED)
 
 | Tier | Status |
 |---|---|
-| `CONCEPTUAL` | In progress |
+| `CONCEPTUAL` | Completed |
 | `STATIC` | PASS — Python syntax compilation |
-| `EXECUTED_LOCAL_RUNTIME` | PASS — 7 deterministic in-process Adapter translation/contract-slice tests |
+| `EXECUTED_LOCAL_RUNTIME` | PASS — 21 deterministic in-process tests (Adapter translation/contract slice + Day72 review regressions: binding validation, one-call guard, transport-inside-adapter, selection-by-contract, duplicate-registry, real disable path) |
 | `INTEGRATION_RUNTIME` | NOT RUN |
 | `PRODUCTION` | NOT RUN |
 
@@ -216,11 +218,15 @@ Executed locally with no network or Provider call:
 
 ```text
 python3 -m unittest discover -s tests -v
-Ran 7 tests — OK
+Ran 21 tests — OK
 ```
 
-Covered: capability rejection before transport (zero calls), Provider-specific request-field isolation,
-equivalent SUCCESS/TRUNCATION application semantics, required Provider-request identity validation, and
-Registry injection. These fixtures are classroom-only wire shapes. They do not prove a real SDK/API, real HTTP,
+Covered: capability rejection before a paid call (zero calls), persisted-binding validation before any call
+(job/contract/profile/version mismatches -> AttemptBindingError, zero calls), one external call per Attempt via
+a guarded compare-and-set PLANNED -> DISPATCHED transition, the transport staying inside each Adapter
+(execute()), Provider-specific request-field isolation, equivalent SUCCESS/TRUNCATION application semantics,
+required Provider-request identity validation, selection that uses the application contract, duplicate-profile
+registration rejection, and the real disabled-profile -> BLOCKED_PROFILE_DISABLED dispatch path. These fixtures
+are classroom-only wire shapes. They do not prove a real SDK/API, real HTTP,
 Provider behavior, cost, rate limits, credentials, integration, or production. Full Fake Provider contract and
 LLM regression testing remain Day77 scope.

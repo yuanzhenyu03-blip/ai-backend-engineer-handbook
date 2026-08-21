@@ -31,7 +31,7 @@ ai-agent/
 │   ├── provider_contract.py      # Day72: stable provider-independent surface + Capability Profile + Registry
 │   └── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
 ├── tests/
-│   └── test_provider_adapters.py # Day72: 7 deterministic EXECUTED_LOCAL_RUNTIME tests
+│   └── test_provider_adapters.py # Day72: 21 deterministic EXECUTED_LOCAL_RUNTIME tests
 └── docs/                          # Day71 foundations + Day72 provider-adapter design + classroom drafts
 ```
 
@@ -57,7 +57,7 @@ the product contract, immutable per-Attempt execution contracts, and server-owne
 [`docs/DAY72_PROVIDER_ADAPTER.md`](docs/DAY72_PROVIDER_ADAPTER.md) (released design contract) and the raw
 [`docs/day72-provider-adapter-classroom-draft.md`](docs/day72-provider-adapter-classroom-draft.md). Code:
 `src/provider_contract.py`, `src/provider_adapters.py`, and `tests/test_provider_adapters.py`. Evidence:
-CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME — `python3 -m unittest discover -s tests -v` → 7 deterministic
+CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME — `python3 -m unittest discover -s tests -v` → 21 deterministic
 in-process tests OK (Python 3.10.12); `INTEGRATION_RUNTIME` and `PRODUCTION` are NOT RUN (no real SDK/HTTP,
 Provider, PostgreSQL, credentials, or paid call). Provider A/B are fictional classroom fixtures; every
 capability is a current, versioned fact bound to a Capability Profile revision. The full Fake Provider/LLM

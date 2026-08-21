@@ -3,7 +3,7 @@
 ## 1. Lesson Metadata
 
 ```text
-Status:        ✅ Completed (classroom scope) — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (7 deterministic in-process tests). INTEGRATION_RUNTIME and PRODUCTION are NOT RUN; no real or paid Provider call, no SDK, no HTTP, no database.
+Status:        ✅ Completed (classroom scope) — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (21 deterministic in-process tests). INTEGRATION_RUNTIME and PRODUCTION are NOT RUN; no real or paid Provider call, no SDK, no HTTP, no database.
 Version:       v2 (LESSON_TEMPLATE_v2, 16 sections)
 Difficulty:    Advanced
 Estimated Time: 5-6 hours
@@ -28,15 +28,20 @@ execution contracts.
 >   exercise.
 > * `STATIC` — `PASS`: `python3 -m py_compile` on both modules; required doc sections present; fenced blocks
 >   balanced; trailing-whitespace and credential-pattern scans clean.
-> * `EXECUTED_LOCAL_RUNTIME` — `PASS`: `python3 -m unittest discover -s tests -v` → **7 deterministic
->   in-process tests OK** (Python 3.10.12). They use classroom wire-shape fixtures and a `RecordingTransport`
->   only.
+> * `EXECUTED_LOCAL_RUNTIME` — `PASS`: `python3 -m unittest discover -s tests -v` → **21 deterministic
+>   in-process tests OK** (Python 3.10.12) — the original translation/contract slice plus the Day72 review
+>   regressions (persisted-binding validation with `AttemptBindingError`; one external call per Attempt via a
+>   guarded compare-and-set `PLANNED -> DISPATCHED`; the transport staying inside each Adapter via
+>   `execute()`; server selection that uses the application contract; duplicate-`profile_id` registry
+>   rejection; and the real disabled-profile `PLANNED -> BLOCKED_PROFILE_DISABLED` path). They use classroom
+>   wire-shape fixtures and a `RecordingTransport` only; the in-memory Attempt state store MODELS a
+>   compare-and-set boundary and is NOT a production database.
 > * `INTEGRATION_RUNTIME` — **NOT RUN**: no real SDK, no real HTTP process boundary, no Provider, no
 >   PostgreSQL or other external process.
 > * `PRODUCTION` — **NOT RUN**: no credentials, customer data, paid call, production traffic or operational
 >   evidence.
 >
-> The 7 tests prove the RULES of the boundary; they do **not** prove real SDK/model behaviour, cost, rate
+> The 21 tests prove the RULES of the boundary; they do **not** prove real SDK/model behaviour, cost, rate
 > limits, or credentials. The full Fake Provider contract and LLM regression suite remain **Day77** scope.
 > Every Provider capability named below is a **current, versioned fact** bound to a Provider + model + API
 > version + profile version + Adapter version + verification tier — never a permanent, Provider-wide claim.
@@ -462,10 +467,12 @@ Engineering Thinking:
 Server-owned selection + immutable Attempts is what keeps Provider choice governed and auditable under
 incidents.
 
-Production Example (test 7):
+Production Example (EXECUTED_LOCAL_RUNTIME):
 
-`registry.get(disabled_profile_id)` raises `ProfileDisabledError` (fail closed), zero calls; A1 keeps
-`profile_version="v3"` and moves to `BLOCKED_PROFILE_DISABLED`.
+`registry.get(disabled_profile_id)` raises `ProfileDisabledError` (fail closed) at selection time; and when
+an already-selected Adapter's profile is disabled before dispatch, `dispatch_attempt` drives A1 through the
+real guarded state path `PLANNED -> BLOCKED_PROFILE_DISABLED` with zero calls. A1 keeps `profile_version="v3"`;
+it is never rewritten to v4, and choosing another Profile requires an explicit new Attempt (A2).
 
 Framework Connection:
 
@@ -662,7 +669,7 @@ Prefer the Protocol/Registry boundary.
 ## 10. Hands-on Exercises
 
 These reproduce the classroom exercises against the `projects/ai-agent/` artifact (std-lib only; no real
-Provider). All 7 tests are `EXECUTED_LOCAL_RUNTIME`.
+Provider). All 21 tests are `EXECUTED_LOCAL_RUNTIME`.
 
 ### Exercise 1: Capability rejection makes zero calls
 
@@ -670,7 +677,7 @@ Question: A profile does not support `research_claims.v1`. What outcome and how 
 
 Think First: When does admission run?
 
-Expected Output: `CAPABILITY_ERROR`, `provider_calls == 0` (test 1).
+Expected Output: `CAPABILITY_ERROR`, `provider_calls == 0` (EXECUTED_LOCAL_RUNTIME).
 
 Follow-up: Does a passing pre-call check guarantee runtime success? (No — the response is still new evidence.)
 
@@ -679,7 +686,7 @@ Follow-up: Does a passing pre-call check guarantee runtime success? (No — the 
 Question: Build wire requests for Provider A and B from the same `ApplicationRequest`. What differs?
 
 Expected Output: A uses `max_tokens`, B uses `maxOutputTokens`; the values are equal (same meaning) but the
-keys are Provider-specific (test 2).
+keys are Provider-specific (EXECUTED_LOCAL_RUNTIME).
 
 Follow-up: Why must business code never see these keys?
 
@@ -696,7 +703,7 @@ Follow-up: Why keep the finish label as safe evidence instead of discarding it?
 
 Question: A profile requires request identity; the response omits it. Classify it.
 
-Expected Output: `PROVIDER_RESPONSE_INVALID` at the Adapter gate (test 5).
+Expected Output: `PROVIDER_RESPONSE_INVALID` at the Adapter gate (EXECUTED_LOCAL_RUNTIME).
 
 Follow-up: Where would a *nonexistent citation* be caught instead? (Runtime evidence gate.)
 
@@ -705,14 +712,14 @@ Follow-up: Where would a *nonexistent citation* be caught instead? (Runtime evid
 Question: How does business code obtain the concrete Adapter without branching on Provider identity?
 
 Expected Output: `ProviderRegistry.get(profile_id)` returns a `ProviderAdapter`; dispatch succeeds with
-`provider_calls == 1` (test 6).
+`provider_calls == 1` (EXECUTED_LOCAL_RUNTIME).
 
 ### Exercise 6: Disabled profile fails closed, Attempt preserved
 
 Question: profile-v3 is disabled after A1 was planned. What happens to A1 and to Provider calls?
 
 Expected Output: `ProfileDisabledError` (fail closed), zero calls; A1 kept as `BLOCKED_PROFILE_DISABLED` with
-`profile_version="v3"` — never rewritten (test 7).
+`profile_version="v3"` — never rewritten (EXECUTED_LOCAL_RUNTIME).
 
 Follow-up: How is a different Profile chosen? (Explicit, protected new Attempt.)
 
