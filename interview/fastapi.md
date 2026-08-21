@@ -1896,3 +1896,38 @@ Trade-off prompts: SUMMARIZE vs CHUNK (lossy speed vs provenance-preserving cost
 Validation honesty: Day71 is CONCEPTUAL + STATIC only. EXECUTED_LOCAL_RUNTIME / INTEGRATION_RUNTIME / PRODUCTION are NOT RUN; no runtime code, no real or paid Provider call, no secrets. The final Chinese Mental Model synthesis was supplied by the Tech Lead at the student's explicit request (`你帮我总结吧`), preserved as taught material, not an independently authored student answer.
 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day71), the [Day71 lesson](../docs/fastapi/day71-llm-application-architecture-tokens-context-sampling-and-model-failure-modes.md), and the [Day71 foundations](../projects/ai-agent/docs/DAY71_FOUNDATIONS.md). Next: Day72 — Provider Capabilities and the Replaceable Provider Adapter (Planned).
+
+
+## Day72 — Provider Capabilities and the Replaceable Provider Adapter (Phase 7A)
+
+Direct prerequisites: Day71 (provider-independent runtime), Day53 (ProviderRequest -> ProviderOutcome seam), Day61 (real-HTTP Adapter foundation). Day72 makes the replaceable Adapter executable (7 in-process tests, EXECUTED_LOCAL_RUNTIME; no real Provider).
+
+Key Vocabulary: Provider Adapter · capability profile · capability admission · versioned capability · verification tier · bidirectional translation · wire fields · finish reason · replaceability · Registry/composition · allowlist · selector vs authority · execution contract · immutable revision · disable/quarantine · PROVIDER_RESPONSE_INVALID · TIMEOUT_UNKNOWN · affected set.
+
+Useful Expressions: "The application owns the contract; the Provider offers a versioned capability." · "Reject an incompatible capability before the external call — PROVIDER_CAPABILITY_ERROR, zero calls, no downgrade." · "Replaceable means equivalent application semantics, not identical model text." · "A published capability revision is immutable; drift disables it and we publish a new revision."
+
+Beginner Q (Actual Question): What is a replaceable Provider Adapter, and why does an LLM application need one?
+Student's Verbatim Answer: "The Provider Adapter facilitates bidirectional translation between the provider and the application. LLMs require it to enable provider switching and avoid excessive coupling."
+Language Correction: `LLMs require it` makes the model the subject -> "An LLM application needs it"; `excessive coupling` -> "tight vendor coupling".
+Engineering Concept Correction: bidirectional-translation/decoupling model is correct; add that it translates VERSIONED capabilities/failures and must NOT silently weaken product semantics.
+Strong Interview Answer: "A replaceable Provider Adapter translates, both ways, between one Provider's request/response/failure syntax and the application's stable contract. An LLM application needs it to avoid tight vendor coupling and switch Providers without rewriting business code — while keeping product meaning stable and exposing, not hiding, capability differences."
+
+Intermediate Q (Actual Question): A selected provider does not support a capability required by the application contract. What should the Adapter do, and why before the provider call?
+Student's Verbatim Answer: "Party A should directly reject the request; rejecting it prior to the formal invocation avoids unnecessary provider calls and associated costs."
+Language Correction: `Party A` is a contract/negotiation term, not the Adapter -> "The Adapter should reject this provider execution path before making the external call"; `formal invocation` -> "before making the external call".
+Engineering Concept Correction: pre-call rejection/cost model correct; add explicit PROVIDER_CAPABILITY_ERROR, zero external calls, no silent contract downgrade.
+Strong Interview Answer: "The Adapter (or the admission gate) rejects the provider execution path before making the external call, returning PROVIDER_CAPABILITY_ERROR with zero calls and no downgrade. Pre-call avoids paying for a known-invalid request; the check reduces known-invalid calls but the real response would still be new evidence to classify."
+
+Senior Q (Actual Question): A bad capability profile allowed several paid calls; some returned invalid responses, others timed out after dispatch. Contain and repair.
+Student's Verbatim Answer (terse keyword outline): "Rollback error, capability profile, retain audit evidence, build a collection for each job, classification, explicit fix."
+Review: order correct but incomplete. Taught additions: scope the affected set by release/profile version + bounded time window + durable execution evidence; classify invalid-response vs TIMEOUT_UNKNOWN; no blind/bulk retry; new Attempt only after deadline/budget/cancellation/execution-evidence/guarded-claim.
+Language Correction: "Roll back or disable the bad capability profile", "build an affected set", "perform an explicit, guarded repair".
+Strong Interview Answer: "Roll back or disable the bad capability profile to stop new contamination; retain audit evidence; build an affected set scoped by profile/release version, a bounded time window, and durable dispatch/outcome evidence; classify each Job — pre-dispatch blocked (0 calls) may re-plan, a definite invalid response keeps its failed Attempt/cost, TIMEOUT_UNKNOWN goes to PENDING_RECONCILIATION with no blind retry, a valid late response passes the same gates, a stale/terminal/superseded Attempt gets a zero-effect refusal. A new Attempt is created only when all guards allow; history is never overwritten or deleted."
+
+Follow-up Questions: Why is TIMEOUT_UNKNOWN the most dangerous affected class? (Student: `最危险的那一类是已经未知的那一类`; no bulk A2 creation.) · Why classify deterministic in-process Adapter tests as EXECUTED_LOCAL_RUNTIME only? (Student: `EXECUTED_LOCAL_RUNTIME`; no real SDK/HTTP/Provider.) · Why can a Provider's marketing claim never prove application-contract compatibility? (DECLARED input, not proof; needs a validated concrete Adapter translation + failure path.) · Why is a Provider SUCCESS still untrusted, and which gate catches a fake citation? (Runtime evidence gate.) · Why interpret a late response with its persisted execution contract, not the current profile version?
+
+Trade-off prompts: explicit CAPABILITY_ERROR vs wrapping ordinary text; strict product contract vs lowest common denominator; Adapter-owns-retries vs Runtime-owns-recovery; mutable profile vs immutable revisions; Protocol+Registry vs business-service conditionals.
+
+Validation honesty: Day72 is CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (7 in-process tests, Python 3.10.12). INTEGRATION_RUNTIME + PRODUCTION = NOT RUN; no real SDK/HTTP/Provider/PostgreSQL/credentials/paid call. Provider A/B are fictional fixtures; capabilities are versioned facts. The final Chinese Mental Model synthesis was Tech-Lead-supplied at the student's explicit request (`你帮我总结吧`), preserved as taught material — not an independently authored student answer.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day72), the [Day72 lesson](../docs/fastapi/day72-provider-capabilities-and-the-replaceable-provider-adapter.md), and the [Day72 design contract](../projects/ai-agent/docs/DAY72_PROVIDER_ADAPTER.md). Next: Day73 — Prompt Contracts, Prompt Versioning and Compatibility (Planned).

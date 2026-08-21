@@ -1334,3 +1334,32 @@ Rollback/incident: configuration rollback stops FUTURE harm; it never undoes Pro
 Evidence tier (Day71): CONCEPTUAL = completed; STATIC = PASS (sections/fences/whitespace/credential scans); EXECUTED_LOCAL_RUNTIME / INTEGRATION_RUNTIME / PRODUCTION = NOT RUN. No runtime code, no real/paid Provider call, no secrets. Day53–Day61 runtime evidence is a prerequisite, not Day71 validation.
 
 Related: [Day71 lesson](../docs/fastapi/day71-llm-application-architecture-tokens-context-sampling-and-model-failure-modes.md) · [Day71 foundations](../projects/ai-agent/docs/DAY71_FOUNDATIONS.md) · [ai-agent project](../projects/ai-agent/README.md) · Previous: [Day70 lesson](../docs/fastapi/day70-n8n-fastapi-ai-tool-integration-capstone-and-interview.md) (Phase 6 close; PHASE TRANSITION) · Next: Day72 — Provider Capabilities and the Replaceable Provider Adapter (Planned)
+
+
+## Day72 — Provider Capabilities and the Replaceable Provider Adapter (Phase 7A)
+
+Direct prerequisites: Day71 (provider-independent runtime) + Day53 (ProviderRequest -> ProviderOutcome seam, SDK-type containment, untrusted success) + Day61 (real-HTTP Adapter foundation; correlation vs Provider request id; timeout != non-execution). Day72 makes Day71's replaceable Adapter executable.
+
+Core boundary: the application owns a STABLE product contract (research_claims.v1 + required citations); the Provider offers only VERSIONED capabilities. Client sends a constrained ProductOption (selector); server ProviderSelectionPolicy (allowlist) is the authority and persists an approved Profile.
+
+Capability admission (BEFORE a paid call): `admit_capability(profile, contract)` -> incompatible => CAPABILITY_ERROR + provider_calls=0; never weaken the contract to lowest common denominator. A passing pre-call check does NOT guarantee runtime success — the real response is new evidence to classify.
+
+Capability Profile (versioned, immutable audit fact): profile_id + provider + model + api_version + profile_version + adapter_version + supported_contracts + requires_request_identity + verification_tier + status. Lifecycle: ACTIVE -> DISABLED/QUARANTINED (for NEW selections) -> investigate/verify -> publish a NEW revision. Never edit a published revision in place. Evidence ladder: DECLARED (docs/marketing, not proof) -> STATIC -> EXECUTED_LOCAL_RUNTIME -> INTEGRATION_RUNTIME (only when actually run) -> PRODUCTION.
+
+Bidirectional Adapter translation: Provider-specific request fields + response reason codes stay INSIDE each Adapter; translate by SEMANTIC equivalence, not data-type matching. Provider A `finish_reason=length` and Provider B `completionState=MAX_TOKENS` both -> TRUNCATION. Keep minimized safe evidence. Ownership: Provider wire/envelope validation = Adapter (missing required request id -> PROVIDER_RESPONSE_INVALID); application schema/evidence/policy validation = Runtime (nonexistent citation -> evidence-gate reject).
+
+Stable outcome surface: SUCCESS | PROVIDER_RESPONSE_INVALID | REFUSAL | TRUNCATION | RATE_LIMITED | AUTHENTICATION_ERROR | CAPABILITY_ERROR | TIMEOUT_UNKNOWN | TRANSPORT_ERROR. Preserve distinctions (recovery differs). Adapter observes/classifies facts + safe evidence; it does NOT retry, switch Providers, or decide Job terminal state. A new external call = a new Attempt (Day71).
+
+Persisted execution contract: each Attempt snapshots the profile/versions used at dispatch. Current config governs NEW calls; the persisted bound version interprets an ALREADY-ISSUED call (a v3-dispatched late response is interpreted by v3 even after config -> v4). Never rewrite the contract.
+
+Replaceability = equivalent application result/failure semantics, NOT identical model bytes. Business code depends only on the `ProviderAdapter` Protocol; `ProviderRegistry` injects the concrete Adapter (no business-service conditionals) and fails closed on DISABLED/QUARANTINED. Adding Provider C = a registration, not a business-logic edit (enables Day76 routing — which Day72 must NOT hide).
+
+Immutable Attempts: if profile-v3 is disabled before dispatch, A1 = BLOCKED_PROFILE_DISABLED with provider_calls=0; A1's execution contract is never rewritten; a different Profile needs an explicit protected NEW Attempt (no hidden fallback).
+
+Provider SUCCESS is an UNTRUSTED candidate: Provider response -> Adapter wire validation/translation -> schema/format -> evidence/semantic -> application policy -> guarded completion. SUCCESS != Job SUCCEEDED.
+
+Rollback (bad capability-profile-v4 wrongly claims Provider B supports research_claims.v1): roll back/disable to stop future contamination -> retain audit evidence -> scope affected set by profile/release version + bounded time window + durable dispatch/outcome evidence -> classify per Job (pre-dispatch blocked 0 calls -> re-plan; definite invalid -> keep failed Attempt/cost; TIMEOUT_UNKNOWN -> PENDING_RECONCILIATION, most dangerous, no blind retry; valid late -> same gates; stale/terminal/superseded -> zero-effect). No bulk retry/success, no history deletion, no Attempt overwrite. New Attempt only after deadline/budget/cancellation/execution-evidence/guarded-claim allow.
+
+Evidence tier (Day72): CONCEPTUAL + STATIC (py_compile) + EXECUTED_LOCAL_RUNTIME (`python3 -m unittest discover -s tests -v` -> 7 tests OK, Python 3.10.12; RecordingTransport + fixtures only). INTEGRATION_RUNTIME + PRODUCTION = NOT RUN (no real SDK/HTTP/Provider/PostgreSQL/credentials/paid call). Provider A/B are fictional fixtures; capabilities are versioned facts, not permanent claims. Full Fake Provider/LLM regression suite = Day77.
+
+Related: [Day72 lesson](../docs/fastapi/day72-provider-capabilities-and-the-replaceable-provider-adapter.md) · [Day72 design contract](../projects/ai-agent/docs/DAY72_PROVIDER_ADAPTER.md) · [ai-agent project](../projects/ai-agent/README.md) · Previous: [Day71 lesson](../docs/fastapi/day71-llm-application-architecture-tokens-context-sampling-and-model-failure-modes.md) · Next: Day73 — Prompt Contracts, Prompt Versioning and Compatibility (Planned)

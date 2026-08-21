@@ -295,7 +295,7 @@ fake-Provider contract/regression tests.
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
 | Day71 | LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes | ✅ Completed (classroom scope; CONCEPTUAL + STATIC, runtime NOT RUN) |
-| Day72 | Provider Capabilities and the Replaceable Provider Adapter | Planned |
+| Day72 | Provider Capabilities and the Replaceable Provider Adapter | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 7 tests; INTEGRATION/PRODUCTION NOT RUN) |
 | Day73 | Prompt Contracts, Prompt Versioning and Compatibility | Planned |
 | Day74 | Structured Output, JSON Schema and Function/Tool Calling | Planned |
 | Day75 | Streaming, Caching and Batching for LLM Applications | Planned |

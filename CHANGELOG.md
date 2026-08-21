@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## v0.1.170 — Day72: Provider Capabilities and the Replaceable Provider Adapter (Phase 7A)
+
+Date: 2026-08-21
+
+Day: Day72 (Phase 7A). Makes Day71's replaceable-Adapter boundary executable: versioned capability admission before a paid call, a replaceable `ProviderAdapter` (Protocol + Registry) that translates Provider-specific requests/responses/failures without weakening the product contract, immutable per-Attempt execution contracts, and server-owned Profile selection. Direct prerequisites: Day71 (provider-independent runtime), Day53 (ProviderRequest -> ProviderOutcome seam / SDK-type containment / untrusted success), Day61 (real-HTTP Adapter foundation: correlation vs Provider request id; timeout != non-execution).
+
+Added:
+
+- `docs/fastapi/day72-provider-capabilities-and-the-replaceable-provider-adapter.md` — the 16-section `LESSON_TEMPLATE_v2` lesson (classroom-loop Concepts, misconceptions, trade-offs, exercises, full English Interview), preserving the real terse student answers and uncertainty, the English errors and their separated language/engineering corrections, and the Tech-Lead-supplied final Chinese Mental Model authorship note.
+- `projects/ai-agent/src/provider_contract.py` — the stable provider-independent surface: `ProviderOutcomeKind`, `ProviderOutcome`, `ApplicationRequest`, versioned `CapabilityProfile` (immutable, disable/quarantine-able), `AttemptExecutionContract`, `admit_capability`, the `ProviderAdapter` Protocol, `ProviderRegistry`, and `ProviderSelectionPolicy` (standard library only).
+- `projects/ai-agent/src/provider_adapters.py` — `RecordingTransport` + two concrete adapters (Provider A/B with different wire fields and finish states) + `dispatch_attempt` (admission before any call, then translation).
+- `projects/ai-agent/tests/test_provider_adapters.py` — 7 deterministic in-process tests.
+- `projects/ai-agent/docs/DAY72_PROVIDER_ADAPTER.md` — the released static design contract.
+- `projects/ai-agent/docs/day72-provider-adapter-classroom-draft.md` — the recorded `CLASSROOM_DRAFT`.
+
+Updated:
+
+- `projects/ai-agent/README.md` — folder structure + progress moved to Day72 released (CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME); current focus Day73.
+- `cheat_sheets/fastapi.md` + `interview/fastapi.md` — added Day72 sections (capability admission, versioned profiles, bidirectional translation, ownership, execution contract, replaceability, immutable Attempts, untrusted success, rollback) with the verbatim student answers and language-vs-engineering corrections.
+- `CURRICULUM.md` — Phase 7A In Progress (Day71–Day72 Completed); Day72 per-day entry marked ✅ Completed with the released path, artifact, prerequisites, core model, and evidence tiers.
+- `ROADMAP.md` — Day72 table row Planned -> ✅ Completed (CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 7 tests; INTEGRATION/PRODUCTION NOT RUN).
+- `PROJECT_STATUS.md` — current phase/lesson advanced (Day72 Complete, Day73 current) with a Day72 detail bullet.
+- `TASKS.md` — current phase/lesson advanced; the Day72 open task closed as completed and a Day73 prep task added (kept in the current `Today's Tasks` structure).
+
+Main learning outcome: the application owns a stable product contract; Providers offer only versioned capabilities. Capability admission runs before a paid call (incompatible -> `CAPABILITY_ERROR` + zero calls; never a lowest-common-denominator weakening; a passing pre-call check does not guarantee runtime success). A `CapabilityProfile` binds provider + model + API version + profile version + Adapter version + supported contracts + request-identity requirement + verification tier + status; published revisions are immutable audit facts (drift -> disable/quarantine -> new revision; never edit in place; evidence ladder DECLARED -> STATIC -> EXECUTED_LOCAL_RUNTIME -> INTEGRATION_RUNTIME -> PRODUCTION). The Adapter translates bidirectionally by semantic equivalence (Provider A `finish_reason=length` and Provider B `completionState=MAX_TOKENS` both -> `TRUNCATION`), keeps SDK/wire types inside, and preserves a stable failure taxonomy; it observes/classifies facts + safe evidence and does NOT hide retries, switch Providers, or decide Job terminal state (a new call is a new Attempt). Provider wire/envelope validation is the Adapter's (missing required request id -> `PROVIDER_RESPONSE_INVALID`); application schema/evidence/policy validation is the Runtime's (nonexistent citation -> evidence gate). Each Attempt persists its execution contract (current config governs new calls; the bound version interprets an already-issued call; never rewritten). Replaceability = equivalent application result/failure semantics, not identical bytes, via a `ProviderAdapter` Protocol + `ProviderRegistry` (fail closed on DISABLED/QUARANTINED). Client `ProductOption` is a selector; server allowlist policy is the authority; a disabled profile yields `BLOCKED_PROFILE_DISABLED` (0 calls, A1 never rewritten). Provider `SUCCESS` is untrusted until validation + guarded completion; `TIMEOUT_UNKNOWN` -> `PENDING_RECONCILIATION` (most dangerous class, no bulk A2). Rollback of a bad capability-profile-v4 stops future harm only, scopes the affected set by profile/release version + time window + durable evidence, and classifies per Job without bulk retry/success, Attempt overwrite, or history deletion.
+
+Evidence (four-tier taxonomy): CONCEPTUAL — completed in class. STATIC — `PASS` (`python3 -m py_compile` on both modules; required doc sections; balanced fences; whitespace/credential scans). EXECUTED_LOCAL_RUNTIME — `PASS`: `python3 -m unittest discover -s tests -v` -> 7 deterministic in-process tests OK (Python 3.10.12), using `RecordingTransport` and classroom wire-shape fixtures only. INTEGRATION_RUNTIME — NOT RUN (no real SDK, HTTP process boundary, Provider, PostgreSQL, or external process). PRODUCTION — NOT RUN (no credentials, customer data, paid call, or production traffic). Provider A/B wire fields are fictional classroom fixtures; every capability is a current, versioned fact bound to a Capability Profile revision, not a permanent Provider-wide claim. The full Fake Provider contract and LLM regression suite remain Day77 scope. The 7 in-process tests do not prove real SDK/model behaviour, cost, rate limits, or credentials.
+
+---
+
 ## v0.1.169 — Day71: LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes (Phase 7A begins)
 
 Date: 2026-08-20

@@ -28,13 +28,16 @@ ai-agent/
 ├── requirements.txt
 ├── Dockerfile
 ├── src/
+│   ├── provider_contract.py      # Day72: stable provider-independent surface + Capability Profile + Registry
+│   └── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
 ├── tests/
-└── docs/
+│   └── test_provider_adapters.py # Day72: 7 deterministic EXECUTED_LOCAL_RUNTIME tests
+└── docs/                          # Day71 foundations + Day72 provider-adapter design + classroom drafts
 ```
 
 ## Progress
 
-Status: Phase 7A foundations in progress (Day71 released — CONCEPTUAL + STATIC only).
+Status: Phase 7A in progress (Day72 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71 released earlier).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -47,8 +50,21 @@ There is no runtime code yet: Day71 is CONCEPTUAL + STATIC; `EXECUTED_LOCAL_RUNT
 and `PRODUCTION` are NOT RUN, and no real or paid Provider call was made. Provider token counts, context
 sizes and sampling behaviour are versioned capabilities, not permanent facts.
 
-Current focus: Day72 — Provider Capabilities and the Replaceable Provider Adapter (evolves this same
-Artifact; do not pre-implement it here).
+Day72 — Provider Capabilities and the Replaceable Provider Adapter — makes Day71's replaceable-Adapter
+boundary executable: versioned capability admission before a paid call, a replaceable `ProviderAdapter`
+(Protocol + `ProviderRegistry`) that translates Provider-specific requests/responses/failures without weakening
+the product contract, immutable per-Attempt execution contracts, and server-owned Profile selection. See
+[`docs/DAY72_PROVIDER_ADAPTER.md`](docs/DAY72_PROVIDER_ADAPTER.md) (released design contract) and the raw
+[`docs/day72-provider-adapter-classroom-draft.md`](docs/day72-provider-adapter-classroom-draft.md). Code:
+`src/provider_contract.py`, `src/provider_adapters.py`, and `tests/test_provider_adapters.py`. Evidence:
+CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME — `python3 -m unittest discover -s tests -v` → 7 deterministic
+in-process tests OK (Python 3.10.12); `INTEGRATION_RUNTIME` and `PRODUCTION` are NOT RUN (no real SDK/HTTP,
+Provider, PostgreSQL, credentials, or paid call). Provider A/B are fictional classroom fixtures; every
+capability is a current, versioned fact bound to a Capability Profile revision. The full Fake Provider/LLM
+regression suite remains Day77 scope.
+
+Current focus: Day73 — Prompt Contracts, Prompt Versioning and Compatibility (evolves this same Artifact on
+the stable Provider surface; do not pre-implement it here).
 
 ## Future Milestones
 
