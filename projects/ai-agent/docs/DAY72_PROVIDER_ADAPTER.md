@@ -6,7 +6,7 @@ replaceable-Adapter boundary executable: versioned capability admission before a
 contract, and immutable per-Attempt execution contracts. The raw session notes are in
 [`day72-provider-adapter-classroom-draft.md`](day72-provider-adapter-classroom-draft.md).
 
-> Evidence tier — Day72 is **CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME** (28 deterministic in-process
+> Evidence tier — Day72 is **CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME** (56 deterministic in-process
 > tests — the
 > original translation/contract slice plus the Day72 review regressions). `INTEGRATION_RUNTIME` and `PRODUCTION` are **NOT RUN**: no real SDK, no real HTTP process boundary,
 > no Provider, no PostgreSQL, no credentials, no paid call, no production traffic. The tests use classroom
@@ -39,7 +39,7 @@ projects/ai-agent/
 │                                    #   fictional SDK failure TYPES + ProviderAAdapter/ProviderBAdapter (each
 │                                    #   owns its transport, execute() translates responses AND failures)
 │                                    #   + authoritative-binding, lifecycle-aware, guarded dispatch_attempt
-├── tests/test_provider_adapters.py # 28 deterministic EXECUTED_LOCAL_RUNTIME tests
+├── tests/test_provider_adapters.py # 56 deterministic EXECUTED_LOCAL_RUNTIME tests
 └── docs/DAY72_PROVIDER_ADAPTER.md  # this file  (+ the classroom draft)
 ```
 
@@ -206,13 +206,42 @@ deadline, budget, cancellation, execution evidence, application contract, and a 
   Attempt. ``provider_calls`` is 0 before a send attempt and 1 once a send attempt begins (never the
   transport's cumulative total).
 
+## 8b. Round-3 review hardening
+
+- **Fail-closed lifecycle authority at the trusted composition boundary.** ``ProfileLifecycle.status`` returns an
+  explicit ``UNKNOWN`` (never ``ACTIVE``) for a profile the authority never registered, and every caller
+  fails closed on it. ``dispatch_attempt(request, contract, state_store, registry)`` no longer accepts a
+  caller-supplied Adapter or lifecycle: it reads the authoritative contract from the store, resolves the
+  bound Adapter through the SAME authoritative ``ProviderRegistry`` (``resolve_bound_attempt``), and reads
+  the current status from that Registry's OWN lifecycle catalog (an ``UNKNOWN`` status raises
+  ``UnknownProfileError`` with zero calls). ``ProviderSelectionPolicy`` REQUIRES the lifecycle — there is no
+  omittable form that could fall back to a Profile's immutable published ``status`` and bypass a live
+  disable. ``ProviderRegistry`` also REQUIRES that same shared lifecycle; it cannot silently create a fresh
+  ACTIVE catalog. Therefore another Registry assembled by the trusted composition root observes an existing
+  disable instead of reactivating v3. Resolving a historical Adapter for a bound Attempt is not the same as authorizing a call: a
+  disabled/quarantined profile is still a guarded ``PLANNED -> BLOCKED_PROFILE_DISABLED`` with zero calls.
+- **Unknown Provider SDK exceptions cannot leak.** Each Adapter's ``execute()`` ends with a last-line
+  ``except ProviderASDKError`` / ``except ProviderBSDKError`` base catch. A not-yet-enumerated SDK error is
+  classified by a STRUCTURED ``ExecutionCertainty`` carried on the exception (never a message string):
+  ``DEFINITELY_NOT_SENT -> TRANSPORT_ERROR``; ``EXECUTION_UNKNOWN`` or a missing certainty ->
+  ``TIMEOUT_UNKNOWN`` (conservative — never optimistically retryable). No SDK object or message enters the
+  outcome ``detail``/``safe_evidence``, only one send attempt is made, and no second call / A2 / Provider
+  switch / terminal-state decision follows. A non-SDK programming error is NOT swallowed — it propagates.
+- **Sanitized Provider-controlled evidence.** ``normalize_retry_after`` accepts only a plain non-negative
+  decimal-integer-seconds string within bounds (ASCII digits, ``0..86400``, canonicalized; whitespace, sign,
+  decimals, control characters, HTTP-date text and overlong/secret-like values are dropped), and
+  ``normalize_request_id`` bounds a Provider-minted id to a short ASCII allowlist. An invalid value is
+  dropped entirely — it never enters ``safe_evidence`` and its raw form never appears in ``detail``. The
+  allowlist parse is not keyword-based; both Adapters share the app-level normalizers while capturing the
+  provider-specific field in-adapter.
+
 ## 9. Validation Status
 
 | Tier | Status | Evidence |
 |---|---|---|
 | `CONCEPTUAL` | Completed | admission, versioned profile, translation, ownership, execution contract, replaceability, selection, untrusted success, strict-vs-LCD, evidence ladder, rollback |
 | `STATIC` | `PASS` | `python3 -m py_compile src/provider_contract.py src/provider_adapters.py`; required sections; balanced fences; whitespace/credential scans |
-| `EXECUTED_LOCAL_RUNTIME` | `PASS` | `python3 -m unittest discover -s tests -v` → 28 tests OK (Python 3.10.12); RecordingTransport + fixtures only |
+| `EXECUTED_LOCAL_RUNTIME` | `PASS` | `python3 -m unittest discover -s tests -v` → 58 tests OK (Python 3.12.13); RecordingTransport + fixtures only |
 | `INTEGRATION_RUNTIME` | `NOT RUN` | no real SDK, HTTP process boundary, Provider, PostgreSQL or external process |
 | `PRODUCTION` | `NOT RUN` | no credentials, customer data, paid call, production traffic, or operational evidence |
 

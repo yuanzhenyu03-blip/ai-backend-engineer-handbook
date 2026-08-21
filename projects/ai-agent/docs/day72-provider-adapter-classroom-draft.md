@@ -210,7 +210,7 @@ Attempt A1(profile-v3, PLANNED)
 |---|---|
 | `CONCEPTUAL` | Completed |
 | `STATIC` | PASS — Python syntax compilation |
-| `EXECUTED_LOCAL_RUNTIME` | PASS — 28 deterministic in-process tests (Adapter translation/contract slice + Day72 round-1 and round-2 review regressions: authoritative-binding store, thread-safe compare-and-set + real concurrency, two-purpose Registry disable path, per-Provider failure translation, one-call guard, transport-inside-adapter, selection-by-contract, duplicate-registry) |
+| `EXECUTED_LOCAL_RUNTIME` | PASS — 56 deterministic in-process tests (Adapter translation/contract slice + Day72 round-1 and round-2 review regressions: authoritative-binding store, thread-safe compare-and-set + real concurrency, two-purpose Registry disable path, per-Provider failure translation, one-call guard, transport-inside-adapter, selection-by-contract, duplicate-registry) |
 | `INTEGRATION_RUNTIME` | NOT RUN |
 | `PRODUCTION` | NOT RUN |
 
@@ -218,7 +218,7 @@ Executed locally with no network or Provider call:
 
 ```text
 python3 -m unittest discover -s tests -v
-Ran 28 tests — OK
+Ran 58 tests — OK (Python 3.12.13)
 ```
 
 Covered: capability rejection before a paid call (zero calls), persisted-binding validation before any call
