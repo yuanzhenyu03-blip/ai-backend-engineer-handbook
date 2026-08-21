@@ -92,6 +92,7 @@ class ProfileStatus(str, Enum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
     QUARANTINED = "QUARANTINED"
+    UNKNOWN = "UNKNOWN"          # not registered with the lifecycle authority -> callers MUST fail closed
 
 
 class VerificationTier(str, Enum):
@@ -158,8 +159,10 @@ class ProfileLifecycle:
         self.set_status(profile_id, ProfileStatus.QUARANTINED)
 
     def status(self, profile_id: str) -> ProfileStatus:
+        # A profile the authority has never registered is UNKNOWN, NOT ACTIVE. This is a fail-closed default:
+        # a caller cannot bypass a disable by consulting an empty/foreign lifecycle catalog.
         with self._lock:
-            return self._status.get(profile_id, ProfileStatus.ACTIVE)
+            return self._status.get(profile_id, ProfileStatus.UNKNOWN)
 
     def is_active(self, profile_id: str) -> bool:
         return self.status(profile_id) is ProfileStatus.ACTIVE
@@ -224,6 +227,12 @@ class ProviderIncompatibleError(Exception):
     """A selected Profile does not support the required application contract. Selection fails closed BEFORE
     any Attempt is persisted or any paid call is made; no lowest-common-denominator downgrade, no automatic
     fallback."""
+
+
+class UnknownProfileError(Exception):
+    """A profile_id is not known to the authoritative Registry / lifecycle catalog. This is an application
+    configuration/invariant error; every caller MUST fail closed (never treat an unknown profile as ACTIVE
+    or selectable). Zero Provider calls."""
 
 
 # ---------------------------------------------------------------------------
@@ -391,11 +400,15 @@ class ProviderRegistry:
       zero-call block, response interpretation, or audit. Returning it does NOT authorize a new call —
       dispatch admission still sees the current lifecycle status and blocks a disabled profile.
 
-    Business code never constructs concrete Adapters or branches on Provider identity."""
+    The trusted composition root MUST inject the shared authoritative ``ProfileLifecycle``; the Registry
+    never fabricates a fresh ACTIVE catalog. Business code never constructs concrete Adapters or branches
+    on Provider identity."""
 
-    def __init__(self, lifecycle: Optional[ProfileLifecycle] = None) -> None:
+    def __init__(self, lifecycle: ProfileLifecycle) -> None:
+        if lifecycle is None:
+            raise TypeError("ProviderRegistry requires a shared lifecycle authority")
         self._by_profile: Dict[str, ProviderAdapter] = {}
-        self._lifecycle = lifecycle if lifecycle is not None else ProfileLifecycle()
+        self._lifecycle = lifecycle
 
     @property
     def lifecycle(self) -> ProfileLifecycle:
@@ -420,9 +433,12 @@ class ProviderRegistry:
 
     def get_selectable(self, profile_id: str, application_contract: str) -> ProviderAdapter:
         if profile_id not in self._by_profile:
-            raise KeyError(profile_id)
-        if not self._lifecycle.is_active(profile_id):
-            raise ProfileDisabledError(profile_id)                 # fail closed for NEW selection
+            raise UnknownProfileError(profile_id)                  # not registered -> fail closed
+        status = self._lifecycle.status(profile_id)
+        if status is ProfileStatus.UNKNOWN:
+            raise UnknownProfileError(profile_id)                  # no lifecycle entry -> fail closed
+        if status is not ProfileStatus.ACTIVE:
+            raise ProfileDisabledError(profile_id)                 # DISABLED / QUARANTINED -> fail closed
         adapter = self._by_profile[profile_id]
         if not adapter.capability_profile.supports(application_contract):
             raise ProviderIncompatibleError(f"{profile_id} does not support {application_contract}")
@@ -434,7 +450,7 @@ class ProviderRegistry:
         immutable binding does not match the Attempt contract."""
         pid = contract.profile_id
         if pid not in self._by_profile:
-            raise KeyError(pid)
+            raise UnknownProfileError(pid)
         adapter = self._by_profile[pid]
         p = adapter.capability_profile
         for f in BINDING_FIELDS:
@@ -453,25 +469,26 @@ class ProductOption:
 
 class ProviderSelectionPolicy:
     """Server-owned allowlist. Maps a constrained client ProductOption to an approved CapabilityProfile that
-    is currently ACTIVE (per the shared lifecycle overlay when provided) AND supports the required
-    application contract. Clients cannot authorize arbitrary Provider/model/profile identifiers."""
+    is currently ACTIVE per the AUTHORITATIVE lifecycle catalog AND supports the required application
+    contract. The lifecycle is a REQUIRED dependency — there is no optional/omittable form that could fall
+    back to a Profile's immutable published ``status`` and bypass a live disable. Clients cannot authorize
+    arbitrary Provider/model/profile identifiers."""
 
-    def __init__(self, allowlist: Mapping[str, CapabilityProfile],
-                 lifecycle: Optional[ProfileLifecycle] = None) -> None:
+    def __init__(self, allowlist: Mapping[str, CapabilityProfile], lifecycle: ProfileLifecycle) -> None:
+        if lifecycle is None:                       # defensive: lifecycle authority is mandatory
+            raise TypeError("ProviderSelectionPolicy requires a lifecycle authority")
         self._allowlist = dict(allowlist)
         self._lifecycle = lifecycle
-
-    def _current_status(self, profile: CapabilityProfile) -> ProfileStatus:
-        if self._lifecycle is not None:
-            return self._lifecycle.status(profile.profile_id)
-        return profile.status
 
     def select(self, option: ProductOption, application_contract: str) -> CapabilityProfile:
         if option.tier not in self._allowlist:
             raise KeyError(option.tier)
         profile = self._allowlist[option.tier]
-        if self._current_status(profile) is not ProfileStatus.ACTIVE:
-            raise ProfileDisabledError(profile.profile_id)          # fail closed
+        status = self._lifecycle.status(profile.profile_id)
+        if status is ProfileStatus.UNKNOWN:
+            raise UnknownProfileError(profile.profile_id)           # not registered -> fail closed
+        if status is not ProfileStatus.ACTIVE:
+            raise ProfileDisabledError(profile.profile_id)          # DISABLED / QUARANTINED -> fail closed
         if not profile.supports(application_contract):
             raise ProviderIncompatibleError(
                 f"profile {profile.profile_id} does not support {application_contract}")

@@ -3,7 +3,7 @@
 ## 1. Lesson Metadata
 
 ```text
-Status:        ✅ Completed (classroom scope) — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (28 deterministic in-process tests). INTEGRATION_RUNTIME and PRODUCTION are NOT RUN; no real or paid Provider call, no SDK, no HTTP, no database.
+Status:        ✅ Completed (classroom scope) — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (56 deterministic in-process tests). INTEGRATION_RUNTIME and PRODUCTION are NOT RUN; no real or paid Provider call, no SDK, no HTTP, no database.
 Version:       v2 (LESSON_TEMPLATE_v2, 16 sections)
 Difficulty:    Advanced
 Estimated Time: 5-6 hours
@@ -28,7 +28,7 @@ execution contracts.
 >   exercise.
 > * `STATIC` — `PASS`: `python3 -m py_compile` on both modules; required doc sections present; fenced blocks
 >   balanced; trailing-whitespace and credential-pattern scans clean.
-> * `EXECUTED_LOCAL_RUNTIME` — `PASS`: `python3 -m unittest discover -s tests -v` → **28 deterministic
+> * `EXECUTED_LOCAL_RUNTIME` — `PASS`: `python3 -m unittest discover -s tests -v` → **56 deterministic
 >   in-process tests OK** (Python 3.10.12) — the original translation/contract slice plus the round-1 and
 >   round-2 review regressions: the store holds the **authoritative** immutable `AttemptExecutionContract`
 >   (a self-consistent forged request+contract+Adapter trio is rejected with `AttemptBindingError`, zero
@@ -47,7 +47,7 @@ execution contracts.
 > * `PRODUCTION` — **NOT RUN**: no credentials, customer data, paid call, production traffic or operational
 >   evidence.
 >
-> The 28 tests prove the RULES of the boundary; they do **not** prove real SDK/model behaviour, cost, rate
+> The 58 tests prove the RULES of the boundary; they do **not** prove real SDK/model behaviour, cost, rate
 > limits, or credentials. The full Fake Provider contract and LLM regression suite remain **Day77** scope.
 > Every Provider capability named below is a **current, versioned fact** bound to a Provider + model + API
 > version + profile version + Adapter version + verification tier — never a permanent, Provider-wide claim.
@@ -675,7 +675,7 @@ Prefer the Protocol/Registry boundary.
 ## 10. Hands-on Exercises
 
 These reproduce the classroom exercises against the `projects/ai-agent/` artifact (std-lib only; no real
-Provider). All 28 tests are `EXECUTED_LOCAL_RUNTIME`.
+Provider). All 58 tests are `EXECUTED_LOCAL_RUNTIME`.
 
 ### Exercise 1: Capability rejection makes zero calls
 
