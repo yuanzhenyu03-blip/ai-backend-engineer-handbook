@@ -9,6 +9,33 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day73 — Prompt Contracts, Prompt Versioning and Compatibility (Phase 7A)
+
+Date: 2026-08-24
+
+Day: Day73 (Phase 7A). Adds the application-owned Prompt Contract boundary that runs BEFORE Day72's Provider capability admission: immutable versioned prompt revisions + a separate lifecycle overlay, a durable per-Attempt prompt binding, deterministic rendering + audit hashing, directional structural+semantic compatibility, explicit non-mutating migration, a fail-closed pre-Provider LLM Runtime gate, and late-response / timeout-unknown reconciliation. Direct prerequisites: Day72, Day71, Day53, Day54.
+
+Added:
+
+- `docs/fastapi/day73-prompt-contracts-prompt-versioning-and-compatibility.md` — the 16-section `LESSON_TEMPLATE_v2` lesson (classroom-loop Concepts, misconceptions, trade-offs, exercises, full English Interview), preserving the real terse student answers and their authentic misconceptions/corrections, and the Tech-Lead-supplied final Chinese Mental Model authorship note.
+- `projects/ai-agent/src/prompt_contracts.py` — the application-owned prompt surface: `PromptContractRevision` (immutable) + `PromptLifecycle` (ACTIVE/DISABLED/QUARANTINED, fail-closed UNKNOWN) + `PromptContractRegistry` (published revisions + current default for NEW planning only); `VariableSpec`/`MessageTemplate` + `validate_and_fill_variables` (missing/unknown/type/enum fail closed) + deterministic `render_messages` + `compute_input_fingerprint`/`compute_rendered_hash`; `AttemptPromptBinding` + `InMemoryAttemptPromptStore` (guarded compare-and-set) + `plan_attempt_binding`; `prepare_dispatch` pre-Provider gate (BINDING_MISMATCH / UNKNOWN_PROMPT / BLOCKED_PROMPT_DISABLED / INCOMPATIBLE_CONTRACT / VARIABLE_INVALID / RENDER_HASH_MISMATCH / READY, each failure `provider_calls=0`); `backward_incompatibilities`/`is_backward_compatible`; `apply_migration` (alias conflict fails closed); `classify_timeout_unknown` + `interpret_late_response`. Standard library only.
+- `projects/ai-agent/tests/test_prompt_contracts.py` — 39 deterministic in-process tests covering immutable-revision binding, current-default vs historical binding, binding mismatch (0 calls, stays PLANNED), disabled/quarantined/unknown bound revision (0 calls), missing/unknown-variable + unknown-policy fail-closed, backward-compatible optional-with-default, breaking rename/removal of an optional variable/removal of a supported application contract, alias conflict, semantic-guarantee weakening, enum narrowing, renderer/parameter-policy binding, input-fingerprint mismatch (including a variable not rendered into messages), rendered-hash tampering, migration without rewriting a planned Attempt, timeout-unknown reconciliation, and late-response safety (interpret with the bound revision; refuse terminal/not-awaiting/binding-mismatch).
+- `projects/ai-agent/docs/DAY73_PROMPT_CONTRACTS.md` — the released static design contract.
+- `projects/ai-agent/docs/day73-prompt-contracts-classroom-draft.md` — the recorded classroom draft (verbatim student answers, misconceptions + corrections, English interview, TA-supplied Chinese mental model).
+
+Updated:
+
+- `projects/ai-agent/README.md` — folder structure + progress advanced to Day73 released; current focus Day74.
+- `cheat_sheets/fastapi.md` + `interview/fastapi.md` — added Day73 sections (prompt-as-contract, immutable revision + overlay, Attempt binding, pre-Provider gate, directional structural/semantic compatibility, migration, audit evidence, incident verbs) with the verbatim student answers and corrections.
+- `CURRICULUM.md` — Day73 per-day entry Planned -> ✅ Completed with the released path, artifact, prerequisites, core model, and evidence tiers; Phase 7A status advanced to Day71–Day73 Completed.
+- `ROADMAP.md` — Day73 table row Planned -> ✅ Completed (CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 39 tests; INTEGRATION/PRODUCTION NOT RUN).
+- `PROJECT_STATUS.md` + `TASKS.md` — current lesson advanced (Day73 Completed, Day74 current) with Day73 detail; the Day73 open task closed and a Day74 prep task added.
+- `AGENTS.md` — progress block advanced: Last Completed = Day73; Current/Next = Day74; Phase 7A Day71–Day73 Completed.
+
+Evidence (five-tier taxonomy): CONCEPTUAL — completed. STATIC — `PASS` (`python3 -m py_compile` on the module + tests; required doc sections; balanced fences; whitespace/credential scans). EXECUTED_LOCAL_RUNTIME — `PASS`: `python3 -m unittest discover -s tests -v` -> 97 deterministic in-process tests OK (39 Day73 + 58 Day72 regression, Python 3.11.5), in-memory stores + pure functions only; the `provider_calls` counter models an in-process boundary crossing only and is NOT proof of a real Provider/SDK/HTTP/DB call. INTEGRATION_RUNTIME — NOT RUN (no real SDK, HTTP, Provider, database-backed Attempt/lifecycle store, queue, worker, callback, encryption/KMS, or protected-artifact storage). PRODUCTION — NOT RUN (no credentials, customer data, sensitive prompt, or production traffic). The temporary classroom directory (`/tmp/day73-prompt-contract.bnZaG3`, 11 tests, Python 3.9.6) was NOT copied into the repository; the artifact was reimplemented and re-tested against the latest remote `main`. Day72's existing tests are prerequisite evidence only, not Day73 validation. No stable product contract was weakened. No real/paid Provider call, network, or credential was introduced.
+
+---
+
 ## Unreleased — Day72 review fixes (round 3): fail-closed non-replaceable lifecycle authority + unknown-SDK containment + sanitized Provider-controlled evidence (Phase 7A)
 
 Date: 2026-08-21
@@ -3250,7 +3277,7 @@ Upload success is a storage-layer fact; verified is a business fact backed by ev
 
 ### Validation
 
-- Executed: `python3 -m pip install -r requirements-day49.txt`; `python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py`; `python3 -m pytest -q test_day49_upload_verification.py` -> **17 passed** at release (Python 3.10.12, pytest 7.4.3; hardened to **35 passed** in v0.1.97). Application CONTROL FLOW against an in-memory FAKE Object Storage adapter only.
+- Executed: `python3 -m pip install -r requirements-day49.txt`; `python3 -m py_compile day49_upload_verification.py test_day49_upload_verification.py`; `python3 -m pytest -q test_day49_upload_verification.py` -> **17 passed** at release (Python 3.11.5, pytest 7.4.3; hardened to **35 passed** in v0.1.97). Application CONTROL FLOW against an in-memory FAKE Object Storage adapter only.
 - Markdown: Day49 lesson has all 16 required sections in order; changed Markdown fences balanced.
 - Secrets: no real cloud credentials, bucket URLs, tokens, signed query strings, or connection strings; the fake grant string is not shaped like a secret.
 - NOT RUN: real PostgreSQL FK/constraint runtime, real Object Storage (presign/checksum/multipart/versioning) semantics, FastAPI/scanner integration, production validation. Day48 evidence is not inherited as Day49 evidence. Day50 Outbox / Day51 JWT / Day52 authorization / Day55 Celery / a real Provider are not implemented.

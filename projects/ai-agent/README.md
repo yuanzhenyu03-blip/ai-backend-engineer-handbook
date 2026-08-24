@@ -29,15 +29,17 @@ ai-agent/
 ├── Dockerfile
 ├── src/
 │   ├── provider_contract.py      # Day72: stable provider-independent surface + Capability Profile + Registry
-│   └── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
+│   ├── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
+│   └── prompt_contracts.py       # Day73: application-owned Prompt Contract + Attempt binding + pre-Provider gate
 ├── tests/
-│   └── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
-└── docs/                          # Day71 foundations + Day72 provider-adapter design + classroom drafts
+│   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
+│   └── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
+└── docs/                          # Day71 foundations + Day72 adapter + Day73 prompt-contract design + drafts
 ```
 
 ## Progress
 
-Status: Phase 7A in progress (Day72 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71 released earlier).
+Status: Phase 7A in progress (Day73 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day72 released earlier).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -63,8 +65,23 @@ Provider, PostgreSQL, credentials, or paid call). Provider A/B are fictional cla
 capability is a current, versioned fact bound to a Capability Profile revision. The full Fake Provider/LLM
 regression suite remains Day77 scope.
 
-Current focus: Day73 — Prompt Contracts, Prompt Versioning and Compatibility (evolves this same Artifact on
-the stable Provider surface; do not pre-implement it here).
+Day73 — Prompt Contracts, Prompt Versioning and Compatibility — adds the application-owned prompt boundary
+that runs *before* Day72's capability admission: immutable versioned `PromptContractRevision`s + a separate
+lifecycle overlay, a durable per-Attempt `AttemptPromptBinding` (revision + renderer + parameter-policy +
+application contract + input fingerprint + rendered-message hash), deterministic rendering + audit hashing,
+directional structural+semantic compatibility, explicit non-mutating migration, and a fail-closed
+`prepare_dispatch` Runtime gate (a binding mismatch stays PLANNED with zero Provider calls; a disabled bound
+revision → BLOCKED_PROMPT_DISABLED with zero calls). See
+[`docs/DAY73_PROMPT_CONTRACTS.md`](docs/DAY73_PROMPT_CONTRACTS.md) (released design contract) and the raw
+[`docs/day73-prompt-contracts-classroom-draft.md`](docs/day73-prompt-contracts-classroom-draft.md). Code:
+`src/prompt_contracts.py` and `tests/test_prompt_contracts.py`. Evidence: CONCEPTUAL + STATIC +
+EXECUTED_LOCAL_RUNTIME — `python3 -m unittest discover -s tests -v` → 97 deterministic in-process tests OK
+(39 Day73 + 58 Day72 regression, Python 3.11.5); `INTEGRATION_RUNTIME` and `PRODUCTION` are NOT RUN (no real
+SDK/HTTP, Provider, database-backed store, queue/worker, encryption, or protected-artifact storage). The
+`provider_calls` counter models an in-process boundary crossing only.
+
+Current focus: Day74 — Structured Output, JSON Schema and Function/Tool Calling (constrains the output on this
+versioned input boundary; do not pre-implement it here).
 
 ## Future Milestones
 
