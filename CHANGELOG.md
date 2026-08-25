@@ -9,6 +9,53 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day74 — Structured Output, JSON Schema and Function/Tool Calling (Phase 7A)
+
+Date: 2026-08-25
+
+Day: Day74 (Phase 7A). Adds the permissioned output/tool boundary after Day73's immutable Prompt/Attempt input
+binding: strict candidate parsing and schema checks, exact Tool Registry identity/version/lifecycle, trusted-
+context authorization, tenant-scoped semantic validation, immutable Admission, idempotent guarded execution,
+outcome verification, durable guarded completion and timeout-unknown reconciliation.
+
+Added:
+
+- `docs/fastapi/day74-structured-output-json-schema-and-function-tool-calling.md` — the 16-section
+  `LESSON_TEMPLATE_v2` lesson, preserving the beginner-first progression, 37 real student answers, authentic
+  corrections, A1–A5 failure/rollback exercise, all three English interview levels, and the teaching-assistant-
+  supplied final Chinese Mental Model attribution.
+- `projects/ai-agent/src/output_tool_contracts.py` — standard-library output/tool contract Artifact: documented
+  JSON Schema teaching subset; strict envelope/arguments/outcome contracts; exact Registry + lifecycle;
+  server-context Authorization + tenant-scoped semantics; frozen `AdmittedToolCall`; in-process idempotency
+  claim + final disable guard; outcome Schema/semantic/identity verification; timeout reconciliation and
+  guarded completion.
+- `projects/ai-agent/tests/test_output_tool_contracts.py` — 34 deterministic tests for parse/schema failures,
+  unknown/incompatible/disabled tools, tenant/role/semantic rejection, Admission, sequential/concurrent
+  duplicates, final kill switch, nested outcome validation, identity binding, timeout reconciliation, valid
+  late completion and stale/terminal/unverified zero-effect paths.
+- `projects/ai-agent/docs/DAY74_OUTPUT_TOOL_CONTRACTS.md` — released design/evidence contract.
+- `projects/ai-agent/docs/day74-output-tool-contracts-classroom-draft.md` — released classroom-process record.
+
+Updated:
+
+- `projects/ai-agent/README.md` — Day74 Artifact/progress; current focus Day75.
+- `cheat_sheets/fastapi.md` + `interview/fastapi.md` — Day74 boundary map, failure/recovery rules, real student
+  interview answers and corrections.
+- `CURRICULUM.md` + `ROADMAP.md` — Day74 Planned -> Completed with evidence and Day75 continuity.
+- `PROJECT_STATUS.md` + `TASKS.md` + `AGENTS.md` — Day74 Completed; Day75 current/next.
+
+Evidence: CONCEPTUAL completed. STATIC PASS: Python `py_compile`; `mypy` reports no issues in 7 source/test
+files; 16 required lesson sections; balanced Markdown fences; internal-link/whitespace/credential checks.
+EXECUTED_LOCAL_RUNTIME PASS: `/Users/yuanzhenyu/anaconda3/bin/python3.11 -m unittest discover -s tests -v`
+from `projects/ai-agent` -> 131 tests OK (34 Day74 + 39 Day73 + 58 Day72), Python 3.11.5. The in-memory
+stores/locks/counters model process-local boundaries only. Python 3.12 is NOT RUN (no executable available).
+The validator implements only the documented teaching subset and is NOT full JSON Schema compliance.
+INTEGRATION_RUNTIME and PRODUCTION are NOT RUN: no real Provider/SDK/HTTP/database/queue/external tool,
+reconciliation, compensation, credentials, customer data, sensitive prompts or production traffic. No commit,
+push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day73 — Prompt Contracts, Prompt Versioning and Compatibility (Phase 7A)
 
 Date: 2026-08-24

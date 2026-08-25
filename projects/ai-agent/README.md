@@ -30,16 +30,18 @@ ai-agent/
 ├── src/
 │   ├── provider_contract.py      # Day72: stable provider-independent surface + Capability Profile + Registry
 │   ├── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
-│   └── prompt_contracts.py       # Day73: application-owned Prompt Contract + Attempt binding + pre-Provider gate
+│   ├── prompt_contracts.py       # Day73: application-owned Prompt Contract + Attempt binding + pre-Provider gate
+│   └── output_tool_contracts.py  # Day74: output schema + permissioned tool admission/execution/completion
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
-│   └── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
-└── docs/                          # Day71 foundations + Day72 adapter + Day73 prompt-contract design + drafts
+│   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
+│   └── test_output_tool_contracts.py # Day74: 34 deterministic EXECUTED_LOCAL_RUNTIME tests
+└── docs/                          # Day71–Day74 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A in progress (Day73 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day72 released earlier).
+Status: Phase 7A in progress (Day74 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day73 released earlier).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -80,8 +82,20 @@ EXECUTED_LOCAL_RUNTIME — `python3 -m unittest discover -s tests -v` → 97 det
 SDK/HTTP, Provider, database-backed store, queue/worker, encryption, or protected-artifact storage). The
 `provider_calls` counter models an in-process boundary crossing only.
 
-Current focus: Day74 — Structured Output, JSON Schema and Function/Tool Calling (constrains the output on this
-versioned input boundary; do not pre-implement it here).
+Day74 — Structured Output, JSON Schema and Function/Tool Calling — adds the application-owned output/tool
+boundary after the Day73-bound Provider request: a documented strict JSON Schema subset, exact-version Tool
+Registry + lifecycle, trusted-context authorization, tenant-scoped semantics, immutable `AdmittedToolCall`,
+in-process idempotency claim + final disable guard, outcome Schema/semantic/identity verification, and guarded
+completion/reconciliation. See [`docs/DAY74_OUTPUT_TOOL_CONTRACTS.md`](docs/DAY74_OUTPUT_TOOL_CONTRACTS.md) and
+[`docs/day74-output-tool-contracts-classroom-draft.md`](docs/day74-output-tool-contracts-classroom-draft.md).
+Code: `src/output_tool_contracts.py`; tests: `tests/test_output_tool_contracts.py`. Evidence: CONCEPTUAL + STATIC
++ EXECUTED_LOCAL_RUNTIME — 34 Day74 tests, 131 total with Day72/Day73 (Python 3.11.5). `INTEGRATION_RUNTIME`,
+`PRODUCTION`, and Python 3.12 are NOT RUN. There is no real Provider/SDK/HTTP/database/queue/external tool;
+the subset validator is not a full JSON Schema engine, and in-memory locks/counters are not durable or
+exactly-once evidence.
+
+Current focus: Day75 — Streaming Responses, Caching and Batching (must preserve Day74's complete validated
+output, identity, authorization and guarded-completion boundaries; do not pre-implement it here).
 
 ## Future Milestones
 

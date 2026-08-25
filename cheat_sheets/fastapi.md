@@ -1385,3 +1385,78 @@ Incident verbs (distinct): DISABLE (stop a revision from new dispatch) · ROLLBA
 Evidence tier (Day73): CONCEPTUAL + STATIC (py_compile) + EXECUTED_LOCAL_RUNTIME (`python3 -m unittest discover -s tests -v` -> 97 tests OK: 39 Day73 + 58 Day72 regression, Python 3.11.5; in-memory stores + pure functions only). INTEGRATION_RUNTIME + PRODUCTION = NOT RUN (no real SDK/HTTP/Provider/DB/queue/worker/encryption/protected-artifact storage). The provider_calls counter models an in-process boundary crossing only; Day72 tests are prerequisite evidence, not Day73 validation. Full Fake Provider/LLM regression suite = Day77.
 
 Related: [Day73 lesson](../docs/fastapi/day73-prompt-contracts-prompt-versioning-and-compatibility.md) · [Day73 design contract](../projects/ai-agent/docs/DAY73_PROMPT_CONTRACTS.md) · [ai-agent project](../projects/ai-agent/README.md) · Previous: [Day72 lesson](../docs/fastapi/day72-provider-capabilities-and-the-replaceable-provider-adapter.md) · Next: Day74 — Structured Output, JSON Schema and Function/Tool Calling (Planned)
+
+## Day74 — Structured Output, JSON Schema and Function/Tool Calling (Phase 7A)
+
+Direct chain: Day73 binds the versioned prompt/input to one Attempt; Day74 treats the resulting model output
+and tool call as untrusted candidates and controls the path to a durable business effect.
+
+```text
+Provider candidate
+-> Parse
+-> Schema
+-> Registry name/version/lifecycle
+-> trusted-context Authorization
+-> tenant-scoped Semantics
+-> Tool Admission
+-> immutable AdmittedToolCall
+-> final disable guard + atomic idempotency claim
+-> Tool Execution
+-> Outcome Schema/Semantics/Identity
+-> guarded completion / reconciliation
+```
+
+Rapid distinctions:
+
+| Boundary | Proves | Does NOT prove |
+|---|---|---|
+| Provider `SUCCESS` | Provider/transport success surface | trusted output/business success |
+| Parse | text is readable JSON | required fields/types/permission |
+| Schema | structural contract | semantics/authorization/execution |
+| Semantic Validation | field combination fits business rules | actor may perform it |
+| Authorization | trusted tenant/user/role may act | candidate shape or outcome |
+| Tool Admission | this candidate may enter Executor | tool has executed/succeeded |
+| Outcome Verification | result shape/meaning/identity match | durable Job may complete |
+| Guarded Completion | current durable state accepts result | external exactly-once globally |
+
+JSON values: object · array · string · number · boolean · `null`. `json.loads` returns an untrusted Python
+value. JSON Mode targets valid JSON; Structured Output is a Provider capability; JSON Schema declares shape.
+None replaces application authorization/semantics.
+
+Day74 teaching subset: `type`, `properties`, `required`, `enum`, `minimum`/`maximum`,
+`minLength`/`maxLength`, `items`, `additionalProperties`. Unsupported keywords fail loudly. Strict tool arguments
+use `additionalProperties: false`; otherwise `force` may pass. The repository validator is NOT a full JSON
+Schema engine.
+
+Ownership: Prompt Contract=input behavior · Output Contract=candidate structure · Provider Adapter=wire
+translation · LLM Runtime=Attempt/candidate flow · Tool Registry=exact identity/version/lifecycle · Application
+Authorization=trusted tenant/user/role/ownership · Admission Gate=one invocation decision · Executor=admitted
+side effect · Verifier=outcome candidate · Durable Store=guarded truth/reconciliation.
+
+Failure map: malformed -> PARSE_FAILURE · wrong/missing/unknown strict field -> SCHEMA_INVALID · contradictory
+business combination -> SEMANTICALLY_INVALID · trusted identity cannot act -> UNAUTHORIZED · unknown/incompatible/
+disabled tool -> fail closed · final kill switch -> REJECTED_DISABLED · timeout after dispatch ->
+TIMEOUT_UNKNOWN/PENDING_RECONCILIATION · current exact late result -> may complete · stale/superseded/terminal ->
+zero effect.
+
+Idempotency: key identifies one logical operation; an ATOMIC claim decides one owner. Check-then-act is unsafe.
+An in-memory lock is thread-level evidence only. Production needs a durable unique/conditional claim plus
+fencing/external idempotency where supported. DB rollback cannot undo an accepted external HTTP request.
+
+Incident verbs: reject=current candidate · re-prompt/retry=new explicit Attempt · disable/rollback=stop future
+harm, never rewrite history · repair=correct internal durable facts · compensation=new authorized/idempotent
+counter-operation for confirmed reversible harm · reconciliation=recover truth for unknown outcome.
+
+Bad v2: A1 not admitted -> block/new safe Attempt only if required · A2 admitted/not executed -> kill switch,
+zero effect · A3 confirmed duplicate -> repair/compensate + preserve evidence · A4 dispatched/unknown -> reconcile,
+no blind retry · A5 safe v1 -> continue under bound v1.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (34 Day74 tests; 131 total with Day72/Day73, Python
+3.11.5; py_compile + mypy pass). Python 3.12, full JSON Schema, real Provider/SDK/HTTP/DB/queue/external tool,
+INTEGRATION_RUNTIME and PRODUCTION = NOT RUN.
+
+Related: [Day74 lesson](../docs/fastapi/day74-structured-output-json-schema-and-function-tool-calling.md) ·
+[Day74 design](../projects/ai-agent/docs/DAY74_OUTPUT_TOOL_CONTRACTS.md) ·
+[ai-agent project](../projects/ai-agent/README.md) ·
+Previous: [Day73 lesson](../docs/fastapi/day73-prompt-contracts-prompt-versioning-and-compatibility.md) ·
+Next: Day75 — Streaming Responses, Caching and Batching (Planned)

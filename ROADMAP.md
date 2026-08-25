@@ -297,7 +297,7 @@ fake-Provider contract/regression tests.
 | Day71 | LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes | ✅ Completed (classroom scope; CONCEPTUAL + STATIC, runtime NOT RUN) |
 | Day72 | Provider Capabilities and the Replaceable Provider Adapter | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 58 tests; INTEGRATION/PRODUCTION NOT RUN) |
 | Day73 | Prompt Contracts, Prompt Versioning and Compatibility | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 39 tests; INTEGRATION/PRODUCTION NOT RUN) |
-| Day74 | Structured Output, JSON Schema and Function/Tool Calling | Planned |
+| Day74 | Structured Output, JSON Schema and Function/Tool Calling | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 34 Day74 tests / 131 total; Python 3.12 + INTEGRATION/PRODUCTION NOT RUN) |
 | Day75 | Streaming, Caching and Batching for LLM Applications | Planned |
 | Day76 | Model Routing, Fallback, Latency and Cost Engineering | Planned |
 | Day77 | Fake Provider, Contract Tests and LLM Regression Tests | Planned |

@@ -1964,3 +1964,92 @@ Trade-off prompts: immutable revisions + overlay vs a single mutable string · p
 Validation honesty: Day73 is CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (39 Day73 in-process tests, 97 total with the Day72 regression, Python 3.11.5). INTEGRATION_RUNTIME + PRODUCTION = NOT RUN; no real SDK/HTTP/Provider/database/queue/worker/encryption/protected-artifact storage. The provider_calls counter models an in-process boundary crossing only; Day72 tests are prerequisite evidence, not Day73 validation. The final Chinese Mental Model synthesis was Tech-Lead-supplied at the student's explicit request, preserved as taught material — not an independently authored student answer.
 
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day73), the [Day73 lesson](../docs/fastapi/day73-prompt-contracts-prompt-versioning-and-compatibility.md), and the [Day73 design contract](../projects/ai-agent/docs/DAY73_PROMPT_CONTRACTS.md). Next: Day74 — Structured Output, JSON Schema and Function/Tool Calling (Planned).
+
+## Day74 — Structured Output, JSON Schema and Function/Tool Calling (Phase 7A)
+
+Direct prerequisites: Day73 (versioned input/Attempt binding), Day72 (Provider Adapter/capabilities), Day53
+(untrusted Provider success), Day54 (timeout/late-result identity), Day44 (typed contract thinking). Day74 adds
+the permissioned output/tool execution boundary (34 Day74 tests; 131 total; no real Provider/tool/database).
+
+Key Vocabulary: untrusted candidate · JSON parse · Schema Validation · Semantic Validation · server-side
+Authorization · Tool Definition · Tool Registry · Tool Admission Gate · AdmittedToolCall · idempotency key ·
+atomic claim · outcome identity · guarded completion · TIMEOUT_UNKNOWN · reconciliation · compensation ·
+fencing token.
+
+Useful Expressions: “Schema validity proves structure, not authorization or business safety.” · “The model
+proposes a tool call; the application decides whether and how to execute it.” · “A timeout after dispatch is an
+unknown outcome, so a blind retry may duplicate the side effect.” · “Rollback stops future harm; it does not
+rewrite history or undo an external request.”
+
+Beginner Q (Actual Question): Why is a schema-valid tool call still unsafe to execute immediately?
+
+Student's Verbatim Answer: “Due to incomplete verification, further validation—such as checking signatures and
+authorizations—is required.”
+
+Assessment: passed. The student correctly identified incomplete verification/authorization. Signatures are
+system-specific rather than universal. Always require semantic validation, exact Registry resolution,
+trusted-context authorization and per-candidate Admission.
+
+Strong Answer: “A schema-valid tool call only has the expected shape. The application must still validate
+business semantics, resolve the exact allowed tool version, authorize the trusted user and tenant, and admit
+this specific invocation before an Executor may receive it.”
+
+Intermediate Q (Actual Question): What is the difference between a Tool Definition and a Tool Admission Gate?
+
+Student's Verbatim Answer: “The tool definition encompasses details such as the tool's version, required
+parameters, and name, while the tool onboarding process involves a series of validation steps that ultimately
+authorize the tool for invocation.”
+
+Assessment: passed with terminology correction. “Tool Admission,” not onboarding. A Tool Definition declares
+name/version/argument Schema; Admission authorizes one candidate call, not permanent access to the tool.
+
+Strong Answer: “A Tool Definition is an application-owned declaration of an exact name, version and argument
+schema. The Admission Gate evaluates one untrusted candidate against that Registry, trusted authorization and
+current business state, then emits an immutable server-normalized command only if every check passes.”
+
+Senior Q (Actual Question): The Executor checks Registry activity and then calls an external service. Can a
+disable race still produce an effect, and what stronger design is required?
+
+Student's Verbatim Answer: “I think we should use update set returning.”
+
+Follow-up Answer: “Since external calls and other side effects that have already occurred cannot be undone, one
+can choose between reconciliation and compensation.”
+
+Assessment: passed. Atomic conditional `UPDATE ... RETURNING` is the correct durable-claim direction. Complete
+the design with operation identity, lifecycle epoch/fencing, external idempotency where supported, and
+reconciliation. A database rollback cannot undo an HTTP request already accepted externally.
+
+Strong Answer: “Serialize disable and execution admission through a durable conditional claim bound to tool
+version/lifecycle epoch, and send an idempotency or fencing identity the external service can enforce. Do not
+hold a DB transaction across HTTP. If dispatch outcome is unknown, reconcile authoritative internal/external
+evidence; if an undesirable reversible effect is confirmed, perform a separately authorized and idempotent
+compensation. Preserve the original Attempt and audit evidence.”
+
+Production Scenario: bad `publish_report@v2` accepted `force=true`. A1 not admitted -> block/new safe Attempt
+only if policy requires it; A2 admitted/not executed -> kill switch rejection; A3 duplicate effect confirmed ->
+repair/compensation; A4 dispatched/timeout unknown -> PENDING_RECONCILIATION, no retry; A5 safe v1 -> continue
+under v1. Never bulk rewrite version bindings.
+
+Follow-up Questions: Why does valid JSON not imply Schema validity? · Why does Schema validity not imply
+authorization? · Why can model `tenant_id` never be trusted identity? · Why must unknown fields/tools/versions
+fail closed? · Why does the Executor accept only `AdmittedToolCall`? · Why is Outcome Verification separate
+from guarded completion? · When is a late result valid rather than stale? · Why do dispatch marker/request ID
+not prove a side effect? · What is the difference between repair, compensation and reconciliation?
+
+Common Weak Answer: “The Provider guarantees JSON, so call the function and retry if it times out.” This
+confuses format with permission, hides tool/version differences and can duplicate a real side effect.
+
+Trade-off prompts: Provider-native Structured Output vs application validation · closed strict Schema vs
+extension flexibility · in-memory lock vs durable claim · full payload logs vs minimal protected evidence ·
+lock across external call vs short claim + fencing/reconciliation.
+
+Validation honesty: Day74 is CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (34 Day74 in-process tests; 131 total
+with Day72/Day73, Python 3.11.5; py_compile and mypy pass). Python 3.12, full JSON Schema compliance,
+INTEGRATION_RUNTIME and PRODUCTION are NOT RUN; no real SDK/HTTP/Provider/database/queue/external tool or
+reconciliation. The final Chinese Mental Model synthesis was teaching-assistant-supplied at the student's
+explicit request (`你帮我总结吧`), not independently authored by the student.
+
+Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day74), the
+[Day74 lesson](../docs/fastapi/day74-structured-output-json-schema-and-function-tool-calling.md), and the
+[Day74 design contract](../projects/ai-agent/docs/DAY74_OUTPUT_TOOL_CONTRACTS.md). Next: Day75 — Streaming
+Responses, Caching and Batching (Planned).
