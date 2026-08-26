@@ -31,17 +31,19 @@ ai-agent/
 │   ├── provider_contract.py      # Day72: stable provider-independent surface + Capability Profile + Registry
 │   ├── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
 │   ├── prompt_contracts.py       # Day73: application-owned Prompt Contract + Attempt binding + pre-Provider gate
-│   └── output_tool_contracts.py  # Day74: output schema + permissioned tool admission/execution/completion
+│   ├── output_tool_contracts.py  # Day74: output schema + permissioned tool admission/execution/completion
+│   └── streaming_cache_batching.py # Day75: complete streaming + safe cache reuse + per-item batching
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
-│   └── test_output_tool_contracts.py # Day74: 34 deterministic EXECUTED_LOCAL_RUNTIME tests
-└── docs/                          # Day71–Day74 released designs + classroom records
+│   ├── test_output_tool_contracts.py # Day74: 34 deterministic EXECUTED_LOCAL_RUNTIME tests
+│   └── test_streaming_cache_batching.py # Day75: 41 deterministic boundary tests
+└── docs/                          # Day71–Day75 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A in progress (Day74 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day73 released earlier).
+Status: Phase 7A in progress (Day75 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day74 released earlier).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -94,8 +96,18 @@ Code: `src/output_tool_contracts.py`; tests: `tests/test_output_tool_contracts.p
 the subset validator is not a full JSON Schema engine, and in-memory locks/counters are not durable or
 exactly-once evidence.
 
-Current focus: Day75 — Streaming Responses, Caching and Batching (must preserve Day74's complete validated
-output, identity, authorization and guarded-completion boundaries; do not pre-implement it here).
+Day75 — Streaming, Caching and Batching for LLM Applications — adds exact identity/sequence/buffer/completion
+stream assembly, versioned tenant/auth-aware response caching with TTL/resource-version/current-auth checks,
+cached-candidate re-admission through Day74, and compatible bounded/fair batching with per-item pre-dispatch
+fences, exact result mapping and retry/reject/reconcile recovery. See
+[`docs/DAY75_STREAMING_CACHING_BATCHING.md`](docs/DAY75_STREAMING_CACHING_BATCHING.md) and
+[`docs/day75-streaming-caching-batching-classroom-draft.md`](docs/day75-streaming-caching-batching-classroom-draft.md).
+Code: `src/streaming_cache_batching.py`; tests: `tests/test_streaming_cache_batching.py`. Evidence: CONCEPTUAL
++ STATIC + EXECUTED_LOCAL_RUNTIME — 41 Day75 deterministic in-process tests; 172 cumulative with 131
+Day72–Day74 regression tests (Python 3.11.5). No real Provider/SSE/HTTP/Redis/PostgreSQL/queue/Worker/external tool;
+INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
+
+Current focus: Day76 — Model Routing, Fallback, Latency and Cost Engineering. Day75 does not pre-implement it.
 
 ## Future Milestones
 

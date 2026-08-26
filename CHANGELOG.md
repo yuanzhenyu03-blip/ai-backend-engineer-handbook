@@ -9,6 +9,39 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day75 — Streaming, Caching and Batching for LLM Applications (Phase 7A)
+
+Date: 2026-08-26
+
+Day75 adds delivery/reuse/throughput controls without weakening Day74: identity/sequence-bound complete stream
+assembly, exact versioned tenant/auth-aware cache keys with current checks and fresh Admission, compatible
+bounded/fair batching, exact per-item result mapping and retry/reject/reconcile recovery.
+
+Added:
+
+- `docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md` — 16-section lesson preserving
+  the production progression, authentic answers/misconceptions, three-level English interview and attributed
+  Chinese synthesis.
+- `projects/ai-agent/src/streaming_cache_batching.py` + `tests/test_streaming_cache_batching.py` — in-process
+  streaming, cache and batch decision model with 41 deterministic Day75 tests.
+- `projects/ai-agent/docs/DAY75_STREAMING_CACHING_BATCHING.md` and
+  `projects/ai-agent/docs/day75-streaming-caching-batching-classroom-draft.md`.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day75 Completed; Day76 current.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. From `projects/ai-agent`, Python 3.11.5 ran
+`python -m unittest discover -s tests -v`: 172 tests OK (41 Day75 + 131 Day72–Day74 regressions). `py_compile`
+passed for 9 source/test files; `mypy` reported no issues in those 9 files. Repository checks passed for the
+required 16 lesson sections, Markdown fence balance, relative links, trailing whitespace, protected prompts,
+changed-file credential patterns and status consistency; no YAML changed. Python 3.12, real Provider,
+SSE/HTTP, Redis, PostgreSQL, queue, Worker or external tool, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
+No commit, push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day74 — Structured Output, JSON Schema and Function/Tool Calling (Phase 7A)
 
 Date: 2026-08-25

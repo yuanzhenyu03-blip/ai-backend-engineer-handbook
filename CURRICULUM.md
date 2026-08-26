@@ -1645,7 +1645,7 @@ mirrored in summary form in `ROADMAP.md` so CURRICULUM and ROADMAP agree on exec
 ## Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Status:
-In Progress (Day71–Day74 Completed — classroom scope; Day75–Day78 Planned)
+In Progress (Day71–Day75 Completed — classroom scope; Day76–Day78 Planned)
 
 Objective:
 Evolve a single Provider call (Day53–58) into a complete, testable LLM Application Runtime: architecture,
@@ -1688,6 +1688,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Scope: token/progress streaming, response caching, request batching.
   Connection: Day74 fixed output shape; Day75 adds streaming/caching/batching (extending Day54 streaming);
   Day76 chooses between models under latency/cost pressure.
+  Status: ✅ Completed (classroom scope). Released Lesson: `docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md`. Engineering Artifact: `projects/ai-agent/` (`src/streaming_cache_batching.py` + `tests/test_streaming_cache_batching.py` + `docs/DAY75_STREAMING_CACHING_BATCHING.md` + classroom record; README updated). Streaming emits only an identity/sequence-verified `CompleteCandidate`; cache hits require exact tenant/auth/input/contract/profile/policy identity, freshness/current authorization and a new Day74 Admission; batches preserve per-item identity, validation, outcome and retry/reject/reconcile recovery with bounded fairness/backpressure. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (41 Day75 deterministic in-process tests; 172 total with 131 Day72–Day74 regressions, Python 3.11.5). No real Provider/SSE/HTTP/Redis/PostgreSQL/queue/Worker/external tool; INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Final Chinese synthesis was teaching-assistant-supplied at the student's explicit request. Next: Day76 uses these latency/throughput/cache/failure facts for routing, fallback and cost engineering.
 - Day76 — Model Routing, Fallback, Latency and Cost Engineering.
   Scope: model routing, fallback policy, latency and cost engineering.
   Connection: Day75 optimized one path; Day76 routes across models with fallback and cost/latency budgets

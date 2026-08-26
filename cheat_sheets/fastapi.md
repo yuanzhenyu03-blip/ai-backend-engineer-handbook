@@ -1457,6 +1457,32 @@ INTEGRATION_RUNTIME and PRODUCTION = NOT RUN.
 
 Related: [Day74 lesson](../docs/fastapi/day74-structured-output-json-schema-and-function-tool-calling.md) ·
 [Day74 design](../projects/ai-agent/docs/DAY74_OUTPUT_TOOL_CONTRACTS.md) ·
-[ai-agent project](../projects/ai-agent/README.md) ·
-Previous: [Day73 lesson](../docs/fastapi/day73-prompt-contracts-prompt-versioning-and-compatibility.md) ·
-Next: Day75 — Streaming Responses, Caching and Batching (Planned)
+Next: [Day75 lesson](../docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md)
+
+## Day75 — Streaming, Caching and Batching for LLM Applications (Phase 7A)
+
+```text
+stream -> identity/order/completion -> CompleteCandidate -> Day74 chain
+cache  -> exact versioned key + freshness/current auth -> candidate -> Day74 Admission
+batch  -> compatible envelope; per-item identity/result/recovery -> guarded completion or reconciliation
+```
+
+- Chunk/token/transport event/progress event are distinct; partial content never enters Tool Admission.
+- Disconnect ends a subscription, not the Provider request or Durable Job.
+- Cache key includes trusted tenant/auth, canonical input, Prompt/Output/Tool/Profile/model/provider/policy versions.
+- TTL limits age, not truth. Check current auth, lifecycle, resource version and durable state on every hit.
+- Never cache/reuse `AdmittedToolCall`, secrets, one-time authority or successful partial buffers.
+- Batch per item: exact correlation; never guess position or retry the whole partial-success envelope.
+- Recovery: definitely-not-accepted -> new Attempt if policy allows; unauthorized/invalid -> reject;
+  dispatched/unknown -> `PENDING_RECONCILIATION`.
+- Planner: compatibility, max size, max wait, deadline, fairness, quota, bounded queue, backpressure.
+
+Incident: disable/rollback bad cache policy, force bypass, invalidate/quarantine affected keys, classify every
+Attempt/item from persisted evidence, preserve history, compensate confirmed reversible harm when authorized.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (41 Day75 deterministic in-process tests); no real
+Provider/SSE/HTTP/cache service/database/queue/tool; INTEGRATION_RUNTIME and PRODUCTION NOT RUN.
+
+Related: [Day75 lesson](../docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md) ·
+[Day75 design](../projects/ai-agent/docs/DAY75_STREAMING_CACHING_BATCHING.md) ·
+[ai-agent project](../projects/ai-agent/README.md) · Next: Day76 — Model Routing, Fallback, Latency and Cost Engineering

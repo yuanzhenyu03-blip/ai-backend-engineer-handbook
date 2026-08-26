@@ -2052,4 +2052,56 @@ explicit request (`你帮我总结吧`), not independently authored by the stude
 Pair with [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md) (Day74), the
 [Day74 lesson](../docs/fastapi/day74-structured-output-json-schema-and-function-tool-calling.md), and the
 [Day74 design contract](../projects/ai-agent/docs/DAY74_OUTPUT_TOOL_CONTRACTS.md). Next: Day75 — Streaming
-Responses, Caching and Batching (Planned).
+Responses, Caching and Batching.
+
+## Day75 — Streaming, Caching and Batching for LLM Applications (Phase 7A)
+
+### Beginner: chunk vs business result
+
+**Question:** What is the difference between a streaming chunk and a complete business result?
+
+**Actual answer:** “Streaming processing blocks can form a complete result, but auditing is still required.”
+
+**Strong answer:** A chunk is only a transport fragment. Exact identity, ordered assembly and a completion
+marker produce a complete candidate. It still needs Day74 schema, semantic, authorization, Admission and
+guarded-completion checks before it becomes durable business truth.
+
+### Intermediate: why a cache hit is not authority
+
+**Question:** Why does a cache hit not prove current authorization or correctness?
+
+**Actual answer:** “Authorization decisions must be based on database facts, as a mere server hit could—across
+gateways—result in accessing a server belonging to a different provider.”
+
+**Strong answer:** A hit proves only that a key found an entry. I verify trusted tenant/auth context, all
+contract/profile/policy versions, TTL, resource version, Registry lifecycle and current durable state. A
+cached tool candidate reruns Admission for the new Attempt; an old `AdmittedToolCall` is never reused.
+
+### Senior: partial batch outcome
+
+**Question:** One item succeeds, one is unauthorized and one times out after dispatch. How do you recover?
+
+**Actual answer:** “Each specific result of the batch should be handled separately. The first item completes
+the guard check; the second encounters an authorization rejection but undergoes a fix, followed by a retry;
+the third enters a `pending_reconciliation` state, where a decision is made based on persisted database facts
+and external call records rather than proceeding directly to a retry.” The authorization item was corrected:
+reject it without retry.
+
+**Strong answer:** Preserve three per-item facts. The successful item may pass guarded completion if exact
+identity/current state match. Reject the unauthorized item without retry. Put the unknown item in
+`PENDING_RECONCILIATION` with original Attempt/idempotency/cost evidence. Never retry the whole batch.
+
+### Follow-ups
+
+- Why is unexpired not equivalent to fresh? Durable facts can change before TTL.
+- What prevents tenant starvation? Compatible partitions plus max wait, deadlines, fair scheduling, quotas,
+  bounded queues and backpressure.
+- What does disconnect cancel? Only the subscription unless current persisted/external facts prove more.
+- What if result correlation is missing? Treat the envelope as unreliable; never guess by array position.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (41 Day75 deterministic in-process tests). Real
+Provider/SSE/HTTP/Redis/PostgreSQL/queue/tool, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
+
+Pair with the [Day75 lesson](../docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md),
+[Day75 design](../projects/ai-agent/docs/DAY75_STREAMING_CACHING_BATCHING.md), and
+[`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md). Next: Day76 — Model Routing, Fallback, Latency and Cost Engineering.
