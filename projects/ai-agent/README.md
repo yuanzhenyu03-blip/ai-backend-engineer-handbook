@@ -32,18 +32,21 @@ ai-agent/
 │   ├── provider_adapters.py      # Day72: concrete Provider A/B adapters + RecordingTransport + dispatch
 │   ├── prompt_contracts.py       # Day73: application-owned Prompt Contract + Attempt binding + pre-Provider gate
 │   ├── output_tool_contracts.py  # Day74: output schema + permissioned tool admission/execution/completion
-│   └── streaming_cache_batching.py # Day75: complete streaming + safe cache reuse + per-item batching
+│   ├── streaming_cache_batching.py # Day75: complete streaming + safe cache reuse + per-item batching
+│   ├── routing_policy.py          # Day76: eligibility-first route selection + immutable decision evidence
+│   └── recovery_cost.py           # Day76: classified fallback + cost reservation/settlement/reconciliation
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_output_tool_contracts.py # Day74: 34 deterministic EXECUTED_LOCAL_RUNTIME tests
-│   └── test_streaming_cache_batching.py # Day75: 41 deterministic boundary tests
-└── docs/                          # Day71–Day75 released designs + classroom records
+│   ├── test_streaming_cache_batching.py # Day75: 41 deterministic boundary tests
+│   └── test_day76_routing_recovery.py # Day76: deterministic routing/recovery/cost boundary tests
+└── docs/                          # Day71–Day76 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A in progress (Day75 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day74 released earlier).
+Status: Phase 7A in progress (Day76 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day75 released earlier).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -107,7 +110,19 @@ Code: `src/streaming_cache_batching.py`; tests: `tests/test_streaming_cache_batc
 Day72–Day74 regression tests (Python 3.11.5). No real Provider/SSE/HTTP/Redis/PostgreSQL/queue/Worker/external tool;
 INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
 
-Current focus: Day76 — Model Routing, Fallback, Latency and Cost Engineering. Day75 does not pre-implement it.
+Day76 — Model Routing, Fallback, Latency and Cost Engineering — adds eligibility-first selection over Day72
+Capability Profiles, a server-owned/versioned Routing Policy, immutable per-Attempt RoutingDecision evidence,
+classified retry/fallback/reject/disable/reconcile decisions, explicit latency boundaries and guarded cost
+estimate/reservation/actual/unknown settlement. See
+[`docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md`](docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md) and
+[`docs/day76-model-routing-fallback-latency-cost-classroom-draft.md`](docs/day76-model-routing-fallback-latency-cost-classroom-draft.md).
+Code: `src/routing_policy.py`, `src/recovery_cost.py`; tests: `tests/test_day76_routing_recovery.py`. Evidence is
+CONCEPTUAL + STATIC + deterministic EXECUTED_LOCAL_RUNTIME with all Day72–Day75 regressions. There is no real
+Provider, HTTP/SSE, database, queue/Worker, external tool, live health/pricing/latency service, credential,
+customer data or production traffic; INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
+
+Current focus: Day77 — Fake Provider, Contract Tests and LLM Regression Tests. Day76 does not pre-implement
+that full suite.
 
 ## Future Milestones
 

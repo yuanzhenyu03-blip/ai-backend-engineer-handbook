@@ -2105,3 +2105,66 @@ Provider/SSE/HTTP/Redis/PostgreSQL/queue/tool, INTEGRATION_RUNTIME and PRODUCTIO
 Pair with the [Day75 lesson](../docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md),
 [Day75 design](../projects/ai-agent/docs/DAY75_STREAMING_CACHING_BATCHING.md), and
 [`cheat_sheets/fastapi.md`](../cheat_sheets/fastapi.md). Next: Day76 — Model Routing, Fallback, Latency and Cost Engineering.
+## Day76 — Model Routing, Fallback, Latency and Cost Engineering (Phase 7A)
+
+### Beginner: What is model routing?
+
+**Strong answer:**
+
+Model routing is a policy-controlled selection process. The runtime first removes candidates that cannot
+satisfy the current Prompt, Output, Tool and Provider Capability Contracts. It then selects among eligible
+candidates using current server-owned tenant, deadline, reliability and budget rules, and stores the route in
+an immutable Attempt binding.
+
+**Weak answer:** “It dynamically picks the cheapest model.” This skips eligibility, authority, evidence
+freshness and historical binding.
+
+### Intermediate: Retry versus fallback
+
+**Question:** How do retry and fallback differ, and what changes after `TIMEOUT_UNKNOWN`?
+
+**Strong answer:**
+
+A retry creates a new Attempt on the same Provider/model path. A fallback creates a new Attempt on a different
+compatible path. Both preserve the source Attempt. If the source is `TIMEOUT_UNKNOWN`, the runtime must not
+blindly do either because the original may have executed; it retains identity and cost reservation and enters
+durable reconciliation.
+
+**Follow-up:** May fallback bypass authorization or output/tool compatibility? No. Every new candidate passes
+current capability, Prompt, Output, Tool, Authorization and Admission checks.
+
+### Intermediate: Latency and cost evidence
+
+**Question:** Why is “p95 latency is eight seconds and cost is three” insufficient?
+
+**Strong answer:**
+
+Latency needs an object, measurement boundary, identity and observation window; p95 is a population percentile,
+not a single-request guarantee. Cost needs a scope and state: estimate, reservation, Provider-reported usage,
+settled actual or unknown. The values also require the bound profile/pricing/policy versions.
+
+### Senior: Bad routing-policy incident
+
+**Question:** A policy release admitted an incompatible model, used stale signals, amplified fallback, left an
+original call unknown and produced incomplete cost evidence. How do you recover?
+
+**Strong answer:**
+
+I roll new planning back to the stable policy, stop the bad revision, pause automatic fallback and quarantine
+the incompatible Profile. I scope every affected Job and Attempt by policy revision and time window, then
+classify dispatch certainty, durable outcome, side effects, latency and cost separately. `TIMEOUT_UNKNOWN`
+Attempts retain reservations and reconcile; they are not blindly rerouted. Historical bindings remain
+immutable, and late results cannot overwrite terminal state. I repair durable facts separately from verified,
+authorized compensation of external effects. I close only after costs are settled or durably unknown,
+reconciliation paths are observable, and controlled rollout plus cross-system evidence shows no new harm.
+
+**Senior follow-ups:**
+
+1. Why can rollback not rewrite old Attempts?
+2. When does fail-closed on stale pricing reduce availability but protect cost policy?
+3. Why can a cache hit not settle another dispatched Attempt at zero?
+4. How does a batch total differ from per-item actual cost?
+5. Which latency boundary matters for user perception, Provider capacity and durable business completion?
+
+Related: [Day76 lesson](../docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md) ·
+[Day76 design](../projects/ai-agent/docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md)

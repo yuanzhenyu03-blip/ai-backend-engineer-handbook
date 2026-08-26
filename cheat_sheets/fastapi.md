@@ -1486,3 +1486,56 @@ Provider/SSE/HTTP/cache service/database/queue/tool; INTEGRATION_RUNTIME and PRO
 Related: [Day75 lesson](../docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md) ·
 [Day75 design](../projects/ai-agent/docs/DAY75_STREAMING_CACHING_BATCHING.md) ·
 [ai-agent project](../projects/ai-agent/README.md) · Next: Day76 — Model Routing, Fallback, Latency and Cost Engineering
+
+## Day76 — Model Routing, Fallback, Latency and Cost Engineering (Phase 7A)
+
+```text
+candidate eligibility/compatibility
+  -> server-owned versioned Routing Policy
+  -> immutable RoutingDecision + per-Attempt execution binding
+  -> Provider candidate -> Day73/Day74/Day75 safety chain
+  -> guarded completion or reconciliation
+  -> per-Attempt cost settlement
+```
+
+```text
+Eligibility = may this path execute the exact Prompt/Output/Tool/Capability Contract?
+Preference  = which eligible path best fits current tenant/deadline/budget policy?
+```
+
+- Client model/provider input is only a constrained selector; server policy is authority.
+- Static or policy-driven routing still applies hard gates before latency/cost preference.
+- Missing/stale/mismatched capability, lifecycle, latency or pricing evidence fails closed.
+- Routing-policy changes govern new Attempts only; historical decisions/bindings never change.
+- Provider `SUCCESS` remains an untrusted candidate.
+
+| Outcome/evidence | Recovery |
+|---|---|
+| Definitely not accepted, same path allowed | retry as a new Attempt |
+| Definitely not accepted, different compatible path allowed | fallback as a new Attempt |
+| `TIMEOUT_UNKNOWN` | retain identity/reservation; `PENDING_RECONCILIATION` |
+| Unauthorized/incompatible/business rejection | reject; do not route around it |
+| Authentication/configuration fault | disable path + repair |
+| Confirmed wrong external effect | preserve + authorized/idempotent compensation |
+
+Latency rules: name the object and boundary (`queue`, `routing/admission`, Provider TTFT/complete, tool,
+guarded completion, Job end-to-end). p50/p95/p99 are distribution evidence, not per-request guarantees.
+Streaming improves perceived latency, not necessarily durable completion. Batching improves throughput only
+when a real measured batch boundary shares work; it may add queueing and never merges item identity.
+
+Cost rules:
+
+```text
+estimate != reservation != Provider-reported usage != settled actual != unknown
+Job cost = sum of its Attempts; retry/fallback amplify cost
+TIMEOUT_UNKNOWN cost != zero; retain reservation and reconcile
+batch total without per-item evidence -> per-item UNKNOWN, not equal actuals
+```
+
+Evidence: CONCEPTUAL + STATIC + deterministic EXECUTED_LOCAL_RUNTIME. No real Provider/model capability,
+price, latency, availability, HTTP/SSE, DB, queue, tool or production evidence. INTEGRATION_RUNTIME and
+PRODUCTION are NOT RUN.
+
+Related: [Day76 lesson](../docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md) ·
+[Day76 design](../projects/ai-agent/docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md) ·
+[ai-agent project](../projects/ai-agent/README.md) · Next: Day77 — Fake Provider, Contract Tests and LLM Regression Tests

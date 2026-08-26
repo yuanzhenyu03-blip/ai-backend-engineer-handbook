@@ -299,7 +299,7 @@ fake-Provider contract/regression tests.
 | Day73 | Prompt Contracts, Prompt Versioning and Compatibility | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 39 tests; INTEGRATION/PRODUCTION NOT RUN) |
 | Day74 | Structured Output, JSON Schema and Function/Tool Calling | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 34 Day74 tests / 131 total; Python 3.12 + INTEGRATION/PRODUCTION NOT RUN) |
 | Day75 | Streaming, Caching and Batching for LLM Applications | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 41 Day75 tests; INTEGRATION/PRODUCTION NOT RUN) |
-| Day76 | Model Routing, Fallback, Latency and Cost Engineering | Planned |
+| Day76 | Model Routing, Fallback, Latency and Cost Engineering | ✅ Completed (classroom scope; CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 18 Day76 tests / 190 total; INTEGRATION/PRODUCTION NOT RUN) |
 | Day77 | Fake Provider, Contract Tests and LLM Regression Tests | Planned |
 | Day78 | LLM Application Runtime Capstone, Checkpoint and English Interview | Planned |
 

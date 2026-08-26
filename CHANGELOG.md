@@ -9,6 +9,44 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day76 — Model Routing, Fallback, Latency and Cost Engineering (Phase 7A)
+
+Date: 2026-08-26
+
+Day76 adds eligibility-first route selection, immutable routing evidence, classified fallback/recovery,
+explicit latency boundaries and guarded estimate/reservation/actual/unknown cost settlement without weakening
+the Day72–Day75 safety chain.
+
+Added:
+
+- `docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md` — 16-section lesson preserving
+  the production progression, authentic answers/misconceptions, the latency/batching clarification, three-level
+  English interview and explicitly attributed assistant-supplied Chinese synthesis.
+- `projects/ai-agent/src/routing_policy.py` + `src/recovery_cost.py` +
+  `tests/test_day76_routing_recovery.py` — deterministic in-process routing, recovery and cost decision model
+  with 18 Day76 tests.
+- `projects/ai-agent/docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md` and
+  `projects/ai-agent/docs/day76-model-routing-fallback-latency-cost-classroom-draft.md`.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day76 Completed; Day77 current.
+
+Core result: hard compatibility gates run before preference; client selection is constrained by server policy;
+new external paths create new immutable Attempts; `TIMEOUT_UNKNOWN` is reconciled rather than blindly
+retried/fallen back; p95 is boundary-specific distribution evidence; and unknown cost retains its reservation.
+The bad-v5 incident exercise separates rollback, quarantine, reject, repair, compensation, reconciliation and
+cost settlement while preserving every historical Attempt.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. From `projects/ai-agent`, Python 3.11.5 ran
+`python -m unittest discover -s tests -v`: 190 tests OK (18 Day76 + 172 Day72–Day75 regressions); `py_compile`
+passed for the 12 Phase 7A source/test files. Real Provider/model capability, price, latency, health,
+availability, HTTP/SSE, database, queue/Worker, external tool, billing reconciliation, INTEGRATION_RUNTIME and
+PRODUCTION are NOT RUN. No commit, push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day75 — Streaming, Caching and Batching for LLM Applications (Phase 7A)
 
 Date: 2026-08-26

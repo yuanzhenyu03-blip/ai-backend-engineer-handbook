@@ -1645,7 +1645,7 @@ mirrored in summary form in `ROADMAP.md` so CURRICULUM and ROADMAP agree on exec
 ## Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Status:
-In Progress (Day71–Day75 Completed — classroom scope; Day76–Day78 Planned)
+In Progress (Day71–Day76 Completed — classroom scope; Day77–Day78 Planned)
 
 Objective:
 Evolve a single Provider call (Day53–58) into a complete, testable LLM Application Runtime: architecture,
@@ -1693,6 +1693,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Scope: model routing, fallback policy, latency and cost engineering.
   Connection: Day75 optimized one path; Day76 routes across models with fallback and cost/latency budgets
   (reusing Day56 resilience); Day77 proves all of it with deterministic tests.
+  Status: ✅ Completed (classroom scope). Released Lesson: `docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md`. Engineering Artifact: `projects/ai-agent/` (`src/routing_policy.py` + `src/recovery_cost.py` + `tests/test_day76_routing_recovery.py` + `docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md` + classroom record; README updated). Core model: eligibility/compatibility before preference; server-owned versioned Routing Policy; immutable RoutingDecision + per-Attempt Provider/model/Profile binding; retry uses the same path while fallback uses a different compatible path and both preserve the source Attempt; `TIMEOUT_UNKNOWN` retains identity/reservation and enters reconciliation; latency is bound to an explicit Job/Attempt/item stage and boundary; estimate/reservation/Provider-reported/actual/unknown cost remain distinct and retry/fallback amplify Job cost. The bad-v5 exercise used rollback for new planning, pause/quarantine/fail-closed containment, per-Attempt classification, repair vs compensation, late-result fencing and guarded cost reconciliation without rewriting history. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (18 Day76 deterministic in-process tests; 190 total with 172 Day72–Day75 regressions, Python 3.11.5). No real Provider/HTTP/SSE/database/queue/Worker/tool/live health/pricing/latency/billing integration; INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Final Chinese synthesis was teaching-assistant-supplied at the student's explicit request. Next: Day77 pins the runtime behavior with Fake Provider, Contract Tests and Regression Tests.
 - Day77 — Fake Provider, Contract Tests and LLM Regression Tests.
   Scope: fake-Provider contract tests and LLM regression tests (deterministic, no real Provider calls).
   Connection: Day76 built routing/cost behavior; Day77 pins it with fake-Provider contract and regression
