@@ -1645,7 +1645,7 @@ mirrored in summary form in `ROADMAP.md` so CURRICULUM and ROADMAP agree on exec
 ## Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Status:
-In Progress (Day71–Day76 Completed — classroom scope; Day77–Day78 Planned)
+In Progress (Day71–Day77 Completed — classroom scope; Day78 Planned)
 
 Objective:
 Evolve a single Provider call (Day53–58) into a complete, testable LLM Application Runtime: architecture,
@@ -1698,6 +1698,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Scope: fake-Provider contract tests and LLM regression tests (deterministic, no real Provider calls).
   Connection: Day76 built routing/cost behavior; Day77 pins it with fake-Provider contract and regression
   tests (extending Day57); Day78 integrates the phase into an LLM Application Runtime.
+  Status: ✅ Completed (classroom scope). Released Lesson: `docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md`. Engineering Artifact: `projects/ai-agent/` (`src/fake_provider_testing.py` + `tests/test_day77_fake_provider_contract_regression.py` + `docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md` + classroom record; README updated). Core model: deterministic Provider-specific responses/errors pass through the real Day72 Adapters into stable `ProviderOutcome`s; a controlled response gate and `FakeClock` create timeout/late-result windows without behavioral sleeps; an independently injected minimized call log survives simulated Worker-object loss; semantic regressions exercise the real Day73–Day76 chain and assert state plus Provider/tool/cost effects; unknown execution remains `TIMEOUT_UNKNOWN`, retains A1/reservation, creates no A2 and reconciles; ordinary fallback preserves A1 and creates A2; missing/duplicate batch identity reconciles the envelope; independent human-reviewed goldens cannot be auto-updated by observed output. The bad-v6 exercise separates containment, affected-scope classification, reconciliation, internal repair, external compensation, stale-result fencing and closure evidence. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (31 Day77 deterministic tests; 221 total Day72–Day77, Python 3.11.5). No real SDK/HTTP/Provider/database/queue/Worker/external tool/billing API; INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Final Chinese synthesis was teaching-assistant-supplied at the student's explicit request. Next: Day78 integrates the phase; it is not pre-implemented here.
 - Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview.
   Scope: integrate the LLM application runtime; runnable checkpoint; phase-level English interview.
   Connection: Day77 completed the tests; Day78 integrates the LLM Application Runtime as a runnable checkpoint

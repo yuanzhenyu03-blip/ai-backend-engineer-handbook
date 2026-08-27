@@ -9,6 +9,44 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day77 — Fake Provider, Contract Tests and LLM Regression Tests (Phase 7A)
+
+Date: 2026-08-27
+
+Day77 makes Day72–Day76 application guarantees deterministic without a real Provider call. A controlled Fake
+transport sits behind both real Adapters; stable Contract Tests assert `ProviderOutcome`, while semantic
+regressions exercise validation, authorization, recovery, guarded completion, call/tool effects and cost.
+
+Added:
+
+- `docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md` — 16-section lesson preserving
+  real answers, misconceptions/corrections, three English answers and attributed assistant-supplied synthesis.
+- `projects/ai-agent/src/fake_provider_testing.py` — `FakeClock`, explicit response gate, independent minimized
+  call evidence, and independently-authored behavior-golden comparison.
+- `projects/ai-agent/tests/test_day77_fake_provider_contract_regression.py` — 31 deterministic Day77 tests.
+- `projects/ai-agent/docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md` and classroom record.
+
+Updated:
+
+- `projects/ai-agent/src/provider_adapters.py` — Adapter constructors now depend on the minimal typed
+  `ProviderTransport` Protocol so the recording and controlled Fake transports share the same injection seam.
+- `projects/ai-agent/README.md`, `docs/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day77 Completed; Day78 current.
+
+Core result: both fictional Providers must translate Provider-specific success/truncation/refusal/rate/auth/
+transport/timeout/invalid facts into stable outcomes. `TIMEOUT_UNKNOWN` retains A1 and its reservation, creates
+no A2 and reconciles; ordinary fallback preserves A1 and creates A2. Unauthorized tools have zero effects;
+partial/gapped streams, revoked cache authority and unreliable batch envelopes fail closed. Goldens are
+independent and human-reviewed. Bad-v6 recovery separates rollback/quarantine, affected scope, unknowns, cost,
+repair, compensation, late-result fencing and incident closure evidence.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. From `projects/ai-agent`, Python 3.11.5 ran
+`python3.11 -m unittest discover -s tests -v`: 221 tests OK (31 Day77 + 190 Day72–Day76 regressions). Real SDK,
+HTTP, Provider, database, queue/Worker, external tool, billing reconciliation, INTEGRATION_RUNTIME and
+PRODUCTION are NOT RUN. No commit, push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day76 — Model Routing, Fallback, Latency and Cost Engineering (Phase 7A)
 
 Date: 2026-08-26

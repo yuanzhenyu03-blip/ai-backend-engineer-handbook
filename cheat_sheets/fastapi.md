@@ -1539,3 +1539,33 @@ PRODUCTION are NOT RUN.
 Related: [Day76 lesson](../docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md) ·
 [Day76 design](../projects/ai-agent/docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md) ·
 [ai-agent project](../projects/ai-agent/README.md) · Next: Day77 — Fake Provider, Contract Tests and LLM Regression Tests
+
+## Day77 — Fake Provider, Contract Tests and LLM Regression Tests (Phase 7A)
+
+```text
+scripted Provider response/error
+  -> Fake transport behind the real Adapter
+  -> stable ProviderOutcome
+  -> real validation/admission/recovery/guarded completion
+  -> state + side-effect observation
+  -> independent human-reviewed golden
+```
+
+- Control timing with an explicit response gate; control application time with `FakeClock`.
+- Record a Provider-boundary send independently of the simulated Worker lifecycle.
+- Missing request ID does not prove no call. Definitely not sent -> `TRANSPORT_ERROR`; possibly sent or
+  unknown -> `TIMEOUT_UNKNOWN`.
+- Run the same semantic Contract Tests for every Adapter; do not assert SDK types or wire fields.
+- For unauthorized tools, assert effect count `0`; final status alone is not enough.
+- Partial/gapped streams emit no complete candidate; cache reuse requires fresh authorization.
+- Missing/duplicate batch IDs make the envelope unreliable; reconcile all affected items.
+- Ordinary fallback: keep A1, create A2. Timeout unknown: keep A1, no A2, hold reservation, reconcile.
+- Goldens are independent and reviewed; never auto-update them from production output.
+- Unknown usage remains `UNKNOWN`, never zero. Rollback contains future harm but does not close an incident.
+
+Evidence: 31 Day77 tests / 221 cumulative deterministic in-process tests (Python 3.11.5). No real SDK,
+Provider, HTTP, database, queue/Worker, tool, billing API, integration runtime or production.
+
+Related: [Day77 lesson](../docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md) ·
+[Day77 design](../projects/ai-agent/docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md) ·
+[ai-agent project](../projects/ai-agent/README.md) · Next: Day78 — LLM Application Runtime Capstone

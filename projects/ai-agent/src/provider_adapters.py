@@ -30,7 +30,7 @@ from __future__ import annotations
 import string
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Mapping, Optional
+from typing import Dict, List, Mapping, Optional, Protocol
 
 from provider_contract import (
     AdmissionResult,
@@ -189,6 +189,13 @@ def _map_unknown_sdk_error(err: object, label: str) -> ProviderOutcome:
 # ---------------------------------------------------------------------------
 # Controlled in-process transport (records calls; returns a wire response OR raises a scripted SDK error).
 # ---------------------------------------------------------------------------
+class ProviderTransport(Protocol):
+    """Minimal injected transport seam implemented by recording and Fake transports."""
+
+    def send(self, wire_request: Mapping[str, object]) -> Mapping[str, object]:
+        """Send one Provider-specific request or raise a Provider SDK error."""
+
+
 @dataclass
 class RecordingTransport:
     """Records every wire request it is asked to send, then either returns a scripted wire response or raises
@@ -210,7 +217,7 @@ class RecordingTransport:
 # Provider A adapter — wire uses `max_tokens` / finish reason `length`; A-specific SDK errors.
 # ---------------------------------------------------------------------------
 class ProviderAAdapter:
-    def __init__(self, transport: RecordingTransport, profile: CapabilityProfile) -> None:
+    def __init__(self, transport: ProviderTransport, profile: CapabilityProfile) -> None:
         self._transport = transport   # Provider-specific client stays inside the Adapter (constructor-injected)
         self._profile = profile
 
@@ -273,7 +280,7 @@ class ProviderAAdapter:
 # Provider B adapter — wire uses `maxOutputTokens` / finish state `MAX_TOKENS`; B-specific SDK errors.
 # ---------------------------------------------------------------------------
 class ProviderBAdapter:
-    def __init__(self, transport: RecordingTransport, profile: CapabilityProfile) -> None:
+    def __init__(self, transport: ProviderTransport, profile: CapabilityProfile) -> None:
         self._transport = transport
         self._profile = profile
 

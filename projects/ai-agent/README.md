@@ -34,19 +34,21 @@ ai-agent/
 │   ├── output_tool_contracts.py  # Day74: output schema + permissioned tool admission/execution/completion
 │   ├── streaming_cache_batching.py # Day75: complete streaming + safe cache reuse + per-item batching
 │   ├── routing_policy.py          # Day76: eligibility-first route selection + immutable decision evidence
-│   └── recovery_cost.py           # Day76: classified fallback + cost reservation/settlement/reconciliation
+│   ├── recovery_cost.py           # Day76: classified fallback + cost reservation/settlement/reconciliation
+│   └── fake_provider_testing.py   # Day77: FakeClock + controlled transport + independent golden evidence
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_output_tool_contracts.py # Day74: 34 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_streaming_cache_batching.py # Day75: 41 deterministic boundary tests
-│   └── test_day76_routing_recovery.py # Day76: deterministic routing/recovery/cost boundary tests
-└── docs/                          # Day71–Day76 released designs + classroom records
+│   ├── test_day76_routing_recovery.py # Day76: deterministic routing/recovery/cost boundary tests
+│   └── test_day77_fake_provider_contract_regression.py # Day77: shared contracts + semantic regressions
+└── docs/                          # Day71–Day77 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A in progress (Day76 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day75 released earlier).
+Status: Phase 7A in progress (Day77 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day76 released earlier).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -121,8 +123,19 @@ CONCEPTUAL + STATIC + deterministic EXECUTED_LOCAL_RUNTIME with all Day72–Day7
 Provider, HTTP/SSE, database, queue/Worker, external tool, live health/pricing/latency service, credential,
 customer data or production traffic; INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
 
-Current focus: Day77 — Fake Provider, Contract Tests and LLM Regression Tests. Day76 does not pre-implement
-that full suite.
+Day77 — Fake Provider, Contract Tests and LLM Regression Tests — adds a deterministic Fake transport behind
+both real Day72 Adapters, a separately injected minimized call log, an explicit response gate, `FakeClock`,
+one shared stable-`ProviderOutcome` Contract Test suite and semantic regressions across Day73–Day76. See
+[`docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md`](docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md)
+and [`docs/day77-fake-provider-contract-tests-llm-regression-classroom-draft.md`](docs/day77-fake-provider-contract-tests-llm-regression-classroom-draft.md).
+Code: `src/fake_provider_testing.py`; tests: `tests/test_day77_fake_provider_contract_regression.py`.
+Evidence: 31 Day77 deterministic tests, 221 cumulative Day72–Day77 tests (Python 3.11.5). No real SDK,
+HTTP, Provider, database, queue/Worker, external tool or billing system; INTEGRATION_RUNTIME and PRODUCTION
+are NOT RUN. Provider A/B and v6 are fictional fixtures; the independent call log is in-process evidence,
+not crash-durable infrastructure.
+
+Current focus: Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview. Day77 does not
+pre-implement that capstone.
 
 ## Future Milestones
 

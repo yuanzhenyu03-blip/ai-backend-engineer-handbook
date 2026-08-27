@@ -2168,3 +2168,48 @@ reconciliation paths are observable, and controlled rollout plus cross-system ev
 
 Related: [Day76 lesson](../docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md) ·
 [Day76 design](../projects/ai-agent/docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md)
+
+## Day77 — Fake Provider, Contract Tests and LLM Regression Tests (Phase 7A)
+
+### Beginner: Why use a Fake Provider?
+
+**Strong answer:** A Fake Provider makes responses, failures, timing and call evidence deterministic so the
+application contract can run locally without a paid or network call. It proves only the scripted in-process
+boundary, not real Provider, integration or production behavior.
+
+### Intermediate: Where should an Adapter Contract Test place the Fake?
+
+**Strong answer:** Behind the real Adapter at its Provider/transport boundary. The fixture returns
+Provider-specific shapes or errors and the test asserts the stable application-owned `ProviderOutcome`.
+Returning `ProviderOutcome` directly would bypass the translation being tested.
+
+### Intermediate: How do you test an ambiguous timeout?
+
+**Strong answer:** Record the send independently, hold the response at a test-controlled gate, explicitly
+advance a FakeClock past the deadline, retain A1 and its reservation, create no A2, and enter
+`PENDING_RECONCILIATION`. A missing Provider request ID is not proof of non-execution.
+
+### Senior: What makes an LLM regression test semantic?
+
+**Strong answer:** It exercises the real validation and guarded-completion chain and asserts product
+guarantees plus effects: outcome, recovery, Job state, Provider calls, tool effects, Attempt creation, and
+cost state. Its golden is independently authored and reviewed; the observed output cannot auto-approve it.
+
+### Senior: How do you close a bad-Adapter incident?
+
+**Strong answer:** Roll new planning back to a stable version, quarantine the bad version, disable automatic
+fallback, and scope affected immutable Attempts by version, time, binding, routing and outcome evidence.
+Reconcile possible dispatch and unknown cost, repair internal facts without changing history, compensate
+confirmed external effects through authorized idempotent actions, fence late results, and verify controlled
+rollout. Rollback plus green tests is containment evidence, not closure.
+
+**Follow-ups:**
+
+1. Why must an unauthorized tool regression assert effect count zero?
+2. Why does a missing or duplicate batch result force envelope reconciliation?
+3. When may fallback create A2, and when is it forbidden?
+4. Why must unknown usage retain its reservation?
+5. Which evidence distinguishes internal repair from external compensation?
+
+Related: [Day77 lesson](../docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md) ·
+[Day77 design](../projects/ai-agent/docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md)

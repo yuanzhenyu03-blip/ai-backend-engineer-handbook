@@ -46,7 +46,8 @@ docs/
 │   ├── day58-production-ai-api-capstone-observability-and-english-interview.md
 │   ├── day59-real-fastapi-runtime-postgresql-and-alembic-integration.md
 │   ├── day60-outbox-redis-celery-broker-and-worker-recovery-integration.md
-│   └── day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md  # latest (artifacts delivered; INTEGRATION_RUNTIME NOT RUN)
+│   ├── day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md
+│   └── day77-fake-provider-contract-tests-and-llm-regression-tests.md  # latest Phase 7A lesson
 ├── playwright/
 └── n8n/
 ```
