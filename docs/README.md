@@ -47,7 +47,8 @@ docs/
 │   ├── day59-real-fastapi-runtime-postgresql-and-alembic-integration.md
 │   ├── day60-outbox-redis-celery-broker-and-worker-recovery-integration.md
 │   ├── day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md
-│   └── day77-fake-provider-contract-tests-and-llm-regression-tests.md  # latest Phase 7A lesson
+│   ├── day77-fake-provider-contract-tests-and-llm-regression-tests.md
+│   └── day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md # Phase 7A capstone
 ├── playwright/
 └── n8n/
 ```

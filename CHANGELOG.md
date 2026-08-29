@@ -9,6 +9,41 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview (Phase 7A)
+
+Date: 2026-08-28
+
+Day78 closes Phase 7A at classroom scope by composing the Day72–Day77 public seams behind one
+application-owned Runtime orchestration and authoritative lifecycle boundary.
+
+Added:
+
+- `docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md` — 16-section
+  lesson preserving real answers, incomplete answers/corrections, failure exercise and three-level interview.
+- `projects/ai-agent/src/application_runtime.py` and `tests/test_day78_application_runtime.py` — immutable
+  preparation, deterministic Prompt-message bridge, Provider execution envelope, authoritative Attempt state,
+  Tool outcome verification, guarded completion, compensation identity and idempotent settlement (22 tests).
+- `projects/ai-agent/docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md` and classroom record.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `docs/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day78 and Phase 7A Completed;
+  Day79 current/next.
+
+Core result: resolve and bind Contracts before eligibility/routing/dispatch; keep one lifecycle authority;
+preserve Prompt payload identity; treat Provider success, candidate validation, Tool Admission/execution,
+outcome verification and completion as distinct gates; reconcile unknown identity/reservation; separate repair
+from compensation; use idempotency for duplicates and fencing for stale authority; settle known cost without
+turning unknown into zero.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. Python 3.11.5 ran `py_compile` and 243 cumulative
+Day72–Day78 tests (22 Day78), all OK. Python 3.12, real SDK/HTTP/Provider/database/queue/Worker/durable fencing,
+protected artifact loading, external Tool/compensation/billing, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN.
+No commit, push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day77 — Fake Provider, Contract Tests and LLM Regression Tests (Phase 7A)
 
 Date: 2026-08-27

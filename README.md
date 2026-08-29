@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 4 — Production AI API Engineering — completed as classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME` artifacts. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration remains **NOT RUN**.
+* Phase 7A — LLM Application Engineering — completed at classroom scope with the Day78 runtime capstone and 243 deterministic Day72–Day78 tests. Real Provider/database/queue/Worker/external-Tool/billing integration remains **NOT RUN**.
 
 Last completed lesson:
 
-* Day58 — Production AI API Capstone, Observability and English Interview
+* Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview
 
-(For the full completed history Day01–Day58, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed history Day01–Day78, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration (Phase 5; Planned / Not started; see `ROADMAP.md`)
+* Day79 — Framework-agnostic Agent Loop and Control Flow (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

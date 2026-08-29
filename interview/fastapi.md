@@ -2213,3 +2213,59 @@ rollout. Rollback plus green tests is containment evidence, not closure.
 
 Related: [Day77 lesson](../docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md) ·
 [Day77 design](../projects/ai-agent/docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md)
+
+## Day78 — LLM Application Runtime Capstone (Phase 7A)
+
+### Beginner: What does the Runtime boundary own?
+
+**Student answer:** “Responsible for the execution order of each component.”
+
+**Strong answer:** The application Runtime coordinates order, enforces current lifecycle gates, and persists
+authoritative Job/Attempt state. Provider, Prompt, validation and Tool components return facts or decisions;
+they do not own competing lifecycle truth.
+
+### Intermediate: Why use immutable Attempt bindings?
+
+**Student answer:** “Because an audit history is required for review purposes.”
+
+**Strong answer:** Auditability is one reason. Immutable Prompt/Profile/Policy bindings also keep execution
+deterministic and semantically stable. New defaults govern new Attempts; they cannot silently reinterpret an
+old request, late result or cost record.
+
+### Intermediate: Why can Tool execution not complete the Job?
+
+**Student answer:** “The results also need to be verified.”
+
+**Strong answer:** Execution proves only that an invocation occurred. The outcome still needs schema,
+semantic, operation and business-identity verification, followed by guarded completion against the current
+Job/Attempt lifecycle.
+
+### Senior: Why preserve identity after `TIMEOUT_UNKNOWN`?
+
+**Student answer:** “Since it is unknown at this point whether an external invocation cost has already been
+incurred, this is done to avoid a redundant call.”
+
+**Strong answer:** The original may already have executed, incurred cost or produced effects. Keep the
+Attempt and reservation, create no fallback, and reconcile that exact identity before authorizing another
+external path.
+
+### Senior: Idempotency versus fencing
+
+**Student answer:** “A fence token is also required; an idempotency key only prevents duplicate calls.”
+
+**Strong answer:** Idempotency suppresses repeated effects for one operation key. It cannot prove that a
+worker remains authorized for its first execution. A downstream fence or equivalent conditional business
+version must reject older authority.
+
+### Senior: How do rollback, repair and compensation differ?
+
+**Strong answer:** Rollback stops a bad revision from future planning. Repair corrects internal facts without
+changing historical meaning. Compensation is a separate, currently authorized, idempotent and verified
+external operation linked to the original effect. Unknown Provider, compensation or settlement execution
+retains its identity and enters reconciliation.
+
+**Evidence follow-up:** 243 local deterministic tests prove the in-process contracts that ran. They do not
+prove real Provider, PostgreSQL, queue/Worker, external Tool, billing, integration runtime or production.
+
+Related: [Day78 lesson](../docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md) ·
+[Day78 design](../projects/ai-agent/docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md)

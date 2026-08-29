@@ -1569,3 +1569,41 @@ Provider, HTTP, database, queue/Worker, tool, billing API, integration runtime o
 Related: [Day77 lesson](../docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md) ·
 [Day77 design](../projects/ai-agent/docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md) ·
 [ai-agent project](../projects/ai-agent/README.md) · Next: Day78 — LLM Application Runtime Capstone
+
+## Day78 — LLM Application Runtime Capstone (Phase 7A)
+
+```text
+resolve Contracts -> eligibility -> route -> immutable bindings/reservation
+-> atomic claim + current gates -> Adapter -> stable ProviderOutcome
+-> complete candidate -> validation/auth/Tool Admission
+-> guarded execution -> outcome verification -> guarded completion/reconciliation
+-> cost settlement -> structured RuntimeResult
+```
+
+```text
+Provider SUCCESS != valid result
+Tool Admission != Tool Execution
+Tool Execution != verified outcome
+verified outcome != durable completion
+TIMEOUT_UNKNOWN != definitely not executed
+idempotency != fencing
+rollback != history deletion
+```
+
+- Current defaults affect new planning only; old Attempts use bound Prompt/Profile/Policy versions.
+- Eligibility precedes latency/cost preference; missing or stale capability evidence fails closed.
+- One Runtime lifecycle/store owns state; components return translation/validation/decision facts.
+- A deterministic role/order bridge must match the bound Prompt hash before dispatch.
+- Cache candidates need current authorization; batches need exact per-item identity.
+- Recheck Tool lifecycle immediately before execution; verify outcome identity afterward.
+- Unknown execution keeps original identity/reservation and enters `PENDING_RECONCILIATION`.
+- Repair internal truth; compensate confirmed external effects with a separate authorized operation.
+- Idempotency suppresses duplicates; downstream fencing rejects stale workers.
+- Settle known usage, release only unused reservation, and never turn unknown into zero.
+
+Evidence: 22 Day78 / 243 cumulative deterministic in-process tests (Python 3.11.5). Real Provider, DB,
+queue/Worker, fencing, external Tool/compensation, billing, integration runtime and production NOT RUN.
+
+Related: [Day78 lesson](../docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md) ·
+[Day78 design](../projects/ai-agent/docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md) ·
+[ai-agent project](../projects/ai-agent/README.md) · Next: Day79 — Framework-agnostic Agent Loop

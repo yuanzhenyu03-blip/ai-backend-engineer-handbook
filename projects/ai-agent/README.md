@@ -35,20 +35,23 @@ ai-agent/
 │   ├── streaming_cache_batching.py # Day75: complete streaming + safe cache reuse + per-item batching
 │   ├── routing_policy.py          # Day76: eligibility-first route selection + immutable decision evidence
 │   ├── recovery_cost.py           # Day76: classified fallback + cost reservation/settlement/reconciliation
-│   └── fake_provider_testing.py   # Day77: FakeClock + controlled transport + independent golden evidence
+│   ├── fake_provider_testing.py   # Day77: FakeClock + controlled transport + independent golden evidence
+│   └── application_runtime.py     # Day78: integrated orchestration and lifecycle checkpoint
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_output_tool_contracts.py # Day74: 34 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_streaming_cache_batching.py # Day75: 41 deterministic boundary tests
 │   ├── test_day76_routing_recovery.py # Day76: deterministic routing/recovery/cost boundary tests
-│   └── test_day77_fake_provider_contract_regression.py # Day77: shared contracts + semantic regressions
-└── docs/                          # Day71–Day77 released designs + classroom records
+│   ├── test_day77_fake_provider_contract_regression.py # Day77: shared contracts + semantic regressions
+│   └── test_day78_application_runtime.py # Day78: integrated Runtime checkpoint
+└── docs/                          # Day71–Day78 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A in progress (Day77 released — CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Day71–Day76 released earlier).
+Status: Phase 7A complete at classroom scope (Day71–Day78 released; deterministic
+`EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -134,12 +137,18 @@ HTTP, Provider, database, queue/Worker, external tool or billing system; INTEGRA
 are NOT RUN. Provider A/B and v6 are fictional fixtures; the independent call log is in-process evidence,
 not crash-durable infrastructure.
 
-Current focus: Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview. Day77 does not
-pre-implement that capstone.
+Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview — composes the existing public
+seams into an application-owned orchestration boundary. See
+[`docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md`](docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md) and the
+[`classroom record`](docs/day78-llm-application-runtime-capstone-classroom-draft.md). Code:
+`src/application_runtime.py`; tests: `tests/test_day78_application_runtime.py`. Evidence: 22 Day78 tests and
+243 cumulative Day72–Day78 deterministic tests (Python 3.11.5). Real Provider/HTTP/database/queue/Worker,
+durable fencing, protected candidate storage, external tool/compensation, billing, integration runtime and
+production are NOT RUN. Day79 may drive this stable Runtime but must not reimplement its boundaries.
 
 ## Future Milestones
 
-- Add tool registry prototype.
-- Add agent service layer.
+- Add the Day79 framework-agnostic Agent Loop above the Day78 Runtime.
+- Add Day80 governed tool visibility/schema/permissions without bypassing Day78 Admission.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

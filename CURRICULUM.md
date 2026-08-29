@@ -1645,7 +1645,7 @@ mirrored in summary form in `ROADMAP.md` so CURRICULUM and ROADMAP agree on exec
 ## Phase 7A — LLM Application Engineering (Day71–Day78)
 
 Status:
-In Progress (Day71–Day77 Completed — classroom scope; Day78 Planned)
+Complete at classroom scope (Day71–Day78 Completed)
 
 Objective:
 Evolve a single Provider call (Day53–58) into a complete, testable LLM Application Runtime: architecture,
@@ -1703,6 +1703,7 @@ Per-day topics (Topic + concise scope; each Status: Planned):
   Scope: integrate the LLM application runtime; runnable checkpoint; phase-level English interview.
   Connection: Day77 completed the tests; Day78 integrates the LLM Application Runtime as a runnable checkpoint
   and runs the phase interview; Phase 7B builds the agent runtime that drives this application.
+  Status: ✅ Completed (classroom scope). Released Lesson: `docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md`. Engineering Artifact: `projects/ai-agent/` (`src/application_runtime.py` + `tests/test_day78_application_runtime.py` + `docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md` + classroom record; README updated). Core model: resolve and bind Contracts before eligibility/routing/dispatch; one Runtime store owns authoritative Job/Attempt lifecycle; the deterministic message bridge must match the Prompt binding; Provider success, candidate completeness, Tool Admission, execution, outcome verification and guarded completion remain distinct; unknown execution preserves identity/reservation and reconciles; repair and compensation are separate; idempotency suppresses duplicates while fencing rejects stale authority; known cost settles and unknown cost remains explicit. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (22 Day78 tests; 243 cumulative Day72–Day78 tests, Python 3.11.5). Python 3.12, real Provider/HTTP/database/queue/Worker/fencing/protected artifact/external Tool/compensation/billing, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Final Chinese synthesis was teaching-assistant-supplied at the student's explicit request. Next: Day79 builds a framework-agnostic Agent Loop above this stable Runtime without reimplementing it.
 
 Phase deliverable:
 
