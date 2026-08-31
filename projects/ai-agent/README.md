@@ -36,7 +36,8 @@ ai-agent/
 │   ├── routing_policy.py          # Day76: eligibility-first route selection + immutable decision evidence
 │   ├── recovery_cost.py           # Day76: classified fallback + cost reservation/settlement/reconciliation
 │   ├── fake_provider_testing.py   # Day77: FakeClock + controlled transport + independent golden evidence
-│   └── application_runtime.py     # Day78: integrated orchestration and lifecycle checkpoint
+│   ├── application_runtime.py     # Day78: integrated orchestration and lifecycle checkpoint
+│   └── agent_loop.py              # Day79: application-owned deterministic Agent control loop
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -44,13 +45,14 @@ ai-agent/
 │   ├── test_streaming_cache_batching.py # Day75: 41 deterministic boundary tests
 │   ├── test_day76_routing_recovery.py # Day76: deterministic routing/recovery/cost boundary tests
 │   ├── test_day77_fake_provider_contract_regression.py # Day77: shared contracts + semantic regressions
-│   └── test_day78_application_runtime.py # Day78: integrated Runtime checkpoint
-└── docs/                          # Day71–Day78 released designs + classroom records
+│   ├── test_day78_application_runtime.py # Day78: integrated Runtime checkpoint
+│   └── test_day79_agent_loop.py   # Day79: decisions, replay guards + Day78 composition
+└── docs/                          # Day71–Day79 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete at classroom scope (Day71–Day78 released; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day79 released; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -146,9 +148,19 @@ seams into an application-owned orchestration boundary. See
 durable fencing, protected candidate storage, external tool/compensation, billing, integration runtime and
 production are NOT RUN. Day79 may drive this stable Runtime but must not reimplement its boundaries.
 
+Day79 — Framework-agnostic Agent Loop and Control Flow — adds an application-owned Controller above Day78:
+a pure `CONTINUE`/`COMPLETE`/`WAIT`/`FAIL`/`RECONCILE` decision, deterministic causal identities,
+terminal/duplicate/stale guards, an injected Runtime port and a real in-process Day78 preparation bridge. See
+[`docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md`](docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md) and the
+[`classroom record`](docs/day79-framework-agnostic-agent-loop-control-flow-classroom-draft.md). Code:
+`src/agent_loop.py`; tests: `tests/test_day79_agent_loop.py`. Evidence: 8 Day79 / 251 cumulative deterministic
+tests on Python 3.11.5. The
+count-based Goal fixture is not a production semantic evaluator. Durable state/fencing, real Provider/Tool/
+framework, Day80 Tool governance, Day81 budgets/loop detection, Day82 durability, integration runtime and
+production are NOT RUN.
+
 ## Future Milestones
 
-- Add the Day79 framework-agnostic Agent Loop above the Day78 Runtime.
 - Add Day80 governed tool visibility/schema/permissions without bypassing Day78 Admission.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

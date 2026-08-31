@@ -1607,3 +1607,27 @@ queue/Worker, fencing, external Tool/compensation, billing, integration runtime 
 Related: [Day78 lesson](../docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md) ·
 [Day78 design](../projects/ai-agent/docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md) ·
 [ai-agent project](../projects/ai-agent/README.md) · Next: Day79 — Framework-agnostic Agent Loop
+
+## Day79 — Framework-agnostic Agent Loop and Control Flow (Phase 7B)
+
+```text
+trusted state -> pure Controller decision -> guarded next-Step creation
+-> Day78 bounded Runtime execution -> structured result / verified observation
+-> CONTINUE | COMPLETE | WAIT | FAIL | RECONCILE
+```
+
+- Model output is an untrusted proposal; the application Controller owns the control decision.
+- Runtime `COMPLETED` proves one execution, not Goal completion.
+- Not executed is known; dispatched with unknown outcome requires reconciliation.
+- Same control-decision identity produces the same next Step/Attempt identity.
+- Only a newly `CREATED` `CONTINUE` may call the Runtime.
+- Duplicate, stale, terminal, wait, fail, complete and reconcile paths create zero new Runtime calls.
+- Late-result authority depends on original binding and current authority, not arrival time alone.
+- Framework state/routing types stay behind a replaceable adapter and cannot override business control.
+
+Evidence: 8 Day79 / 251 cumulative deterministic tests on Python 3.11.5. Durable DB
+transition/fencing, real Provider/Tool/framework, integration runtime and production are NOT RUN.
+
+Related: [Day79 lesson](../docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md) ·
+[Day79 design](../projects/ai-agent/docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md) · Next: Day80 — Tool Registry,
+Schema and Permission Model

@@ -48,7 +48,8 @@ docs/
 │   ├── day60-outbox-redis-celery-broker-and-worker-recovery-integration.md
 │   ├── day61-object-storage-provider-adapter-and-opentelemetry-end-to-end-evidence.md
 │   ├── day77-fake-provider-contract-tests-and-llm-regression-tests.md
-│   └── day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md # Phase 7A capstone
+│   ├── day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md # Phase 7A capstone
+│   └── day79-framework-agnostic-agent-loop-and-control-flow.md       # Phase 7B begins
 ├── playwright/
 └── n8n/
 ```

@@ -1724,7 +1724,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-Planned
+In Progress (Day79 Completed)
 
 Objective:
 Build a framework-agnostic Agent Runtime — agent loop, tool registry/permissions, state machine, termination
@@ -1750,12 +1750,22 @@ LLM Application Runtime (Phase 7A)
 
 Reused project directory: `projects/ai-agent/` (agent runtime, tools, MCP).
 
-Per-day topics (Topic + concise scope; each Status: Planned):
+Per-day topics:
 
 - Day79 — Framework-agnostic Agent Loop and Control Flow.
   Scope: a minimal, framework-agnostic agent loop and control flow.
   Connection: Phase 7A produced a reliable LLM application but no autonomous controller; Day79 builds the
   framework-agnostic loop; Day80 gives it a governed tool registry.
+  Status: ✅ Completed (classroom scope). Released Lesson:
+  `docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md`. Engineering Artifact:
+  `projects/ai-agent/` (`src/agent_loop.py`, `tests/test_day79_agent_loop.py`, released design and classroom
+  record). Core model: trusted Agent input -> pure application-owned Controller decision -> terminal,
+  duplicate and stale guards -> exactly one new `CONTINUE` Step -> real Day78 preparation boundary. Model
+  output is advice; verified observations and structured Runtime status are facts. Unknown preserves its
+  original identity and reconciles; late/stale/terminal results cannot gain control authority from time.
+  Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (8 Day79 / 251 cumulative deterministic tests on
+  Python 3.11.5). Durable state/fencing, real Provider/Tool/framework, Day80 governance,
+  Day81 budgets/loop detection, Day82 durability, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. Next: Day80.
 - Day80 — Tool Registry, Tool Schema and Permission Model.
   Scope: tool registry, tool schemas, and a permission model.
   Connection: Day79 had a loop but ungoverned tools; Day80 adds a permissioned tool registry (reusing the

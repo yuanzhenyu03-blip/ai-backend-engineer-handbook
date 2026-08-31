@@ -2269,3 +2269,44 @@ prove real Provider, PostgreSQL, queue/Worker, external Tool, billing, integrati
 
 Related: [Day78 lesson](../docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md) ·
 [Day78 design](../projects/ai-agent/docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md)
+
+## Day79 — Framework-agnostic Agent Loop and Control Flow (Phase 7B)
+
+### Beginner: What is an Agent Loop?
+
+**Student answer:** “It is a workflow control mechanism that guides the next steps of the work.”
+
+**Strong answer:** An Agent Loop is an application-owned control loop that uses trusted state to decide
+whether the agent should continue, complete, wait, fail or reconcile an uncertain result.
+
+### Intermediate: Why must the model not directly choose the next Step?
+
+**Student answer:** “The model can only offer suggestions; the controller makes the final decision on the
+next step based on verified observations derived from certified runtime results.”
+
+**Strong answer:** Model output is an untrusted proposal. The application Controller interprets a structured
+Runtime result and separately verified observations, evaluates the Goal and current authority, and makes the
+closed control decision.
+
+### Intermediate: How do duplicate and stale control results differ?
+
+**Strong answer:** A duplicate is the same decision delivered again and resolves to the same next identity;
+idempotency suppresses another effect. A stale result was authorized against an older current Step and must
+have zero control effect even if its idempotency key is new.
+
+### Senior: How do you recover from a loop version that advances unknown execution?
+
+**Strong answer:** Disable the faulty version for new decisions, stop new Step creation, preserve every
+identity/reservation, and bound the affected set by tenant, version, decision, Runtime status, causality and
+time. Reconcile every dispatched Attempt independently under its original binding. Repair internal truth
+without rewriting history, compensate only confirmed unwanted external effects with a new authorized
+identity, settle cost and prove late/stale zero control effect before closure.
+
+### Senior: What does framework-agnostic mean here?
+
+**Strong answer:** Application state and control contracts do not depend on framework-owned node or routing
+types. A replaceable adapter may translate the Controller result, but a contradictory route fails closed; the
+framework is execution convenience, not business authority.
+
+Related: [Day79 lesson](../docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md) ·
+[Day79 design](../projects/ai-agent/docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md)

@@ -9,6 +9,40 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day79 — Framework-agnostic Agent Loop and Control Flow (Phase 7B)
+
+Date: 2026-08-31
+
+Day79 opens Phase 7B by placing an application-owned deterministic Controller above the stable Day78 Runtime.
+
+Added:
+
+- `docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md` — 16-section lesson preserving real
+  answers, terminology objections, mistakes/corrections, failure exercise and three-level English interview.
+- `projects/ai-agent/src/agent_loop.py` and `tests/test_day79_agent_loop.py` — closed control decisions,
+  deterministic causal identity, terminal/duplicate/stale guards, injected Runtime port and real Day78
+  preparation composition (8 tests).
+- `projects/ai-agent/docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md` and classroom record.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `docs/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day79 Completed, Phase 7B In
+  Progress and Day80 next.
+
+Core result: model output remains an untrusted proposal; the Controller decides from trusted state and
+verified observations; unknown execution preserves its original identity; only a newly-created `CONTINUE`
+may enter Day78; duplicate, stale, terminal and non-continue paths create zero new Runtime effects; framework
+types remain behind a replaceable adapter and cannot override business control.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. Python 3.11.5 ran `py_compile`, 8 Day79 tests and 251
+cumulative Day72–Day79 tests. Python 3.12, real Provider/HTTP/database/queue/Worker/fencing/Tool/framework,
+Day80 Tool governance, Day81 state machine/budgets, Day82 durability, INTEGRATION_RUNTIME and PRODUCTION are
+NOT RUN. The classroom's first module-path unittest command failed because `tests/` is not a package; the
+discovery command succeeded. No commit, push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview (Phase 7A)
 
 Date: 2026-08-28
