@@ -1664,3 +1664,29 @@ Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/Playwright, integration run
 Related: [Day80 lesson](../docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md) ·
 [Day80 design](../projects/ai-agent/docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md) · Next: Day81 — Agent
 State Machine, Termination, Loop Detection and Step/Token/Cost Budgets
+
+## Day81 — Agent State Machine, Termination, Loop Detection and Budgets (Phase 7B)
+
+```text
+model advice -> verified facts + legal transition + guards -> candidate
+-> conditional apply(identity + expected state + fence)
+-> state + reservation + new fence -> APPLIED CONTINUE only may schedule
+```
+
+- Goal verified before budget exhaustion: `COMPLETED/GOAL_SATISFIED`.
+- Incomplete goal + zero Steps: `TERMINATED/STEP_BUDGET_EXHAUSTED`; no automatic retry.
+- Known prerequisite: `WAITING`; possible external outcome/cost: `PENDING_RECONCILIATION`.
+- Activity is not progress; hard repetition uses `NO_PROGRESS_LOOP_DETECTED` even with budget remaining.
+- Context: `input + reserved_output + margin <= app_limit <= provider_limit`.
+- Token budget != context window; cost estimate != reservation != reported != verified != settled.
+- Reserve at the authoritative boundary; verified 1800 of reserved 6000 releases 4200; unknown stays held.
+- Idempotency suppresses duplicate effects; fence tokens reject stale workers.
+- Revocation blocks new execution but retains Job/Step/Attempt history; Tool v1 is never rewritten to v2.
+- Rollback stops future harm; external effects need a new auditable compensation operation.
+
+Evidence: 20 Day81 / 293 cumulative deterministic local tests (Python 3.11.5). Real database atomicity,
+Outbox/queue, Provider/Tool/billing integration and production NOT RUN.
+
+Related: [Day81 lesson](../docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md) ·
+[Day81 design](../projects/ai-agent/docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md) · Next: Day82 —
+Durable Agent Jobs, Checkpoint, Resume and Recovery

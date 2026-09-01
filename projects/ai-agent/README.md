@@ -38,7 +38,8 @@ ai-agent/
 │   ├── fake_provider_testing.py   # Day77: FakeClock + controlled transport + independent golden evidence
 │   ├── application_runtime.py     # Day78: integrated orchestration and lifecycle checkpoint
 │   ├── agent_loop.py              # Day79: application-owned deterministic Agent control loop
-│   └── tool_governance.py         # Day80: Tool visibility/schema/permission governance
+│   ├── tool_governance.py         # Day80: Tool visibility/schema/permission governance
+│   └── agent_state_machine.py     # Day81: state, termination, loop/fence/budget guards
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -48,13 +49,14 @@ ai-agent/
 │   ├── test_day77_fake_provider_contract_regression.py # Day77: shared contracts + semantic regressions
 │   ├── test_day78_application_runtime.py # Day78: integrated Runtime checkpoint
 │   ├── test_day79_agent_loop.py   # Day79: decisions, replay guards + Day78 composition
-│   └── test_day80_tool_governance.py # Day80: governed visibility, binding + boundary reuse
-└── docs/                          # Day71–Day80 released designs + classroom records
+│   ├── test_day80_tool_governance.py # Day80: governed visibility, binding + boundary reuse
+│   └── test_day81_agent_state_machine.py # Day81: transitions, reservations + stale fences
+└── docs/                          # Day71–Day81 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day80 released; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day81 released; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -170,10 +172,22 @@ and the [`classroom record`](docs/day80-tool-registry-schema-permission-model-cl
 `src/tool_governance.py`; tests: `tests/test_day80_tool_governance.py`. Evidence: 22 Day80 / 273 cumulative
 deterministic tests on Python 3.11.5-compatible `python3.11`. The Day66 composition calls its real local pure
 validation boundary, not a browser integration. Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/
-Playwright, Day81 state machine/budgets, Day82 durability, integration runtime and production are NOT RUN.
+Playwright, Day82 durability, integration runtime and production are NOT RUN.
+
+Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets — adds explicit
+application-owned lifecycle and ordered guards above Day79/Day80. A pure decision returns a structured candidate;
+the in-memory authoritative boundary conditionally checks Job/Step/Attempt, state and fence, then applies state and
+Step/token/cost reservations once. `WAITING` remains distinct from `PENDING_RECONCILIATION`; unknown external
+outcomes keep original identity and held capacity; verified hard loops use `NO_PROGRESS_LOOP_DETECTED`; completion
+has priority over exhaustion once the Goal is verified. See
+[`docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md`](docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md)
+and the [`classroom record`](docs/day81-agent-state-machine-classroom-draft.md). Code:
+`src/agent_state_machine.py`; tests: `tests/test_day81_agent_state_machine.py`. Evidence: 20 Day81 / 293
+cumulative deterministic tests on Python 3.11.5. Python 3.12, real PostgreSQL conditional transactions,
+Outbox/queue, Provider/Tool/billing/distributed worker, integration runtime and production are NOT RUN.
 
 ## Future Milestones
 
-- Add Day81 state machine, termination, loop detection and step/token/cost budgets over governed Day80 Tools.
+- Add Day82 durable Agent Jobs, checkpoint, resume and recovery over the bounded Day81 lifecycle.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

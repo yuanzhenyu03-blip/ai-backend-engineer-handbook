@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7A — LLM Application Engineering — completed at classroom scope with the Day78 runtime capstone and 243 deterministic Day72–Day78 tests. Real Provider/database/queue/Worker/external-Tool/billing integration remains **NOT RUN**.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day81 is complete with 20 new tests and 293 cumulative deterministic local tests. Real Provider/database/queue/Worker/external-Tool/billing integration remains **NOT RUN**.
 
 Last completed lesson:
 
-* Day78 — LLM Application Runtime Capstone, Checkpoint and English Interview
+* Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets
 
-(For the full completed history Day01–Day78, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed history Day01–Day81, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day79 — Framework-agnostic Agent Loop and Control Flow (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

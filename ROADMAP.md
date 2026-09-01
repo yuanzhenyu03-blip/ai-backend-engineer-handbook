@@ -323,7 +323,7 @@ not the business model. Do not pre-lock LangGraph.
 |------|-------------------------------|-----------|
 | Day79 | Framework-agnostic Agent Loop and Control Flow | ✅ Completed (classroom scope; 8 Day79 / 251 cumulative local tests) |
 | Day80 | Tool Registry, Tool Schema and Permission Model | ✅ Completed (classroom scope; 22 Day80 / 273 cumulative local tests) |
-| Day81 | Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets | Planned |
+| Day81 | Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets | ✅ Completed (classroom scope; 20 Day81 / 293 cumulative local tests) |
 | Day82 | Durable Agent Jobs, Checkpoint, Resume and Recovery | Planned |
 | Day83 | Human Approval, Interrupt and Escalation Boundaries | Planned |
 | Day84 | Conversation Memory vs Durable Business-state Boundaries | Planned |

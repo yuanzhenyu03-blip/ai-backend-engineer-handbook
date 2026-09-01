@@ -2365,3 +2365,53 @@ authorize a replacement call.
 
 Related: [Day80 lesson](../docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md) ·
 [Day80 design](../projects/ai-agent/docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md)
+
+## Day81 — Agent State Machine, Termination, Loop Detection and Budgets (Phase 7B)
+
+### Beginner: Who owns an Agent state transition?
+
+**Student answer:** “The state machine controls the target process based on verified audit facts. The model can
+only provide recommendations.”
+
+**Strong answer:** The model proposes. Verified audit facts, legal transitions and current guards produce a
+candidate; only an authoritative conditional apply boundary may mutate lifecycle and reserve capacity.
+
+### Intermediate: Why are `WAITING` and `PENDING_RECONCILIATION` different?
+
+**Strong answer:** Waiting means a known prerequisite is incomplete and no uncertain effect needs classification.
+Reconciliation means dispatch, external effect, usage or cost may already exist. Preserve the original identity and
+held reservations and verify that operation before any retry.
+
+### Intermediate: Why are token budget and context window different?
+
+**Strong answer:** Context admission asks whether one request fits `input + reserved output + margin` under the
+application and Provider limits. Token budget bounds cumulative capacity across the Job. Either guard may reject
+independently.
+
+### Senior: How do idempotency and fencing differ?
+
+**Strong answer:** Idempotency collapses duplicate effects for one semantic operation. A fence token rejects a
+write from an old worker after its lease or authority expired. A race-safe transition usually binds both operation
+identity and the expected fence.
+
+### Senior: How do you recover from a bad controller release?
+
+**Student answer:** “Suspend new controller planning, step creation, and scheduling; Cancel or isolate erroneous
+releases/policies; Revert subsequent planning to the stable version; Revoke leases for old workers and advance
+fence tokens; Re-examine current lifecycles, releases, and authorizations at the Provider/Tool operational
+boundary; Determine the scope of impact based on release versions, time windows, and identities; Preserve the full
+history of Jobs, Steps, Attempts, Tool Calls, and reservations for all entities; Handle the recovery of in-flight
+Attempts; Separately classify, validate, and reconcile external events that have already occurred using new,
+auditable operations.”
+
+**Strong answer:** That sequence contains future harm and preserves evidence. Then classify each Attempt: release
+and replan only when dispatch is disproven, settle verified terminal usage, and hold/reconcile unknown outcomes.
+Use new compensation operations for confirmed unwanted effects. Stable code and passing tests alone do not close
+the incident.
+
+### Common weak answer
+
+“The model chose finish, retries are idempotent, and there is budget left, so the controller can keep going.”
+
+Related: [Day81 lesson](../docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md) ·
+[Day81 design](../projects/ai-agent/docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md)

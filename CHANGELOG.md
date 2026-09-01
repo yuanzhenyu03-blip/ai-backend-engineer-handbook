@@ -9,6 +9,39 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets (Phase 7B)
+
+Date: 2026-09-01
+
+Day81 places an explicit application-owned lifecycle, progress detector and budget authority above the Day79
+Controller and Day80 governed Tool surface.
+
+Added:
+
+- `docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md` — the
+  16-section lesson with classroom decisions, failure recovery and English interview answers.
+- `projects/ai-agent/src/agent_state_machine.py` and `tests/test_day81_agent_state_machine.py` — pure candidate
+  transitions plus an in-memory conditional apply/reservation/fence model (20 tests).
+- `projects/ai-agent/docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md` and classroom record.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `docs/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day81 Completed and Day82 next.
+
+Core result: the model can recommend but cannot mutate lifecycle; verified facts and ordered guards produce a
+candidate; only conditional authoritative apply may atomically model state plus Step/token/cost reservation and
+advance the fence. `WAITING` is known delay; unknown external outcome remains
+`PENDING_RECONCILIATION`; no-progress is not activity; idempotency is not fencing; rollback retains history and
+compensation is a separate operation.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. Python 3.11.5 ran `py_compile`, 20 focused Day81 tests
+and 293 cumulative tests. Python 3.12, real PostgreSQL `UPDATE ... RETURNING`, Outbox/queue,
+Provider/Tool/billing/distributed worker, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. No commit, push,
+branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day80 — Tool Registry, Tool Schema and Permission Model (Phase 7B)
 
 Date: 2026-09-01

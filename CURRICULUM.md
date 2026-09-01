@@ -1784,6 +1784,19 @@ Per-day topics:
   Scope: agent state machine, termination, loop detection, step/token/cost budgets.
   Connection: Day80 governed tools; Day81 bounds the loop with termination/loop-detection and budgets; Day82
   makes agent jobs durable and recoverable.
+  Status: ✅ Completed (classroom scope). Released Lesson:
+  `docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md`.
+  Engineering Artifact: `projects/ai-agent/` (`src/agent_state_machine.py`,
+  `tests/test_day81_agent_state_machine.py`, released design and classroom record). Core model: model advice is
+  never transition authority; verified facts and ordered guards produce a structured candidate, while a separate
+  conditional apply boundary checks Job/Step/Attempt, state and fence and atomically models state plus
+  Step/token/cost reservations. `WAITING` is a known prerequisite; external outcome uncertainty preserves the
+  original identity and held reservations in `PENDING_RECONCILIATION`; hard no-progress loops use
+  `NO_PROGRESS_LOOP_DETECTED`; idempotency suppresses duplicate effects while fences reject stale authority;
+  rollback retains history and compensation is a new auditable operation. Evidence: CONCEPTUAL + STATIC +
+  EXECUTED_LOCAL_RUNTIME (20 Day81 / 293 cumulative deterministic tests, Python 3.11.5). Python 3.12, real
+  PostgreSQL `UPDATE ... RETURNING`, Outbox/queue, Provider/Tool/billing/distributed worker,
+  INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. Next: Day82.
 - Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery.
   Scope: durable agent jobs, checkpoints, resume, recovery.
   Connection: Day81 bounded a single run; Day82 makes agent jobs durable with checkpoint/resume/recovery
