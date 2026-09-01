@@ -37,7 +37,8 @@ ai-agent/
 │   ├── recovery_cost.py           # Day76: classified fallback + cost reservation/settlement/reconciliation
 │   ├── fake_provider_testing.py   # Day77: FakeClock + controlled transport + independent golden evidence
 │   ├── application_runtime.py     # Day78: integrated orchestration and lifecycle checkpoint
-│   └── agent_loop.py              # Day79: application-owned deterministic Agent control loop
+│   ├── agent_loop.py              # Day79: application-owned deterministic Agent control loop
+│   └── tool_governance.py         # Day80: Tool visibility/schema/permission governance
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -46,13 +47,14 @@ ai-agent/
 │   ├── test_day76_routing_recovery.py # Day76: deterministic routing/recovery/cost boundary tests
 │   ├── test_day77_fake_provider_contract_regression.py # Day77: shared contracts + semantic regressions
 │   ├── test_day78_application_runtime.py # Day78: integrated Runtime checkpoint
-│   └── test_day79_agent_loop.py   # Day79: decisions, replay guards + Day78 composition
-└── docs/                          # Day71–Day79 released designs + classroom records
+│   ├── test_day79_agent_loop.py   # Day79: decisions, replay guards + Day78 composition
+│   └── test_day80_tool_governance.py # Day80: governed visibility, binding + boundary reuse
+└── docs/                          # Day71–Day80 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day79 released; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day80 released; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -159,8 +161,19 @@ count-based Goal fixture is not a production semantic evaluator. Durable state/f
 framework, Day80 Tool governance, Day81 budgets/loop detection, Day82 durability, integration runtime and
 production are NOT RUN.
 
+Day80 — Tool Registry, Tool Schema and Permission Model — adds an application-owned Tool governance layer
+between Day79 planning and existing Day74/Day66/Day78 boundaries: deterministic context-scoped capability
+Snapshots, permission-narrowed Schema projection, exact candidate binding, current Registry/Permission
+recheck, deny-overrides policy composition, Snapshot-only Framework translation and a Safe Tool Result gate.
+See [`docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md`](docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md)
+and the [`classroom record`](docs/day80-tool-registry-schema-permission-model-classroom-draft.md). Code:
+`src/tool_governance.py`; tests: `tests/test_day80_tool_governance.py`. Evidence: 22 Day80 / 273 cumulative
+deterministic tests on Python 3.11.5-compatible `python3.11`. The Day66 composition calls its real local pure
+validation boundary, not a browser integration. Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/
+Playwright, Day81 state machine/budgets, Day82 durability, integration runtime and production are NOT RUN.
+
 ## Future Milestones
 
-- Add Day80 governed tool visibility/schema/permissions without bypassing Day78 Admission.
+- Add Day81 state machine, termination, loop detection and step/token/cost budgets over governed Day80 Tools.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

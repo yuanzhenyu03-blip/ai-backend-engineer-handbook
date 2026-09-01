@@ -1631,3 +1631,36 @@ transition/fencing, real Provider/Tool/framework, integration runtime and produc
 Related: [Day79 lesson](../docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md) ·
 [Day79 design](../projects/ai-agent/docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md) · Next: Day80 — Tool Registry,
 Schema and Permission Model
+
+## Day80 — Tool Registry, Tool Schema and Permission Model (Phase 7B)
+
+```text
+Registered != Visible != Authorized != Admitted
+!= Executed != Outcome Verified != Agent Goal Completed
+```
+
+- Registry = exact known Tool name/version/base Schema/lifecycle; not permission.
+- Snapshot = tenant/user/role/Job/Step-scoped visible Tools + projected Schema hashes + audit decisions.
+- Schema projection may narrow an existing property; it never grants Authorization.
+- Bind candidate to Snapshot/context/exact version/projected Schema hash; recheck current facts before Admission.
+- Any authoritative `DENY` blocks. Pre-execution `UNKNOWN` = `POLICY_UNAVAILABLE`, zero calls, not reconciliation.
+- Active v2 never substitutes for a disabled bound v1.
+- Framework = Snapshot translation only; auto-discovery cannot expand authority.
+- Day80 ready -> Day74 generic Admission -> Day66 browser-specific contract -> Day78 execution/outcome.
+- `202 Accepted` = work exists, not completed; only a verified minimal Safe Tool Result becomes observation.
+- Rollback stops future harm; dispatched unknown preserves original identity and reconciles.
+
+Production review questions:
+
+1. Which exact current authority produced visibility and invocation permission?
+2. Are tenant/user/role/Job/Step and Schema/version hashes bound immutably?
+3. Can the Framework or model add a Tool, permission fact or alternate version?
+4. Does policy outage create zero calls, and does post-dispatch unknown retain identity?
+5. Is the Agent observation minimized and backed by verified terminal outcome?
+
+Evidence: 22 Day80 / 273 cumulative deterministic tests on Python 3.11.5-compatible `python3.11`.
+Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/Playwright, integration runtime and production NOT RUN.
+
+Related: [Day80 lesson](../docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md) ·
+[Day80 design](../projects/ai-agent/docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md) · Next: Day81 — Agent
+State Machine, Termination, Loop Detection and Step/Token/Cost Budgets

@@ -1770,6 +1770,16 @@ Per-day topics:
   Scope: tool registry, tool schemas, and a permission model.
   Connection: Day79 had a loop but ungoverned tools; Day80 adds a permissioned tool registry (reusing the
   Day66 permissioned browser tool); Day81 bounds the loop with a state machine and budgets.
+  Status: ✅ Completed (classroom scope). Released Lesson:
+  `docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md`. Engineering Artifact:
+  `projects/ai-agent/` (`src/tool_governance.py`, `tests/test_day80_tool_governance.py`, released design and
+  classroom record). Core model: Registered != Visible != Authorized != Admitted != Executed != Outcome
+  Verified != Agent Goal Completed; a context-scoped Snapshot limits model visibility, while exact candidate
+  binding and current Permission/Registry recheck govern progress into the existing Day74/Day66/Day78
+  boundaries. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (22 Day80 / 273 cumulative deterministic
+  tests on Python 3.11.5-compatible `python3.11`). Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/
+  Playwright, INTEGRATION_RUNTIME, PRODUCTION, Day81 state machine/budgets and Day82 durability are NOT RUN.
+  Next: Day81.
 - Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets.
   Scope: agent state machine, termination, loop detection, step/token/cost budgets.
   Connection: Day80 governed tools; Day81 bounds the loop with termination/loop-detection and budgets; Day82

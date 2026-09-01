@@ -2310,3 +2310,58 @@ framework is execution convenience, not business authority.
 
 Related: [Day79 lesson](../docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md) ·
 [Day79 design](../projects/ai-agent/docs/DAY79_FRAMEWORK_AGNOSTIC_AGENT_LOOP.md)
+
+## Day80 — Tool Registry, Tool Schema and Permission Model (Phase 7B)
+
+### Beginner: What is the difference between registered, visible and authorized?
+
+**Student answer:** “A tool being registered does not mean the model is visible. Model visibility merely
+indicates that the tool is a candidate, not that it is authorized; the model only becomes usable after
+authorization is granted.”
+
+**Strong answer:** Registered means the application knows the exact Tool identity, Schema and lifecycle.
+Visible means one context-scoped Snapshot permits the model to suggest it. Authorized means the specific
+candidate passes a current trusted permission check. Authorization still does not mean admitted, executed or
+successful.
+
+### Intermediate: What if permission changes after the model saw the Tool?
+
+**Student answer:** “The application should reject the request, and the controller makes the decision.”
+
+**Strong answer:** Bind the candidate to its original Snapshot, tenant/user/role/Job/Step, exact Tool version
+and projected Schema hash, then recheck current Registry and Permission facts. Revocation blocks with zero
+Tool calls. The Permission Model is policy authority; the Day79 Controller consumes the structured result for
+control flow.
+
+### Intermediate: Why is a valid Tool Schema not Authorization?
+
+**Strong answer:** Schema validates candidate structure and may narrow model choices, but it does not prove
+the current tenant/user/Job/Step grant, browser Origin, session or approval. Those facts come from trusted
+application policy and Tool-specific server contracts.
+
+### Senior: How do Day80, Day74, Day66, Day78 and Day79 compose?
+
+**Student answer:** “Day 80: Control model visibility tools and re-examine candidates using the latest,
+authoritative permission facts. Day 74: Responsible for the general schema, authorization, admission,
+execution, and result verification. Day 66: Responsible for browser-specific aspects—Origin, session,
+approval, fingerprint, and persistence execution boundaries. Day 80 must not duplicate or overlook the checks
+performed on Day 66.”
+
+**Strong answer:** Day80 creates the Agent-facing capability Snapshot and rechecks current governance. Passing
+it only permits entry to Day74 generic Admission and Day66 browser-specific Admission. Day78 owns bounded
+execution and Outcome Verification; Day79 owns control flow. Each boundary returns a structured decision and
+cannot be replaced by model or Framework metadata.
+
+### Senior: How do you roll back an accidentally exposed Tool?
+
+**Strong answer:** Disable/revoke future visibility, retain old Snapshot/candidate identities for audit and
+build new Snapshots. Reject a pre-dispatch candidate with zero calls and no reconciliation. If dispatch may
+have happened, preserve the original identity in reconciliation; rollback cannot label it not executed or
+authorize a replacement call.
+
+### Common weak answer
+
+“The JSON Schema is valid and the framework registered the function, so it is safe to call.”
+
+Related: [Day80 lesson](../docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md) ·
+[Day80 design](../projects/ai-agent/docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md)

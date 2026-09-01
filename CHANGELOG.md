@@ -9,6 +9,42 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day80 — Tool Registry, Tool Schema and Permission Model (Phase 7B)
+
+Date: 2026-09-01
+
+Day80 adds application-owned, context-scoped Agent Tool governance without replacing the released Day74,
+Day66, Day78 or Day79 boundaries.
+
+Added:
+
+- `docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md` — 16-section lesson preserving real
+  answers, permission/reconciliation and Controller-authority corrections, rollback exercise and three-level
+  English interview.
+- `projects/ai-agent/src/tool_governance.py` and `tests/test_day80_tool_governance.py` — deterministic
+  capability Snapshot, Schema projection, exact binding, current Permission/Registry recheck, layered policy,
+  Framework translation, Safe Tool Result gate and real local Day66 boundary composition (22 tests).
+- `projects/ai-agent/docs/DAY80_TOOL_REGISTRY_SCHEMA_PERMISSION_MODEL.md` and classroom record.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `docs/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day80 Completed, Phase 7B In
+  Progress and Day81 next.
+
+Core result: Registered != Visible != Authorized != Admitted != Executed != Outcome Verified != Agent Goal
+Completed. Schema never grants permission; model and Framework never own authority; old Snapshots remain audit
+evidence while invocation uses current trusted facts; passing Day80 only enters existing generic and
+Tool-specific Admission; accepted is not completed; only possible external execution unknown reconciles.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME. Python 3.11.5-compatible `python3.11` ran `py_compile`,
+22 Day80 tests and 273 cumulative tests. Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/Playwright,
+Day81 state machine/budgets, Day82 durability, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. The classroom
+record preserves the Python 3.9 mismatch, temporary-clone loss, corrected test fixture, inflated inheritance
+count and publication-review hardening. No commit, push, branch, tag, PR or release was created.
+
+---
+
 ## Unreleased — Day79 — Framework-agnostic Agent Loop and Control Flow (Phase 7B)
 
 Date: 2026-08-31
