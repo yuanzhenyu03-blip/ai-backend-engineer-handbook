@@ -39,7 +39,8 @@ ai-agent/
 │   ├── application_runtime.py     # Day78: integrated orchestration and lifecycle checkpoint
 │   ├── agent_loop.py              # Day79: application-owned deterministic Agent control loop
 │   ├── tool_governance.py         # Day80: Tool visibility/schema/permission governance
-│   └── agent_state_machine.py     # Day81: state, termination, loop/fence/budget guards
+│   ├── agent_state_machine.py     # Day81: state, termination, loop/fence/budget guards
+│   └── durable_agent_jobs.py      # Day82: checkpoint validation + classified durable recovery
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -50,13 +51,14 @@ ai-agent/
 │   ├── test_day78_application_runtime.py # Day78: integrated Runtime checkpoint
 │   ├── test_day79_agent_loop.py   # Day79: decisions, replay guards + Day78 composition
 │   ├── test_day80_tool_governance.py # Day80: governed visibility, binding + boundary reuse
-│   └── test_day81_agent_state_machine.py # Day81: transitions, reservations + stale fences
-└── docs/                          # Day71–Day81 released designs + classroom records
+│   ├── test_day81_agent_state_machine.py # Day81: transitions, reservations + stale fences
+│   └── test_day82_durable_agent_jobs.py # Day82: resume/retry/reconcile/outbox/fence cases
+└── docs/                          # Day71–Day82 released designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day81 released; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day82 released; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -186,8 +188,22 @@ and the [`classroom record`](docs/day81-agent-state-machine-classroom-draft.md).
 cumulative deterministic tests on Python 3.11.5. Python 3.12, real PostgreSQL conditional transactions,
 Outbox/queue, Provider/Tool/billing/distributed worker, integration runtime and production are NOT RUN.
 
+Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery — turns Day81's bounded in-process lifecycle into
+an explicit durable recovery contract. A Checkpoint binds Job/Step/Attempt, state version, fence token and
+immutable execution bindings; a new Worker must reread and validate those facts before acting. Resume keeps the
+original Attempt, retry creates a new identity only after classification and current authorization, and unknown
+external execution keeps the original operation and reservation in `PENDING_RECONCILIATION`. The modeled
+authoritative apply records checkpoint, reservation change, audit evidence and Outbox intent together; an
+independent dispatcher rescans unpublished intents and consumers deduplicate at-least-once delivery. Lease
+takeover advances the fence, so stale results cannot mutate current state but remain evidence. See
+[`docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md`](docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md)
+and the [`classroom record`](docs/day82-durable-agent-jobs-classroom-draft.md). Code:
+`src/durable_agent_jobs.py`; tests: `tests/test_day82_durable_agent_jobs.py`. Evidence: 32 Day82 / 325 cumulative
+deterministic tests on Python 3.11.5. Python 3.12, real PostgreSQL transactions, real Outbox Relay/Broker/Worker,
+process crash/restart, multi-process fencing, Provider/Tool/billing integration and production are NOT RUN.
+
 ## Future Milestones
 
-- Add Day82 durable Agent Jobs, checkpoint, resume and recovery over the bounded Day81 lifecycle.
+- Add Day83 human approval, interrupt and escalation boundaries over durable Day82 Jobs.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

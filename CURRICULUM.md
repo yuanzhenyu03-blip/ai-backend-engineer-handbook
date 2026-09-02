@@ -1724,7 +1724,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress (Day79 Completed)
+In Progress (Day79–Day82 Completed)
 
 Objective:
 Build a framework-agnostic Agent Runtime — agent loop, tool registry/permissions, state machine, termination
@@ -1801,6 +1801,21 @@ Per-day topics:
   Scope: durable agent jobs, checkpoints, resume, recovery.
   Connection: Day81 bounded a single run; Day82 makes agent jobs durable with checkpoint/resume/recovery
   (reusing the Phase 4/5 job lifecycle); Day83 adds human interrupt/approval.
+  Status: ✅ Completed (classroom scope). Released Lesson:
+  `docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md`. Engineering Artifact:
+  `projects/ai-agent/` (`src/durable_agent_jobs.py`, `tests/test_day82_durable_agent_jobs.py`, released design
+  and classroom record). Core model: the database controls authoritative Job lifecycle and recovery facts; a
+  Checkpoint binds the exact Job/Step/Attempt, state version, fence token and immutable execution bindings;
+  recovery first rereads and validates those facts, then classifies resume, retry, replan, reconciliation,
+  repair, settlement, compensation or escalation. Resume preserves the Attempt; retry creates a new identity
+  only under current authorization. Unknown execution/usage retains the original operation identity and held
+  reservation in `PENDING_RECONCILIATION`. A modeled authoritative transaction applies checkpoint,
+  reservation, audit and Outbox intent facts together; unpublished committed intents are redispatched
+  at-least-once and consumer idempotency suppresses duplicate effects. Lease takeover advances the fence;
+  stale late results cannot mutate current state and remain evidence. Evidence: CONCEPTUAL + STATIC +
+  EXECUTED_LOCAL_RUNTIME (32 Day82 / 325 cumulative deterministic tests, Python 3.11.5). Python 3.12, real
+  PostgreSQL transaction/Outbox, Relay/Broker/Worker, process crash/restart, multi-process fencing,
+  Provider/Tool/billing, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. Next: Day83.
 - Day83 — Human Approval, Interrupt and Escalation Boundaries.
   Scope: human approval, interrupt, escalation boundaries. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day82 made runs durable; Day83 adds human approval/interrupt/escalation; Day84 separates memory

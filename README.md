@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day81 is complete with 20 new tests and 293 cumulative deterministic local tests. Real Provider/database/queue/Worker/external-Tool/billing integration remains **NOT RUN**.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day82 is complete with 32 new tests and 325 cumulative deterministic local tests. Real PostgreSQL/Outbox/queue/Worker/Provider/external-Tool/billing integration remains **NOT RUN**.
 
 Last completed lesson:
 
-* Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets
+* Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery
 
-(For the full completed history Day01–Day81, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed history Day01–Day82, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day83 — Human Approval, Interrupt and Escalation Boundaries (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

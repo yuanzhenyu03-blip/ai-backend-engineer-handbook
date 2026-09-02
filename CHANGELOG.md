@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery (Phase 7B)
+
+Date: 2026-09-02
+
+Day82 turns the bounded Day81 Agent lifecycle into a durable, identity-bound recovery model.
+
+Added:
+
+- `docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md` — the 16-section lesson with the
+  complete classroom decisions, crash windows, A1/A2/A3 incident classification and English interview answers.
+- `projects/ai-agent/src/durable_agent_jobs.py` and `tests/test_day82_durable_agent_jobs.py` — checkpoint
+  validation, classified recovery, reservation reconciliation, Outbox redelivery, consumer idempotency, lease
+  takeover and stale-result evidence (32 tests).
+- `projects/ai-agent/docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md` and classroom record.
+
+Updated:
+
+- `projects/ai-agent/README.md`, `docs/README.md`, `cheat_sheets/fastapi.md`, `interview/fastapi.md`.
+- `CURRICULUM.md`, `ROADMAP.md`, `PROJECT_STATUS.md`, `TASKS.md`, `AGENTS.md`: Day82 Completed and Day83 next.
+
+Core result: process memory is not authoritative; a committed Checkpoint binds exact identity, state version,
+fence and immutable execution bindings. Recovery rereads and classifies before action. The modeled authoritative
+transaction includes checkpoint, reservation, audit and Outbox intent facts; dispatch is at-least-once with
+consumer database idempotency. Unknown external execution keeps its original identity and reservation held;
+takeover advances the fence and stale results remain evidence with zero current-state effect.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (32 Day82 / 325 cumulative deterministic tests on
+Python 3.11.5). Python 3.12, real PostgreSQL transaction/Outbox, Relay/Broker/Worker, process crash/restart,
+multi-process fencing, Provider/Tool/billing integration and production are NOT RUN. No exactly-once claim.
+
 ## Unreleased — Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets (Phase 7B)
 
 Date: 2026-09-01

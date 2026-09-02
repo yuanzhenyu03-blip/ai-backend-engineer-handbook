@@ -1690,3 +1690,33 @@ Outbox/queue, Provider/Tool/billing integration and production NOT RUN.
 Related: [Day81 lesson](../docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md) ·
 [Day81 design](../projects/ai-agent/docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md) · Next: Day82 —
 Durable Agent Jobs, Checkpoint, Resume and Recovery
+
+## Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery (Phase 7B)
+
+```text
+read authoritative Job + Checkpoint + reservation + outbox facts
+-> validate identity + state_version + fence + immutable binding
+-> classify resume / retry / replan / reconcile / repair / compensate / escalate
+-> authoritative transaction(checkpoint + reservation + audit + outbox intent)
+-> independent at-least-once dispatch + consumer idempotency
+```
+
+- Process memory, a log and a conversation summary are not durable business truth.
+- A Checkpoint is committed recovery position, bound to Job/Step/Attempt, state version, fence and execution binding.
+- Resume/recovery preserves an original Attempt; retry creates a new Attempt and needs current authorization.
+- Unknown dispatch/effect/usage keeps the original operation identity and reservation `HELD` in
+  `PENDING_RECONCILIATION`; unknown usage is never zero.
+- Outbox recovery scans committed intents where `published_at IS NULL`; restarting a process is not proof of intent.
+- Queue redelivery is at-least-once. Producer Outbox identity and consumer database idempotency prevent duplicate effects.
+- Lease takeover advances the fence; stale late results have zero lifecycle effect and are retained as evidence.
+- A completed Job may still need accounting reconciliation or compensation without reopening its lifecycle.
+- Release reservation only when no execution is proven; settle verified usage and release only the known remainder.
+- Rollback/quarantine stops future harm; repair, reconciliation and compensation are distinct auditable operations.
+
+Evidence: 32 Day82 / 325 cumulative deterministic local tests (Python 3.11.5). Real PostgreSQL transaction
+atomicity, Outbox Relay/Broker/Worker, process crash/restart, multi-process fencing, Provider/Tool/billing
+integration and production NOT RUN.
+
+Related: [Day82 lesson](../docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md) ·
+[Day82 design](../projects/ai-agent/docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md) · Next: Day83 —
+Human Approval, Interrupt and Escalation Boundaries

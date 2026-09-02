@@ -51,7 +51,8 @@ docs/
 │   ├── day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md # Phase 7A capstone
 │   ├── day79-framework-agnostic-agent-loop-and-control-flow.md       # Phase 7B begins
 │   ├── day80-tool-registry-tool-schema-and-permission-model.md       # governed Agent Tools
-│   └── day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md # bounded Agent lifecycle
+│   ├── day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md # bounded Agent lifecycle
+│   └── day82-durable-agent-jobs-checkpoint-resume-and-recovery.md # durable recovery facts + classified continuation
 ├── playwright/
 └── n8n/
 ```

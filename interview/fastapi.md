@@ -2415,3 +2415,49 @@ the incident.
 
 Related: [Day81 lesson](../docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md) ·
 [Day81 design](../projects/ai-agent/docs/DAY81_AGENT_STATE_MACHINE_TERMINATION_LOOP_BUDGETS.md)
+
+## Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery (Phase 7B)
+
+### Beginner: What makes an Agent Job durable?
+
+**Strong answer:** Its identity, lifecycle and recovery facts survive process loss in authoritative storage. A
+replacement Worker does not trust memory; it rereads the Job and a committed Checkpoint bound to the exact
+Job/Step/Attempt, state version, fence and immutable execution binding.
+
+### Intermediate: How do recovery, resume and retry differ?
+
+**Strong answer:** Recovery is the classification process. Resume is one recovery action that continues the same
+Attempt only when committed facts prove that is legal. Retry creates a new Attempt identity and requires current
+authorization, budget and lifecycle permission. Unknown external execution is neither: retain the original identity
+and reconcile it first.
+
+### Intermediate: How does a transactional Outbox help after a crash?
+
+**Student answer:** “Rescan rows whose Outbox intent has `published_at = null`; queue redelivery provides
+at-least-once delivery, while database idempotency handles duplicates.”
+
+**Strong answer:** Commit the authoritative state/checkpoint/reservation/audit and dispatch intent atomically. An
+independent Relay scans unpublished committed intents. Marking delivery is separate and can race with a crash, so
+redelivery is expected; stable event/operation identity plus a database idempotency claim prevents repeated business
+effects. This is at-least-once delivery, not exactly-once execution.
+
+### Senior: How do lease and fence protect takeover?
+
+**Strong answer:** A lease grants time-bounded execution authority. Takeover revokes or expires the old lease and
+advances the durable fence. Every authoritative write checks the expected fence, so an old Worker's late result has
+zero effect on current state; its evidence is retained for audit and reconciliation.
+
+### Senior: Classify A1, A2 and A3 after quarantining a bad release.
+
+**Strong answer:** A1, proven never dispatched, is rejected from old execution and may release its 6000 reservation;
+new planning is separately authorized. A2, with a verified terminal effect and 1800 usage, settles 1800, releases
+4200 and uses a new compensation operation if the effect is unacceptable. A3 remains
+`PENDING_RECONCILIATION`, keeps its original Tool v1 operation identity and 6000 `HELD`; it creates no new Attempt
+and never treats unknown usage as zero.
+
+### Common weak answer
+
+“Restart the Worker and publish the old message again; idempotency means the whole workflow is exactly once.”
+
+Related: [Day82 lesson](../docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md) ·
+[Day82 design](../projects/ai-agent/docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md)
