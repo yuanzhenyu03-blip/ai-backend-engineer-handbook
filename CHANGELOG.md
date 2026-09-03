@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day83 — Human Approval, Interrupt and Escalation Boundaries (Phase 7B)
+
+Date: 2026-09-03
+
+Added the16-section Day83 lesson and evolved `projects/ai-agent/` with the human-control core, cumulative
+scenario fixtures,50 control tests,3 grader tests,26 version-1 seed cases, runnable checkpoint, design,
+actual classroom/interview record and historical/fresh validation evidence.
+
+Exact approval never overrides current authorization. Conditional local apply models control facts,
+Checkpoint, Reservation, Audit and Outbox; dispatch separately rechecks current facts and claims once.
+Interrupts cannot erase external effects; unknown retains original identity and HELD. Recovery is bounded
+and escalation records authorized ownership, deadline and alert intent. Compensation needs new approval.
+
+Updated project/root/docs READMEs, FastAPI cheat sheet/interview, Day82 next link, curriculum, roadmap,
+status, tasks and AGENTS. Day83 is complete at guided classroom scope; Day84 remains planned. Preserved17
+English answers/corrections and two real fixture failures. Final Chinese summary was instructor-authored
+at the student's request; independent final synthesis NOT ASSESSED.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Python3.11.5,53 focused/378 cumulative tests,
+26/26 seed cases and mandatory checkpoint PASS. Python3.12, real auth/callback/DB transaction/Relay/Queue/
+Worker/Provider/external Tool/billing/alert delivery and production NOT RUN. Seed PASS is not a complete
+evaluation platform, independently reviewed release gate or real-call authorization.
+
 ## Unreleased — Day82 — Durable Agent Jobs, Checkpoint, Resume and Recovery (Phase 7B)
 
 Date: 2026-09-02

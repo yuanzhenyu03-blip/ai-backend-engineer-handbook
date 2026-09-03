@@ -1720,3 +1720,32 @@ integration and production NOT RUN.
 Related: [Day82 lesson](../docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md) ·
 [Day82 design](../projects/ai-agent/docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md) · Next: Day83 —
 Human Approval, Interrupt and Escalation Boundaries
+
+## Day83 — Human Approval, Interrupt and Escalation Boundaries (Phase 7B)
+
+- Authentication = identity; Authorization = current permission; Approval = consent to this exact action.
+- Bind request/decision to tenant, actor/role, Job/Step/Attempt, Tool/version, argument fingerprint,
+  Artifact/version, policy/version, scope and expiry; enforce separation of duties where required.
+- APPROVED never bypasses current authorization, expiry, Tool enablement, lifecycle, budget or fence.
+- Identical callback: stored result/no repeated business effect. Conflicting decision: reject and audit,
+  retain the original; an escalation alert is not another publication.
+- Candidate is not committed intent. State/control/Checkpoint/Reservation/Audit/Outbox belong in guarded apply.
+- Recover an already-committed original Outbox intent; consumer atomic claim does not prove external exactly-once.
+- Interrupt before dispatch: block call/release only proven-unused units. Possible dispatch + unknown:
+  original identity/PENDING_RECONCILIATION/KEEP_HELD. Interrupt accepted != cancellation observed != no effect.
+- Stale Worker: reject current-state write, retain late evidence for authorized verification.
+- Escalation: reason + trigger + evidence + authorized owner + deadline + alert; timeout -> permitted fallback.
+- A1: release6000. A2: settle1800/release4200. A3: held6000/original-identity reconciliation.
+- Terminal Job does not stop accounting; compensation is a new operation with its own applicable approval.
+- Quarantine V7 stops future harm, not historical impact. Closure needs explicit criteria and traceable evidence.
+- Seed eval = small versioned scenario set; fixed grader != LLM judge; never weaken expected safety to go green.
+
+Review questions: Which exact action was approved? What changed before dispatch? Is external absence proven?
+Who owns the unresolved outcome until when? What did the test actually execute?
+
+Evidence:53 focused/378 cumulative tests,26/26 seed cases and checkpoint PASS on Python3.11.5;
+CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME only. Python3.12, real integrations and Provider gate NOT RUN.
+
+Related: [Day83 lesson](../docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md),
+[design](../projects/ai-agent/docs/DAY83_HUMAN_APPROVAL_INTERRUPT_ESCALATION.md).
+Next: Day84 — Conversation Memory vs Durable Business-state Boundaries.

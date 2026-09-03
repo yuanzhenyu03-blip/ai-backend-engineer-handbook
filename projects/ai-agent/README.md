@@ -40,7 +40,9 @@ ai-agent/
 │   ├── agent_loop.py              # Day79: application-owned deterministic Agent control loop
 │   ├── tool_governance.py         # Day80: Tool visibility/schema/permission governance
 │   ├── agent_state_machine.py     # Day81: state, termination, loop/fence/budget guards
-│   └── durable_agent_jobs.py      # Day82: checkpoint validation + classified durable recovery
+│   ├── durable_agent_jobs.py      # Day82: checkpoint validation + classified durable recovery
+│   ├── human_control.py           # Day83: approval/interrupt/escalation conditional boundary
+│   └── human_control_scenarios.py # Day83: fixtures composing existing runtime seams
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -52,13 +54,18 @@ ai-agent/
 │   ├── test_day79_agent_loop.py   # Day79: decisions, replay guards + Day78 composition
 │   ├── test_day80_tool_governance.py # Day80: governed visibility, binding + boundary reuse
 │   ├── test_day81_agent_state_machine.py # Day81: transitions, reservations + stale fences
-│   └── test_day82_durable_agent_jobs.py # Day82: resume/retry/reconcile/outbox/fence cases
-└── docs/                          # Day71–Day82 released designs + classroom records
+│   ├── test_day82_durable_agent_jobs.py # Day82: resume/retry/reconcile/outbox/fence cases
+│   ├── test_day83_human_control.py # Day83: 50 human-control tests
+│   └── test_day83_seed_grader.py  # Day83: 3 grader tests
+├── evals/                        # Day83: 26 version-1 seed cases + deterministic runner
+├── examples/                     # Day83: cumulative runnable checkpoint
+├── evidence/                     # Day83: historical and repository-update run records
+└── docs/                         # Day71–Day83 designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day82 released; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day83 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -202,8 +209,42 @@ and the [`classroom record`](docs/day82-durable-agent-jobs-classroom-draft.md). 
 deterministic tests on Python 3.11.5. Python 3.12, real PostgreSQL transactions, real Outbox Relay/Broker/Worker,
 process crash/restart, multi-process fencing, Provider/Tool/billing integration and production are NOT RUN.
 
+## Day83 — Human control and mandatory runnable checkpoint
+
+The [Day83 lesson](../../docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md) adds exact,
+time-limited human approval within current authorization, guarded local apply/Outbox, separate dispatch
+claim, interrupt/fence/late evidence and bounded escalation. It reuses the existing Day74/78/79/80/81/82 seams,
+not a separate demo. See the [design](docs/DAY83_HUMAN_APPROVAL_INTERRUPT_ESCALATION.md),
+[actual classroom record](docs/day83-human-control-classroom-draft.md) and
+[repository validation](evidence/day83-repository-validation.json).
+
+From this directory, using the classroom's Python3.11 interpreter:
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day83*.py' -v
+PYTHONPATH=src python3.11 -m unittest discover -s tests -v
+PYTHONPATH=src python3.11 evals/run_day83_seed_eval.py
+PYTHONPATH=src python3.11 examples/day83_human_control_checkpoint.py
+```
+
+Python3.11.5:53 focused tests (50 control +3 grader),378 cumulative tests,26/26 version-1 seed scenarios and
+checkpoint PASS. [Historical exact commands/hashes](evidence/day83-validation.json) are retained separately
+from update-time reruns. The seed runner compares structured decisions/evidence/forbidden effects, not LLM
+quality; independently reviewing every expected fact remains a release obligation.
+
+Only local synthetic services and Tool effects ran. The store is RLock/snapshot-based, trusted facts are
+fixtures, initial approval requests are seeded and escalation alerts are intents. Python3.12, real auth/UI/
+callback, PostgreSQL transaction/restart persistence, Relay/Queue/Worker/cross-process fencing, Provider,
+external Tool/billing/compensation and alert delivery remain NOT RUN. The real Provider gate is optional,
+NOT RUN, and requires immediate explicit authorization before a bounded call.
+
+Teaching is complete at guided classroom scope. The final Chinese summary was instructor-authored at the
+student's request; independent synthesis was not assessed. Day84 is next, not started.
+
 ## Future Milestones
 
-- Add Day83 human approval, interrupt and escalation boundaries over durable Day82 Jobs.
+- Add Day84 conversation memory versus durable business-state boundaries without treating remembered consent as authority.
+- Independently assess Day83 final synthesis and review seed expectations before a release gate.
+- Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

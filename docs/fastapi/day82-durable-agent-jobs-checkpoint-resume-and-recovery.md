@@ -10,7 +10,7 @@
 - Estimated time: 4–5 hours
 - Prerequisites: Day50, Day60, Day78, Day79, Day80 and Day81
 - Previous: Day81 — Agent State Machine, Termination, Loop Detection and Step/Token/Cost Budgets
-- Next: Day83 — Human Approval, Interrupt and Escalation Boundaries
+- Next: [Day83 — Human Approval, Interrupt and Escalation Boundaries](day83-human-approval-interrupt-and-escalation-boundaries.md)
 - Artifact: `projects/ai-agent/`
 - Evidence: `CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME`
 

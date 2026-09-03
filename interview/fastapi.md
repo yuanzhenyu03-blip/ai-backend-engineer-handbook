@@ -2461,3 +2461,68 @@ and never treats unknown usage as zero.
 
 Related: [Day82 lesson](../docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md) ·
 [Day82 design](../projects/ai-agent/docs/DAY82_DURABLE_AGENT_JOBS_CHECKPOINT_RESUME_RECOVERY.md)
+
+## Day83 — Human Approval, Interrupt and Escalation Boundaries (Phase 7B)
+
+### Beginner: What is human approval?
+
+Student: “Manual iteration is a candidate decision for an iteration generated when facing high-risk execution.”
+
+Review: Human approval, not manual iteration; exact consent, not authority granted by a model candidate.
+
+Strong answer: Human approval is time-limited consent from an authorized person for a specific high-risk
+action. The application validates and records it; current execution-time checks still apply.
+
+### Intermediate: Does approval replace authorization?
+
+Student: “Approval is a high-risk decision made at the human level; upon authorization and successful authentication, the application is granted limited execution privileges.”
+
+Review: Authentication identifies the actor; authorization checks current permission; approval records consent.
+
+Strong answer: No. Approval is consent to an exact action, while authorization determines whether the actor
+is currently permitted to perform it. Neither a successful login nor a prior approval bypasses current checks.
+
+Follow-up: Changed arguments, expired approval or a disabled Tool? Block dispatch; do not silently substitute
+a version, renew the approval or rewrite history. A still-approval-required changed action needs new approval.
+
+### Intermediate: How do duplicate and conflicting callbacks differ?
+
+Strong answer: Identical replay returns the recorded result without repeating business effects. A conflicting
+decision is rejected and audited without overwriting the original. Dispatch claim is a separate boundary.
+
+### Senior: Recover after Outbox commit but before publish.
+
+Student: “Publish the original intent and use an idempotent claim to prevent duplicate scheduling.”
+
+Strong answer: Publish the original committed intent and atomically claim at the consumer. Duplicate delivery
+must not trigger repeated execution; this does not prove exactly-once external effects after an unknown outcome.
+
+### Senior: A stale Worker returns success.
+
+Student: “Expired worker tasks cannot continue execution, but the execution process can be retained as evidence for subsequent auditing.”
+
+Strong answer: Reject its authoritative state update but retain the late result with original identity.
+Lease expiry does not stop remote work. Current authorized recovery can verify the evidence for reconciliation.
+
+### Senior: Bound recovery, rollout and real calls.
+
+Strong answer: Stop automatic recovery at the time/attempt limit, preserve unknown/held facts and record a
+permitted owner, deadline and alert. Classify every affected Attempt before closing a rollback incident.
+New compensation needs separate approval. Local test success authorizes no real Provider call.
+
+Student on evidence: “Not allowed; evidence level is EXECUTED_LOCAL_RUNTIME.”
+
+Trade-off follow-up: Why hold unknown capacity instead of releasing it? It delays availability but prevents
+false zero usage and duplicated spend; bounded recovery and accountable ownership limit indefinite waiting.
+
+Common weak answer (instructor example): “It was approved, and cancel returned OK, so the action did not happen.”
+
+Vocabulary: authorized approver; exact binding; execution-time checks; cooperative cancellation;
+late-result evidence; authorized fallback; held reservation; bounded recovery.
+Use “The implementation should be fixed,” not “This should be implemented,” for a failing safety contract.
+
+All17 actual answers, language/engineering corrections and instructor model answers are preserved in the
+[classroom record](../projects/ai-agent/docs/day83-human-control-classroom-draft.md).
+Final Chinese synthesis was instructor-authored by request, not independently assessed.
+Related: [Day83 lesson](../docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md),
+[design](../projects/ai-agent/docs/DAY83_HUMAN_APPROVAL_INTERRUPT_ESCALATION.md).

@@ -52,7 +52,8 @@ docs/
 │   ├── day79-framework-agnostic-agent-loop-and-control-flow.md       # Phase 7B begins
 │   ├── day80-tool-registry-tool-schema-and-permission-model.md       # governed Agent Tools
 │   ├── day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md # bounded Agent lifecycle
-│   └── day82-durable-agent-jobs-checkpoint-resume-and-recovery.md # durable recovery facts + classified continuation
+│   ├── day82-durable-agent-jobs-checkpoint-resume-and-recovery.md # durable recovery facts + classified continuation
+│   └── day83-human-approval-interrupt-and-escalation-boundaries.md # human control + local runnable checkpoint
 ├── playwright/
 └── n8n/
 ```
