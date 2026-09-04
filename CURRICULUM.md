@@ -1830,11 +1830,22 @@ Per-day topics:
   cumulative tests and26/26 seed cases; mandatory checkpoint PASS, Python3.11.5. Seventeen guided English
   answers/reviews preserved; final Chinese synthesis instructor-authored by request, independent synthesis
   NOT ASSESSED. Python3.12, real auth/callback/PostgreSQL/Relay/Queue/Worker/Provider/Tool/billing/alert delivery,
-  INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Next: Day84 (not started).
+  INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Next: Day84.
 - Day84 — Conversation Memory vs Durable Business-state Boundaries.
   Scope: conversation/durable memory vs business-state boundaries (durable truth stays in PostgreSQL).
   Connection: Day83 added human control; Day84 draws the memory-vs-business-state boundary; Day85 coordinates
   multiple agents.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md`. Artifact:
+  `projects/ai-agent/` gained permission/scope/source-aware memory selection, context assembly and manifest,
+  structured bounded views of validated Tool results, source-span/revision-checked compaction, protected result
+  references, current-authority rehydration, incident classification, tests, version-1 seed eval, example, design,
+  classroom record and evidence. The student-requested context assembly, Tool-output truncation and compaction
+  are bounded refinements under the repository title, not literal Curriculum expansion. Evidence: Python3.11.5,
+  33 Day84 / 411 cumulative deterministic local tests, 16/16 Day84 seed cases, 26/26 Day83 seed regression and
+  example PASS with zero Provider/external-Tool calls. Final synthesis instructor-authored by request; independent
+  synthesis NOT ASSESSED. Python3.12, real tokenizer/summarizer/Provider, PostgreSQL/Object Storage,
+  Relay/Queue/Worker, billing/compensation, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Next: Day85.
 - Day85 — Multi-agent Handoff and Coordination Boundaries.
   Scope: multi-agent handoff and coordination boundaries.
   Connection: Day84 bounded one agent's memory; Day85 adds multi-agent handoff/coordination; Day86 secures the

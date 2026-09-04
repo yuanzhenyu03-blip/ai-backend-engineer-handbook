@@ -9,6 +9,30 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day84 — Conversation Memory vs Durable Business-state Boundaries (Phase 7B)
+
+Date: 2026-09-04
+
+Added the 16-section Day84 lesson and evolved `projects/ai-agent/` with permission/scope/source-aware
+memory selection, context assembly and manifests, structured bounded views of validated Tool results,
+source-span/revision-checked compaction, protected result references, current-authority rehydration,
+incident classification, 30 boundary tests, 3 grader tests, 16 version-1 seed cases, deterministic example,
+design, classroom record and validation evidence.
+
+Context representations remain separate from durable Job/Attempt/Approval/Reservation/Outbox authority.
+Assembly grants no dispatch; compaction is lossy; empty excerpts do not prove empty results; rehydration
+rechecks current control facts; unknown effects retain original identity and HELD reservation. Context
+capacity and Job token/cost Reservation remain independent gates.
+
+Updated project/root/docs READMEs, FastAPI cheat sheet/interview, Day83 next link, curriculum, roadmap,
+status, tasks and AGENTS. Day84 is complete at guided classroom scope; Day85 remains planned. Final
+synthesis was instructor-authored at the student's request; independent final synthesis NOT ASSESSED.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Python 3.11.5, 33 focused/411 cumulative tests,
+16/16 Day84 seed cases, 26/26 Day83 seed regression and deterministic example PASS with zero real calls.
+Python 3.12, real tokenizer/summarizer/Provider, PostgreSQL/Object Storage, Relay/Queue/Worker,
+billing/compensation, INTEGRATION_RUNTIME and PRODUCTION NOT RUN.
+
 ## Unreleased — Day83 — Human Approval, Interrupt and Escalation Boundaries (Phase 7B)
 
 Date: 2026-09-03

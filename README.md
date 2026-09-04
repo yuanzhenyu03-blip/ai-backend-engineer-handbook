@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day83 is complete at guided classroom scope: 53 new tests, 378 cumulative local tests, 26/26 seed cases and the mandatory runnable checkpoint PASS on Python 3.11.5. Independent final synthesis was not assessed; Python 3.12 and the real Provider gate are NOT RUN. Real PostgreSQL/Outbox/queue/Worker/Provider/external-Tool/billing integration remains **NOT RUN**.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day84 is complete at guided classroom scope: 33 new tests, 411 cumulative local tests, 16/16 Day84 seed cases, 26/26 Day83 seed regression and the deterministic example PASS on Python 3.11.5. Independent final synthesis was not assessed; Python 3.12 and real tokenizer/summarizer/Provider are NOT RUN. Real PostgreSQL/Object Storage/Outbox/queue/Worker/Provider/external-Tool/billing integration remains **NOT RUN**.
 
 Last completed lesson:
 
-* [Day83 — Human Approval, Interrupt and Escalation Boundaries](docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md)
+* [Day84 — Conversation Memory vs Durable Business-state Boundaries](docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md)
 
-(For the full completed classroom history Day01–Day83, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day84, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day84 — Conversation Memory vs Durable Business-state Boundaries (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day85 — Multi-agent Handoff and Coordination Boundaries (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

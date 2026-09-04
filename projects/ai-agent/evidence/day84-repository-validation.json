@@ -1,0 +1,62 @@
+{
+  "lesson": "Day84 — Conversation Memory vs Durable Business-state Boundaries",
+  "date": "2026-09-04",
+  "stage": "repository-update validation before commit",
+  "base_commit": "e38ee35607c09340929e70331807a54a7717dd6d",
+  "remote_main_verified": "e38ee35607c09340929e70331807a54a7717dd6d",
+  "runtime": "Python 3.11.5",
+  "working_directory": "/Users/yuanzhenyu/Documents/AI backend for codex/day84-classroom/projects/ai-agent",
+  "results": [
+    {
+      "check": "py_compile",
+      "result": "PASS",
+      "scope": "context_memory.py, two Day84 test modules, seed runner and example"
+    },
+    {
+      "check": "Day84 unittest discovery",
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 -m unittest discover -s tests -p 'test_day84*.py' -q",
+      "result": "33 passed"
+    },
+    {
+      "check": "cumulative unittest discovery",
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 -m unittest discover -s tests -q",
+      "result": "411 passed"
+    },
+    {
+      "check": "Day83 version-1 seed regression",
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 evals/run_day83_seed_eval.py",
+      "result": "26/26 passed"
+    },
+    {
+      "check": "Day84 version-1 seed",
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 evals/run_day84_seed_eval.py",
+      "result": "16/16 passed"
+    },
+    {
+      "check": "Day84 deterministic example",
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 examples/day84_context_memory_boundary.py",
+      "result": "PASS; provider_calls=0; external_tool_calls=0"
+    }
+  ],
+  "evidence_boundary": {
+    "executed": "deterministic in-process Python logic",
+    "not_run": [
+      "Python 3.12",
+      "real tokenizer, summarizer or Provider",
+      "general LLM semantic-fidelity evaluation",
+      "PostgreSQL or Memory database",
+      "Object Storage",
+      "authenticated callback",
+      "Outbox Relay, Queue or Worker",
+      "external Tool",
+      "billing or compensation execution",
+      "integration runtime",
+      "production"
+    ]
+  },
+  "assessment": {
+    "guided_classroom": "COMPLETE",
+    "final_synthesis": "INSTRUCTOR_AUTHORED_BY_STUDENT_REQUEST",
+    "independent_final_synthesis": "NOT ASSESSED"
+  }
+}

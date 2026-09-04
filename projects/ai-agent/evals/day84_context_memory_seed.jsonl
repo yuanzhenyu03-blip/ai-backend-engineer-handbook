@@ -1,0 +1,16 @@
+{"case_id":"CM01","case_version":1,"category":"allowed_preference","expected_decision":"SELECTED","expected_business_effects":[],"rationale":"A current scoped explicit preference may enter context."}
+{"case_id":"CM02","case_version":1,"category":"cross_tenant","expected_decision":"SCOPE_MISMATCH","expected_business_effects":[],"rationale":"Cross-tenant memory is excluded before model exposure."}
+{"case_id":"CM03","case_version":1,"category":"expired_memory","expected_decision":"MEMORY_EXPIRED","expected_business_effects":[],"rationale":"Expired memory is not injected."}
+{"case_id":"CM04","case_version":1,"category":"summary_claimed_approval","expected_decision":"APPROVAL_PENDING","expected_business_effects":[],"rationale":"Summary text cannot establish approval."}
+{"case_id":"CM05","case_version":1,"category":"old_summary_new_artifact","expected_decision":"APPROVAL_BINDING_MISMATCH","expected_business_effects":[],"rationale":"A v7 summary cannot authorize artifact v8."}
+{"case_id":"CM06","case_version":1,"category":"permission_revoked_after_assembly","expected_decision":"DISPATCH_BLOCKED","expected_business_effects":[],"rationale":"Current Day83 dispatch guard still applies."}
+{"case_id":"CM07","case_version":1,"category":"summary_unknown_to_failed","expected_decision":"RECONCILE_KEEP_HELD","expected_business_effects":[],"rationale":"Unknown keeps original identity and reservation."}
+{"case_id":"CM08","case_version":1,"category":"stale_source_span","expected_decision":"STALE_SOURCE_SPAN","expected_business_effects":[],"rationale":"Old span cannot overwrite a new event."}
+{"case_id":"CM09","case_version":1,"category":"compaction_replay","expected_decision":"DUPLICATE","expected_business_effects":[],"rationale":"Same compaction candidate is idempotent."}
+{"case_id":"CM10","case_version":1,"category":"context_budget_exceeded","expected_decision":"CONTEXT_BUDGET_EXCEEDED","expected_business_effects":[],"rationale":"Input, output reserve and margin must all fit."}
+{"case_id":"CM11","case_version":1,"category":"context_ready_not_execution","expected_decision":"READY_NO_EXECUTION_AUTHORITY","expected_business_effects":[],"rationale":"Prepared context is not a business permit."}
+{"case_id":"CM12","case_version":1,"category":"partial_tool_result","expected_decision":"PARTIAL_WARNING_PRESERVED","expected_business_effects":[],"rationale":"Bounded view retains warning and completeness."}
+{"case_id":"CM13","case_version":1,"category":"empty_excerpt","expected_decision":"EMPTY_EXCERPT_HAS_MORE","expected_business_effects":[],"rationale":"Omitted content is not absence."}
+{"case_id":"CM14","case_version":1,"category":"expired_reference","expected_decision":"REFERENCE_EXPIRED_NO_REPLAY","expected_business_effects":[],"rationale":"Protected reference failure cannot replay an effect."}
+{"case_id":"CM15","case_version":1,"category":"authority_unavailable","expected_decision":"AUTHORITY_UNAVAILABLE","expected_business_effects":[],"rationale":"Memory is not a fallback control database."}
+{"case_id":"CM16","case_version":1,"category":"terminal_and_memory_update","expected_decision":"TERMINAL_UNCHANGED_MEMORY_UPDATED","expected_business_effects":[],"rationale":"Preference update cannot reopen a terminal Job."}

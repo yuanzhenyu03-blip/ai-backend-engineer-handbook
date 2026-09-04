@@ -1,0 +1,114 @@
+{
+  "lesson": "Day84 — Conversation Memory vs Durable Business-state Boundaries",
+  "recorded_date": "2026-09-04",
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME",
+  "repository": {
+    "remote": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "remote_main_commit_verified_at_start": "e38ee35607c09340929e70331807a54a7717dd6d",
+    "known_day83_commit": "e38ee35607c09340929e70331807a54a7717dd6d",
+    "classroom_directory": "/Users/yuanzhenyu/Documents/AI backend for codex/day84-classroom",
+    "formal_repository_modified": false,
+    "commit_created": false,
+    "push_performed": false,
+    "pull_request_created": false
+  },
+  "runtime": {
+    "python": "/Users/yuanzhenyu/anaconda3/bin/python3.11",
+    "version": "Python 3.11.5",
+    "working_directory": "projects/ai-agent"
+  },
+  "final_results": [
+    {
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 -m py_compile src/context_memory.py tests/test_day84_context_memory.py tests/test_day84_seed_grader.py evals/run_day84_seed_eval.py examples/day84_context_memory_boundary.py",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 -m unittest discover -s tests -p 'test_day84*.py' -q",
+      "exit_code": 0,
+      "result": "33 tests passed"
+    },
+    {
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 -m unittest discover -s tests -q",
+      "exit_code": 0,
+      "result": "411 tests passed (378 prior + 33 Day84)"
+    },
+    {
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 evals/run_day83_seed_eval.py",
+      "exit_code": 0,
+      "result": "26/26 version-1 cases passed"
+    },
+    {
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 evals/run_day84_seed_eval.py",
+      "exit_code": 0,
+      "result": "16/16 version-1 cases passed"
+    },
+    {
+      "command": "PYTHONPATH=src /Users/yuanzhenyu/anaconda3/bin/python3.11 examples/day84_context_memory_boundary.py",
+      "exit_code": 0,
+      "result": "PASS; provider_calls=0; external_tool_calls=0"
+    }
+  ],
+  "retained_failed_attempts": [
+    {
+      "command": "python3.11 -m unittest tests/test_day84_context_memory.py -v",
+      "result": "FAILED BEFORE TEST EXECUTION: tests directory is not a Python package",
+      "expected_facts_changed": false
+    },
+    {
+      "command": "bare system python3 concise rerun",
+      "runtime": "Python 3.9",
+      "result": "FAILED DURING IMPORT: missing PYTHONPATH and unsupported existing union annotations",
+      "expected_facts_changed": false
+    },
+    {
+      "command": "first Day84 version-1 seed run",
+      "result": "15/16; CM13 selected a general warning classification before the specific empty-excerpt classification",
+      "correction": "runner decision branch order corrected; expected JSONL facts unchanged",
+      "rerun": "16/16"
+    },
+    {
+      "command": "first JSON/Markdown fence check",
+      "result": "FAILED BEFORE FILE CHECK: a literal Markdown backtick sequence was interpreted by zsh as command substitution",
+      "correction": "equivalent check used chr(96) to avoid shell interpretation",
+      "rerun": "JSON_PARSE=PASS; MARKDOWN_FENCES=PASS"
+    }
+  ],
+  "source_sha256": {
+    "src/context_memory.py": "5fc49ac46ee5aa7044bc2758621b91171406c89a0d10f600677bb3730753bd15",
+    "tests/test_day84_context_memory.py": "69963f3c9a4e997c713ca437317eb5927143f6f3d4a592d37d53c08cef3b02be",
+    "tests/test_day84_seed_grader.py": "55ca1537812c4aca311b34956eb1a1b32b29a2bdf453cc5ac85b5bfb41f467ce",
+    "evals/day84_context_memory_seed.jsonl": "1bb00f8e8bee1eb224b41bb078772d99e654bfb057d8fde48667803c89c74350",
+    "evals/run_day84_seed_eval.py": "013fc439ed5dd103329979c843f1cbd8256f8d8e8655191e3f36eec30aaff6c4",
+    "examples/day84_context_memory_boundary.py": "1a76cd2c3e2e95734d7a9be7bd86ae6bb6d4bc1ee80a79486710b3b754a15c81"
+  },
+  "static_checks": {
+    "lesson_required_headings": "16/16 exact ordered headings present",
+    "git_diff_check": "PASS",
+    "master_prompt": "Complete 1,629-line read performed before generating Day84_Repository_Update_Input.md; sha256 e9ee0daaf4e14ec1b26091906dceea47014afc160615fde2713576f66e63ef55; unchanged from classroom HEAD",
+    "protected_prompts_and_template": "UNCHANGED",
+    "json_parse": "PASS",
+    "markdown_code_fences": "Balanced in four Day84 Markdown artifacts",
+    "local_markdown_link_targets": "PASS for five Day84-related Markdown files; fragments and external URLs were not validated",
+    "credential_pattern_scan": "No matches in Day84 files; narrow pattern scan only",
+    "markdown_renderer_or_linter": "NOT RUN",
+    "yaml": "N/A; no Day84 YAML"
+  },
+  "assessment": {
+    "guided_classroom": "COMPLETE",
+    "final_synthesis": "INSTRUCTOR_AUTHORED_BY_STUDENT_REQUEST",
+    "independent_final_synthesis": "NOT ASSESSED"
+  },
+  "not_run": [
+    "Python 3.12",
+    "real Provider or Provider-compatible tokenizer",
+    "real summarizer or general semantic-fidelity evaluation",
+    "PostgreSQL or Memory database",
+    "Object Storage",
+    "authenticated callback",
+    "Outbox Relay, Queue or Worker",
+    "external Tool",
+    "billing or compensation execution",
+    "production"
+  ]
+}

@@ -2526,3 +2526,54 @@ All17 actual answers, language/engineering corrections and instructor model answ
 Final Chinese synthesis was instructor-authored by request, not independently assessed.
 Related: [Day83 lesson](../docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md),
 [design](../projects/ai-agent/docs/DAY83_HUMAN_APPROVAL_INTERRUPT_ESCALATION.md).
+
+## Day84 — Conversation Memory vs Durable Business-state Boundaries (Phase 7B)
+
+### Beginner: How do conversation memory and durable business state differ?
+
+**Student answer:** “Conversation memory consists of incomplete, unverified memories, whereas durable business
+state represents verified, authoritative facts.”
+
+**Review:** The authority distinction is correct. Memory is not necessarily incomplete or unverified: an
+authorized preference or validated-result reference may be valid context, but it still cannot authorize a
+business transition.
+
+**Strong answer:** Conversation memory is scoped context for continuity and may be lossy or stale. Durable
+business state is the authoritative, versioned record used to decide, recover and settle business operations.
+
+### Intermediate: How do you safely resume after compaction?
+
+**Student answer:** “Use a context manifest.”
+
+**Review:** The manifest identifies selected, omitted and truncated sources, but does not prove current authority.
+
+**Strong answer:** Use the manifest and summary to locate context, then re-read the current checkpoint, Approval,
+permissions, lease/fence, Reservation and original operation status. Re-run application guards before dispatch.
+
+### Senior: A Provider request may have executed but its response was lost. The summary says failed. What now?
+
+**Student answer:** “Enter pending_reconciliation.”
+
+**Strong answer:** Mark the outcome unknown, preserve the original Provider request ID and evidence, keep the
+Reservation held, and reconcile that original operation. Prevent blind replay and settle only verified usage.
+
+### Follow-up: Does a successful context manifest grant execution?
+
+**Strong answer:** No. It proves only that an input candidate was assembled under a recorded policy and capacity
+estimate. Approval, current authorization and guarded business-state apply remain separate requirements.
+
+### Follow-up: What does a structurally valid summary prove?
+
+**Strong answer:** It can prove required references and forbidden authority markers are structurally present or
+absent. Deterministic Fake cases cannot prove general LLM semantic fidelity or production safety.
+
+### Common weak answer
+
+“The summary is in the database and says approved, so the Agent can continue.”
+
+Vocabulary: lossy summary; source span; context manifest; bounded view; provenance; current authority;
+rehydration; outcome unknown; reconciliation; held reservation.
+
+The final Day84 synthesis was instructor-authored at the student's request and is not independent assessment.
+Related: [Day84 lesson](../docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md),
+[design](../projects/ai-agent/docs/DAY84_CONVERSATION_MEMORY_BUSINESS_STATE_BOUNDARIES.md).

@@ -42,7 +42,8 @@ ai-agent/
 │   ├── agent_state_machine.py     # Day81: state, termination, loop/fence/budget guards
 │   ├── durable_agent_jobs.py      # Day82: checkpoint validation + classified durable recovery
 │   ├── human_control.py           # Day83: approval/interrupt/escalation conditional boundary
-│   └── human_control_scenarios.py # Day83: fixtures composing existing runtime seams
+│   ├── human_control_scenarios.py # Day83: fixtures composing existing runtime seams
+│   └── context_memory.py          # Day84: bounded context + non-authoritative memory
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -56,16 +57,18 @@ ai-agent/
 │   ├── test_day81_agent_state_machine.py # Day81: transitions, reservations + stale fences
 │   ├── test_day82_durable_agent_jobs.py # Day82: resume/retry/reconcile/outbox/fence cases
 │   ├── test_day83_human_control.py # Day83: 50 human-control tests
-│   └── test_day83_seed_grader.py  # Day83: 3 grader tests
-├── evals/                        # Day83: 26 version-1 seed cases + deterministic runner
-├── examples/                     # Day83: cumulative runnable checkpoint
-├── evidence/                     # Day83: historical and repository-update run records
-└── docs/                         # Day71–Day83 designs + classroom records
+│   ├── test_day83_seed_grader.py  # Day83: 3 grader tests
+│   ├── test_day84_context_memory.py # Day84: 30 boundary tests
+│   └── test_day84_seed_grader.py  # Day84: 3 grader tests
+├── evals/                        # Day83–Day84 version-1 seed cases + runners
+├── examples/                     # Day83 checkpoint + Day84 deterministic scenario
+├── evidence/                     # Day83–Day84 validation records
+└── docs/                         # Day71–Day84 designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day83 documented; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day84 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -239,12 +242,38 @@ external Tool/billing/compensation and alert delivery remain NOT RUN. The real P
 NOT RUN, and requires immediate explicit authorization before a bounded call.
 
 Teaching is complete at guided classroom scope. The final Chinese summary was instructor-authored at the
-student's request; independent synthesis was not assessed. Day84 is next, not started.
+student's request; independent synthesis was not assessed. Day84 continues the same Artifact below.
+
+## Day84 Conversation Memory and Durable Business State
+
+Day84 adds a bounded context layer to the same Agent artifact: permission-scoped memory selection,
+context assembly with a trace manifest, structured views of already-validated long Tool results,
+source-span/revision-checked compaction, protected result references and rehydration through the current
+Day83 human-control boundary. Memory and summary stores have no Job-state write capability. Context
+capacity and Job token/cost Reservation accounting remain separate gates.
+
+See the [design](docs/DAY84_CONVERSATION_MEMORY_BUSINESS_STATE_BOUNDARIES.md),
+[actual classroom record](docs/day84-context-memory-classroom-draft.md) and
+[validation evidence](evidence/day84-validation.json).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day84*.py' -v
+PYTHONPATH=src python3.11 -m unittest discover -s tests -v
+PYTHONPATH=src python3.11 evals/run_day83_seed_eval.py
+PYTHONPATH=src python3.11 evals/run_day84_seed_eval.py
+PYTHONPATH=src python3.11 examples/day84_context_memory_boundary.py
+```
+
+Python 3.11.5: 33 Day84 tests, 411 cumulative tests, 26/26 Day83 regression cases,
+16/16 Day84 version-1 seed cases and the deterministic scenario passed. Provider and external Tool calls
+were zero. Python 3.12, a real Provider/tokenizer/summarizer, PostgreSQL, Object Storage, callback,
+Relay/Queue/Worker, billing/compensation and production remain NOT RUN. Guided teaching is complete;
+the final synthesis was instructor-authored at the student's request, so independent synthesis is NOT ASSESSED.
 
 ## Future Milestones
 
-- Add Day84 conversation memory versus durable business-state boundaries without treating remembered consent as authority.
-- Independently assess Day83 final synthesis and review seed expectations before a release gate.
+- Add Day85 multi-Agent supervisor/worker/handoff and failure-isolation boundaries without preselecting a framework.
+- Independently assess Day83 and Day84 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

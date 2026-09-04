@@ -1749,3 +1749,45 @@ CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME only. Python3.12, real integrations
 Related: [Day83 lesson](../docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md),
 [design](../projects/ai-agent/docs/DAY83_HUMAN_APPROVAL_INTERRUPT_ESCALATION.md).
 Next: Day84 — Conversation Memory vs Durable Business-state Boundaries.
+
+## Day84 — Conversation Memory vs Durable Business-state Boundaries (Phase 7B)
+
+```text
+Context plane  = what the model sees
+Control plane  = what the application may execute and settle
+Summary        = lossy derived context
+Checkpoint     = committed business recovery position
+ContextBudget  = one Provider request's capacity
+Reservation    = business quota allocated to an Attempt
+```
+
+Selection order:
+
+```text
+exact scope -> current permission -> source availability/version -> expiry/revocation
+-> role/trust/provenance -> relevance -> budget -> context manifest
+```
+
+Bounded Tool view preserves: call/operation/result IDs, source version, status, completeness, warnings,
+total/shown counts, bytes, cursor and `has_more`. Empty excerpt does not mean empty source. A reference read
+rechecks current access and never authorizes replay of its origin operation.
+
+Compaction: explicit source span + fingerprint + policy/summarizer identity + summary revision. Publish with
+current source-head check and revision CAS. New event -> stale candidate; failure before commit -> prior summary
+remains; exact committed candidate replay -> duplicate-safe. Structural checks do not prove semantic fidelity.
+
+Rehydration: use summary for continuity, then re-read current Job/Attempt/Checkpoint/Approval/Reservation/
+lease/fence/dispatch/original-request facts and run application guards. Authority unavailable -> `WAIT`.
+Possible dispatch + lost response -> `PENDING_RECONCILIATION`, original request identity, Reservation `HELD`,
+no blind replay.
+
+Rollback: quarantine faulty context policy; reject new work; invalidate unpublished candidates; stop affected
+not-yet-called steps; block candidate dispatch; isolate dispatched Attempts and preserve evidence. Passing tests
+on repaired code does not close the affected historical set.
+
+Evidence: 33 focused/411 cumulative tests, Day84 16/16 seed, Day83 26/26 seed regression and deterministic
+example PASS on Python 3.11.5. Real tokenizer/summarizer/Provider/integrations and production NOT RUN.
+
+Related: [Day84 lesson](../docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md),
+[design](../projects/ai-agent/docs/DAY84_CONVERSATION_MEMORY_BUSINESS_STATE_BOUNDARIES.md).
+Next: Day85 — Multi-agent Handoff and Coordination Boundaries.

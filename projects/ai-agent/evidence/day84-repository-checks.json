@@ -1,0 +1,15 @@
+{
+  "lesson_headings": "PASS: 16/16 required headings in exact order",
+  "markdown_fences": "PASS: balanced in changed/new Day84-related Markdown files",
+  "local_markdown_links": "PASS: target files exist; fragments and external URLs not validated",
+  "json_parse": "PASS: Day84 evidence JSON files",
+  "seed_rows": "PASS: 16 JSONL rows",
+  "git_diff_check": "PASS",
+  "credential_pattern_scan": "PASS: no likely credential values in changed/new Day84 files; narrow pattern scan only; type annotation api_key: SecretStr was reviewed as an existing false positive",
+  "protected_files": "PASS: prompts/master-prompt.md, prompts/teaching-session-prompt.md and LESSON_TEMPLATE_v2.md byte-identical to base",
+  "master_prompt_read": "Complete 1,629-line read before Day84 repository-update input generation; sha256 e9ee0daaf4e14ec1b26091906dceea47014afc160615fde2713576f66e63ef55",
+  "source_integrity": "PASS: six Day84 executable/seed hashes match projects/ai-agent/evidence/day84-validation.json",
+  "markdown_renderer_or_linter": "NOT RUN",
+  "yaml": "N/A: no Day84 YAML added or modified",
+  "external_url_and_fragment_validation": "NOT RUN"
+}

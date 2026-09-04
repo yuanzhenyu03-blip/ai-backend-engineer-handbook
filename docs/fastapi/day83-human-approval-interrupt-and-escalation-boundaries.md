@@ -10,7 +10,7 @@
 - Estimated study time: 4–5 hours (review estimate, not measured classroom duration).
 - Prerequisites: Day74, Day78, Day79, Day80, Day81 and Day82.
 - Previous: [Day82 — Durable Agent Jobs](day82-durable-agent-jobs-checkpoint-resume-and-recovery.md).
-- Next: Day84 — Conversation Memory vs Durable Business-state Boundaries (planned; see [curriculum](../../CURRICULUM.md)).
+- Next: [Day84 — Conversation Memory vs Durable Business-state Boundaries](day84-conversation-memory-vs-durable-business-state-boundaries.md).
 - Artifact: [evolving ai-agent project](../../projects/ai-agent/README.md).
 - Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Python3.11.5,53 focused/378 cumulative tests,
   26/26 seed scenarios and mandatory runnable checkpoint PASS. Python3.12 and real integrations NOT RUN.
@@ -528,7 +528,7 @@ durability. Independent final synthesis and real integrations remain unassessed/
 - [ ] Independently review all seed expected facts before treating them as a release gate.
 - [ ] Validate on repository-standard Python3.12.
 - [ ] Verify real authenticated callback, PostgreSQL transaction, Relay/Queue/Worker and external effects.
-- [ ] Start Day84 memory versus durable business-state boundaries.
+- [x] Continue to Day84 memory versus durable business-state boundaries.
 
 Related: [design](../../projects/ai-agent/docs/DAY83_HUMAN_APPROVAL_INTERRUPT_ESCALATION.md),
 [cheat sheet](../../cheat_sheets/fastapi.md#day83--human-approval-interrupt-and-escalation-boundaries-phase-7b),
