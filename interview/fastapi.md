@@ -2577,3 +2577,68 @@ rehydration; outcome unknown; reconciliation; held reservation.
 The final Day84 synthesis was instructor-authored at the student's request and is not independent assessment.
 Related: [Day84 lesson](../docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md),
 [design](../projects/ai-agent/docs/DAY84_CONVERSATION_MEMORY_BUSINESS_STATE_BOUNDARIES.md).
+
+## Day85 — Multi-agent Handoff and Coordination Boundaries (Phase 7B)
+
+### Beginner: What is the role of the Supervisor and Coordinator?
+
+**Student answer:** “The supervisor is responsible for selecting candidates and assigning tasks (handoff),
+while the coordinator serves as a validation boundary.”
+
+**Review:** The boundary is correct. More precisely, the Supervisor proposes candidate assignments; the
+Coordinator validates current durable facts and persists the accepted coordination state.
+
+**Strong answer:** The Supervisor proposes bounded child work. The Coordinator validates identity, current
+authority, contracts, policy and budget, persists accepted state, controls claims and dispatch, and verifies
+child results. A proposal alone grants no execution permission.
+
+### Intermediate: How do lease and fence work together?
+
+**Student answer:** “A lease grants a worker execution privileges for a specific period ... Fencing acts as a
+safeguard by performing a check during the database write operation; if the fence token does not match, the
+write is rejected.”
+
+**Review:** Strong answer. Add that lease expiry cannot physically stop a stale process, so the current fence
+must also be checked before Provider dispatch, not only on final writes.
+
+### Intermediate: How do you prevent duplicate work under at-least-once delivery?
+
+**Student answer:** Query the system, perform an idempotent claim, stop on zero rows, resolve conflicts and
+retry a lost acknowledgement through the original identity.
+
+**Review:** A zero-row claim requires a reread and classification: it may mean duplicate, other owner,
+cancelled, terminal or conflict. Exact duplicates return the recorded fact; semantic conflicts stop and audit.
+Lost acknowledgement republishes the original Outbox intent.
+
+### Senior: How do you recover an unknown Provider outcome?
+
+**Student answer:** Enter `pending_reconciliation`, preserve the binding, approval, Attempt, Job, Outbox intent,
+dispatch marker, operation identity and allocation, then query and verify without immediately creating a new Attempt.
+
+**Strong answer:** Keep the original `provider_request_id`, all execution evidence and the allocation in HELD.
+Query the Provider by that identity, verify the result, then settle, complete or escalate. A fresh Attempt is
+created only after reconciliation proves retry safe.
+
+### Senior: How do you contain a bad coordination-policy version?
+
+The student correctly covered blocking new acceptance, claims, undispatched execution and aggregation;
+freezing expanded grants and suspicious allocations; isolating dispatched children; preserving evidence;
+classifying affected operations; settling verified usage; reconciling unknowns; independent compensation;
+controlled recovery; and monitoring exit criteria.
+
+### Evidence follow-up
+
+**Student answer:** The current artifact is only an execution-location runtime and does not actually call the Provider.
+
+**Review:** Correct direction. The precise evidence label is `EXECUTED_LOCAL_RUNTIME`; the run also does not
+exercise PostgreSQL, Outbox Relay/Broker, multi-process Workers, network partitions, clock skew, real billing
+or production fencing.
+
+Vocabulary: handoff; delegation grant; child allocation; idempotent claim; lease; fence; Outbox intent;
+operation identity; result candidate; fan-in; pending reconciliation; compensation.
+
+The actual guided answers, corrections and instructor models are preserved in the
+[classroom record](../projects/ai-agent/docs/day85-multi-agent-classroom-draft.md). The final synthesis was
+instructor-authored at the student's request and is not an independent assessment.
+Related: [Day85 lesson](../docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md),
+[design](../projects/ai-agent/docs/DAY85_MULTI_AGENT_HANDOFF_COORDINATION_BOUNDARIES.md).

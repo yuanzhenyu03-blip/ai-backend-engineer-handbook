@@ -9,6 +9,28 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day85 — Multi-agent Handoff and Coordination Boundaries (Phase 7B)
+
+Date: 2026-09-07
+
+Added the 16-section Day85 lesson and evolved `projects/ai-agent/` with application-owned handoff candidates
+and accepted records, exact duplicate/semantic-conflict handling, bounded delegation grants and child
+allocations, durable Outbox recovery, idempotent claims, lease/fence takeover, dispatch authorization,
+unknown-outcome reconciliation, cancellation, result-evidence verification and required/optional fan-in.
+
+Added 29 behavior tests, 3 grader tests, 18 version-1 seed cases, a deterministic scenario, design,
+actual classroom record, validation evidence and repository update report. Parent completion intentionally
+remains false: verified aggregation is an input to the current Day83 execution boundary, not publication authority.
+
+Updated root/project README, FastAPI cheat sheet, curriculum, roadmap, status, tasks and AGENTS. Day85 is
+complete at guided classroom scope and Day86 is next. Final synthesis was instructor-authored at the
+student's request; independent synthesis NOT ASSESSED.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Python 3.11.5, 32 focused/443 cumulative tests,
+18/18 Day85 seed cases, 16/16 Day84 and 26/26 Day83 seed regressions, and deterministic example PASS.
+Python 3.12, PostgreSQL, Outbox Relay/Broker/multi-process Worker, real Provider/Tool, network partitions,
+clock skew, production fencing, billing, INTEGRATION_RUNTIME and PRODUCTION NOT RUN.
+
 ## Unreleased — Day84 — Conversation Memory vs Durable Business-state Boundaries (Phase 7B)
 
 Date: 2026-09-04

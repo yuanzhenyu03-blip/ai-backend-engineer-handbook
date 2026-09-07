@@ -1850,6 +1850,16 @@ Per-day topics:
   Scope: multi-agent handoff and coordination boundaries.
   Connection: Day84 bounded one agent's memory; Day85 adds multi-agent handoff/coordination; Day86 secures the
   whole agent surface.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md`. Artifact: `projects/ai-agent/`
+  gained application-owned handoff candidates and accepted records, exact duplicate/conflict handling,
+  bounded grants and child allocations, Outbox recovery, idempotent claim/lease/fence ownership, dispatch
+  authorization, unknown-outcome reconciliation, cancellation, verified result evidence and required/optional
+  fan-in. Evidence: Python3.11.5, 32 Day85 / 443 cumulative deterministic local tests, 18/18 Day85 seed cases,
+  16/16 Day84 and 26/26 Day83 seed regressions, and example PASS with zero real Provider/external-Tool calls.
+  Final synthesis instructor-authored by request; independent synthesis NOT ASSESSED. Python3.12, PostgreSQL,
+  Outbox Relay/Broker/multi-process Worker, real Provider/Tool, network/clock-skew/production fencing, billing,
+  INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Next: Day86.
 - Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
   Scope: prompt injection, tool abuse, data exfiltration, sandboxing.
   Connection: Day85 widened the surface; Day86 adds agent security defenses; Day87 refreshes framework and

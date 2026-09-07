@@ -1791,3 +1791,48 @@ example PASS on Python 3.11.5. Real tokenizer/summarizer/Provider/integrations a
 Related: [Day84 lesson](../docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md),
 [design](../projects/ai-agent/docs/DAY84_CONVERSATION_MEMORY_BUSINESS_STATE_BOUNDARIES.md).
 Next: Day85 — Multi-agent Handoff and Coordination Boundaries.
+
+## Day85 — Multi-agent Handoff and Coordination Boundaries (Phase 7B)
+
+```text
+Supervisor  = proposes candidate work
+Coordinator = validates current durable facts and controls transitions
+Worker      = executes one claimed Attempt inside bounded authority
+Handoff     = proposal -> acceptance -> claim -> execution -> verification -> fan-in
+```
+
+Critical inequality:
+
+```text
+message delivered != accepted handoff != claim != execution permission
+                  != verified result != parent publication authority
+```
+
+Acceptance binds tenant, parent/child Job, Attempt, Step, handoff revision/fingerprint, contracts, context
+provenance, policy, grant, allocation and aggregation slot. Same identity + same fingerprint is duplicate-safe;
+same identity + different meaning is a conflict.
+
+Context is information, not authority. A child grant must be a strict subset of delegatable parent authority.
+Dispatch rechecks accepted binding + current grant + allocation + claim + live lease + matching fence + policy.
+Lease expiry removes permission but cannot stop a stale process; the fence rejects its writes and dispatch.
+
+Budget conservation: `sum(active child allocations) <= parent reservation`. Concurrency is valid inside this
+and depth/fanout/concurrency bounds. Verified unused capacity returns; verified usage settles; unknown outcome
+stays HELD.
+
+After possible dispatch + lost response: `PENDING_RECONCILIATION`, preserve the original operation identity,
+query by `provider_request_id`, hold allocation and do not immediately create a new Attempt. Pre-dispatch cancel
+releases only after proof of no effect; post-dispatch cancel is cooperative. Compensation is independent and
+never rewrites original evidence.
+
+Result chain: candidate -> coordinator identity/evidence/contract verification -> durable fact -> fan-in.
+Required unresolved = WAIT. Optional missing may be explicit PARTIAL only by policy. Contradiction = CONFLICT.
+READY still needs Day83 current execution authorization. A terminal parent is never reopened by a late result.
+
+Evidence: 32 focused/443 cumulative tests, Day85 18/18 seed, Day84 16/16 and Day83 26/26 regressions,
+deterministic example PASS on Python 3.11.5. PostgreSQL, Outbox Relay/Broker, multi-process Worker, real
+Provider/Tool, network/clock-skew/production fencing and production NOT RUN.
+
+Related: [Day85 lesson](../docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md),
+[design](../projects/ai-agent/docs/DAY85_MULTI_AGENT_HANDOFF_COORDINATION_BOUNDARIES.md).
+Next: Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.

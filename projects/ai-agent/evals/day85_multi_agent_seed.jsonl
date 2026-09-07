@@ -1,0 +1,18 @@
+{"case_id":"MA01","case_version":1,"category":"legal_acceptance","expected_decision":"ACCEPTED","expected_provider_calls":0,"rationale":"A scoped candidate is accepted by the application."}
+{"case_id":"MA02","case_version":1,"category":"cross_tenant","expected_decision":"SCOPE_MISMATCH","expected_provider_calls":0,"rationale":"Cross-tenant input is rejected before receiver exposure."}
+{"case_id":"MA03","case_version":1,"category":"summary_cannot_grant_publish","expected_decision":"CAPABILITY_NOT_DELEGATABLE","expected_provider_calls":0,"rationale":"Context text cannot create delegated authority."}
+{"case_id":"MA04","case_version":1,"category":"capability_subset","expected_decision":"CAPABILITY_NOT_DELEGATABLE","expected_provider_calls":0,"rationale":"A supervisor cannot delegate capability it lacks."}
+{"case_id":"MA05","case_version":1,"category":"duplicate_handoff","expected_decision":"DUPLICATE","expected_provider_calls":0,"rationale":"Same identity and fingerprint returns durable state."}
+{"case_id":"MA06","case_version":1,"category":"conflicting_handoff","expected_decision":"SEMANTIC_CONFLICT","expected_provider_calls":0,"rationale":"Same identity with different meaning is rejected."}
+{"case_id":"MA07","case_version":1,"category":"output_contract","expected_decision":"OUTPUT_CONTRACT_REJECTED","expected_provider_calls":0,"rationale":"An incompatible result contract fails acceptance."}
+{"case_id":"MA08","case_version":1,"category":"budget_allocation","expected_decision":"BUDGET_EXCEEDED","expected_provider_calls":0,"rationale":"Child allocations cannot copy the parent reservation."}
+{"case_id":"MA09","case_version":1,"category":"accepted_not_dispatch","expected_decision":"HANDOFF_NOT_CLAIMED","expected_provider_calls":0,"rationale":"Acceptance and context readiness grant no dispatch."}
+{"case_id":"MA10","case_version":1,"category":"crash_before_claim","expected_decision":"CLAIMED","expected_provider_calls":0,"rationale":"A receiver crash before claim leaves ownership free."}
+{"case_id":"MA11","case_version":1,"category":"stale_fence","expected_decision":"STALE_FENCE","expected_provider_calls":0,"rationale":"Takeover advances the fence and blocks the old worker."}
+{"case_id":"MA12","case_version":1,"category":"outcome_unknown","expected_decision":"PENDING_RECONCILIATION_HELD","expected_provider_calls":1,"rationale":"Unknown outcome retains original identity and allocation."}
+{"case_id":"MA13","case_version":1,"category":"cancel_before_dispatch","expected_decision":"CANCELLED_BEFORE_DISPATCH_RELEASED","expected_provider_calls":0,"rationale":"Undispatched work is blocked and unused allocation released."}
+{"case_id":"MA14","case_version":1,"category":"cancel_after_dispatch","expected_decision":"COOPERATIVE_CANCELLATION_PENDING_HELD","expected_provider_calls":1,"rationale":"Dispatched work is not treated as confirmed stopped."}
+{"case_id":"MA15","case_version":1,"category":"required_wait","expected_decision":"WAITING_FOR_REQUIRED","expected_provider_calls":0,"rationale":"An unresolved required child blocks fan-in."}
+{"case_id":"MA16","case_version":1,"category":"optional_partial","expected_decision":"PARTIAL","expected_provider_calls":1,"rationale":"Missing optional work is represented explicitly."}
+{"case_id":"MA17","case_version":1,"category":"stale_context_source","expected_decision":"SOURCE_VERSION_STALE","expected_provider_calls":1,"rationale":"Receiver result validation rechecks current source version."}
+{"case_id":"MA18","case_version":1,"category":"parent_terminal_late_result","expected_decision":"PARENT_TERMINAL","expected_provider_calls":1,"rationale":"A late child result cannot reopen the parent."}

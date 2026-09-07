@@ -1,0 +1,67 @@
+{
+  "day": 85,
+  "record_type": "repository_update_validation",
+  "baseline_commit": "72656f9aa407ec6cb6b4deff1e21f70a582f500e",
+  "remote_main_checked": true,
+  "remote_main_at_check": "72656f9aa407ec6cb6b4deff1e21f70a582f500e",
+  "runtime": {
+    "python": "3.11.5",
+    "python_3_12": "NOT_RUN",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME"
+  },
+  "checks": {
+    "py_compile": "PASS",
+    "day85_tests": "32/32 PASS",
+    "cumulative_tests": "443/443 PASS",
+    "day83_seed": "26/26 PASS",
+    "day84_seed": "16/16 PASS",
+    "day85_seed": "18/18 PASS",
+    "deterministic_example": "PASS",
+    "formal_lesson_sections": "16/16 PASS",
+    "json_parse": "PASS",
+    "relative_day85_link_targets": "PASS",
+    "tracked_diff_whitespace": "PASS",
+    "new_file_trailing_whitespace": "PASS",
+    "credential_pattern_scan": "PASS"
+  },
+  "hashes": {
+    "docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md": "c388e8ceba16a34aca5405bd255d1924f1c1da0ad0e193406d94eb34ec38cb88",
+    "projects/ai-agent/src/multi_agent_coordination.py": "16c24dcc754e89156b4d093c501da4f07b5cd342ee82aa0da63032999a473a4c",
+    "projects/ai-agent/tests/test_day85_multi_agent_coordination.py": "f702b07b7d75533149e0be82ccd809d74d0aa74b5f6558d767fdcfa11d1c5a01",
+    "projects/ai-agent/tests/test_day85_seed_grader.py": "7f5a83b31954b28a09f9383fd716bfff33d9fcd05da841d614ba0a5f8f8147dc",
+    "projects/ai-agent/evals/day85_multi_agent_seed.jsonl": "084fe62aea91d35951f157dfae0ec17cfb845b26212598a6b71103ce317439d4",
+    "projects/ai-agent/evals/run_day85_seed_eval.py": "a2ccd876f4fc68ef422226f61fa13c1fccd48a93f6fe04399ce9668a8e1fb007",
+    "projects/ai-agent/examples/day85_multi_agent_handoff.py": "a1a0860345ae094df4b3670b182cf79f4468a92944af41d395f87d2b5cfb50cf",
+    "projects/ai-agent/docs/DAY85_MULTI_AGENT_HANDOFF_COORDINATION_BOUNDARIES.md": "09124c287a977c6383a4bc8a018fd930680302c25abbbf3110632c5ddba6e2be",
+    "projects/ai-agent/docs/day85-multi-agent-classroom-draft.md": "4e07d8a780a8d4cc5d06915e532fb32cbbd95a1416a16a21f73bf858f83e7dc6",
+    "projects/ai-agent/evidence/day85-validation.json": "ede7a89d6692c7092f5f5cb26bc362c26b39fc01d884f484d139b226cd188500"
+  },
+  "known_command_errors": [
+    "An initial focused unittest command used non-package tests.* module names and stopped before test execution.",
+    "A second focused discovery command omitted PYTHONPATH=src and stopped before test execution.",
+    "Corrected commands passed with no implementation assertion failure."
+  ],
+  "real_effects": {
+    "provider_calls": 0,
+    "external_tool_calls": 0,
+    "remote_repository_publish": "NOT_RUN"
+  },
+  "not_run": [
+    "PostgreSQL",
+    "Outbox Relay",
+    "Broker",
+    "multi-process Worker",
+    "real Provider",
+    "external Tool",
+    "network partition",
+    "clock skew",
+    "production fencing",
+    "billing",
+    "production deployment"
+  ],
+  "assessment": {
+    "guided_classroom": "COMPLETED",
+    "final_synthesis": "INSTRUCTOR_AUTHORED",
+    "independent_synthesis": "NOT_ASSESSED"
+  }
+}

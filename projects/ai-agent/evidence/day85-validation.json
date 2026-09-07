@@ -1,0 +1,102 @@
+{
+  "day": 85,
+  "title": "Multi-agent Handoff and Coordination Boundaries",
+  "record_type": "isolated_classroom_evidence",
+  "formal_repository_published": false,
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "commit": "72656f9aa407ec6cb6b4deff1e21f70a582f500e",
+    "day85_status_at_baseline": "PLANNED_NOT_STARTED"
+  },
+  "prompt_evidence": {
+    "master_prompt": {
+      "lines": 1629,
+      "sha256": "e9ee0daaf4e14ec1b26091906dceea47014afc160615fde2713576f66e63ef55"
+    },
+    "teaching_session_prompt": {
+      "lines": 529,
+      "sha256": "0315c9019461c8ae05114af9ba04a6580dc22961020a72eb6318ae0e5816ed40"
+    }
+  },
+  "runtime": {
+    "python": "3.11.5",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME",
+    "store": "IN_MEMORY",
+    "worker": "FAKE_DETERMINISTIC",
+    "clock": "SYNTHETIC_INTEGER"
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "day85_behavior_tests": {
+      "passed": 29,
+      "failed": 0
+    },
+    "day85_grader_tests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "cumulative_tests": {
+      "passed": 443,
+      "failed": 0,
+      "prior_baseline": 411,
+      "new_tests": 32
+    },
+    "day83_seed_regression": {
+      "passed": 26,
+      "failed": 0
+    },
+    "day84_seed_regression": {
+      "passed": 16,
+      "failed": 0
+    },
+    "day85_seed": {
+      "passed": 18,
+      "failed": 0
+    },
+    "deterministic_example": "PASS"
+  },
+  "invocation_notes": [
+    {
+      "status": "COMMAND_ERROR_BEFORE_TEST_EXECUTION",
+      "detail": "The first focused unittest command used tests.* module names, but tests is not a Python package."
+    },
+    {
+      "status": "COMMAND_ERROR_BEFORE_TEST_EXECUTION",
+      "detail": "The second focused discovery command omitted PYTHONPATH=src, so the implementation module was not importable."
+    },
+    {
+      "status": "CORRECTED",
+      "detail": "All recorded test and seed results were rerun with env PYTHONPATH=src. No implementation assertion failed."
+    }
+  ],
+  "source_hashes": {
+    "src/multi_agent_coordination.py": "16c24dcc754e89156b4d093c501da4f07b5cd342ee82aa0da63032999a473a4c",
+    "tests/test_day85_multi_agent_coordination.py": "f702b07b7d75533149e0be82ccd809d74d0aa74b5f6558d767fdcfa11d1c5a01",
+    "tests/test_day85_seed_grader.py": "7f5a83b31954b28a09f9383fd716bfff33d9fcd05da841d614ba0a5f8f8147dc",
+    "evals/day85_multi_agent_seed.jsonl": "084fe62aea91d35951f157dfae0ec17cfb845b26212598a6b71103ce317439d4",
+    "evals/run_day85_seed_eval.py": "a2ccd876f4fc68ef422226f61fa13c1fccd48a93f6fe04399ce9668a8e1fb007",
+    "examples/day85_multi_agent_handoff.py": "a1a0860345ae094df4b3670b182cf79f4468a92944af41d395f87d2b5cfb50cf"
+  },
+  "external_effect_counters": {
+    "real_provider_calls": 0,
+    "real_tool_calls": 0
+  },
+  "not_run": [
+    "Python 3.12 compatibility",
+    "PostgreSQL",
+    "Outbox relay",
+    "Broker",
+    "Multi-process workers",
+    "Real provider",
+    "External tools",
+    "Network partitions",
+    "Clock skew",
+    "Production deployment",
+    "Real billing and model-quality evaluation"
+  ],
+  "assessment": {
+    "guided_classroom": "COMPLETED",
+    "final_synthesis_author": "INSTRUCTOR",
+    "independent_synthesis": "NOT_ASSESSED"
+  }
+}

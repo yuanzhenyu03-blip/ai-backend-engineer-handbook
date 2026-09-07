@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day84 is complete at guided classroom scope: 33 new tests, 411 cumulative local tests, 16/16 Day84 seed cases, 26/26 Day83 seed regression and the deterministic example PASS on Python 3.11.5. Independent final synthesis was not assessed; Python 3.12 and real tokenizer/summarizer/Provider are NOT RUN. Real PostgreSQL/Object Storage/Outbox/queue/Worker/Provider/external-Tool/billing integration remains **NOT RUN**.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day85 is complete at guided classroom scope: 32 new tests, 443 cumulative local tests, 18/18 Day85 seed cases, Day84 16/16 and Day83 26/26 seed regressions, and the deterministic example PASS on Python 3.11.5. Independent final synthesis was not assessed; Python 3.12 and real PostgreSQL/Outbox Relay/Broker/Worker/Provider/external-Tool integration are **NOT RUN**.
 
 Last completed lesson:
 
-* [Day84 — Conversation Memory vs Durable Business-state Boundaries](docs/fastapi/day84-conversation-memory-vs-durable-business-state-boundaries.md)
+* [Day85 — Multi-agent Handoff and Coordination Boundaries](docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md)
 
-(For the full completed classroom history Day01–Day84, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day85, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day85 — Multi-agent Handoff and Coordination Boundaries (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

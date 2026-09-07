@@ -43,7 +43,8 @@ ai-agent/
 │   ├── durable_agent_jobs.py      # Day82: checkpoint validation + classified durable recovery
 │   ├── human_control.py           # Day83: approval/interrupt/escalation conditional boundary
 │   ├── human_control_scenarios.py # Day83: fixtures composing existing runtime seams
-│   └── context_memory.py          # Day84: bounded context + non-authoritative memory
+│   ├── context_memory.py          # Day84: bounded context + non-authoritative memory
+│   └── multi_agent_coordination.py # Day85: handoff, delegation, ownership, fan-in
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -59,16 +60,18 @@ ai-agent/
 │   ├── test_day83_human_control.py # Day83: 50 human-control tests
 │   ├── test_day83_seed_grader.py  # Day83: 3 grader tests
 │   ├── test_day84_context_memory.py # Day84: 30 boundary tests
-│   └── test_day84_seed_grader.py  # Day84: 3 grader tests
-├── evals/                        # Day83–Day84 version-1 seed cases + runners
-├── examples/                     # Day83 checkpoint + Day84 deterministic scenario
-├── evidence/                     # Day83–Day84 validation records
-└── docs/                         # Day71–Day84 designs + classroom records
+│   ├── test_day84_seed_grader.py  # Day84: 3 grader tests
+│   ├── test_day85_multi_agent_coordination.py # Day85: 29 boundary tests
+│   └── test_day85_seed_grader.py  # Day85: 3 grader tests
+├── evals/                        # Day83–Day85 version-1 seed cases + runners
+├── examples/                     # Day83 checkpoint + Day84–Day85 deterministic scenarios
+├── evidence/                     # Day83–Day85 validation records
+└── docs/                         # Day71–Day85 designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day84 documented; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day85 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -270,10 +273,40 @@ were zero. Python 3.12, a real Provider/tokenizer/summarizer, PostgreSQL, Object
 Relay/Queue/Worker, billing/compensation and production remain NOT RUN. Guided teaching is complete;
 the final synthesis was instructor-authored at the student's request, so independent synthesis is NOT ASSESSED.
 
+## Day85 Multi-agent Handoff and Coordination Boundaries
+
+Day85 adds an application-owned coordination layer to the same Agent artifact. The Supervisor proposes a
+candidate; the Coordinator validates current durable facts and persists the accepted handoff, bounded grant,
+child allocation and Outbox intent; a Worker must obtain an idempotent claim, live lease and current fence
+before dispatch. Returned output stays a candidate until identity, evidence, source version and output contract
+verification. Required/optional fan-in produces explicit WAIT, PARTIAL, READY or CONFLICT facts, while final
+parent execution remains behind Day83.
+
+See the [design](docs/DAY85_MULTI_AGENT_HANDOFF_COORDINATION_BOUNDARIES.md),
+[actual classroom record](docs/day85-multi-agent-classroom-draft.md),
+[validation evidence](evidence/day85-validation.json) and
+[repository update report](docs/DAY85_REPOSITORY_UPDATE_REPORT.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day85*.py' -v
+PYTHONPATH=src python3.11 -m unittest discover -s tests -v
+PYTHONPATH=src python3.11 evals/run_day83_seed_eval.py
+PYTHONPATH=src python3.11 evals/run_day84_seed_eval.py
+PYTHONPATH=src python3.11 evals/run_day85_seed_eval.py
+PYTHONPATH=src python3.11 examples/day85_multi_agent_handoff.py
+```
+
+Python 3.11.5: 32 Day85 tests, 443 cumulative tests, 26/26 Day83 and 16/16 Day84 regression cases,
+18/18 Day85 version-1 seed cases and the deterministic scenario passed. Real Provider and external Tool
+calls were zero. Python 3.12, PostgreSQL, Outbox Relay/Broker/multi-process Worker, real Provider/Tool,
+network partitions, clock skew, production fencing, billing and production remain NOT RUN. Guided teaching
+is complete; the final synthesis was instructor-authored at the student's request, so independent synthesis
+is NOT ASSESSED.
+
 ## Future Milestones
 
-- Add Day85 multi-Agent supervisor/worker/handoff and failure-isolation boundaries without preselecting a framework.
-- Independently assess Day83 and Day84 final synthesis and review seed expectations before a release gate.
+- Add Day86 security controls on top of the Day85 coordination boundaries without preselecting a framework.
+- Independently assess Day83–Day85 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

@@ -327,7 +327,7 @@ not the business model. Do not pre-lock LangGraph.
 | Day82 | Durable Agent Jobs, Checkpoint, Resume and Recovery | ✅ Completed (classroom scope; 32 Day82 / 325 cumulative local tests) |
 | Day83 | Human Approval, Interrupt and Escalation Boundaries | ✅ Completed (guided classroom scope; 53 focused / 378 cumulative local tests; 26/26 seed; checkpoint PASS; independent final synthesis not assessed) |
 | Day84 | Conversation Memory vs Durable Business-state Boundaries | ✅ Completed (guided classroom scope; 33 focused / 411 cumulative local tests; 16/16 seed; Day83 26/26 seed regression; independent final synthesis not assessed) |
-| Day85 | Multi-agent Handoff and Coordination Boundaries | Planned |
+| Day85 | Multi-agent Handoff and Coordination Boundaries | ✅ Completed (guided classroom scope; 32 focused / 443 cumulative local tests; 18/18 seed; Day84 16/16 and Day83 26/26 seed regressions; independent final synthesis not assessed) |
 | Day86 | Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing | Planned |
 | Day87 | Agent Framework and Job-Market Refresh Checkpoint | Planned |
 | Day88 | Agent Runtime Framework Selection Behind a Replaceable Adapter | Planned |
