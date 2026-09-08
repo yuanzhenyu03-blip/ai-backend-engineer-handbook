@@ -13,8 +13,10 @@
 - Main engineering artifact: deterministic framework/job evidence validator and Day88 handoff
 - Evidence level: `CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME`
 
-This lesson did not select or install a framework and did not modify the formal
-repository or application runtime.
+The classroom execution did not select or install a framework and did not modify
+the application runtime. Repository publication adds only curriculum records,
+offline evidence-validation artifacts and tests; it does not deploy or activate
+them in a business service.
 
 Related artifacts: [Day86 security lesson](day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md),
 [Day87 design](../../projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md),

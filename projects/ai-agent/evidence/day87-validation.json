@@ -92,7 +92,7 @@
     "projects/ai-agent/research/day87-framework-market-refresh.md": "306f6cf7657d839ddbce4411b6e730c92a56b5d32bcd277d45bff3a319bb3e65",
     "projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md": "fabe55a76ef9be1b25a87eb1d7490e44b3bffa0b9adff175eec3cc5698adec2f",
     "projects/ai-agent/docs/day87-framework-job-market-classroom-draft.md": "3f0663fcd3709e3ec9608436fad2b26042cca7f57638ca753ee85e7596e60769",
-    "docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md": "d5adeec68fdc9321a42528ec75daa2c6c08aad4908b4e825d6eaad4ba32a6c74"
+    "docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md": "128588d55b7c4bce38da70270bd2061324c4b744c739e3242bd9f62b8b244620"
   },
   "external_effect_counters": {
     "real_provider_calls": 0,

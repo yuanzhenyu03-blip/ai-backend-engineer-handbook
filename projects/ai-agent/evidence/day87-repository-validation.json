@@ -36,7 +36,7 @@
     "TASKS.md": "e81d87c88d5ec2b68ddc9fe24acb0e5c11b0834ec36d2d12bbea1a9335a17335",
     "cheat_sheets/fastapi.md": "923bde46bee15981e2767807a3fc20e28ff71522761aaa774e05f3ef6298e43e",
     "projects/ai-agent/README.md": "9fb29ad760222b0982dd9691224e6e393028b803a950c912dc899478b755308a",
-    "docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md": "d5adeec68fdc9321a42528ec75daa2c6c08aad4908b4e825d6eaad4ba32a6c74",
+    "docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md": "128588d55b7c4bce38da70270bd2061324c4b744c739e3242bd9f62b8b244620",
     "projects/ai-agent/src/framework_selection_evidence.py": "6bb753596e88b70db4025d176c1c60a3987b35d37bc3abe4c5cf7629445d8697",
     "projects/ai-agent/tests/test_day87_framework_selection_evidence.py": "f37e26cff5af8884d10c8bb64174758296626c0f2857d2a06b0ef20365a9330c",
     "projects/ai-agent/examples/day87_framework_selection_handoff.py": "d40e4a56a0e1fd1c1a706d75a7e14e91df76e03fbba268a581652500dfc8d545",
@@ -46,7 +46,7 @@
     "projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md": "fabe55a76ef9be1b25a87eb1d7490e44b3bffa0b9adff175eec3cc5698adec2f",
     "projects/ai-agent/docs/day87-framework-job-market-classroom-draft.md": "3f0663fcd3709e3ec9608436fad2b26042cca7f57638ca753ee85e7596e60769",
     "projects/ai-agent/docs/DAY87_REPOSITORY_UPDATE_REPORT.md": "d460fa6c3137ab640f4f6b48d24492d65db5dc0031560a64a639031f4976ad02",
-    "projects/ai-agent/evidence/day87-validation.json": "568a5229dbbce2323606cfa262bae7c41a72fb439238086555a84e264878e4c7"
+    "projects/ai-agent/evidence/day87-validation.json": "704d5bcb5b04e09927fa7fedc142dc680ac494be18fa88ae631c9a734f0a9180"
   },
   "known_non_assertion_issues": [
     "Python 3.12 was unavailable and remains NOT RUN.",
