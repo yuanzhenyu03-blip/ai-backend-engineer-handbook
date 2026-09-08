@@ -2642,3 +2642,81 @@ The actual guided answers, corrections and instructor models are preserved in th
 instructor-authored at the student's request and is not an independent assessment.
 Related: [Day85 lesson](../docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md),
 [design](../projects/ai-agent/docs/DAY85_MULTI_AGENT_HANDOFF_COORDINATION_BOUNDARIES.md).
+
+## Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (Phase 7B)
+
+### Beginner: What is prompt injection?
+
+**Student answer:** Direct injection involves instructions in user input, while indirect injection occurs
+through instructions embedded in web content, documents or Tool outputs.
+
+**Review:** The distinction is correct. Add the core definition: untrusted content is attempting to change
+the Agent's goal, authority, data boundary or execution path. Even a classifier's false negative leaves
+external content untrusted.
+
+**Strong answer:** Prompt injection is untrusted content trying to alter an Agent's instructions or authority.
+Direct injection comes through user input; indirect injection is embedded in retrieved content or Tool results.
+I keep both as data and enforce authorization in the application.
+
+### Intermediate: Why is a schema-valid Tool call not authorized?
+
+**Student answer:** Historical checks may no longer reflect current status because permissions can be revoked,
+cancelled or expired, so the application must recheck them.
+
+**Strong answer:** Visibility lets the model propose a Tool and schema validation proves only structure.
+Immediately before dispatch, the application rechecks the original caller, current grant, tenant, resource,
+exact Tool/version/arguments, approval, policy, fence, purpose and destination. A privileged deputy cannot
+substitute its own authority.
+
+### Intermediate: Why use a credential reference?
+
+**Student answer:** Sensitive data should not be sent to the model; a reference is resolved at runtime after
+authorization verification.
+
+**Strong answer:** An opaque reference keeps raw credentials out of prompts, model output, logs and Artifacts.
+A trusted Secret manager or controlled adapter resolves it after current authorization and injects it only into
+the permitted execution scope. The model never resolves the reference or receives the raw value.
+
+### Senior: How do you recover a post-dispatch unknown outcome?
+
+**Student answer:** Enter `pending_reconciliation`, query durable bindings through `operation_id` and
+`provider_request_id`, avoid immediate retry and keep the reservation held.
+
+**Strong answer:** Preserve the exact Attempt, handoff, dispatch marker, operation/provider identity, policy,
+grant and reservation. Query the external system using the original idempotent identity. Confirmed absence may
+permit retry, verified effect is settled, harmful effect enters incident response, and unresolved outcome stays
+held. Unknown is never treated as zero effect.
+
+### Senior: How do you contain a bad security-policy release?
+
+The learner correctly identified the policy/release/time window; tenants, Jobs, Attempts, Steps, handoffs and
+sources; every Tool/Provider/Egress/Sandbox operation; allocation settlement; credential rotation; authorized
+compensation; parent/sibling/Artifact/log/recipient impact; continuous audit; and controlled rollout. The key
+correction is that an unknown outcome with only an owner and deadline is managed but not resolved, so it is
+normally insufficient for incident closure.
+
+### Senior: Why must security be enforced outside the model?
+
+**Student answer:** System prompts cannot guarantee correct Provider checks, model self-checks can omit items,
+and a model's `ALLOW` may be an incorrect inference.
+
+**Strong answer:** Model output is probabilistic content, not enforceable authority. Prompts and self-checks can
+reduce risk but cannot withhold credentials, restrict OS resources, block network Egress or prevent Tool dispatch.
+A trusted application component validates current facts and controls the physical boundary; returned results are
+still candidates until independently verified.
+
+### Evidence follow-up
+
+Fake Tool/Egress/Sandbox and in-memory tests prove deterministic behavior only for covered inputs. They do not
+prove real API semantics, OS/container isolation, IAM, Secret injection, resource exhaustion, multi-worker races,
+network failure, durable reconciliation, cleanup recovery or production configuration.
+
+Vocabulary: trusted instruction; untrusted content; direct/indirect injection; confused deputy; security
+admission; Egress; disclosure budget; credential reference; Sandbox profile; dispatch marker; result candidate;
+verified outcome; pending reconciliation; residual risk; compensation.
+
+The actual guided answers and corrections are preserved in the
+[classroom record](../projects/ai-agent/docs/day86-agent-security-classroom-draft.md). The final synthesis was
+instructor-authored at the student's request and is not an independent assessment.
+Related: [Day86 lesson](../docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md),
+[design](../projects/ai-agent/docs/DAY86_AGENT_SECURITY_BOUNDARIES.md).

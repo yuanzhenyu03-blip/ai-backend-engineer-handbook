@@ -1,0 +1,83 @@
+{
+  "day": 86,
+  "record_type": "repository_update_validation",
+  "baseline_commit": "c58386845d822ec03628a071ea8a053cbfde5aeb",
+  "remote_main_checked": true,
+  "remote_main_at_check": "c58386845d822ec03628a071ea8a053cbfde5aeb",
+  "formal_repository_published": false,
+  "runtime": {
+    "python": "3.11.5",
+    "python_3_12": "NOT_RUN",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME"
+  },
+  "checks": {
+    "py_compile": "PASS",
+    "day86_tests": "31/31 PASS",
+    "cumulative_tests": "474/474 PASS",
+    "day83_seed": "26/26 PASS",
+    "day84_seed": "16/16 PASS",
+    "day85_seed": "18/18 PASS",
+    "day86_seed": "25/25 PASS",
+    "deterministic_example": "PASS",
+    "formal_lesson_sections": "16/16 PASS",
+    "json_parse": "PASS",
+    "relative_markdown_link_targets": "357 CHECKED / 0 MISSING",
+    "tracked_diff_whitespace": "PASS",
+    "new_file_trailing_whitespace": "PASS",
+    "credential_pattern_scan": "PASS"
+  },
+  "hashes": {
+    "README.md": "9228666f2950faa402aa33c7df065d07c9cb012a387dd8657e6977b7ae9ae9a3",
+    "AGENTS.md": "b5fb02d9eeed9adee271c6ac4532f358c20de54b08f62bf120717ea2b04b8d26",
+    "CHANGELOG.md": "0f96df53a4fe6dce34b8e63f014347b52b6301707270a1bcf9046d245d711b8a",
+    "CURRICULUM.md": "3a80e00f97df1926185ab7cdda8f7aa333b0f64fbd0a3da9de5d6528a6f9c88f",
+    "PROJECT_STATUS.md": "7aa8d55f4fe73a82436ef5b4c86a6d678b0a1afdd4d5838b2cef132b071fb035",
+    "ROADMAP.md": "a3d8f227868de3e25a0226ab2878196adb7b44eba8f9c34fbeaa7c3ec47cce7f",
+    "TASKS.md": "ded09c0d3bfdfc6db33b0414782b64d400ae03efdd594a0ea11ee60311fe0768",
+    "cheat_sheets/fastapi.md": "90c339f0748e2ba222ee6a17aa150ef2ec9aaafb8a8f562092b613514feb283c",
+    "interview/fastapi.md": "5cb03712898e3881242411fe27e32ea78e7f3105e521bc703967ecc1560c8647",
+    "projects/ai-agent/README.md": "561e1ab9a1169fc7a2b4bde09beb23143000f1302626bbe7f8b878d9b2e7b77f",
+    "docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md": "b39e89ce73595b8f48f0634f4cc604b8c766fe222d9ba23b201a059491c9e4f1",
+    "projects/ai-agent/src/agent_security.py": "0144b6003ce14f86b3fb288f1f6313f340cd5229514edb2eb20387f7c3f0e98b",
+    "projects/ai-agent/tests/test_day86_agent_security.py": "1c0fd61dbe742b1dd09c8dea63e726a9ad853446415da755e2d822032fc9c065",
+    "projects/ai-agent/tests/test_day86_seed_grader.py": "8da445cc8152d0135e2644db67774ef25292e29e1aab1bd93b8a83e516c25196",
+    "projects/ai-agent/evals/day86_agent_security_seed.jsonl": "edcbdec51a9f40c1d312abd108bfc1c73c579391e52d64e32014c0bca5d5eb0b",
+    "projects/ai-agent/evals/run_day86_seed_eval.py": "9d155168045ac91c3bd5310191d923917ac625f9a7889d5452f3df8cb6cd7ffa",
+    "projects/ai-agent/examples/day86_agent_security_boundary.py": "6f2d2e57ac990397fe5b91696ccc7c46f9efbde1a770e171e802336606ff8e11",
+    "projects/ai-agent/docs/DAY86_AGENT_SECURITY_BOUNDARIES.md": "64ef29fc0ea7af1c6cfff24bb91d8a94144c456e834b483bcaf7c69cfb460394",
+    "projects/ai-agent/docs/DAY86_REPOSITORY_UPDATE_REPORT.md": "c747cde8d84aff0e1ba9bf9ffe414497fc44cf67c7dda3ddc515e42162c68641",
+    "projects/ai-agent/docs/day86-agent-security-classroom-draft.md": "158046d13690026b640c250f54005809f034c14555b30a2f37b127f7a1591bf7",
+    "projects/ai-agent/evidence/day86-validation.json": "1c2b55ff0baae4abea905da1470c562013078b1765dd620006e70d2778a78855"
+  },
+  "known_non_assertion_issues": [
+    "The initial system-Python syntax attempt was blocked by the macOS bytecode-cache location before compilation; the corrected Python 3.11.5 command passed with a /private/tmp cache.",
+    "Python 3.12 was unavailable and remains NOT RUN.",
+    "One malformed patch applied no change, and one transient enum-literal edit was corrected before validation; no final assertion failed."
+  ],
+  "real_effects": {
+    "provider_calls": 0,
+    "external_tool_calls": 0,
+    "network_egress_calls": 0,
+    "os_or_container_sandbox_runs": 0,
+    "remote_repository_publish": "NOT_RUN"
+  },
+  "not_run": [
+    "PostgreSQL",
+    "Outbox Relay",
+    "Broker",
+    "multi-process Worker",
+    "real Provider",
+    "external Tool",
+    "real network Egress",
+    "credential or Secret manager",
+    "OS or container Sandbox",
+    "resource exhaustion",
+    "production IAM and policy distribution",
+    "production deployment"
+  ],
+  "assessment": {
+    "guided_classroom": "COMPLETED",
+    "final_synthesis": "INSTRUCTOR_AUTHORED",
+    "independent_synthesis": "NOT_ASSESSED"
+  }
+}

@@ -1836,3 +1836,69 @@ Provider/Tool, network/clock-skew/production fencing and production NOT RUN.
 Related: [Day85 lesson](../docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md),
 [design](../projects/ai-agent/docs/DAY85_MULTI_AGENT_HANDOFF_COORDINATION_BOUNDARIES.md).
 Next: Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing.
+
+## Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (Phase 7B)
+
+```text
+External content = data, never authority
+Model output     = candidate
+Security ALLOW   = one exact boundary crossing is permitted
+Dispatch         = request was sent
+Tool SUCCESS     = result candidate under an outcome contract
+Verified outcome = independently checked external fact
+```
+
+Trust and injection:
+
+- The application assigns `TRUSTED_INSTRUCTION` only to verified control sources bound to the current contract.
+- User, web, document, Tool, Agent and Sandbox content remains `UNTRUSTED_CONTENT`.
+- Direct injection arrives through user input; indirect injection is embedded in retrieved content or results.
+- Delimiters, classifiers and model self-checks may detect risk but cannot grant authority.
+
+Admission before dispatch:
+
+```text
+current authority + tenant/resource + exact Tool/version/capability
++ arguments hash + delegated grant + approval + policy + fence
++ purpose/audience/destination/allowed fields + Sandbox profile
+-> ALLOW / DENY / WAIT / QUARANTINE
+```
+
+- Tool visibility and schema validity create a candidate only.
+- A privileged Coordinator checks the original caller's scope to prevent a confused deputy.
+- Unknown enums, unavailable authority and semantic conflicts fail closed.
+- Approval is bound to the exact version, arguments, destination, purpose and audience.
+
+Egress and Secrets:
+
+- Recheck `tenant + purpose + audience + destination + allowed fields` at every sink.
+- Provider permission does not automatically authorize logging, Artifact storage or customer messaging.
+- Base64 changes representation, not classification.
+- Give the model an opaque credential reference; a trusted adapter resolves it after authorization.
+- Retain identities, references and hashes in evidence, not raw sensitive payloads.
+
+Sandbox and outcomes:
+
+- The application owns the maximum read/write paths, network, environment, process and resource profile.
+- Sandbox containment does not create business permission or make output trusted.
+- Post-dispatch timeout/kill -> `PENDING_RECONCILIATION`, original operation identity, reservation `HELD`.
+- Tool success + cleanup failure -> business success may stand, but security completion is `INCOMPLETE`.
+- Required quarantined security work -> `WAITING_FOR_REQUIRED`; ready fan-in still needs Day83.
+
+Incident sequence:
+
+```text
+quarantine bad policy -> stop new effects -> determine affected set
+-> classify undispatched / verified / unknown / exfiltrated
+-> release confirmed unused / settle verified / reconcile and hold unknown
+-> rotate exposed credentials -> independently authorize compensation
+-> preserve append-only audit -> controlled recovery and closure
+```
+
+Evidence: 31 focused/474 cumulative tests, Day86 25/25 seed, Day85 18/18, Day84 16/16 and Day83 26/26
+regressions, deterministic example PASS on Python 3.11.5. Real Provider/Tool/network Egress/OS-Sandbox,
+Secret manager, PostgreSQL, Broker/Worker and production NOT RUN.
+
+Related: [Day86 lesson](../docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md),
+[design](../projects/ai-agent/docs/DAY86_AGENT_SECURITY_BOUNDARIES.md).
+Next: Day87 — Agent Framework and Job-Market Refresh Checkpoint.

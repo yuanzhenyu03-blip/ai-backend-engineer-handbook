@@ -40,9 +40,9 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day85 — Multi-agent Handoff and Coordination Boundaries (guided classroom scope; 32 Day85 / 443 cumulative local tests, 18/18 Day85 version-1 seed cases, Day84 16/16 and Day83 26/26 seed regressions, and deterministic example PASS on Python 3.11.5; INTEGRATION_RUNTIME/PRODUCTION NOT RUN).
-- Current / Next Lesson: Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (Phase 7B; Planned / not started).
-- Day85 final synthesis was instructor-authored at the student's request; independent synthesis NOT ASSESSED. Python 3.12, real PostgreSQL/Outbox Relay/Broker/Worker/Provider and real integration gates NOT RUN.
+- Last Completed Lesson: Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (guided classroom scope; 31 Day86 / 474 cumulative local tests, 25/25 Day86 version-1 seed cases, Day85 18/18, Day84 16/16 and Day83 26/26 seed regressions, and deterministic example PASS on Python 3.11.5; INTEGRATION_RUNTIME/PRODUCTION NOT RUN).
+- Current / Next Lesson: Day87 — Agent Framework and Job-Market Refresh Checkpoint (Phase 7B; Planned / not started).
+- Day86 final synthesis was instructor-authored at the student's request; independent synthesis NOT ASSESSED. Python 3.12, real Provider/Tool/Egress/OS-Sandbox/PostgreSQL/Broker/Worker and real integration gates NOT RUN.
 - Current phase: Phase 7B — Agent Runtime and MCP Engineering is IN PROGRESS at classroom scope.
 
 Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
@@ -65,8 +65,8 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day85 are complete at their recorded evidence levels and assessment scope. Day86 is current/next; do not skip ahead.
-- Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, and Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries.
+- Day59–Day86 are complete at their recorded evidence levels and assessment scope. Day87 is current/next; do not skip ahead.
+- Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries, and Day86 added security admission, Egress, Sandbox and incident-containment boundaries outside the model.
 
 Do not skip ahead unless explicitly instructed.
 

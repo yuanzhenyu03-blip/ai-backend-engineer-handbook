@@ -9,6 +9,28 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (Phase 7B)
+
+Date: 2026-09-08
+
+Added the 16-section Day86 lesson and evolved `projects/ai-agent/` with application-bound content trust and
+provenance, direct/indirect injection signals, current Tool/Egress/Sandbox admission, exact tenant/resource/
+grant/approval/fence/data checks, deterministic Fake effect ports, result verification, unknown-outcome
+reconciliation, required security fan-in, bad-policy quarantine and append-only incident evidence.
+
+Added 28 behavior tests, 3 grader tests, 25 version-1 seed cases, a deterministic scenario, design, actual
+classroom record and validation evidence. The security core emits only `ALLOW / DENY / WAIT / QUARANTINE`;
+the controlled dispatcher owns effects, and Tool/Sandbox output remains a candidate until verified.
+
+Updated root/project README, FastAPI cheat sheet/interview, curriculum, roadmap, status, tasks and AGENTS.
+Day86 is complete at guided classroom scope and Day87 is next. Final synthesis was instructor-authored at
+the student's request; independent synthesis NOT ASSESSED.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Python 3.11.5, 31 focused/474 cumulative tests,
+25/25 Day86 seed, Day85 18/18, Day84 16/16 and Day83 26/26 regressions, and deterministic example PASS.
+Python 3.12, real Provider/Tool/network Egress/OS-Sandbox/Secret manager/PostgreSQL/Broker/Worker,
+INTEGRATION_RUNTIME and PRODUCTION NOT RUN.
+
 ## Unreleased — Day85 — Multi-agent Handoff and Coordination Boundaries (Phase 7B)
 
 Date: 2026-09-07

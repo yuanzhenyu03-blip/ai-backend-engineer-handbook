@@ -1864,6 +1864,16 @@ Per-day topics:
   Scope: prompt injection, tool abuse, data exfiltration, sandboxing.
   Connection: Day85 widened the surface; Day86 adds agent security defenses; Day87 refreshes framework and
   job-market evidence before any framework is chosen.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md`.
+  Artifact: `projects/ai-agent/` gained application-bound content trust/provenance, current Tool/Egress/Sandbox
+  admission, exact tenant/grant/approval/fence/data checks, Fake effect ports, result-candidate verification,
+  unknown-outcome reconciliation, required security fan-in, bad-policy quarantine and append-only incident
+  evidence. Evidence: Python3.11.5, 31 Day86 / 474 cumulative deterministic local tests, 25/25 Day86 seed,
+  Day85 18/18, Day84 16/16 and Day83 26/26 seed regressions, and example PASS with zero real external calls.
+  Final synthesis instructor-authored by request; independent synthesis NOT ASSESSED. Python3.12, real
+  Provider/Tool/network Egress/OS-Sandbox/Secret manager/PostgreSQL/Broker/Worker, INTEGRATION_RUNTIME and
+  PRODUCTION NOT RUN. Next: Day87.
 - Day87 — Agent Framework and Job-Market Refresh Checkpoint.
   Scope: refresh the current Agent framework ecosystem and real job-market requirements before committing.
   Connection: Days 79–86 defined stable contracts; Day87 refreshes ecosystem/job evidence so the choice is

@@ -1,0 +1,115 @@
+{
+  "day": 86,
+  "title": "Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing",
+  "record_type": "isolated_classroom_evidence",
+  "formal_repository_published": false,
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "commit": "c58386845d822ec03628a071ea8a053cbfde5aeb",
+    "day86_status_at_baseline": "PLANNED_NOT_STARTED"
+  },
+  "prompt_evidence": {
+    "master_prompt": {
+      "lines": 1629,
+      "sha256": "e9ee0daaf4e14ec1b26091906dceea47014afc160615fde2713576f66e63ef55"
+    },
+    "teaching_session_prompt": {
+      "lines": 529,
+      "sha256": "0315c9019461c8ae05114af9ba04a6580dc22961020a72eb6318ae0e5816ed40"
+    }
+  },
+  "runtime": {
+    "python": "3.11.5",
+    "python_3_12": "NOT_RUN",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME",
+    "store": "IN_MEMORY",
+    "tool": "FAKE_DETERMINISTIC",
+    "egress": "FAKE_NO_NETWORK",
+    "sandbox": "FAKE_PROFILE_MODEL_ONLY"
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "day86_focused_tests": {
+      "passed": 31,
+      "failed": 0
+    },
+    "cumulative_tests": {
+      "passed": 474,
+      "failed": 0,
+      "prior_baseline": 443,
+      "new_tests": 31
+    },
+    "day83_seed_regression": {
+      "passed": 26,
+      "failed": 0
+    },
+    "day84_seed_regression": {
+      "passed": 16,
+      "failed": 0
+    },
+    "day85_seed_regression": {
+      "passed": 18,
+      "failed": 0
+    },
+    "day86_seed": {
+      "passed": 25,
+      "failed": 0,
+      "case_version": 1
+    },
+    "deterministic_example": "PASS"
+  },
+  "invocation_notes": [
+    {
+      "status": "COMMAND_ENVIRONMENT_ERROR_BEFORE_COMPILATION",
+      "detail": "The first syntax attempt used the system Python cache location, which macOS sandboxing denied before compilation. The check was rerun with PYTHONPYCACHEPREFIX under /private/tmp."
+    },
+    {
+      "status": "NOT_RUN",
+      "detail": "Python 3.12 was not available in the classroom environment."
+    },
+    {
+      "status": "EDITING_ERROR_CORRECTED_BEFORE_VALIDATION",
+      "detail": "One malformed patch attempt applied no changes; a later partial enum-literal editing error was corrected before validation. No final implementation assertion failed."
+    }
+  ],
+  "source_hashes": {
+    "docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md": "b39e89ce73595b8f48f0634f4cc604b8c766fe222d9ba23b201a059491c9e4f1",
+    "projects/ai-agent/src/agent_security.py": "0144b6003ce14f86b3fb288f1f6313f340cd5229514edb2eb20387f7c3f0e98b",
+    "projects/ai-agent/tests/test_day86_agent_security.py": "1c0fd61dbe742b1dd09c8dea63e726a9ad853446415da755e2d822032fc9c065",
+    "projects/ai-agent/tests/test_day86_seed_grader.py": "8da445cc8152d0135e2644db67774ef25292e29e1aab1bd93b8a83e516c25196",
+    "projects/ai-agent/evals/day86_agent_security_seed.jsonl": "edcbdec51a9f40c1d312abd108bfc1c73c579391e52d64e32014c0bca5d5eb0b",
+    "projects/ai-agent/evals/run_day86_seed_eval.py": "9d155168045ac91c3bd5310191d923917ac625f9a7889d5452f3df8cb6cd7ffa",
+    "projects/ai-agent/examples/day86_agent_security_boundary.py": "6f2d2e57ac990397fe5b91696ccc7c46f9efbde1a770e171e802336606ff8e11",
+    "projects/ai-agent/docs/DAY86_AGENT_SECURITY_BOUNDARIES.md": "64ef29fc0ea7af1c6cfff24bb91d8a94144c456e834b483bcaf7c69cfb460394",
+    "projects/ai-agent/docs/day86-agent-security-classroom-draft.md": "158046d13690026b640c250f54005809f034c14555b30a2f37b127f7a1591bf7"
+  },
+  "external_effect_counters": {
+    "real_provider_calls": 0,
+    "real_tool_calls": 0,
+    "real_network_egress_calls": 0,
+    "real_os_or_container_sandbox_runs": 0
+  },
+  "not_run": [
+    "Python 3.12 compatibility",
+    "PostgreSQL",
+    "Outbox Relay",
+    "Broker",
+    "multi-process Worker",
+    "real Provider",
+    "external Tool",
+    "real network Egress",
+    "credential or Secret manager",
+    "OS or container Sandbox",
+    "CPU, memory and storage exhaustion",
+    "real temporary-directory cleanup recovery",
+    "production IAM and policy distribution",
+    "production deployment"
+  ],
+  "assessment": {
+    "guided_classroom": "COMPLETED",
+    "seed_expectations": "INSTRUCTOR_AUTHORED_FROM_CLASSROOM_REASONING",
+    "seed_case_as16": "INDEPENDENTLY_REVIEWED_BY_LEARNER",
+    "final_synthesis_author": "INSTRUCTOR",
+    "independent_synthesis": "NOT_ASSESSED"
+  }
+}

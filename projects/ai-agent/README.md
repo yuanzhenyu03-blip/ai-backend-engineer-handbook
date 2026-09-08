@@ -44,7 +44,8 @@ ai-agent/
 │   ├── human_control.py           # Day83: approval/interrupt/escalation conditional boundary
 │   ├── human_control_scenarios.py # Day83: fixtures composing existing runtime seams
 │   ├── context_memory.py          # Day84: bounded context + non-authoritative memory
-│   └── multi_agent_coordination.py # Day85: handoff, delegation, ownership, fan-in
+│   ├── multi_agent_coordination.py # Day85: handoff, delegation, ownership, fan-in
+│   └── agent_security.py          # Day86: trust, admission, Egress, Sandbox, incident boundaries
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -62,16 +63,18 @@ ai-agent/
 │   ├── test_day84_context_memory.py # Day84: 30 boundary tests
 │   ├── test_day84_seed_grader.py  # Day84: 3 grader tests
 │   ├── test_day85_multi_agent_coordination.py # Day85: 29 boundary tests
-│   └── test_day85_seed_grader.py  # Day85: 3 grader tests
-├── evals/                        # Day83–Day85 version-1 seed cases + runners
-├── examples/                     # Day83 checkpoint + Day84–Day85 deterministic scenarios
-├── evidence/                     # Day83–Day85 validation records
-└── docs/                         # Day71–Day85 designs + classroom records
+│   ├── test_day85_seed_grader.py  # Day85: 3 grader tests
+│   ├── test_day86_agent_security.py # Day86: 28 boundary tests
+│   └── test_day86_seed_grader.py  # Day86: 3 grader tests
+├── evals/                        # Day83–Day86 version-1 seed cases + runners
+├── examples/                     # Day83 checkpoint + Day84–Day86 deterministic scenarios
+├── evidence/                     # Day83–Day86 validation records
+└── docs/                         # Day71–Day86 designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day85 documented; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day86 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -303,10 +306,46 @@ network partitions, clock skew, production fencing, billing and production remai
 is complete; the final synthesis was instructor-authored at the student's request, so independent synthesis
 is NOT ASSESSED.
 
+## Day86 Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing
+
+Day86 adds an application-owned security admission layer above the Day85 coordination facts. User, web,
+document, Tool, Agent and Sandbox material is bound as untrusted content with provenance; it cannot create
+approval, authority or a Sandbox-policy expansion. The model may produce a Tool candidate, while the security
+core checks the original caller's current tenant, resource, delegated grant, Tool/version/arguments, approval,
+policy, fence, purpose, audience, destination, allowed fields and Sandbox profile immediately before dispatch.
+
+The security core returns only `ALLOW`, `DENY`, `WAIT` or `QUARANTINE`. Fake Tool, Egress and Sandbox ports
+make the effect boundary visible. `ALLOW` is not dispatch, and a returned `SUCCESS` is not a verified outcome.
+Post-dispatch unknowns retain the original operation identity in `PENDING_RECONCILIATION`; cleanup failure is
+`INCOMPLETE`; required quarantined work blocks fan-in; and bad-policy containment preserves append-only evidence
+while separately authorizing credential response and compensation.
+
+See the [design](docs/DAY86_AGENT_SECURITY_BOUNDARIES.md),
+[actual classroom record](docs/day86-agent-security-classroom-draft.md),
+[validation evidence](evidence/day86-validation.json) and
+[repository validation](evidence/day86-repository-validation.json).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day86*.py' -v
+PYTHONPATH=src python3.11 -m unittest discover -s tests -v
+PYTHONPATH=src python3.11 evals/run_day83_seed_eval.py
+PYTHONPATH=src python3.11 evals/run_day84_seed_eval.py
+PYTHONPATH=src python3.11 evals/run_day85_seed_eval.py
+PYTHONPATH=src python3.11 evals/run_day86_seed_eval.py
+PYTHONPATH=src python3.11 examples/day86_agent_security_boundary.py
+```
+
+Python 3.11.5: 31 Day86 tests, 474 cumulative tests, Day83 26/26, Day84 16/16 and Day85 18/18
+regression cases, 25/25 Day86 version-1 seed cases and the deterministic scenario passed. Real Provider,
+external Tool, network Egress and OS/container Sandbox calls were zero. Python 3.12, a Secret manager,
+PostgreSQL, Outbox Relay/Broker/multi-process Worker, real IAM and production remain NOT RUN. Guided teaching
+is complete; the final synthesis was instructor-authored at the student's request, so independent synthesis
+is NOT ASSESSED.
+
 ## Future Milestones
 
-- Add Day86 security controls on top of the Day85 coordination boundaries without preselecting a framework.
-- Independently assess Day83–Day85 final synthesis and review seed expectations before a release gate.
+- Run the Day87 framework/job-market refresh against the Day79–Day86 application-owned contracts.
+- Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
 - Add deployment notes.
