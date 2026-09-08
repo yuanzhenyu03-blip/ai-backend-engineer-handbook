@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day86 is complete at guided classroom scope: 31 new tests, 474 cumulative local tests, 25/25 Day86 seed cases, Day85 18/18, Day84 16/16 and Day83 26/26 seed regressions, and the deterministic example PASS on Python 3.11.5. Independent final synthesis was not assessed; Python 3.12 and real Provider/Tool/Egress/OS-Sandbox/PostgreSQL/Broker/Worker integration are **NOT RUN**.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day87 is complete at guided classroom scope: 22 new tests, 496 cumulative local tests, Day86 25/25, Day85 18/18, Day84 16/16 and Day83 26/26 seed regressions, and the deterministic `MORE_EVIDENCE_NEEDED` handoff PASS on Python 3.11.5. No framework was selected or installed. Independent final synthesis was not assessed; Python 3.12 and candidate-framework/real integration are **NOT RUN**.
 
 Last completed lesson:
 
-* [Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing](docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md)
+* [Day87 — Agent Framework and Job-Market Refresh Checkpoint](docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md)
 
-(For the full completed classroom history Day01–Day86, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day87, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day87 — Agent Framework and Job-Market Refresh Checkpoint (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

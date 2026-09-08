@@ -1,0 +1,125 @@
+{
+  "day": 87,
+  "title": "Agent Framework and Job-Market Refresh Checkpoint",
+  "record_type": "isolated_classroom_evidence",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-08T16:18:07+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "commit": "bd58209db97e8cbb5901ec81577237143e59b1ba",
+    "day87_status_at_baseline": "PLANNED_NOT_STARTED"
+  },
+  "prompt_evidence": {
+    "master_prompt": {
+      "lines": 1629,
+      "sha256": "e9ee0daaf4e14ec1b26091906dceea47014afc160615fde2713576f66e63ef55"
+    },
+    "teaching_session_prompt": {
+      "lines": 529,
+      "sha256": "0315c9019461c8ae05114af9ba04a6580dc22961020a72eb6318ae0e5816ed40"
+    },
+    "lesson_template_v2": {
+      "lines": 528,
+      "sha256": "92fe24a26a77a66e36809b6cb8d89abd3e4a98a2ed690396551da635cb2505ab"
+    }
+  },
+  "runtime": {
+    "python": "3.11.5",
+    "python_3_12": "NOT_RUN",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME",
+    "candidate_frameworks_installed": false,
+    "store": "OFFLINE_IMMUTABLE_RECORDS",
+    "tool": "NOT_RUN",
+    "network_egress": "NOT_RUN",
+    "application_runtime_modified": false
+  },
+  "research": {
+    "bounded_candidates": [
+      "LangGraph",
+      "OpenAI Agents SDK",
+      "PydanticAI"
+    ],
+    "framework_selected": false,
+    "handoff_readiness": "MORE_EVIDENCE_NEEDED",
+    "active_job_postings": 12,
+    "companies": 9,
+    "sample_biases": [
+      "seniority-heavy",
+      "geographically uneven",
+      "Fluid AI contributes three distinct roles",
+      "Klaio contributes two sparse-detail roles"
+    ]
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "day87_focused_tests": {
+      "passed": 22,
+      "failed": 0
+    },
+    "cumulative_tests": {
+      "passed": 496,
+      "failed": 0,
+      "prior_baseline": 474,
+      "new_tests": 22
+    },
+    "day83_seed_regression": {
+      "passed": 26,
+      "failed": 0
+    },
+    "day84_seed_regression": {
+      "passed": 16,
+      "failed": 0
+    },
+    "day85_seed_regression": {
+      "passed": 18,
+      "failed": 0
+    },
+    "day86_seed_regression": {
+      "passed": 25,
+      "failed": 0
+    },
+    "deterministic_example": "PASS",
+    "lesson_required_sections": "16/16",
+    "framework_jsonl_parse": "PASS",
+    "job_jsonl_parse": "PASS"
+  },
+  "source_hashes": {
+    "projects/ai-agent/src/framework_selection_evidence.py": "6bb753596e88b70db4025d176c1c60a3987b35d37bc3abe4c5cf7629445d8697",
+    "projects/ai-agent/tests/test_day87_framework_selection_evidence.py": "f37e26cff5af8884d10c8bb64174758296626c0f2857d2a06b0ef20365a9330c",
+    "projects/ai-agent/examples/day87_framework_selection_handoff.py": "d40e4a56a0e1fd1c1a706d75a7e14e91df76e03fbba268a581652500dfc8d545",
+    "projects/ai-agent/research/day87-framework-evidence.jsonl": "620cd16b3ee8071aaeacf4c34e5963e5efcb0c7662a2da2704ac9502c67c5782",
+    "projects/ai-agent/research/day87-job-market-sample.jsonl": "8955c1e9019f3c95192b2dfc6f4a10f98ea6ea4b52260c728564dd178f068c00",
+    "projects/ai-agent/research/day87-framework-market-refresh.md": "306f6cf7657d839ddbce4411b6e730c92a56b5d32bcd277d45bff3a319bb3e65",
+    "projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md": "fabe55a76ef9be1b25a87eb1d7490e44b3bffa0b9adff175eec3cc5698adec2f",
+    "projects/ai-agent/docs/day87-framework-job-market-classroom-draft.md": "3f0663fcd3709e3ec9608436fad2b26042cca7f57638ca753ee85e7596e60769",
+    "docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md": "d5adeec68fdc9321a42528ec75daa2c6c08aad4908b4e825d6eaad4ba32a6c74"
+  },
+  "external_effect_counters": {
+    "real_provider_calls": 0,
+    "real_tool_calls": 0,
+    "real_candidate_framework_calls": 0,
+    "real_database_calls": 0,
+    "real_network_calls_from_artifact": 0
+  },
+  "not_run": [
+    "Python 3.12 compatibility",
+    "candidate framework installation or import",
+    "Day88 replaceable Adapter spike",
+    "current authorization service",
+    "PostgreSQL",
+    "Outbox Relay",
+    "Broker",
+    "multi-process Worker",
+    "real Provider",
+    "external Tool",
+    "production deployment",
+    "global labor-market census",
+    "hiring outcome"
+  ],
+  "assessment": {
+    "guided_classroom": "COMPLETED",
+    "english_interview": "SKIPPED_BY_LEARNER_AS_OUT_OF_SCOPE",
+    "final_synthesis_author": "INSTRUCTOR_AT_LEARNER_REQUEST",
+    "independent_synthesis": "NOT_ASSESSED"
+  }
+}

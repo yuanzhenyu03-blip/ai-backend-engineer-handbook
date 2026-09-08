@@ -1,0 +1,78 @@
+{
+  "day": 87,
+  "record_type": "repository_update_validation",
+  "baseline_commit": "bd58209db97e8cbb5901ec81577237143e59b1ba",
+  "remote_main_checked": true,
+  "remote_main_at_check": "bd58209db97e8cbb5901ec81577237143e59b1ba",
+  "formal_repository_published_at_validation_time": false,
+  "runtime": {
+    "python": "3.11.5",
+    "python_3_12": "NOT_RUN",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME"
+  },
+  "checks": {
+    "py_compile": "PASS",
+    "day87_tests": "22/22 PASS",
+    "cumulative_tests": "496/496 PASS",
+    "day83_seed": "26/26 PASS",
+    "day84_seed": "16/16 PASS",
+    "day85_seed": "18/18 PASS",
+    "day86_seed": "25/25 PASS",
+    "deterministic_example": "PASS",
+    "formal_lesson_sections": "16/16 PASS",
+    "json_and_jsonl_parse": "PASS",
+    "relative_markdown_link_targets": "875 CHECKED / 0 MISSING after this record was created",
+    "tracked_diff_whitespace": "PASS",
+    "new_file_trailing_whitespace": "PASS",
+    "credential_pattern_scan": "PASS"
+  },
+  "hashes": {
+    "AGENTS.md": "9c9fcc70364219403f671285089acd6adc75ba63cda5a5615f98417c4d251db8",
+    "README.md": "9009c74db3238b0ce2df99cc412d9f97586ed0bbf78bef30286cb91f906bd610",
+    "CHANGELOG.md": "df33e67eb9e3529ed358c659b68a644c9c6241cca80ba00b3668731f7c066cb4",
+    "CURRICULUM.md": "23d10402faba130d35590bceef79860fa4524a240deccdc510eba889e6707dd2",
+    "PROJECT_STATUS.md": "a3b08e405420bef129f5e9b65993e4463aeee4c554d60aab2e23e382a1d472a8",
+    "ROADMAP.md": "8312d2b8aae91f4a6b475ffd14ac178e4b8b05f5fa1c5e86e29af5548aab4331",
+    "TASKS.md": "e81d87c88d5ec2b68ddc9fe24acb0e5c11b0834ec36d2d12bbea1a9335a17335",
+    "cheat_sheets/fastapi.md": "923bde46bee15981e2767807a3fc20e28ff71522761aaa774e05f3ef6298e43e",
+    "projects/ai-agent/README.md": "9fb29ad760222b0982dd9691224e6e393028b803a950c912dc899478b755308a",
+    "docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md": "d5adeec68fdc9321a42528ec75daa2c6c08aad4908b4e825d6eaad4ba32a6c74",
+    "projects/ai-agent/src/framework_selection_evidence.py": "6bb753596e88b70db4025d176c1c60a3987b35d37bc3abe4c5cf7629445d8697",
+    "projects/ai-agent/tests/test_day87_framework_selection_evidence.py": "f37e26cff5af8884d10c8bb64174758296626c0f2857d2a06b0ef20365a9330c",
+    "projects/ai-agent/examples/day87_framework_selection_handoff.py": "d40e4a56a0e1fd1c1a706d75a7e14e91df76e03fbba268a581652500dfc8d545",
+    "projects/ai-agent/research/day87-framework-evidence.jsonl": "620cd16b3ee8071aaeacf4c34e5963e5efcb0c7662a2da2704ac9502c67c5782",
+    "projects/ai-agent/research/day87-job-market-sample.jsonl": "8955c1e9019f3c95192b2dfc6f4a10f98ea6ea4b52260c728564dd178f068c00",
+    "projects/ai-agent/research/day87-framework-market-refresh.md": "306f6cf7657d839ddbce4411b6e730c92a56b5d32bcd277d45bff3a319bb3e65",
+    "projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md": "fabe55a76ef9be1b25a87eb1d7490e44b3bffa0b9adff175eec3cc5698adec2f",
+    "projects/ai-agent/docs/day87-framework-job-market-classroom-draft.md": "3f0663fcd3709e3ec9608436fad2b26042cca7f57638ca753ee85e7596e60769",
+    "projects/ai-agent/docs/DAY87_REPOSITORY_UPDATE_REPORT.md": "d460fa6c3137ab640f4f6b48d24492d65db5dc0031560a64a639031f4976ad02",
+    "projects/ai-agent/evidence/day87-validation.json": "568a5229dbbce2323606cfa262bae7c41a72fb439238086555a84e264878e4c7"
+  },
+  "known_non_assertion_issues": [
+    "Python 3.12 was unavailable and remains NOT RUN.",
+    "One status-file patch failed to match and applied no changes; it was reapplied with exact context before validation.",
+    "The repository validation link was temporarily missing before this record was created; the final link check passed."
+  ],
+  "real_effects": {
+    "provider_calls": 0,
+    "external_tool_calls": 0,
+    "candidate_framework_calls": 0,
+    "database_calls": 0,
+    "remote_repository_publish": "NOT_RUN_AT_VALIDATION_TIME"
+  },
+  "not_run": [
+    "Python 3.12",
+    "candidate framework import or installation",
+    "Day88 replaceable Adapter spike",
+    "real Provider or Tool",
+    "PostgreSQL, Outbox Relay, Broker or multi-process Worker",
+    "INTEGRATION_RUNTIME",
+    "PRODUCTION"
+  ],
+  "assessment": {
+    "guided_classroom": "COMPLETED",
+    "english_interview": "SKIPPED_BY_LEARNER_AS_OUT_OF_SCOPE",
+    "final_synthesis": "INSTRUCTOR_AUTHORED_AT_LEARNER_REQUEST",
+    "independent_synthesis": "NOT_ASSESSED"
+  }
+}

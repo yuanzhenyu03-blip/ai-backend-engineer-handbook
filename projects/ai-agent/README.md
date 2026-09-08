@@ -45,7 +45,8 @@ ai-agent/
 │   ├── human_control_scenarios.py # Day83: fixtures composing existing runtime seams
 │   ├── context_memory.py          # Day84: bounded context + non-authoritative memory
 │   ├── multi_agent_coordination.py # Day85: handoff, delegation, ownership, fan-in
-│   └── agent_security.py          # Day86: trust, admission, Egress, Sandbox, incident boundaries
+│   ├── agent_security.py          # Day86: trust, admission, Egress, Sandbox, incident boundaries
+│   └── framework_selection_evidence.py # Day87: offline evidence and handoff policy
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -65,16 +66,18 @@ ai-agent/
 │   ├── test_day85_multi_agent_coordination.py # Day85: 29 boundary tests
 │   ├── test_day85_seed_grader.py  # Day85: 3 grader tests
 │   ├── test_day86_agent_security.py # Day86: 28 boundary tests
-│   └── test_day86_seed_grader.py  # Day86: 3 grader tests
+│   ├── test_day86_seed_grader.py  # Day86: 3 grader tests
+│   └── test_day87_framework_selection_evidence.py # Day87: 22 evidence-policy tests
 ├── evals/                        # Day83–Day86 version-1 seed cases + runners
-├── examples/                     # Day83 checkpoint + Day84–Day86 deterministic scenarios
-├── evidence/                     # Day83–Day86 validation records
-└── docs/                         # Day71–Day86 designs + classroom records
+├── examples/                     # Day83 checkpoint + Day84–Day87 deterministic scenarios
+├── evidence/                     # Day83–Day87 validation records
+├── research/                     # Day87 bounded framework/job snapshots and handoff
+└── docs/                         # Day71–Day87 designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day86 documented; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day87 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -306,6 +309,41 @@ network partitions, clock skew, production fencing, billing and production remai
 is complete; the final synthesis was instructor-authored at the student's request, so independent synthesis
 is NOT ASSESSED.
 
+## Day87 Framework and Job-Market Refresh Checkpoint
+
+Day87 adds an offline evidence boundary; it does not add a candidate framework to the application. Immutable
+records keep claim scope, primary source type, observed version, publication/update time, retrieval time,
+freshness, conflicts and confidence. Contract cells distinguish `NATIVE`, `ADAPTER`, `GAP`, `CONFLICT` and
+`UNKNOWN`; hard constraints are evaluated before learning ease or job-market weights.
+
+The bounded research snapshot compares LangGraph, OpenAI Agents SDK and PydanticAI and retains 12 active,
+deduplicated primary-source postings from 9 companies. The sample is senior-heavy, geographically uneven and
+company-concentrated. It supports only dated transferable-skill observations, never global-market, hiring or
+architecture claims. No framework is selected; the deterministic handoff is `MORE_EVIDENCE_NEEDED` and asks
+Day88 to prove that every framework Tool candidate goes through the application Adapter and current
+authorization immediately before dispatch.
+
+See the [design](docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md),
+[actual classroom record](docs/day87-framework-job-market-classroom-draft.md),
+[research handoff](research/day87-framework-market-refresh.md),
+[framework evidence](research/day87-framework-evidence.jsonl),
+[job sample](research/day87-job-market-sample.jsonl) and
+[validation evidence](evidence/day87-validation.json),
+[repository validation](evidence/day87-repository-validation.json), and the
+[repository update report](docs/DAY87_REPOSITORY_UPDATE_REPORT.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest tests/test_day87_framework_selection_evidence.py -v
+PYTHONPATH=src python3.11 -m unittest discover -s tests -v
+PYTHONPATH=src python3.11 examples/day87_framework_selection_handoff.py
+```
+
+Python 3.11.5: 22 Day87 tests and 496 cumulative tests passed; Day83 26/26, Day84 16/16, Day85 18/18
+and Day86 25/25 seed regressions passed; the deterministic handoff passed with zero real external calls.
+Python 3.12, all candidate-framework imports, the Day88 Adapter spike, real Provider/Tool/database/Broker/
+Worker, integration and production remain NOT RUN. Final synthesis was instructor-authored at the learner's
+request; independent synthesis is NOT ASSESSED; English interview was skipped by the learner as out of scope.
+
 ## Day86 Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing
 
 Day86 adds an application-owned security admission layer above the Day85 coordination facts. User, web,
@@ -344,7 +382,7 @@ is NOT ASSESSED.
 
 ## Future Milestones
 
-- Run the Day87 framework/job-market refresh against the Day79–Day86 application-owned contracts.
+- Run Day88's version-pinned replaceable-Adapter spike before making the framework decision.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

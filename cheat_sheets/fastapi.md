@@ -1902,3 +1902,44 @@ Secret manager, PostgreSQL, Broker/Worker and production NOT RUN.
 Related: [Day86 lesson](../docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md),
 [design](../projects/ai-agent/docs/DAY86_AGENT_SECURITY_BOUNDARIES.md).
 Next: Day87 — Agent Framework and Job-Market Refresh Checkpoint.
+
+## Day87 — Agent Framework and Job-Market Refresh Checkpoint (Phase 7B)
+
+```text
+framework feature != application-contract fit != production evidence
+job mention       != framework mandate        != architecture authority
+
+hard constraints first -> weighted preferences second
+hard UNKNOWN           -> MORE_EVIDENCE_NEEDED
+ranking flip           -> discriminating spike
+```
+
+Evidence minimum:
+
+- claim + supported scope;
+- canonical official source + publisher/source type;
+- observed package/framework version;
+- published/updated date (`UNKNOWN` when absent) + `retrieved_at`;
+- freshness + conflicting evidence + confidence;
+- lifecycle status: `VALID`, `INVALID` or `SUPERSEDED`.
+
+Job sample rules:
+
+- query roles first, then verify the official ATS/company page;
+- canonical identity = company + normalized role + location + posting ID;
+- mirrors add zero; closed/unknown/access-unavailable pages add zero active count;
+- preserve `REQUIRED`, `PREFERRED`, `INCIDENTAL` and `NOT_MENTIONED`;
+- `X or equivalent` is framework-class competency, not X-only demand;
+- distinct roles at one company may count, with concentration bias reported.
+
+Day87 result: 12 active postings / 9 companies; bounded and biased, not a global census. LangGraph,
+OpenAI Agents SDK and PydanticAI remain candidates. No framework was selected or installed. Day88 must run
+a version-pinned Adapter/current-authorization spike; framework Tool routing cannot bypass Day79–Day86.
+
+Evidence: 22 focused/496 cumulative tests, Day83–Day86 seed regressions and deterministic handoff PASS on
+Python 3.11.5. Python 3.12, candidate-framework Adapter, real Provider/Tool/database/Broker/Worker,
+integration and production NOT RUN.
+
+Related: [Day87 lesson](../docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md),
+[design](../projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md).
+Next: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.

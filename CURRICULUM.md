@@ -1878,6 +1878,16 @@ Per-day topics:
   Scope: refresh the current Agent framework ecosystem and real job-market requirements before committing.
   Connection: Days 79–86 defined stable contracts; Day87 refreshes ecosystem/job evidence so the choice is
   current, not pre-locked; Day88 selects a framework behind a replaceable adapter.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md`.
+  Artifact: `projects/ai-agent/` gained offline, immutable framework/job evidence records, current-source and
+  hard-constraint validation, canonical active-posting dedupe, sensitivity analysis and a fail-closed Day88
+  handoff. Evidence: Python3.11.5, 22 Day87 / 496 cumulative deterministic local tests, Day86 25/25, Day85
+  18/18, Day84 16/16 and Day83 26/26 seed regressions, and deterministic handoff PASS. No framework was
+  selected or installed; `framework_selection_final=false` and readiness is `MORE_EVIDENCE_NEEDED`.
+  Final synthesis instructor-authored by request; independent synthesis NOT ASSESSED; English interview
+  skipped by learner as out of scope. Python3.12, candidate-framework Adapter, real Provider/Tool/database/
+  Broker/Worker, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Next: Day88.
 - Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.
   Scope: choose an Agent Runtime Framework (candidates include LangGraph / OpenAI Agents SDK / PydanticAI) and
   implement it behind a replaceable adapter; record the choice as a new Decision. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).

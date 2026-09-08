@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day87 — Agent Framework and Job-Market Refresh Checkpoint (Phase 7B)
+
+Date: 2026-09-08
+
+Added the 16-section Day87 lesson and an offline framework/job evidence boundary under `projects/ai-agent/`.
+The validator preserves source scope, freshness, conflicts, confidence, observed version and retrieval time;
+keeps `UNKNOWN` distinct from `GAP`; gates weighted preferences behind hard constraints; deduplicates active
+official job postings; and emits a non-final Day88 discriminating-spike handoff.
+
+The bounded snapshot covers LangGraph, OpenAI Agents SDK and PydanticAI plus 12 active primary-source postings
+from 9 companies. It discloses seniority, geography and company-concentration bias and makes no global-market,
+hiring or framework-authority claim. No framework was selected, installed or embedded into the application.
+
+Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME; Python 3.11.5, 22 focused/496 cumulative tests,
+Day86 25/25, Day85 18/18, Day84 16/16 and Day83 26/26 seed regressions, and deterministic handoff PASS.
+Python 3.12, candidate-framework Adapter, real Provider/Tool/database/Broker/Worker, INTEGRATION_RUNTIME and
+PRODUCTION NOT RUN. Final synthesis was instructor-authored by request; independent synthesis NOT ASSESSED;
+English interview was skipped by the learner as out of scope. Day88 is next.
+
 ## Unreleased — Day86 — Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing (Phase 7B)
 
 Date: 2026-09-08
