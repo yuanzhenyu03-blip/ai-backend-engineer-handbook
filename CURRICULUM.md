@@ -1240,7 +1240,8 @@ Phase 3; Phase 4 begins at Day43. RUNTIME NOT RUN; PRODUCTION NOT VALIDATED.
 ## Phase 4 — Production AI API Engineering (Day43–Day58)
 
 Status:
-In Progress (Day43 completed)
+Complete at recorded classroom scope (Day43–Day58 Completed). Real integration and production boundaries
+remain governed by the per-day validation records and the Day59–Day61 integration gate.
 
 Objective:
 Turn the Day28–Day42 conceptual architecture and data contracts into a runnable, testable Production AI
@@ -1261,7 +1262,7 @@ centerpiece), `projects/fastapi-auth/` (auth + tenant module), and `projects/ai-
 durable data foundation from Phase 3). SQLAlchemy/Alembic are introduced here on top of the raw
 PostgreSQL/SQL mental models from Phase 3.
 
-Per-day topics (Topic + concise scope; each Status: Planned, no lesson generated yet):
+Per-day topics (Topic + concise scope; authoritative status is recorded in each entry):
 
 - Day43 — AI Backend Product Contract and FastAPI Request Lifecycle.
   Scope: request/response lifecycle, routing, the AI Job API product contract over the Day42 model.
@@ -1352,7 +1353,7 @@ validation are only claimed when actually run and recorded.
 ## Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66)
 
 Status:
-Complete (Day59–Day66 Completed). Phase 6 COMPLETE: Day67–Day70 Completed. Day71 begins Phase 7A.
+Complete (Day59–Day66 Completed at their recorded evidence levels).
 
 Objective:
 Close the Phase 4 evidence gap first, then add a browser capability. Day59–Day61 are a **Production
@@ -1376,7 +1377,7 @@ Reused project directories: `projects/ai-backend-data-layer/` (the Phase 4 backe
 `projects/playwright-login/`, `projects/playwright-scraper/`, and `projects/fastapi-playwright/` (the browser
 worker integrated with the Phase 4 API).
 
-Per-day topics (Topic + concise scope; each Status: Planned):
+Per-day topics (Topic + concise scope; authoritative status is recorded in each entry):
 
 - Day59 — Real FastAPI Runtime, PostgreSQL and Alembic Integration.
   Scope: run the Phase 4 API as a real FastAPI process against a real PostgreSQL database with real Alembic
@@ -1499,7 +1500,7 @@ runtime / integration / production evidence only when actually executed and save
 ## Phase 6 — n8n AI Workflow Integration (Day67–Day70)
 
 Status:
-Complete (Day67–Day70 Completed). Day71 begins Phase 7A (phase transition).
+Complete (Day67–Day70 Completed at their recorded evidence levels).
 
 Objective:
 Use n8n to orchestrate the now-real API, the permissioned browser tool, and AI capabilities as an
@@ -1515,7 +1516,7 @@ Real backend + permissioned browser tool (Phase 5)
 
 Reused project directory: `projects/n8n-workflows/` (workflow-integration evidence).
 
-Per-day topics (Topic + concise scope; each Status: Planned):
+Per-day topics (Topic + concise scope; authoritative status is recorded in each entry):
 
 - Day67 — n8n Workflow Model, Triggers, FastAPI Integration and Responsibility Boundaries.
   Scope: workflow model, triggers/nodes, authenticated FastAPI integration, and where responsibility stays in
@@ -1662,7 +1663,7 @@ Day53–58 Provider call + Streaming + Resilience + Testing + Observability
 
 Reused project directory: `projects/ai-agent/` (LLM application runtime foundations).
 
-Per-day topics (Topic + concise scope; each Status: Planned):
+Per-day topics (Topic + concise scope; authoritative status is recorded in each entry):
 
 - Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes.
   Scope: application architecture, token/context windows, sampling, and model failure modes.
@@ -1724,7 +1725,8 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress (Day79–Day83 Completed at recorded classroom scope; Day83 independent final synthesis not assessed)
+In Progress at recorded classroom scope (Day79–Day88 Completed; Day89 Planned / not started). Guided or
+independent-assessment limitations remain recorded in the individual lesson entries.
 
 Objective:
 Build a framework-agnostic Agent Runtime — agent loop, tool registry/permissions, state machine, termination

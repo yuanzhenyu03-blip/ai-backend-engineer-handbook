@@ -9,6 +9,17 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Course Status Consistency Correction
+
+Date: 2026-09-08
+
+Corrected stale active-status summaries without changing historical Decisions or validation evidence:
+Phase 4 now reads complete at its recorded classroom scope; Phase 5, Phase 6 and Phase 7A no longer label
+their per-day entries as universally Planned; Phase 7B now records Day79–Day88 complete with Day89 planned /
+not started; and `PROJECT_STATUS.md` now names Phase 7A as the previous phase and distinguishes current status
+from time-relative historical completion records. `TASKS.md` now uses Day89/Day88 in its Current/Completed
+semantics note. No Day89 lesson, Artifact, runtime evidence or completion claim was created.
+
 ## Unreleased — Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B)
 
 Date: 2026-09-08

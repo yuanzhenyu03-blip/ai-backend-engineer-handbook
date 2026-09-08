@@ -8,7 +8,7 @@ Engineering is IN PROGRESS at classroom scope; Day88 is complete at guided class
 Day59–Day88 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope: Day88 accepted Candidate C behind a replaceable Adapter for the bounded course scope; Day89 is next. Earlier phase evidence and NOT RUN boundaries remain recorded below.
 
 Previous Phase:
-Phase 3 — Backend Foundations (Complete)
+Phase 7A — LLM Application Engineering (Complete at classroom scope)
 
 ---
 
@@ -77,7 +77,8 @@ EXECUTED_LOCAL_RUNTIME — Python 3.11.5, 33 Day84 / 411 cumulative tests, 16/16
 26/26 Day83 seed regression and example PASS with zero Provider/external-Tool calls. Final synthesis was
 instructor-authored at the student's request; independent synthesis NOT ASSESSED. Python 3.12, real
 tokenizer/summarizer/Provider, PostgreSQL/Object Storage, Relay/Queue/Worker, billing/compensation,
-INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Day85 is next.
+INTEGRATION_RUNTIME and PRODUCTION NOT RUN. This is a historical Day84 completion record; current progress
+is recorded at the top of this file.
 
 Day83 is COMPLETE at guided classroom scope; its lesson and Artifact are included in this repository revision.
 Lesson: `docs/fastapi/day83-human-approval-interrupt-and-escalation-boundaries.md`. Artifact:
@@ -87,7 +88,8 @@ Approval is exact and current-authorization-bound; interrupt cannot erase effect
 identity/HELD; bounded recovery hands unresolved work to authorized ownership with deadline/alert intent.
 17 guided English answers reviewed. Final Chinese summary was instructor-authored at the student's request;
 independent final synthesis NOT ASSESSED. Python3.12, real auth/callback/PostgreSQL/Outbox Relay/Queue/Worker,
-Provider/Tool/billing/compensation/alert delivery, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Day84 is complete.
+Provider/Tool/billing/compensation/alert delivery, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. This is a
+historical Day83 completion record; current progress is recorded at the top of this file.
 
 Day82 is COMPLETE (classroom scope) — released
 `docs/fastapi/day82-durable-agent-jobs-checkpoint-resume-and-recovery.md` and evolved
@@ -100,7 +102,8 @@ are redispatched at-least-once and consumer idempotency suppresses duplicate eff
 the fence, so stale results have zero current-state effect but remain evidence. Evidence: CONCEPTUAL + STATIC +
 EXECUTED_LOCAL_RUNTIME (32 Day82 / 325 cumulative deterministic tests on Python 3.11.5). Python 3.12, real
 PostgreSQL transaction/Outbox, Relay/Broker/Worker, process crash/restart, multi-process fencing,
-Provider/Tool/billing, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. Day84 is complete; Day85 is next.
+Provider/Tool/billing, INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. This is a historical Day82 completion
+record; current progress is recorded at the top of this file.
 
 Day81 is COMPLETE (classroom scope) — released
 `docs/fastapi/day81-agent-state-machine-termination-loop-detection-and-step-token-cost-budgets.md` and evolved
@@ -112,7 +115,8 @@ and held reservations in `PENDING_RECONCILIATION`; hard no-progress loops termin
 `NO_PROGRESS_LOOP_DETECTED`; rollback preserves history and compensation is a new auditable operation. Evidence:
 CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (20 Day81 / 293 cumulative deterministic tests on Python 3.11.5).
 Python 3.12, real PostgreSQL `UPDATE ... RETURNING`, Outbox/queue, Provider/Tool/billing/distributed-worker,
-INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. Day82 is complete; Day84 is complete; Day85 is next.
+INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. This is a historical Day81 completion record; current progress
+is recorded at the top of this file.
 
 Day79 is COMPLETE (classroom scope) — released
 `docs/fastapi/day79-framework-agnostic-agent-loop-and-control-flow.md` and evolved `projects/ai-agent/` with
@@ -122,7 +126,8 @@ make replay idempotent; terminal/stale/duplicate/non-continue paths invoke the R
 `CONTINUE` composes through the real Day78 preparation/request boundary. Evidence: CONCEPTUAL + STATIC +
 EXECUTED_LOCAL_RUNTIME (8 Day79 / 251 cumulative tests on Python 3.11.5). Durable DB state,
 cross-process fencing, real Provider/Tool/framework, complete state machine/budgets/durability,
-INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. Day80–Day82 are complete; Day84 is complete; Day85 is next.
+INTEGRATION_RUNTIME and PRODUCTION are NOT RUN. This is a historical Day79 completion record; current progress
+is recorded at the top of this file.
 
 Day80 is COMPLETE (classroom scope) — released
 `docs/fastapi/day80-tool-registry-tool-schema-and-permission-model.md` and evolved `projects/ai-agent/` with
@@ -134,10 +139,16 @@ Day78 retains execution/outcome and Day79 retains control. `202 Accepted` is not
 policy unknown has zero calls, while possible external execution unknown preserves identity and reconciles.
 Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (22 Day80 / 273 cumulative tests on Python
 3.11.5-compatible `python3.11`). Real Provider/Framework/HTTP/PostgreSQL/queue/Worker/Playwright,
-INTEGRATION_RUNTIME, PRODUCTION and Day82 durability are NOT RUN. Day81 and Day82 are complete; Day84 is complete; Day85 is next.
+INTEGRATION_RUNTIME, PRODUCTION and Day82 durability are NOT RUN. This is a historical Day80 completion record;
+current progress is recorded at the top of this file.
 
-Status:
-Day78 is COMPLETE (classroom scope) — released `docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md` and evolved `projects/ai-agent/` with `src/application_runtime.py`, `tests/test_day78_application_runtime.py`, 22 deterministic Day78 tests, `docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md` and the classroom record. The capstone resolves/binds Contracts before routing and dispatch; uses one authoritative Runtime lifecycle/store; bridges Day73 messages to the Day72 request seam with binding-hash verification; binds stable Provider outcomes to candidate identity/integrity; reuses Day74 Admission, execution and outcome verification; preserves unknown identities/reservations; models separate compensation and idempotent cost settlement; and returns structured evidence. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (22 Day78 / 243 cumulative Day72–Day78 tests, Python 3.11.5). Python 3.12, real SDK/HTTP/Provider/database/queue/Worker/durable fencing/protected candidate storage/external Tool/compensation/billing, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Phase 7A is COMPLETE at classroom scope; Day79–Day84 are complete at recorded classroom scope; Day85 is next and must preserve the Day74/Day78/Day81 boundaries.
+Status — historical completion archive:
+
+The entries below preserve lesson-time evidence and may contain time-relative handoff wording from the
+original completion snapshot. They do not define the current lesson; the top-level Current Phase and Current
+Lesson sections are authoritative.
+
+Day78 is COMPLETE (classroom scope) — released `docs/fastapi/day78-llm-application-runtime-capstone-checkpoint-and-english-interview.md` and evolved `projects/ai-agent/` with `src/application_runtime.py`, `tests/test_day78_application_runtime.py`, 22 deterministic Day78 tests, `docs/DAY78_LLM_APPLICATION_RUNTIME_CAPSTONE.md` and the classroom record. The capstone resolves/binds Contracts before routing and dispatch; uses one authoritative Runtime lifecycle/store; bridges Day73 messages to the Day72 request seam with binding-hash verification; binds stable Provider outcomes to candidate identity/integrity; reuses Day74 Admission, execution and outcome verification; preserves unknown identities/reservations; models separate compensation and idempotent cost settlement; and returns structured evidence. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (22 Day78 / 243 cumulative Day72–Day78 tests, Python 3.11.5). Python 3.12, real SDK/HTTP/Provider/database/queue/Worker/durable fencing/protected candidate storage/external Tool/compensation/billing, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Phase 7A is COMPLETE at classroom scope. This is a historical Day78 completion record; current progress is recorded at the top of this file.
 Day77 is COMPLETE (classroom scope) — released `docs/fastapi/day77-fake-provider-contract-tests-and-llm-regression-tests.md` and evolved `projects/ai-agent/` with `src/fake_provider_testing.py`, `tests/test_day77_fake_provider_contract_regression.py`, 31 deterministic Day77 tests, `docs/DAY77_FAKE_PROVIDER_CONTRACT_REGRESSION_TESTS.md` and the classroom record. The Fake transport sits behind both real Day72 Adapters; response timing and application time are explicitly controlled; stable `ProviderOutcome` Contract Tests run across both Provider fixtures; semantic regressions assert state plus calls, tool effects, Attempts and cost through the real Day73–Day76 seams; independent goldens are human-reviewed. `TIMEOUT_UNKNOWN` keeps A1/no A2/reservation/reconciliation, while ordinary fallback preserves A1 and creates A2. The bad-v6 exercise covers stable rollback/quarantine, bounded affected scope, unknown reconciliation, repair vs compensation, cost and stale-result fencing. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (31 Day77 / 221 total, Python 3.11.5); no real SDK/HTTP/Provider/database/queue/Worker/tool/billing integration; INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Day78–Day84 are COMPLETE at recorded classroom scope; Day85 is next.
 Day76 is COMPLETE (classroom scope) — released `docs/fastapi/day76-model-routing-fallback-latency-and-cost-engineering.md` and evolved `projects/ai-agent/` with `src/routing_policy.py`, `src/recovery_cost.py`, 18 deterministic Day76 tests, `docs/DAY76_MODEL_ROUTING_FALLBACK_LATENCY_COST.md` and the classroom record. Eligibility/compatibility precedes preference; Routing Policy is server-owned/versioned; RoutingDecision and Provider/model/Profile execution facts are immutable per Attempt; retry/fallback preserve the source Attempt; `TIMEOUT_UNKNOWN` retains reservation and reconciles; latency has explicit boundaries; estimate/reservation/reported/actual/unknown cost remain distinct. The bad-v5 exercise covered rollback, pause/quarantine/fail-closed containment, per-Attempt classification, repair vs compensation, late-result fencing and guarded cost settlement. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (190 total tests: 18 Day76 + 172 Day72–Day75 regressions, Python 3.11.5); real Provider/HTTP/SSE/database/queue/Worker/tool/live pricing/latency/billing integration, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Day77 is COMPLETE; Day78–Day84 are COMPLETE at recorded classroom scope; Day85 is next.
 Day75 is COMPLETE (classroom scope) — released `docs/fastapi/day75-streaming-caching-and-batching-for-llm-applications.md` and evolved `projects/ai-agent/` with `src/streaming_cache_batching.py`, 41 deterministic Day75 tests, `docs/DAY75_STREAMING_CACHING_BATCHING.md` and the classroom record. Streaming emits only an identity/sequence-verified `CompleteCandidate`; cache hits require exact versioned trusted identity, freshness/current authorization and new Day74 Admission; compatible bounded/fair batches preserve per-item identity, result and retry/reject/reconcile recovery. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME (Python 3.11.5); real Provider/SSE/HTTP/Redis/PostgreSQL/queue/Worker/external tool, INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Day76 and Day77 are COMPLETE; Day78–Day84 are COMPLETE at recorded classroom scope; Day85 is next.
