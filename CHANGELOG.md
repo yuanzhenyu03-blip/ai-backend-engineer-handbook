@@ -9,6 +9,24 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B)
+
+Date: 2026-09-08
+
+Accepted Candidate C, `pydantic-ai-slim==2.41.0`, for the bounded course scope behind an application-owned
+Adapter. Preserved the missing Day87 A/B/C mapping as `UNKNOWN`, created the versioned Day88 mapping, froze
+weighted preferences after evidence, and recorded the Decision without making a universal-best or production
+claim.
+
+Added the strict application `ToolProposal` boundary, current authorization/approval/fence/deadline checks,
+duplicate/conflict handling, ambiguous-result reconciliation, a deterministic Fake Tool example, 21 focused
+tests, supply-chain evidence, course/design/classroom documentation and the Day89 handoff. Python 3.11 full
+regression is 517/517; Python 3.12 focused tests are 21/21; A/B/C each pass the comparable 15 safety + 10
+retry/reconciliation + 1 replaceability contract cases.
+
+Production Provider/Tool, containers, bundled artifacts, internal deployment and production deployment
+remain not evaluated. Production selection is false and readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Unreleased — Day87 — Agent Framework and Job-Market Refresh Checkpoint (Phase 7B)
 
 Date: 2026-09-08

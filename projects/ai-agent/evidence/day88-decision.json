@@ -1,0 +1,74 @@
+{
+  "decision_id": "DAY88-DECISION-001",
+  "version": "1.0.0",
+  "recorded_at": "2026-09-08T20:36:49+08:00",
+  "selected_candidate": "Candidate C",
+  "package": "pydantic-ai-slim",
+  "observed_version": "2.41.0",
+  "decision_status": "accepted_for_course_scope",
+  "candidate_mapping": {
+    "mapping_id": "DAY88-CANDIDATE-MAP-20260908-001",
+    "version": "1.0.0",
+    "historical_day87_mapping": "UNKNOWN",
+    "historical_candidate_b_preference": "unresolved_preference",
+    "mapping_is_recovered_day87_fact": false,
+    "candidates": {
+      "Candidate A": "langgraph==1.2.11",
+      "Candidate B": "openai-agents==0.22.0",
+      "Candidate C": "pydantic-ai-slim==2.41.0"
+    }
+  },
+  "supported_scope": [
+    "local_learning",
+    "public_source_code_on_github",
+    "application_owned_adapter",
+    "fake_provider",
+    "fake_tool",
+    "python_3_12",
+    "tested_dependency_snapshot"
+  ],
+  "weighted_ranking": {
+    "model": "DAY88-WEIGHTS-001",
+    "version": "v0.1",
+    "freeze_type": "post-evidence_weight_freeze",
+    "result": "robust_leader",
+    "sensitivity_scenarios": 12,
+    "winner_flips": 0,
+    "hard_constraints_scored": false,
+    "unknown_scoring": "interval"
+  },
+  "evidence_snapshot_ids": [
+    "DAY88-CANDIDATE-MAP-20260908-001",
+    "DAY88-PY312-001",
+    "DAY88-PY312-CONTRACT-002",
+    "DAY88-LICENSE-SCOPE-001",
+    "DAY88-VULN-SCAN-002",
+    "DAY88-WEIGHTS-001"
+  ],
+  "tested_environment": {
+    "python": "3.12.14",
+    "python_distribution": "Anaconda",
+    "os": "macOS-26.2",
+    "architecture": "arm64"
+  },
+  "production_selection": false,
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "excluded_or_not_evaluated": [
+    "production_provider",
+    "production_tool",
+    "container_distribution",
+    "bundled_wheel_or_executable",
+    "internal_or_production_deployment"
+  ],
+  "review_triggers": [
+    "framework_version_change",
+    "dependency_snapshot_change",
+    "distribution_scope_change",
+    "production_provider_or_tool_integration",
+    "new_vulnerability_or_license_evidence",
+    "adapter_boundary_regression",
+    "python_runtime_or_platform_change",
+    "new_hard_constraint"
+  ],
+  "universal_best_claim": false
+}

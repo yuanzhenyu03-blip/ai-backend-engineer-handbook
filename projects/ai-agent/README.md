@@ -46,7 +46,9 @@ ai-agent/
 │   ├── context_memory.py          # Day84: bounded context + non-authoritative memory
 │   ├── multi_agent_coordination.py # Day85: handoff, delegation, ownership, fan-in
 │   ├── agent_security.py          # Day86: trust, admission, Egress, Sandbox, incident boundaries
-│   └── framework_selection_evidence.py # Day87: offline evidence and handoff policy
+│   ├── framework_selection_evidence.py # Day87: offline evidence and handoff policy
+│   ├── agent_framework_adapter.py # Day88: framework-neutral proposal and commit boundary
+│   └── pydantic_ai_framework_adapter.py # Day88: selected private translation Adapter
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -67,17 +69,18 @@ ai-agent/
 │   ├── test_day85_seed_grader.py  # Day85: 3 grader tests
 │   ├── test_day86_agent_security.py # Day86: 28 boundary tests
 │   ├── test_day86_seed_grader.py  # Day86: 3 grader tests
-│   └── test_day87_framework_selection_evidence.py # Day87: 22 evidence-policy tests
+│   ├── test_day87_framework_selection_evidence.py # Day87: 22 evidence-policy tests
+│   └── test_day88_agent_framework_adapter.py # Day88: 21 Adapter-boundary tests
 ├── evals/                        # Day83–Day86 version-1 seed cases + runners
-├── examples/                     # Day83 checkpoint + Day84–Day87 deterministic scenarios
-├── evidence/                     # Day83–Day87 validation records
-├── research/                     # Day87 bounded framework/job snapshots and handoff
-└── docs/                         # Day71–Day87 designs + classroom records
+├── examples/                     # Day83 checkpoint + Day84–Day88 deterministic scenarios
+├── evidence/                     # Day83–Day88 validation and Decision records
+├── research/                     # Day87 refresh + Day88 mapping/ranking evidence
+└── docs/                         # Day71–Day88 designs + classroom records
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day87 documented; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day88 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -319,7 +322,8 @@ freshness, conflicts and confidence. Contract cells distinguish `NATIVE`, `ADAPT
 The bounded research snapshot compares LangGraph, OpenAI Agents SDK and PydanticAI and retains 12 active,
 deduplicated primary-source postings from 9 companies. The sample is senior-heavy, geographically uneven and
 company-concentrated. It supports only dated transferable-skill observations, never global-market, hiring or
-architecture claims. No framework is selected; the deterministic handoff is `MORE_EVIDENCE_NEEDED` and asks
+architecture claims. At the Day87 checkpoint no framework was selected; its deterministic handoff was
+`MORE_EVIDENCE_NEEDED` and asked
 Day88 to prove that every framework Tool candidate goes through the application Adapter and current
 authorization immediately before dispatch.
 
@@ -343,6 +347,37 @@ and Day86 25/25 seed regressions passed; the deterministic handoff passed with z
 Python 3.12, all candidate-framework imports, the Day88 Adapter spike, real Provider/Tool/database/Broker/
 Worker, integration and production remain NOT RUN. Final synthesis was instructor-authored at the learner's
 request; independent synthesis is NOT ASSESSED; English interview was skipped by the learner as out of scope.
+
+## Day88 Agent Runtime Framework Selection Behind a Replaceable Adapter
+
+Day88 preserves the historical Day87 candidate mapping as `UNKNOWN`, then creates the new versioned mapping
+`DAY88-CANDIDATE-MAP-20260908-001`: A = LangGraph 1.2.11, B = OpenAI Agents SDK 0.22.0 and C = PydanticAI
+2.41.0. The old Day87 “Candidate B” preference remains unresolved and is not retroactively interpreted.
+
+All three fixed candidates passed the same Python 3.12.14 Fake Provider/Fake Tool contract: 15 safety,
+10 retry/reconciliation and one replaceability case each. Candidate C, `pydantic-ai-slim==2.41.0`, is
+accepted behind the application-owned Adapter for local learning and public course source only. The
+framework never receives the Tool client or owns authorization, approval, operation identity, fence or
+durable business facts.
+
+See the [Decision](docs/DAY88_FRAMEWORK_SELECTION.md),
+[classroom record](docs/day88-framework-selection-classroom-draft.md),
+[research summary](research/day88-framework-selection-decision.md),
+[evidence stream](research/day88-framework-evidence.jsonl),
+[Decision record](evidence/day88-decision.json) and
+[supply-chain scope](evidence/day88-supply-chain.json), plus the
+[repository update report](docs/DAY88_REPOSITORY_UPDATE_REPORT.md).
+
+```sh
+PYTHONPATH=src python3.12 -m unittest tests/test_day88_agent_framework_adapter.py -v
+PYTHONPATH=src python3.12 examples/day88_replaceable_framework_adapter.py
+PYTHONPATH=src python3.11 -m unittest discover -s tests
+```
+
+Evidence: 21 focused tests pass on Python 3.12; 517 cumulative tests pass on Python 3.11. The frozen weighted
+model ran 12 normalized sensitivity scenarios with Candidate C as leader and zero flips. Production Provider,
+production Tool, container/bundled distribution, internal deployment and production deployment are not
+evaluated. Production selection is false and readiness remains `MORE_EVIDENCE_NEEDED`. Day89 is next.
 
 ## Day86 Agent Security: Prompt Injection, Tool Abuse, Data Exfiltration and Sandboxing
 
@@ -382,7 +417,7 @@ is NOT ASSESSED.
 
 ## Future Milestones
 
-- Run Day88's version-pinned replaceable-Adapter spike before making the framework decision.
+- Begin Day89 MCP Foundations while preserving the Day88 application-owned Adapter and Tool boundary.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

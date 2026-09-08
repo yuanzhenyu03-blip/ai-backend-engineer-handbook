@@ -1943,3 +1943,33 @@ integration and production NOT RUN.
 Related: [Day87 lesson](../docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md),
 [design](../projects/ai-agent/docs/DAY87_FRAMEWORK_JOB_MARKET_REFRESH.md).
 Next: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.
+
+## Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B)
+
+```text
+framework output
+-> framework-private translation
+-> strict application ToolProposal
+-> current authorization + approval/fence/deadline checks
+-> application-owned Tool client
+```
+
+Selected for course scope: Candidate C, `pydantic-ai-slim==2.41.0`.
+
+The framework proposes; the application authorizes and commits. Never place the production Tool client,
+grant authority, approval truth, operation ID ownership, fence ownership or durable business state inside
+the framework context. An ambiguous Tool result becomes `PENDING_RECONCILIATION` under the original
+operation ID; it is not a blind retry. A stale worker may submit evidence but cannot commit a transition.
+
+Day88 evidence: 21 focused / 517 cumulative tests PASS; A/B/C each pass 15 safety + 10 retry/reconciliation
++ 1 replaceability cases on Python 3.12.14 in the Fake Provider/Fake Tool scope. Candidate C is the robust
+leader under the post-evidence-frozen `DAY88-WEIGHTS-001 v0.1` across 12 normalized perturbations with zero
+winner flips.
+
+Scope: local learning, public course source, application-owned Adapter, Fake Provider/Fake Tool, Python 3.12
+and the tested dependency snapshot. Production selection is false; production Provider/Tool, containers,
+bundled artifacts and deployment remain `MORE_EVIDENCE_NEEDED`.
+
+Related: [Day88 lesson](../docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md),
+[Decision](../projects/ai-agent/docs/DAY88_FRAMEWORK_SELECTION.md).
+Next: Day89 — MCP Foundations and Protocol Model.

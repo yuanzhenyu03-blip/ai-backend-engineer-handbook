@@ -1,0 +1,50 @@
+{
+  "record_id": "DAY88-SUPPLY-CHAIN-001",
+  "version": "1.0.0",
+  "retrieved_at": "2026-09-08T20:11:50+08:00",
+  "assessment_kind": "engineering_compliance_screen_not_legal_advice",
+  "distribution_scope": {
+    "primary_use": "local_learning",
+    "source_distribution": "public_source_code_on_github",
+    "internal_or_production_deployment": false,
+    "container_distribution": false,
+    "bundled_wheel_or_executable_distribution": false,
+    "vendored_dependencies": false,
+    "dependency_installation": "users_install_from_package_registry"
+  },
+  "candidate_c_snapshot": {
+    "root": "pydantic-ai-slim==2.41.0",
+    "resolved_runtime_distributions": 17,
+    "missing_license_declarations": 0,
+    "license_families": ["MIT", "Apache-2.0", "BSD-3-Clause", "ISC", "PSF-2.0"],
+    "pypi_advisory_matches": 0,
+    "osv_advisory_matches": 0,
+    "audit_skipped_distributions": 0,
+    "scanner": "pip-audit==2.10.1"
+  },
+  "license_text_resolution": {
+    "distribution": "logfire-api==5.0.0",
+    "installed_wheel_contains_detected_license_file": false,
+    "official_tag": "v5.0.0",
+    "tag_commit": "ee3dc6b36e3f0e77be637b35573d80b8be8518ed",
+    "official_tag_license": "MIT",
+    "license_sha256": "035507b8a1e787a16c7f138f092557a30a8ee9cc9cef6e84d11546ee3b9a45cd"
+  },
+  "conclusions": {
+    "python_3_12_install": "pass_in_tested_scope",
+    "minimal_real_framework_runtime": "pass_in_tested_scope",
+    "pip_check": "pass",
+    "license_gate": "pass_in_tested_scope",
+    "known_vulnerability_gate": "pass_in_tested_scope",
+    "future_vulnerability_status": "unknown",
+    "production_readiness": "MORE_EVIDENCE_NEEDED"
+  },
+  "warning": "Zero matched advisories is a time-bound query result, not proof that no vulnerabilities exist.",
+  "excluded_scopes": [
+    "container_distribution",
+    "bundled_wheels_or_executables",
+    "vendored_or_modified_third_party_source",
+    "internal_or_production_deployment",
+    "future_dependency_versions_or_extras"
+  ]
+}

@@ -3,9 +3,9 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering is COMPLETE at classroom scope. Phase 7B — Agent Runtime and MCP
-Engineering is IN PROGRESS at classroom scope; Day87 is complete at guided classroom scope and Day88 is next.
+Engineering is IN PROGRESS at classroom scope; Day88 is complete at guided classroom scope and Day89 is next.
 
-Day59–Day87 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope: Day87 added offline framework/job evidence validation and a non-final Day88 handoff; Day88 is next. Earlier phase evidence and NOT RUN boundaries remain recorded below.
+Day59–Day88 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope: Day88 accepted Candidate C behind a replaceable Adapter for the bounded course scope; Day89 is next. Earlier phase evidence and NOT RUN boundaries remain recorded below.
 
 Previous Phase:
 Phase 3 — Backend Foundations (Complete)
@@ -14,8 +14,18 @@ Phase 3 — Backend Foundations (Complete)
 
 ## Current Lesson
 
-Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B) — next up.
-Most recent classroom lesson: Day87 — Agent Framework and Job-Market Refresh Checkpoint.
+Day89 — MCP Foundations and Protocol Model (Phase 7B) — next up.
+Most recent classroom lesson: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.
+
+Day88 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md`. Candidate C,
+`pydantic-ai-slim==2.41.0`, is accepted behind an application-owned Adapter only for local learning, public
+course source, Fake Provider/Fake Tool, Python 3.12 and the tested dependency snapshot. Evidence:
+21 focused / 517 cumulative tests PASS; the three fixed candidates each passed 15 safety, 10 retry/
+reconciliation and one replaceability case on Python 3.12.14; 12 normalized sensitivity scenarios produced
+zero winner flips. Production selection is false. Production Provider/Tool, containers, bundled artifacts,
+internal deployment and production deployment remain NOT EVALUATED; readiness is `MORE_EVIDENCE_NEEDED`.
+Day89 is next.
 
 Day87 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md`. The offline Artifact under
@@ -26,7 +36,7 @@ Day84 16/16 and Day83 26/26 seed regressions, and deterministic example PASS. No
 installed or embedded; readiness is `MORE_EVIDENCE_NEEDED`. Final synthesis was instructor-authored at the
 student's request; independent synthesis NOT ASSESSED; English interview skipped by learner as out of scope.
 Python 3.12, candidate-framework Adapter, real Provider/Tool/database/Broker/Worker, INTEGRATION_RUNTIME and
-PRODUCTION NOT RUN. Day88 is next.
+PRODUCTION NOT RUN. This remains the historical Day87 checkpoint; Day88 is now recorded above.
 
 Day86 is COMPLETE at guided classroom scope; its lesson and continuing Artifact are included in this
 repository revision. Lesson:
@@ -40,7 +50,7 @@ EXECUTED_LOCAL_RUNTIME — Python 3.11.5, 31 Day86 / 474 cumulative tests, 25/25
 16/16 Day84 and 26/26 Day83 seed cases, and example PASS with zero real external calls. Final synthesis was
 instructor-authored at the student's request; independent synthesis NOT ASSESSED. Python 3.12, real
 Provider/Tool/network Egress/OS-Sandbox/Secret manager/PostgreSQL/Broker/Worker, INTEGRATION_RUNTIME and
-PRODUCTION NOT RUN. Day87 is now complete; Day88 is next.
+PRODUCTION NOT RUN. This remains the historical Day86 checkpoint; current progress is recorded above.
 
 Day85 is COMPLETE at guided classroom scope; its lesson and continuing Artifact are included in this
 repository revision. Lesson: `docs/fastapi/day85-multi-agent-handoff-and-coordination-boundaries.md`.
@@ -53,7 +63,7 @@ EXECUTED_LOCAL_RUNTIME — Python 3.11.5, 32 Day85 / 443 cumulative tests, 18/18
 26/26 Day83 seed cases, and example PASS with zero real Provider/Tool calls. Final synthesis was
 instructor-authored at the student's request; independent synthesis NOT ASSESSED. Python 3.12, PostgreSQL,
 Outbox Relay/Broker/multi-process Worker, real Provider/Tool, network/clock-skew/production fencing, billing,
-INTEGRATION_RUNTIME and PRODUCTION NOT RUN. Day86 and Day87 are complete; Day88 is next.
+INTEGRATION_RUNTIME and PRODUCTION NOT RUN. This remains the historical Day85 checkpoint; current progress is recorded above.
 
 Day84 is COMPLETE at guided classroom scope; its lesson and continuing Artifact are included in this
 repository revision. Lesson:

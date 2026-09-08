@@ -1,0 +1,4 @@
+# Day88 selected course Adapter root dependency.
+# The observed Python 3.12 environment is preserved in evidence/, not presented as
+# a cross-platform lock. Re-resolve and re-run gates when environment markers change.
+pydantic-ai-slim==2.41.0

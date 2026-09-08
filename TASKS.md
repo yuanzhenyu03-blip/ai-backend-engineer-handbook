@@ -10,16 +10,24 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A is COMPLETE at classroom scope. Phase 7B is IN PROGRESS: Day87 is COMPLETE at guided classroom scope and Day88 is next.
+Phase 7A is COMPLETE at classroom scope. Phase 7B is IN PROGRESS: Day88 is COMPLETE at guided classroom scope and Day89 is next.
 
-Day59–Day87 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS: Day87 added offline framework/job evidence validation and a non-final Day88 handoff; Day88 is next. Earlier phase evidence and NOT RUN boundaries remain recorded in the completion history.
+Day59–Day88 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS: Day88 selected Candidate C behind an application-owned Adapter for course scope; Day89 is next. Earlier phase evidence and NOT RUN boundaries remain recorded in the completion history.
 
 ---
 
 ## Current Lesson
 
-Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B) — next up.
-Most recent classroom lesson: Day87 — Agent Framework and Job-Market Refresh Checkpoint (included in this repository revision).
+Day89 — MCP Foundations and Protocol Model (Phase 7B) — next up.
+Most recent classroom lesson: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (included in this repository revision).
+
+Day88 completion record:
+
+- [x] Preserve the Day87 A/B/C mapping as unknown and create versioned Day88 mapping `DAY88-CANDIDATE-MAP-20260908-001`.
+- [x] Run the same Python 3.12 Adapter contract for LangGraph 1.2.11, OpenAI Agents SDK 0.22.0 and PydanticAI 2.41.0.
+- [x] Accept Candidate C only for local-learning/public-source/Fake Provider/Fake Tool course scope.
+- [x] Add the framework-neutral core, selected Adapter, 21 focused tests, evidence and Day89 handoff.
+- [x] Run 517 cumulative tests and preserve production readiness as `MORE_EVIDENCE_NEEDED`.
 
 Day87 completion record:
 
@@ -30,7 +38,7 @@ Day87 completion record:
 - [x] Run 496 cumulative tests and Day83–Day86 seed regressions on Python 3.11.5.
 - [x] Record instructor-authored synthesis, independent synthesis `NOT_ASSESSED`, and English interview
   `SKIPPED_BY_LEARNER_AS_OUT_OF_SCOPE`.
-- [ ] Day88: select only after the replaceable-Adapter/current-authorization spike; no framework is selected yet.
+- [x] Day88: select only after the replaceable-Adapter/current-authorization spike; Candidate C is accepted for course scope only.
 
 Day86 completion record:
 
@@ -90,7 +98,7 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day87 is documented at guided classroom scope and Phase 7B is in progress. Day88 is next; Day87 independent final synthesis was not assessed.
+Day88 is documented at guided classroom scope and Phase 7B is in progress. Day89 is next; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
 (Day88); Day87 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
@@ -114,7 +122,7 @@ The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 - [x] Complete Day87 framework/job-market refresh without pre-locking a framework: preserve current official
   evidence, hard constraints, weighted preferences, job dedupe/classification, sample bias, sensitivity and a
   `MORE_EVIDENCE_NEEDED` Day88 handoff. 22 Day87 / 496 cumulative tests and Day83–Day86 seed regressions PASS.
-- [ ] Run Day88's version-pinned replaceable-Adapter spike before selecting a framework.
+- [x] Run Day88's version-pinned replaceable-Adapter spike and accept Candidate C for the bounded course scope.
 
 - [x] Complete Day82 Durable Agent Jobs, Checkpoint, Resume and Recovery — released the 16-section lesson,
   `src/durable_agent_jobs.py`, 32 deterministic tests, design, classroom record, README, cheat sheet/interview

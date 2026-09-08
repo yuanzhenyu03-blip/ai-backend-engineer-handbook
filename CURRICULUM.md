@@ -1893,6 +1893,13 @@ Per-day topics:
   implement it behind a replaceable adapter; record the choice as a new Decision. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day87 refreshed the evidence; Day88 selects and adapter-wraps a framework without locking the
   contracts (recorded as a Decision); Day89 standardizes external tools/resources via MCP.
+  Status: ✅ Completed (guided classroom scope). Candidate C, `pydantic-ai-slim==2.41.0`, is accepted only for
+  local learning, public course source, the application-owned Adapter, Fake Provider/Fake Tool, Python 3.12
+  and the tested dependency snapshot. Evidence: 21 focused / 517 cumulative tests; all three fixed candidates
+  passed the same 15 safety + 10 retry/reconciliation + 1 replaceability cases on Python 3.12.14; Candidate C
+  remained the robust leader in 12 frozen-weight sensitivity scenarios. Production selection is false;
+  production Provider/Tool, containers, bundled artifacts and deployment remain NOT EVALUATED / MORE_EVIDENCE_NEEDED.
+  Next: Day89.
 - Day89 — MCP Foundations and Protocol Model.
   Scope: MCP protocol model and responsibilities.
   Connection: Day88 fixed the runtime; Day89 introduces MCP as the standard tool/resource boundary; Day90

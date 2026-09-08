@@ -16,17 +16,17 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day87 is complete at guided classroom scope: 22 new tests, 496 cumulative local tests, Day86 25/25, Day85 18/18, Day84 16/16 and Day83 26/26 seed regressions, and the deterministic `MORE_EVIDENCE_NEEDED` handoff PASS on Python 3.11.5. No framework was selected or installed. Independent final synthesis was not assessed; Python 3.12 and candidate-framework/real integration are **NOT RUN**.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day88 is complete at guided classroom scope: Candidate C (`pydantic-ai-slim==2.41.0`) is accepted behind an application-owned Adapter for the bounded course scope; 21 focused / 517 cumulative tests pass, and the comparable A/B/C Python 3.12 Fake Provider/Fake Tool contract passes. Production selection is false and production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day87 — Agent Framework and Job-Market Refresh Checkpoint](docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md)
+* [Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter](docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md)
 
-(For the full completed classroom history Day01–Day87, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day88, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day89 — MCP Foundations and Protocol Model (Phase 7B; Planned / Not started; see `ROADMAP.md`)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

@@ -1,0 +1,72 @@
+{
+  "day": 88,
+  "title": "Agent Runtime Framework Selection Behind a Replaceable Adapter",
+  "record_type": "local_uncommitted_course_artifact",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-08T20:36:49+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "commit": "61535a6a2ce255226a59b1363435f80c84eadb10",
+    "day88_status_at_baseline": "PLANNED_NOT_STARTED"
+  },
+  "decision": {
+    "decision_id": "DAY88-DECISION-001",
+    "selected_candidate": "Candidate C",
+    "package": "pydantic-ai-slim",
+    "observed_version": "2.41.0",
+    "status": "accepted_for_course_scope",
+    "production_selection": false,
+    "production_readiness": "MORE_EVIDENCE_NEEDED"
+  },
+  "validation": {
+    "py_compile": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "git_diff_check": "PASS",
+    "python_3_11": {
+      "focused_day88_tests": {"passed": 21, "failed": 0},
+      "cumulative_tests": {"passed": 517, "failed": 0},
+      "day83_seed_regression": {"passed": 26, "failed": 0},
+      "day84_seed_regression": {"passed": 16, "failed": 0},
+      "day85_seed_regression": {"passed": 18, "failed": 0},
+      "day86_seed_regression": {"passed": 25, "failed": 0}
+    },
+    "python_3_12_14": {
+      "focused_day88_tests": {"passed": 21, "failed": 0},
+      "cumulative_tests": {"passed": 517, "failed": 0},
+      "deterministic_example": "PASS",
+      "candidate_contract": {
+        "Candidate A": {"safety": 15, "retry_reconciliation": 10, "replaceability": 1, "status": "PASS_IN_TESTED_SCOPE"},
+        "Candidate B": {"safety": 15, "retry_reconciliation": 10, "replaceability": 1, "status": "PASS_IN_TESTED_SCOPE"},
+        "Candidate C": {"safety": 15, "retry_reconciliation": 10, "replaceability": 1, "status": "PASS_IN_TESTED_SCOPE"}
+      }
+    }
+  },
+  "source_hashes": {
+    "projects/ai-agent/src/agent_framework_adapter.py": "f942e30ce2b1038a2e29c642c61465b97e25a4672451cabda8d53d8b06832387",
+    "projects/ai-agent/src/pydantic_ai_framework_adapter.py": "d38a9d7e9b2ced1b1bf815e3740bef9580c2a869bae32d688ac4aa9a89df9c3f",
+    "projects/ai-agent/tests/test_day88_agent_framework_adapter.py": "1a3d802680872b2bade72a8d5bafd5afbd58e4413190357af30366d9c1e1dd34",
+    "projects/ai-agent/examples/day88_replaceable_framework_adapter.py": "fcda79deadceac3a2afdbf1f6c1986803d5aeeaba335d8089e98e080d28b02ff",
+    "projects/ai-agent/docs/DAY88_FRAMEWORK_SELECTION.md": "04763cebf4571fdcd226508caec6269e469367aa9925e47701c051bdf0b0707f",
+    "projects/ai-agent/docs/day88-framework-selection-classroom-draft.md": "f82242e78f2f0dae9f3ac55de27d9fd5bc6f2444883b8e875a7c7fb90d40fd58",
+    "projects/ai-agent/research/day88-framework-selection-decision.md": "4833cf205adcd59c1afa3ff5669a83d3c00e9978156b4d0e2065ff5875018be4",
+    "projects/ai-agent/research/day88-framework-evidence.jsonl": "01f08a84ff31299d82ab68282da9499454863a13c4686f4eb1646983f96dce3c",
+    "projects/ai-agent/evidence/day88-decision.json": "c5b2fa6242f58f4f083e7c6b0f7af984b96f56937ba75ab28efd70ed23bb4c35",
+    "projects/ai-agent/evidence/day88-supply-chain.json": "71d4bd9aec3e30bc703bf1f7d42855bb80c4f1897d36f7720f048f6877b261ab",
+    "projects/ai-agent/evidence/day88-candidate-c-python312-freeze.txt": "6e9c0b4db4f6fa815e78aef5d95d16986d952eda8af17a7ff207124933f6bc57",
+    "projects/ai-agent/requirements-day88.txt": "aec53f344115e747d6e50fd191312e97206a88ed18a9cef3575ee93bcceb0c47",
+    "docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md": "a30c66aa79de52ef08563a1ab86336d3e00ea5d959c5b9db438dbbbb48b69600"
+  },
+  "external_effect_counters": {
+    "production_provider_calls": 0,
+    "production_tool_calls": 0,
+    "production_database_calls": 0,
+    "production_deployments": 0
+  },
+  "not_evaluated": [
+    "production Provider integration",
+    "production Tool idempotency and reconciliation",
+    "PostgreSQL, Broker and multi-process Worker integration",
+    "container or bundled-artifact distribution",
+    "internal or production deployment"
+  ]
+}

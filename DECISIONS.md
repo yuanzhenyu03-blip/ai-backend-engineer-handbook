@@ -353,3 +353,57 @@ This is a curriculum-planning and status change only. No integration, provider, 
 executed. The curriculum improves job competitiveness but does not promise an offer; target roles are Junior /
 Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent products;
 completion is not fabricated as Senior/Staff production experience.
+
+---
+
+## Decision 009 — PydanticAI Behind the Replaceable Day88 Course Adapter
+
+Status: Accepted for course scope
+
+Date: 2026-09-08
+
+### Context
+
+Day79–Day86 established application-owned Agent contracts before a framework was chosen. Day87 refreshed
+framework and job-market evidence but did not persist an A/B/C mapping and did not select a framework. Day88
+created a new versioned mapping and ran comparable, fixed-version Adapter safety and retry/reconciliation
+spikes for LangGraph, OpenAI Agents SDK and PydanticAI.
+
+### Decision
+
+Accept Candidate C, `pydantic-ai-slim==2.41.0`, behind an application-owned replaceable Adapter for the
+bounded Day88 course scope: local learning, public course source on GitHub, Fake Provider, Fake Tool,
+Python 3.12 and the tested dependency snapshot.
+
+The old Day87 “Candidate B” preference remains unresolved and is not retroactively mapped. The Day88 map is
+new evidence: A = `langgraph==1.2.11`, B = `openai-agents==0.22.0`, C =
+`pydantic-ai-slim==2.41.0`.
+
+### Why
+
+All candidates passed the hard-constraint gate in the tested abstraction scope. Candidate C then remained
+the robust leader under the post-evidence-frozen `DAY88-WEIGHTS-001 v0.1` across 12 normalized sensitivity
+scenarios with zero winner flips. It fits the course's typed Python/Pydantic path while keeping Provider,
+Tool, authorization, approval, operation, fence and durable-state contracts application-owned.
+
+### Consequences
+
+- Framework output is only a `ToolProposal`; it is never execution authority.
+- The production Tool client cannot enter framework context.
+- Framework-native types and checkpoints stay Adapter-private and non-authoritative.
+- Production Provider/Tool integration, containers, bundled artifacts, internal deployment and production
+  deployment are not approved by this Decision.
+- LangGraph remains planned for later advanced RAG and complex orchestration behind the same contract.
+- Day89 may begin MCP Foundations without weakening Day80–Day88 boundaries.
+
+### Review triggers
+
+Review this Decision when the framework or dependency snapshot changes, distribution scope changes, a
+production Provider or Tool is introduced, license/vulnerability evidence changes, the Adapter boundary
+regresses, Python/platform changes, or a new hard constraint appears.
+
+### Validation honesty
+
+Evidence includes Python 3.12 minimal real-framework paths and comparable Fake Provider/Fake Tool contract
+tests. It does not prove production network, SDK retry, production Tool idempotency/reconciliation or
+deployment behavior. Production selection is false and readiness is `MORE_EVIDENCE_NEEDED`.
