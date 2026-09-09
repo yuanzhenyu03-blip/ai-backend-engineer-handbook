@@ -86,3 +86,24 @@ internal or production deployment.
 
 Next: Day89 — MCP Foundations and Protocol Model. MCP is another external
 protocol boundary and must preserve the same application-owned controls.
+
+## 2026-09-09 amendment — second contract-level Adapter
+
+Decision 010 amends and extends Decision 009 without replacing it. PydanticAI
+remains the default course Adapter. A second `langgraph@1.2.11` translation
+Adapter now runs the same safety and retry/reconciliation matrix, turning
+replaceability from a one-real-Adapter assertion into contract-level evidence.
+
+The input shapes are deliberately different. The PydanticAI Adapter accepts the
+flat `proposal_handler` arguments already used by Day88. The LangGraph Adapter
+validates a `tools` node carrying the documented `name` / `args` / `id` / `type`
+ToolCall envelope, then emits the same strict application `ToolProposal`. The
+framework call ID is untrusted correlation input; it never replaces the
+application-owned operation ID.
+
+This amendment does **not** import or execute LangGraph or LangChain, add a
+dependency, or establish LangGraph runtime support. It proves only that two
+dependency-free translators can preserve the same application outcome and
+fail-closed boundary with a Fake Tool. `INTEGRATION_RUNTIME` and `PRODUCTION`
+remain `NOT RUN` for both Adapters; production selection remains false and
+readiness remains `MORE_EVIDENCE_NEEDED`.

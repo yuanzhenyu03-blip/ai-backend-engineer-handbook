@@ -28,6 +28,9 @@ Day88 completion record:
 - [x] Accept Candidate C only for local-learning/public-source/Fake Provider/Fake Tool course scope.
 - [x] Add the framework-neutral core, selected Adapter, 21 focused tests, evidence and Day89 handoff.
 - [x] Run 517 cumulative tests and preserve production readiness as `MORE_EVIDENCE_NEEDED`.
+- [x] Decision 010 amendment: add a dependency-free LangGraph-shaped contract translator, run the same
+  matrix against both real Adapters (43 focused / 539 cumulative on Python 3.11.5), and keep PydanticAI as
+  default. This is not LangGraph runtime integration; Day88 remains complete and Day89 remains next.
 
 Day87 completion record:
 

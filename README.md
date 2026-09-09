@@ -16,7 +16,7 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day88 is complete at guided classroom scope: Candidate C (`pydantic-ai-slim==2.41.0`) is accepted behind an application-owned Adapter for the bounded course scope; 21 focused / 517 cumulative tests pass, and the comparable A/B/C Python 3.12 Fake Provider/Fake Tool contract passes. Production selection is false and production readiness remains `MORE_EVIDENCE_NEEDED`.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day88 is complete at guided classroom scope: Candidate C (`pydantic-ai-slim==2.41.0`) remains the default behind an application-owned Adapter; Decision 010 adds a dependency-free LangGraph-shaped contract translator. The original Day88 record is 21 focused / 517 cumulative tests; the amendment matrix is 43 focused / 539 cumulative tests on Python 3.11.5. This is not LangGraph runtime integration. Production selection is false and production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 

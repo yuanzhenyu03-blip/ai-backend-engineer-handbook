@@ -2720,3 +2720,20 @@ The actual guided answers and corrections are preserved in the
 instructor-authored at the student's request and is not an independent assessment.
 Related: [Day86 lesson](../docs/fastapi/day86-agent-security-prompt-injection-tool-abuse-data-exfiltration-and-sandboxing.md),
 [design](../projects/ai-agent/docs/DAY86_AGENT_SECURITY_BOUNDARIES.md).
+
+## Day88 — Replaceable Framework Adapter Amendment (Phase 7B)
+
+### Intermediate: What evidence shows that the framework boundary is replaceable?
+
+**Strong answer:** Run the same application contract and failure matrix against two non-trivial real Adapter
+implementations, then compare their application-owned proposal, authorization decision, Tool effects and
+durable outcome. Day88 now does this for the default PydanticAI translator and a LangGraph-shaped translator.
+Their private input envelopes differ, but both emit the same `ToolProposal`, hold no Tool client and preserve
+the same fail-closed behavior.
+
+### Honesty follow-up: Does this prove LangGraph integration?
+
+No. The second Adapter is dependency-free and models a strict `tools` node with a `name/args/id/type` ToolCall
+envelope; it does not import or execute LangGraph or LangChain. The result is contract-level replaceability
+evidence under a Fake Tool, not verified runtime support. `INTEGRATION_RUNTIME` and `PRODUCTION` remain
+`NOT RUN`, production selection is false, and PydanticAI remains the default course Adapter.

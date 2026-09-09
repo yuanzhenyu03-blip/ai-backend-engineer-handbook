@@ -1901,6 +1901,9 @@ Per-day topics:
   passed the same 15 safety + 10 retry/reconciliation + 1 replaceability cases on Python 3.12.14; Candidate C
   remained the robust leader in 12 frozen-weight sensitivity scenarios. Production selection is false;
   production Provider/Tool, containers, bundled artifacts and deployment remain NOT EVALUATED / MORE_EVIDENCE_NEEDED.
+  Decision 010 amendment: PydanticAI remains the default; a dependency-free LangGraph-shaped translator now
+  passes the same real-Adapter matrix (43 focused / 539 cumulative on Python 3.11.5). This is contract-level
+  replaceability evidence, not LangGraph runtime integration.
   Next: Day89.
 - Day89 — MCP Foundations and Protocol Model.
   Scope: MCP protocol model and responsibilities.

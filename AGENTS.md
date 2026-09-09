@@ -40,7 +40,7 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (guided classroom scope; Candidate C `pydantic-ai-slim==2.41.0` accepted for course scope; 21 Day88 / 517 cumulative local tests; comparable A/B/C Python 3.12 contract PASS_IN_TESTED_SCOPE; production readiness MORE_EVIDENCE_NEEDED).
+- Last Completed Lesson: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (guided classroom scope; Candidate C `pydantic-ai-slim==2.41.0` remains the default; Decision 010 adds a dependency-free LangGraph-shaped contract translator; amendment matrix 43 Day88 / 539 cumulative local tests on Python 3.11.5; no LangGraph runtime integration; production readiness MORE_EVIDENCE_NEEDED).
 - Current / Next Lesson: Day89 — MCP Foundations and Protocol Model (Phase 7B; Planned / not started).
 - Day88 used guided evidence review. Production Provider/Tool/PostgreSQL/Broker/Worker, container/bundled distribution and real integration gates remain NOT EVALUATED / MORE_EVIDENCE_NEEDED.
 - Current phase: Phase 7B — Agent Runtime and MCP Engineering is IN PROGRESS at classroom scope.

@@ -9,6 +9,24 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day88 Contract-level LangGraph Adapter Amendment (Phase 7B)
+
+Date: 2026-09-09
+
+Added a dependency-free `langgraph@1.2.11` translator beside the default PydanticAI Adapter and refactored
+the existing Day88 safety and retry/reconciliation assertions into a shared matrix that runs against both.
+The two private input shapes translate to the same application `ToolProposal`; an explicit equivalence case
+confirms that swapping Adapters changes no durable business behavior. The updated Fake Tool example shows
+both paths with zero production calls.
+
+Decision 010 amends and extends Decision 009; it does not replace it. PydanticAI remains the default course
+Adapter, Day88 remains completed and Day89 remains next. This is contract-level replaceability evidence only:
+no LangGraph/LangChain import, dependency or runtime execution occurred, and `INTEGRATION_RUNTIME` /
+`PRODUCTION` remain `NOT RUN`. Production selection is false and readiness is `MORE_EVIDENCE_NEEDED`.
+
+Validation: 43 focused / 539 cumulative tests passed on Python 3.11.5. Python 3.12 was unavailable for this
+amendment rerun.
+
 ## Unreleased — Course Status Consistency Correction
 
 Date: 2026-09-08

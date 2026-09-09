@@ -1973,3 +1973,10 @@ bundled artifacts and deployment remain `MORE_EVIDENCE_NEEDED`.
 Related: [Day88 lesson](../docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md),
 [Decision](../projects/ai-agent/docs/DAY88_FRAMEWORK_SELECTION.md).
 Next: Day89 — MCP Foundations and Protocol Model.
+
+Day88 amendment: Decision 010 keeps PydanticAI as the default and adds a second dependency-free
+`langgraph@1.2.11` contract translator. Both real Adapters run the same fail-closed matrix and produce the
+same application outcome. The PydanticAI shape is flat; the LangGraph shape models the `tools` node plus a
+strict `name/args/id/type` ToolCall envelope. No LangGraph/LangChain import or runtime was executed, so this
+is replaceability evidence—not LangGraph integration or support. `INTEGRATION_RUNTIME` and `PRODUCTION`
+remain `NOT RUN`; production readiness remains `MORE_EVIDENCE_NEEDED`.

@@ -21,9 +21,12 @@ Day88 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md`. Candidate C,
 `pydantic-ai-slim==2.41.0`, is accepted behind an application-owned Adapter only for local learning, public
 course source, Fake Provider/Fake Tool, Python 3.12 and the tested dependency snapshot. Evidence:
-21 focused / 517 cumulative tests PASS; the three fixed candidates each passed 15 safety, 10 retry/
-reconciliation and one replaceability case on Python 3.12.14; 12 normalized sensitivity scenarios produced
-zero winner flips. Production selection is false. Production Provider/Tool, containers, bundled artifacts,
+The original lesson record is 21 focused / 517 cumulative tests PASS; the three fixed candidates each passed
+15 safety, 10 retry/reconciliation and one replaceability case on Python 3.12.14. Decision 010 subsequently
+added a dependency-free LangGraph-shaped contract translator beside the default PydanticAI translator; the
+shared two-Adapter amendment matrix is 43 focused / 539 cumulative tests on Python 3.11.5. This is not
+LangGraph runtime integration. Twelve normalized sensitivity scenarios produced zero winner flips.
+Production selection is false. Production Provider/Tool, containers, bundled artifacts,
 internal deployment and production deployment remain NOT EVALUATED; readiness is `MORE_EVIDENCE_NEEDED`.
 Day89 is next.
 

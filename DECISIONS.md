@@ -407,3 +407,44 @@ regresses, Python/platform changes, or a new hard constraint appears.
 Evidence includes Python 3.12 minimal real-framework paths and comparable Fake Provider/Fake Tool contract
 tests. It does not prove production network, SDK retry, production Tool idempotency/reconciliation or
 deployment behavior. Production selection is false and readiness is `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 010 — Add a Contract-level LangGraph Adapter as Replaceability Evidence
+
+Status: Accepted for Day88 course scope
+
+Date: 2026-09-09
+
+### Context
+
+Decision 009 selected PydanticAI as the default course Adapter, but the checked-in Day88 safety and
+retry/reconciliation matrix exercised only that real Adapter; a one-case Fake Adapter made replaceability
+mostly a design assertion. LangGraph also has materially stronger keyword visibility in the bounded Day87
+job sample, while the application-owned boundary permits more than one private translation implementation.
+
+### Decision
+
+Amend and extend Decision 009 without replacing it. Keep `pydantic-ai-slim@2.41.0` as the default course
+Adapter and add `langgraph@1.2.11` as a second, contract-level translation Adapter. Both implementations must
+convert their distinct untrusted input shapes to the same application `ToolProposal`, hold no Tool client,
+and pass the same Day88 failure matrix.
+
+The LangGraph Adapter models the documented `tools` node and `name` / `args` / `id` / `type` ToolCall
+envelope. It imports and executes neither LangGraph nor LangChain. This is translation-boundary
+replaceability evidence, not verified LangGraph integration or runtime support.
+
+### Consequences
+
+- PydanticAI remains the default; Decision 009 remains accepted and is not revoked.
+- The same application authorization, approval, operation, fence, retry/reconciliation and durable-state
+  contracts govern either Adapter.
+- Day88 remains completed. No lesson was added, renumbered or reopened; Day89 remains next.
+- No dependency or lockfile is added.
+- Production selection remains false and readiness remains `MORE_EVIDENCE_NEEDED`.
+
+### Validation honesty
+
+The evidence tier is `EXECUTED_LOCAL_RUNTIME` for dependency-free contract tests using a Fake Tool. No
+LangGraph package, Provider, production Tool, network, integration environment or production environment was
+executed. `INTEGRATION_RUNTIME` and `PRODUCTION` remain `NOT RUN` for both Adapters.
