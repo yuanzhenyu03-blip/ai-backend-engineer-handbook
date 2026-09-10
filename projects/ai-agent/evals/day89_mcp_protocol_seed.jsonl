@@ -1,0 +1,16 @@
+{"case_id":"MCP01","case_version":1,"category":"valid_current_message","expected_outcome":"PROTOCOL_RESULT","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP02","case_version":1,"category":"unsupported_version","expected_outcome":"UNSUPPORTED_VERSION","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}
+{"case_id":"MCP03","case_version":1,"category":"unknown_method","expected_outcome":"UNKNOWN_METHOD","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}
+{"case_id":"MCP04","case_version":1,"category":"invalid_params","expected_outcome":"INVALID_MESSAGE","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}
+{"case_id":"MCP05","case_version":1,"category":"capability_mismatch","expected_outcome":"CAPABILITY_REJECTED","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}
+{"case_id":"MCP06","case_version":1,"category":"authorization_revoked","expected_outcome":"DENIED:grant_revoked","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}
+{"case_id":"MCP07","case_version":1,"category":"identity_separation","expected_outcome":"IDS_SEPARATED","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP08","case_version":1,"category":"unknown_response","expected_outcome":"UNKNOWN_RESPONSE","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}
+{"case_id":"MCP09","case_version":1,"category":"duplicate_response","expected_outcome":"DUPLICATE","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP10","case_version":1,"category":"conflicting_response","expected_outcome":"CONFLICT","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP11","case_version":1,"category":"timeout_after_possible_send","expected_outcome":"OUTCOME_UNKNOWN","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP12","case_version":1,"category":"cross_tenant_resource","expected_outcome":"RESOURCE_SCOPE_REJECTED","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP13","case_version":1,"category":"untrusted_prompt","expected_outcome":"INDIRECT_PROMPT_INJECTION","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP14","case_version":1,"category":"protocol_result_observation_only","expected_outcome":"PROTOCOL_RESULT","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP15","case_version":1,"category":"replaceable_transport","expected_outcome":"PROTOCOL_RESULT","expected_mcp_sends":1,"expected_bindings":1,"expected_durable_transition":false}
+{"case_id":"MCP16","case_version":1,"category":"committer_final_gate","expected_outcome":"DENIED:stale_policy","expected_mcp_sends":0,"expected_bindings":0,"expected_durable_transition":false}

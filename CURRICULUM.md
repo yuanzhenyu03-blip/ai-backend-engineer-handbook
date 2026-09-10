@@ -1725,7 +1725,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress at recorded classroom scope (Day79–Day88 Completed; Day89 Planned / not started). Guided or
+In Progress at recorded classroom scope (Day79–Day89 Completed; Day90 Planned / not started). Guided or
 independent-assessment limitations remain recorded in the individual lesson entries.
 
 Objective:
@@ -1909,6 +1909,16 @@ Per-day topics:
   Scope: MCP protocol model and responsibilities.
   Connection: Day88 fixed the runtime; Day89 introduces MCP as the standard tool/resource boundary; Day90
   builds the MCP client.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day89-mcp-foundations-and-protocol-model.md`. Artifact: `projects/ai-agent/` gained
+  SDK-independent request/response DTOs, local request-to-operation binding, per-request version/capability
+  validation, Fake Transport, response correlation, ProtocolObservation, untrusted Resource/Prompt checks,
+  unknown-outcome reconciliation, 21 focused/grader tests, 16 seed cases and a deterministic example. Current
+  official specification/schema observed: `2026-07-28`, stateless and self-describing; initialize/session is
+  historical for this path. Evidence: Python 3.11.5, 21 Day89 / 560 cumulative tests, Day88 43/43 regression,
+  Day83–Day89 seed regressions and example PASS. Independent learner synthesis assessed with corrections.
+  Real MCP SDK/Client/Server/remote transport, production auth/Tool/database/deployment,
+  INTEGRATION_RUNTIME and PRODUCTION NOT RUN; readiness `MORE_EVIDENCE_NEEDED`. Next: Day90.
 - Day90 — MCP Client Engineering.
   Scope: MCP client engineering and integration with the agent runtime.
   Connection: Day89 modeled the protocol; Day90 builds the MCP client; Day91 builds the MCP server side.

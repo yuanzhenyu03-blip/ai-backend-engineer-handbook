@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day89 — MCP Foundations and Protocol Model (Phase 7B)
+
+Date: 2026-09-10
+
+Released the 16-section Day89 lesson and evolved `projects/ai-agent/` with SDK-independent MCP request/response
+DTOs, local request/operation bindings, strict version/method/params validation, per-request capability
+evidence, Fake Transport, response correlation and protocol observations. Added metadata-first Resource/Prompt
+validation and unknown-outcome reconciliation without granting MCP durable-state authority.
+
+Official specification/schema evidence records `2026-07-28`, JSON-RPC 2.0 and a stateless self-describing core;
+historical initialize/notifications/initialized and Mcp-Session-Id assumptions are not used for the current
+path. Added 18 behavior tests, 3 grader tests, 16 seed cases, a deterministic example, design, classroom record
+and Day90 handoff. The independent learner synthesis was assessed with corrections.
+
+Validation: Python 3.11.5; 21 Day89 focused/grader, 43 Day88 regression and 560 cumulative tests passed;
+Day83–Day89 seed suites, example, syntax, JSON/JSONL and whitespace checks passed. Real MCP SDK/Client/Server/
+remote transport, production authentication/Tool/database/deployment, INTEGRATION_RUNTIME and PRODUCTION
+remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day90 is next.
+
 ## Unreleased — Day88 Contract-level LangGraph Adapter Amendment (Phase 7B)
 
 Date: 2026-09-09

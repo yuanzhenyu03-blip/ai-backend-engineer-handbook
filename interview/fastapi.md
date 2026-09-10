@@ -2737,3 +2737,45 @@ No. The second Adapter is dependency-free and models a strict `tools` node with 
 envelope; it does not import or execute LangGraph or LangChain. The result is contract-level replaceability
 evidence under a Fake Tool, not verified runtime support. `INTEGRATION_RUNTIME` and `PRODUCTION` remain
 `NOT RUN`, production selection is false, and PydanticAI remains the default course Adapter.
+
+## Day89 — MCP Foundations and Protocol Model (Phase 7B)
+
+### Beginner: Is an MCP capability the same as application authorization?
+
+**Student answer:** “MCP capability does not imply that application authorization has been granted.”
+
+**Strong answer:** Capability says what a Server can support. The application still checks the current
+principal, tenant, resource, grant, approval, policy and operation state before sending a request.
+
+### Intermediate: Why separate protocol request ID from operation ID?
+
+**Student correction:** Reuse the application operation ID and idempotency key, generate a new protocol
+request ID for a proven-safe retry, and retain the old binding for audit.
+
+**Strong answer:** A request ID correlates one protocol attempt; an operation ID identifies one stable business
+intent across attempts and reconciliation. A trusted local binding connects them, and peer payload cannot
+overwrite it.
+
+### Intermediate: Why is an MCP result only an observation?
+
+**Student answer:** The result still needs application validation and a Committer decision.
+
+**Strong answer:** Protocol success proves only a correlated protocol result. The application validates output
+schema, tenant/resource semantics and current state before the Committer may perform a durable transition.
+
+### Senior: How do you handle timeout after possible send?
+
+**Student answer:** Avoid immediate retry because the side effect may already have occurred.
+
+**Strong answer:** Preserve the original binding, operation and idempotency identity; classify the result as
+unknown; enter reconciliation; and use authoritative evidence before repair or retry. A new request ID alone
+does not make retry safe.
+
+### Senior: How does a real MCP SDK remain replaceable?
+
+Convert SDK-specific results inside a private Adapter into Day89 application DTOs. Preserve local binding
+authority, ProtocolObservation, output contracts, version admission and Committer control. Fake Transport tests
+are `EXECUTED_LOCAL_RUNTIME`, not `INTEGRATION_RUNTIME`.
+
+The learner's final synthesis was independently authored and assessed with corrections. Related:
+[Day89 lesson](../docs/fastapi/day89-mcp-foundations-and-protocol-model.md).

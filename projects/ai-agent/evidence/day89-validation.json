@@ -1,0 +1,75 @@
+{
+  "day": 89,
+  "title": "MCP Foundations and Protocol Model",
+  "record_type": "local_uncommitted_course_artifact",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-10T14:42:37+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "commit": "ae63f771d52ca10b03bfde38b1a54a686a27f048",
+    "day89_status_at_baseline": "PLANNED_NOT_STARTED"
+  },
+  "protocol": {
+    "observed_specification_version": "2026-07-28",
+    "json_rpc_version": "2.0",
+    "current_core": "stateless_self_describing_per_request_capabilities",
+    "historical_not_required_for_current_revision": [
+      "initialize",
+      "notifications/initialized",
+      "Mcp-Session-Id"
+    ]
+  },
+  "validation": {
+    "python_version": "3.11.5",
+    "py_compile": "PASS",
+    "focused_day89_and_grader_tests": {"passed": 21, "failed": 0},
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "cumulative_tests": {"passed": 560, "failed": 0},
+    "day83_seed_regression": {"passed": 26, "failed": 0},
+    "day84_seed_regression": {"passed": 16, "failed": 0},
+    "day85_seed_regression": {"passed": 18, "failed": 0},
+    "day86_seed_regression": {"passed": 25, "failed": 0},
+    "day89_seed": {
+      "passed": 16,
+      "failed": 0,
+      "case_version": 1,
+      "evidence_level": "EXECUTED_LOCAL_RUNTIME"
+    },
+    "deterministic_example": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "git_diff_check": "PASS",
+    "lint_typecheck": "NOT_CONFIGURED"
+  },
+  "source_hashes": {
+    "projects/ai-agent/src/mcp_protocol_model.py": "d4edc8c3e7dfb2b880e6861a074409afefd268105339695316c0f5967c3a3c62",
+    "projects/ai-agent/src/mcp_fake_transport.py": "e76301f7936c027653189631c40c30b7931e8d153030c917b5325558f364bdb2",
+    "projects/ai-agent/tests/test_day89_mcp_protocol_model.py": "25400c3e2fb61426a17adfab9e98a88e3c5cd641eb4bfce2dd3afa7d9ea94f73",
+    "projects/ai-agent/tests/test_day89_seed_grader.py": "3b70ed534f38a78316fd8ad885f611084d2115461e24dda4f21b6434e3b521fd",
+    "projects/ai-agent/evals/day89_mcp_protocol_seed.jsonl": "033b362121894373b0a104ebc753e34cb7ab72866e800e4fa11d80c56e10e048",
+    "projects/ai-agent/evals/run_day89_seed_eval.py": "89a4cd884255f03138b5d1b580116ae8700cd3e171bdac1b209a18fbdef0e38f",
+    "projects/ai-agent/examples/day89_mcp_protocol_boundary.py": "2d044c51e07797e734fdb7e43ad54777aa82b0f6b4da76608f01a399cfde905d",
+    "projects/ai-agent/research/day89-mcp-spec-evidence.jsonl": "2897d452598f74ab784090df5728293638fced860f3125d95b07cb339210edee",
+    "projects/ai-agent/docs/DAY89_MCP_FOUNDATIONS_PROTOCOL_MODEL.md": "8e36f95519fad457f1b27048a3775530e7874dbad077b7d1e8fcf2f76f72c296",
+    "projects/ai-agent/docs/DAY89_TO_DAY90_HANDOFF.md": "77e7ff14367199a2527c55e41334e7fdb55ccd3eb9675e04c0f26b27f39a5cca",
+    "projects/ai-agent/docs/day89-mcp-foundations-classroom-draft.md": "78fc2bd0420f8d5984701a47990f463f8737513061097ea4eb4be54d781b0c3e"
+  },
+  "external_effect_counters": {
+    "real_mcp_client_runs": 0,
+    "real_mcp_server_runs": 0,
+    "remote_transport_calls": 0,
+    "production_authentication_calls": 0,
+    "production_tool_calls": 0,
+    "production_database_calls": 0,
+    "production_deployments": 0
+  },
+  "not_run": [
+    "real MCP Client",
+    "real MCP Server",
+    "remote transport",
+    "production authentication",
+    "production Tool",
+    "production database",
+    "production deployment"
+  ],
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}

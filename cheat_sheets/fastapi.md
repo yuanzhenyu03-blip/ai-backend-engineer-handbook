@@ -1980,3 +1980,31 @@ same application outcome. The PydanticAI shape is flat; the LangGraph shape mode
 strict `name/args/id/type` ToolCall envelope. No LangGraph/LangChain import or runtime was executed, so this
 is replaceability evidence—not LangGraph integration or support. `INTEGRATION_RUNTIME` and `PRODUCTION`
 remain `NOT RUN`; production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+## Day89 — MCP Foundations and Protocol Model
+
+```text
+MCP capability       != application authorization
+protocol request ID  != application operation ID
+protocol result      != durable business success
+Resource URI         != ownership or read permission
+Server Prompt        != application policy
+timeout after send   = OUTCOME_UNKNOWN -> PENDING_RECONCILIATION
+```
+
+Current observed wire model: MCP `2026-07-28`, JSON-RPC 2.0, stateless self-describing requests and
+per-request capability evidence. Do not infer capability from an earlier request. Treat `initialize`,
+`notifications/initialized` and `Mcp-Session-Id` as historical unless an explicitly supported old-version
+boundary applies.
+
+```text
+request validation -> local MCPRequestBinding -> Transport -> correlation
+-> ProtocolObservation -> output validation -> Committer -> optional durable transition
+```
+
+Debugging: verify current authorization before send; require a local response binding; distinguish duplicate
+from conflict; distinguish timeout before send from possible send; authorize Resource metadata before
+dereference; reject peer attempts to replace application operation identity.
+
+Fake Transport evidence is `EXECUTED_LOCAL_RUNTIME`, not real MCP integration. Related:
+[Day89 lesson](../docs/fastapi/day89-mcp-foundations-and-protocol-model.md).

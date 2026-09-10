@@ -10,16 +10,25 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A is COMPLETE at classroom scope. Phase 7B is IN PROGRESS: Day88 is COMPLETE at guided classroom scope and Day89 is next.
+Phase 7A is COMPLETE at classroom scope. Phase 7B is IN PROGRESS: Day89 is COMPLETE at guided classroom scope and Day90 is next.
 
-Day59–Day88 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS: Day88 selected Candidate C behind an application-owned Adapter for course scope; Day89 is next. Earlier phase evidence and NOT RUN boundaries remain recorded in the completion history.
+Day59–Day89 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS: Day89 added the SDK-independent MCP protocol boundary; Day90 is next. Earlier phase evidence and NOT RUN boundaries remain recorded in the completion history.
 
 ---
 
 ## Current Lesson
 
-Day89 — MCP Foundations and Protocol Model (Phase 7B) — next up.
-Most recent classroom lesson: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter (included in this repository revision).
+Day90 — MCP Client Engineering (Phase 7B) — next up.
+Most recent classroom lesson: Day89 — MCP Foundations and Protocol Model (included in this repository revision).
+
+Day89 completion record:
+
+- [x] Verify official MCP specification/schema `2026-07-28` and keep old initialize/session semantics historical.
+- [x] Add SDK-independent DTOs, local request/operation binding, per-request capability validation and Fake Transport.
+- [x] Add correlation, observation-only results, Resource/Prompt checks and reconciliation evidence.
+- [x] Add 21 focused/grader tests, 16 seed cases, example, design, classroom record and Day90 handoff.
+- [x] Run 560 cumulative tests, Day88 regression and Day83–Day89 seed suites on Python 3.11.5.
+- [x] Preserve independent learner synthesis as assessed with corrections and real MCP/production boundaries as NOT RUN.
 
 Day88 completion record:
 
@@ -101,7 +110,7 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day88 is documented at guided classroom scope and Phase 7B is in progress. Day89 is next; production readiness remains `MORE_EVIDENCE_NEEDED`.
+Day89 is documented at guided classroom scope and Phase 7B is in progress. Day90 is next; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
 (Day89); Day88 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.

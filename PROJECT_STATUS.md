@@ -3,9 +3,9 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering is COMPLETE at classroom scope. Phase 7B — Agent Runtime and MCP
-Engineering is IN PROGRESS at classroom scope; Day88 is complete at guided classroom scope and Day89 is next.
+Engineering is IN PROGRESS at classroom scope; Day89 is complete at guided classroom scope and Day90 is next.
 
-Day59–Day88 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope: Day88 accepted Candidate C behind a replaceable Adapter for the bounded course scope; Day89 is next. Earlier phase evidence and NOT RUN boundaries remain recorded below.
+Day59–Day89 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope: Day89 established the SDK-independent MCP protocol boundary; Day90 is next. Earlier phase evidence and NOT RUN boundaries remain recorded below.
 
 Previous Phase:
 Phase 7A — LLM Application Engineering (Complete at classroom scope)
@@ -14,8 +14,19 @@ Phase 7A — LLM Application Engineering (Complete at classroom scope)
 
 ## Current Lesson
 
-Day89 — MCP Foundations and Protocol Model (Phase 7B) — next up.
-Most recent classroom lesson: Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter.
+Day90 — MCP Client Engineering (Phase 7B) — next up.
+Most recent classroom lesson: Day89 — MCP Foundations and Protocol Model.
+
+Day89 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day89-mcp-foundations-and-protocol-model.md`. The continuing `projects/ai-agent/` Artifact adds
+SDK-independent request/response DTOs, local request-to-operation binding, per-request version/capability
+validation, Fake Transport, response correlation, observations, untrusted Resource/Prompt checks and bounded
+reconciliation evidence. Current official specification/schema observed: `2026-07-28`; the current protocol
+core is stateless and self-describing. Evidence: CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME — Python 3.11.5,
+21 Day89 / 560 cumulative tests, 16/16 Day89 seed, Day83–Day88 regressions and deterministic example PASS.
+Independent learner synthesis was assessed with corrections. Real MCP SDK/Client/Server/remote transport,
+production authentication/Tool/database/deployment, INTEGRATION_RUNTIME and PRODUCTION NOT RUN; readiness
+remains `MORE_EVIDENCE_NEEDED`. Day90 is next.
 
 Day88 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md`. Candidate C,
@@ -28,7 +39,7 @@ shared two-Adapter amendment matrix is 43 focused / 539 cumulative tests on Pyth
 LangGraph runtime integration. Twelve normalized sensitivity scenarios produced zero winner flips.
 Production selection is false. Production Provider/Tool, containers, bundled artifacts,
 internal deployment and production deployment remain NOT EVALUATED; readiness is `MORE_EVIDENCE_NEEDED`.
-Day89 is next.
+Day89 is complete; Day90 is next.
 
 Day87 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md`. The offline Artifact under

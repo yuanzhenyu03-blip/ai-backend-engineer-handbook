@@ -49,7 +49,9 @@ ai-agent/
 │   ├── framework_selection_evidence.py # Day87: offline evidence and handoff policy
 │   ├── agent_framework_adapter.py # Day88: framework-neutral proposal and commit boundary
 │   ├── pydantic_ai_framework_adapter.py # Day88: default private translation Adapter
-│   └── langgraph_framework_adapter.py # Day88 amendment: second contract translator
+│   ├── langgraph_framework_adapter.py # Day88 amendment: second contract translator
+│   ├── mcp_protocol_model.py      # Day89: SDK-independent protocol and observation boundary
+│   └── mcp_fake_transport.py      # Day89: deterministic transport double
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -71,8 +73,10 @@ ai-agent/
 │   ├── test_day86_agent_security.py # Day86: 28 boundary tests
 │   ├── test_day86_seed_grader.py  # Day86: 3 grader tests
 │   ├── test_day87_framework_selection_evidence.py # Day87: 22 evidence-policy tests
-│   └── test_day88_agent_framework_adapter.py # Day88: shared two-Adapter boundary matrix
-├── evals/                        # Day83–Day86 version-1 seed cases + runners
+│   ├── test_day88_agent_framework_adapter.py # Day88: shared two-Adapter boundary matrix
+│   ├── test_day89_mcp_protocol_model.py # Day89: protocol and reconciliation tests
+│   └── test_day89_seed_grader.py # Day89: seed grader integrity tests
+├── evals/                        # Day83–Day89 version-1 seed cases + runners
 ├── examples/                     # Day83 checkpoint + Day84–Day88 deterministic scenarios
 ├── evidence/                     # Day83–Day88 validation and Decision records
 ├── research/                     # Day87 refresh + Day88 mapping/ranking evidence
@@ -81,7 +85,7 @@ ai-agent/
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day88 documented; deterministic
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day89 documented; deterministic
 `EXECUTED_LOCAL_RUNTIME` from Day72 onward).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -378,7 +382,8 @@ PYTHONPATH=src python3.11 -m unittest discover -s tests
 Evidence: 21 focused tests pass on Python 3.12; 517 cumulative tests pass on Python 3.11. The frozen weighted
 model ran 12 normalized sensitivity scenarios with Candidate C as leader and zero flips. Production Provider,
 production Tool, container/bundled distribution, internal deployment and production deployment are not
-evaluated. Production selection is false and readiness remains `MORE_EVIDENCE_NEEDED`. Day89 is next.
+evaluated. Production selection is false and readiness remains `MORE_EVIDENCE_NEEDED`. This was the Day88
+handoff; Day89 is now recorded below.
 
 Decision 010 adds a dependency-free `langgraph@1.2.11` contract translator beside the default
 `pydantic-ai-slim@2.41.0` translator. A shared mixin runs the existing fail-closed matrix against both real
@@ -424,9 +429,35 @@ PostgreSQL, Outbox Relay/Broker/multi-process Worker, real IAM and production re
 is complete; the final synthesis was instructor-authored at the student's request, so independent synthesis
 is NOT ASSESSED.
 
+## Day89 MCP Foundations and Protocol Model
+
+Day89 adds a current, SDK-independent protocol seam outside the application core. The protocol model validates
+the `2026-07-28` version, method, params and request-scoped capability evidence before creating a local
+`MCPRequestBinding` and using Fake Transport. Responses correlate through local identity and become
+`ProtocolObservation`; they never commit durable state directly.
+
+Resource references are checked before dereference, Server Prompts remain untrusted, and timeout after possible
+send preserves the original operation in `PENDING_RECONCILIATION`. Protocol request IDs may vary by attempt;
+the application operation ID and Tool idempotency identity remain stable.
+
+See the [design](docs/DAY89_MCP_FOUNDATIONS_PROTOCOL_MODEL.md),
+[classroom record](docs/day89-mcp-foundations-classroom-draft.md),
+[specification evidence](research/day89-mcp-spec-evidence.jsonl),
+[validation](evidence/day89-validation.json) and [Day90 handoff](docs/DAY89_TO_DAY90_HANDOFF.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day89*.py' -v
+PYTHONPATH=src python3.11 evals/run_day89_seed_eval.py
+PYTHONPATH=src python3.11 examples/day89_mcp_protocol_boundary.py
+```
+
+Evidence: 21 Day89 / 560 cumulative tests, 16/16 Day89 seed cases and the deterministic example pass on
+Python 3.11.5. Real MCP SDK/Client/Server/remote transport, production authentication/Tool/database/deployment,
+`INTEGRATION_RUNTIME` and `PRODUCTION` are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day89 MCP Foundations while preserving the Day88 application-owned Adapter and Tool boundary.
+- Begin Day90 MCP Client Engineering behind the stable Day89 contracts.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
