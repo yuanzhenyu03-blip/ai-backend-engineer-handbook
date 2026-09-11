@@ -448,3 +448,41 @@ replaceability evidence, not verified LangGraph integration or runtime support.
 The evidence tier is `EXECUTED_LOCAL_RUNTIME` for dependency-free contract tests using a Fake Tool. No
 LangGraph package, Provider, production Tool, network, integration environment or production environment was
 executed. `INTEGRATION_RUNTIME` and `PRODUCTION` remain `NOT RUN` for both Adapters.
+
+---
+
+## Decision 011 — Preserve Pre-bound MCP Identity Through a Version-pinned SDK-private Seam
+
+Status: Accepted for Day90 course scope
+
+Date: 2026-09-11
+
+### Context
+
+Day89 requires a durable local request-to-operation binding before a side-effecting dispatch. The public
+high-level API in Python MCP SDK 2.2.0 creates its own request ID inside the call, so using it directly would
+move identity creation after the application's durable-binding boundary.
+
+### Decision
+
+Keep Day89 application DTOs and ordering unchanged. Pin `mcp==2.2.0` and isolate a narrow private Adapter seam
+that passes the already-bound request ID to the SDK dispatcher. SDK types stay inside the Adapter. Retain a
+dependency-free codec/transport implementation for deterministic contract and failure injection tests.
+
+The Adapter may issue an inventory-generation/request-fingerprint `MCPAttemptPreflightPermit`; the name is
+deliberately not “authorization” because the permit proves only protocol readiness. Tenant, grant, approval,
+operation and business authorization remain application-owned.
+
+### Consequences
+
+- Every SDK upgrade must rerun the exact-ID separate-process integration proof.
+- Private SDK coupling is explicit technical debt; it may not be hidden by weakening pre-dispatch binding.
+- Lifecycle notification handling must explicitly invalidate old permits before inventory refresh.
+- A controlled local stdio Server proves `INTEGRATION_RUNTIME`, not remote or production readiness.
+- Day91 may replace the fixture with bounded Server-owned handlers without changing application contracts.
+
+### Validation honesty
+
+Python 3.11.5 and `mcp==2.2.0` executed against a controlled separate-process stdio Server. Production auth,
+production Tools, remote transport, monitoring, load/backpressure and production failure drills were NOT RUN.
+Production readiness remains `MORE_EVIDENCE_NEEDED`.

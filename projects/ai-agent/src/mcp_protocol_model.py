@@ -29,6 +29,7 @@ class ProtocolOutcome(str, Enum):
     CONFLICT = "CONFLICT"
     OUTCOME_UNKNOWN = "OUTCOME_UNKNOWN"
     PENDING_RECONCILIATION = "PENDING_RECONCILIATION"
+    PRE_DISPATCH_ABORTED = "PRE_DISPATCH_ABORTED"
 
 
 class BindingStatus(str, Enum):
@@ -36,6 +37,7 @@ class BindingStatus(str, Enum):
     COMPLETED = "COMPLETED"
     PENDING_RECONCILIATION = "PENDING_RECONCILIATION"
     CONFLICT = "CONFLICT"
+    ABORTED_PRE_DISPATCH = "ABORTED_PRE_DISPATCH"
 
 
 class ReconciliationOutcome(str, Enum):
@@ -437,6 +439,79 @@ class MCPProtocolBoundary:
             payload=response_payload,
         )
 
+    def abort_before_dispatch(
+        self,
+        protocol_request_id: RequestId,
+        *,
+        reason: str,
+    ) -> ProtocolObservation:
+        """Close a bound attempt only when no dispatch marker was written.
+
+        The caller owns the durable proof that transport dispatch never began.
+        This transition preserves audit identity and never starts
+        reconciliation or commits a business fact.
+        """
+
+        binding = self.bindings.get(protocol_request_id)
+        if binding is None:
+            return ProtocolObservation(
+                ProtocolOutcome.UNKNOWN_RESPONSE,
+                protocol_request_id,
+                reason="pre-dispatch abort has no local binding",
+            )
+        if self.binding_status.get(protocol_request_id) is not BindingStatus.PENDING:
+            return ProtocolObservation(
+                ProtocolOutcome.CONFLICT,
+                protocol_request_id,
+                binding.application_operation_id,
+                reason="only a pending binding can abort before dispatch",
+            )
+        self.binding_status[protocol_request_id] = (
+            BindingStatus.ABORTED_PRE_DISPATCH
+        )
+        return ProtocolObservation(
+            ProtocolOutcome.PRE_DISPATCH_ABORTED,
+            protocol_request_id,
+            binding.application_operation_id,
+            reason=reason,
+        )
+
+    def mark_outcome_unknown(
+        self,
+        protocol_request_id: RequestId,
+        *,
+        reason: str,
+    ) -> ProtocolObservation:
+        """Preserve a possibly dispatched attempt for reconciliation."""
+
+        binding = self.bindings.get(protocol_request_id)
+        if binding is None:
+            return ProtocolObservation(
+                ProtocolOutcome.UNKNOWN_RESPONSE,
+                protocol_request_id,
+                reason="unknown outcome has no local binding",
+            )
+        status = self.binding_status.get(protocol_request_id)
+        if status not in {
+            BindingStatus.PENDING,
+            BindingStatus.PENDING_RECONCILIATION,
+        }:
+            return ProtocolObservation(
+                ProtocolOutcome.CONFLICT,
+                protocol_request_id,
+                binding.application_operation_id,
+                reason="only a pending attempt can become outcome unknown",
+            )
+        self.binding_status[protocol_request_id] = (
+            BindingStatus.PENDING_RECONCILIATION
+        )
+        return ProtocolObservation(
+            ProtocolOutcome.OUTCOME_UNKNOWN,
+            protocol_request_id,
+            binding.application_operation_id,
+            reason=reason,
+        )
+
 
 def validate_reconciliation_evidence(
     binding: MCPRequestBinding,
@@ -526,4 +601,36 @@ def validate_external_content_candidate(
     return OutputValidationDecision(
         OutputValidationOutcome.REFERENCE_ADMITTED,
         "Resource reference metadata matches; content remains unread",
+    )
+
+
+def validate_read_resource_content(
+    binding: MCPRequestBinding,
+    candidate: ExternalContentCandidate,
+) -> OutputValidationDecision:
+    """Validate Resource content after one read has actually occurred."""
+
+    if candidate.kind is not ExternalContentKind.RESOURCE:
+        raise ValueError("post-read validation requires a Resource candidate")
+    if (
+        binding.tenant_id is None
+        or binding.resource_id is None
+        or candidate.tenant_id != binding.tenant_id
+        or candidate.resource_id != binding.resource_id
+    ):
+        return OutputValidationDecision(
+            OutputValidationOutcome.RESOURCE_SCOPE_REJECTED,
+            "read Resource tenant or identity does not match local binding",
+            resource_reads=1,
+        )
+    if candidate.injection_suspected:
+        return OutputValidationDecision(
+            OutputValidationOutcome.INDIRECT_PROMPT_INJECTION,
+            "read Resource content contains suspected instruction injection",
+            resource_reads=1,
+        )
+    return OutputValidationDecision(
+        OutputValidationOutcome.REFERENCE_ADMITTED,
+        "read Resource content passed application validation",
+        resource_reads=1,
     )

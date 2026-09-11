@@ -1,0 +1,13 @@
+{"case_id":"CLIENT01","case_version":1,"category":"wire_metadata","expected_outcome":"ENCODED_CURRENT_METADATA","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT02","case_version":1,"category":"application_id_isolated","expected_outcome":"APPLICATION_ID_NOT_ON_WIRE","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT03","case_version":1,"category":"adapter_success","expected_outcome":"RESPONSE_DTO","expected_sends":1,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT04","case_version":1,"category":"possible_send_timeout","expected_outcome":"OUTCOME_UNKNOWN","expected_sends":1,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT05","case_version":1,"category":"proven_not_sent","expected_outcome":"PRE_DISPATCH_ABORTED","expected_sends":1,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT06","case_version":1,"category":"binding_mismatch","expected_outcome":"REJECTED_PRE_DISPATCH","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT07","case_version":1,"category":"malformed_response","expected_outcome":"INVALID_MESSAGE","expected_sends":1,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT08","case_version":1,"category":"pre_dispatch_abort","expected_outcome":"PRE_DISPATCH_ABORTED","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT09","case_version":1,"category":"post_dispatch_cancellation","expected_outcome":"OUTCOME_UNKNOWN","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT10","case_version":1,"category":"resource_scope_rejected","expected_outcome":"RESOURCE_SCOPE_REJECTED","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT11","case_version":1,"category":"resource_injection_after_read","expected_outcome":"INDIRECT_PROMPT_INJECTION","expected_sends":0,"expected_resource_reads":1,"expected_durable_transition":false}
+{"case_id":"CLIENT12","case_version":1,"category":"duplicate_response","expected_outcome":"DUPLICATE","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}
+{"case_id":"CLIENT13","case_version":1,"category":"conflicting_response","expected_outcome":"CONFLICT","expected_sends":0,"expected_resource_reads":0,"expected_durable_transition":false}

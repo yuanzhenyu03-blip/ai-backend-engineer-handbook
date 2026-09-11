@@ -2779,3 +2779,38 @@ are `EXECUTED_LOCAL_RUNTIME`, not `INTEGRATION_RUNTIME`.
 
 The learner's final synthesis was independently authored and assessed with corrections. Related:
 [Day89 lesson](../docs/fastapi/day89-mcp-foundations-and-protocol-model.md).
+
+## Day90 — MCP Client Engineering (Phase 7B)
+
+### Beginner: Why does the application persist a binding before send?
+
+**Strong answer:** After dispatch, a timeout cannot prove the Server did nothing. A durable binding created
+first lets every later response, timeout and reconciliation record map back to the intended operation without
+trusting a peer-supplied operation ID.
+
+### Intermediate: What changes on a safe retry?
+
+**Strong answer:** Keep the application operation ID and Tool idempotency key, create a new protocol request
+ID, preserve prior attempt bindings, and retry only after reconciliation or authoritative not-sent evidence
+permits it.
+
+### Intermediate: Is a Tool preflight permit authorization?
+
+**Strong answer:** No. It binds current connection capability, Tool inventory generation, input Schema and an
+exact request fingerprint. Tenant, grant, approval and business authorization remain application checks.
+
+### Senior: Why accept an SDK-private seam?
+
+**Strong answer:** Python MCP SDK 2.2.0's high-level call mints its own request ID after the application needs
+the durable binding. A narrow, pinned private dispatcher seam preserves the established ordering and keeps SDK
+types private. The trade-off is explicit upgrade maintenance backed by an exact-ID integration test.
+
+### Senior: What does the Day90 integration prove?
+
+**Strong answer:** A real SDK Client exchanged Tool, Resource and Prompt messages with a controlled Server in
+a separate local process over stdio, including exact request-ID propagation and SDK result conversion. That is
+`INTEGRATION_RUNTIME`; it does not prove production auth, Tools, remote transport, monitoring, load behavior or
+failure drills. Production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+The learner's final synthesis was independently authored and assessed with corrections. Related:
+[Day90 lesson](../docs/fastapi/day90-mcp-client-engineering.md).

@@ -1725,7 +1725,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress at recorded classroom scope (Day79–Day89 Completed; Day90 Planned / not started). Guided or
+In Progress at recorded classroom scope (Day79–Day90 Completed; Day91 Planned / not started). Guided or
 independent-assessment limitations remain recorded in the individual lesson entries.
 
 Objective:
@@ -1922,6 +1922,16 @@ Per-day topics:
 - Day90 — MCP Client Engineering.
   Scope: MCP client engineering and integration with the agent runtime.
   Connection: Day89 modeled the protocol; Day90 builds the MCP client; Day91 builds the MCP server side.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day90-mcp-client-engineering.md`. Artifact: `projects/ai-agent/` gained a dependency-free
+  current JSON-RPC codec/transport Adapter and a version-pinned `mcp==2.2.0` SDK-private Adapter. A controlled
+  separate-process stdio Server exercised exact-ID Tool, Resource and Prompt paths. Capability, complete Tool
+  inventory, input-schema and generation/request-fingerprint preflight checks fail before business dispatch.
+  Evidence: Python 3.11.5, 21 Day90 / 581 cumulative tests, 13/13 Day90 seed, Day88 43/43 and Day89 21/21
+  regressions, available Day83–Day90 seed suites and deterministic example PASS. Execution evidence is
+  `INTEGRATION_RUNTIME`; production auth, production Tools, remote transport, monitoring, load/backpressure
+  and failure drills are NOT RUN. Production readiness is `MORE_EVIDENCE_NEEDED`. Independent learner
+  synthesis was assessed with corrections. Next: Day91.
 - Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries.
   Scope: MCP server; Resources/Tools/Prompts responsibility boundaries.
   Connection: Day90 built the client; Day91 builds the server with clear Resource/Tool/Prompt boundaries;

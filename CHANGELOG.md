@@ -9,6 +9,26 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day90 — MCP Client Engineering (Phase 7B)
+
+Date: 2026-09-11
+
+Added a dependency-free current JSON-RPC codec/transport Client and a version-pinned `mcp==2.2.0` SDK-private
+Adapter behind the Day89 application contracts. The application still owns operation identity, durable
+binding, dispatch evidence, correlation, output validation, reconciliation and the Committer. The Adapter
+preserves the exact pre-bound request ID through a narrow dispatcher seam and never leaks SDK objects.
+
+A controlled MCP Server ran in a separate process over stdio for Tool, Resource and Prompt paths. Capability,
+complete Tool inventory, input Schema and generation/request-fingerprint preflight checks reject before
+business dispatch. Possible-send timeout/cancellation remains `OUTCOME_UNKNOWN` and
+`PENDING_RECONCILIATION`; no automatic retry or durable success is inferred.
+
+Validation: Python 3.11.5; 21 Day90 tests, 581 cumulative tests, 13/13 Day90 seed, Day88 43/43 and Day89 21/21
+regressions, available Day83–Day90 seed suites, deterministic example, compile, JSON/JSONL and whitespace
+checks passed. Evidence is `INTEGRATION_RUNTIME`. Real auth, production Tools, remote transport, monitoring,
+load/backpressure, production failure drills and `PRODUCTION` are NOT RUN; readiness is
+`MORE_EVIDENCE_NEEDED`. Day91 is next.
+
 ## Unreleased — Day89 — MCP Foundations and Protocol Model (Phase 7B)
 
 Date: 2026-09-10

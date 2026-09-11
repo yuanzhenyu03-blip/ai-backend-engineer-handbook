@@ -1,0 +1,4 @@
+# Day90 official MCP SDK integration dependency.
+# The SDK-private Adapter is intentionally version-pinned because it uses the
+# dispatcher request_id seam that the high-level Client API does not expose.
+mcp==2.2.0
