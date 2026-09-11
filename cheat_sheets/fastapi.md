@@ -2008,3 +2008,33 @@ dereference; reject peer attempts to replace application operation identity.
 
 Fake Transport evidence is `EXECUTED_LOCAL_RUNTIME`, not real MCP integration. Related:
 [Day89 lesson](../docs/fastapi/day89-mcp-foundations-and-protocol-model.md).
+
+## Day90 — MCP Client Engineering
+
+```text
+preflight permit
+-> new protocol_request_id
+-> durable local binding
+-> durable dispatch marker
+-> Client Adapter send
+-> correlation
+-> ProtocolObservation
+-> output validation
+-> Committer
+```
+
+- Keep `application_operation_id` and Tool `idempotency_key` stable across a genuinely authorized retry;
+  create a new `protocol_request_id` and retain old bindings.
+- Possible-send timeout, disconnect or cancellation is `OUTCOME_UNKNOWN -> PENDING_RECONCILIATION`.
+- `BindingStatus.COMPLETED` says the protocol attempt ended; it does not mean business success.
+- `CallToolResult.isError=true` is a Tool-level failure inside `PROTOCOL_RESULT`, not a JSON-RPC error.
+- Capability is a method-family claim; Tool inventory and input Schema are separate current evidence.
+- A preflight permit is protocol readiness, not JWT, tenant or business authorization.
+- SDK objects stop in the Adapter. Unknown response IDs stop at correlation. Valid content still passes output
+  validation and the Committer.
+- Tool, Resource and Prompt share MCP transport but enter the Research Agent at different boundaries; none
+  gains model-system authority.
+
+Evidence: controlled separate-process stdio with `mcp==2.2.0` is `INTEGRATION_RUNTIME`; production readiness
+is `MORE_EVIDENCE_NEEDED`. Related:
+[Day90 lesson](../docs/fastapi/day90-mcp-client-engineering.md).

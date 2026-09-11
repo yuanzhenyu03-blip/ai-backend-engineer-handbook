@@ -16,17 +16,19 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day88 is complete at guided classroom scope: Candidate C (`pydantic-ai-slim==2.41.0`) remains the default behind an application-owned Adapter; Decision 010 adds a dependency-free LangGraph-shaped contract translator. The original Day88 record is 21 focused / 517 cumulative tests; the amendment matrix is 43 focused / 539 cumulative tests on Python 3.11.5. This is not LangGraph runtime integration. Production selection is false and production readiness remains `MORE_EVIDENCE_NEEDED`.
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day90 is complete with a
+  version-pinned real MCP SDK Client and controlled separate-process stdio Server. Evidence is
+  `INTEGRATION_RUNTIME`; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day88 — Agent Runtime Framework Selection Behind a Replaceable Adapter](docs/fastapi/day88-agent-runtime-framework-selection-behind-a-replaceable-adapter.md)
+* [Day90 — MCP Client Engineering](docs/fastapi/day90-mcp-client-engineering.md)
 
-(For the full completed classroom history Day01–Day88, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day90, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day89 — MCP Foundations and Protocol Model (Phase 7B; Planned / Not started; see `ROADMAP.md`)
+* Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries (Phase 7B; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

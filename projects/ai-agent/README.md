@@ -50,8 +50,12 @@ ai-agent/
 │   ├── agent_framework_adapter.py # Day88: framework-neutral proposal and commit boundary
 │   ├── pydantic_ai_framework_adapter.py # Day88: default private translation Adapter
 │   ├── langgraph_framework_adapter.py # Day88 amendment: second contract translator
-│   ├── mcp_protocol_model.py      # Day89: SDK-independent protocol and observation boundary
-│   └── mcp_fake_transport.py      # Day89: deterministic transport double
+│   ├── mcp_protocol_model.py      # Day89–90: protocol, observation and reconciliation boundary
+│   ├── mcp_fake_transport.py      # Day89: deterministic transport double
+│   ├── mcp_client_codec.py        # Day90: current JSON-RPC codec
+│   ├── mcp_client_transport.py    # Day90: dispatch-certainty transport contract
+│   ├── mcp_client.py              # Day90: dependency-free Client Adapter
+│   └── mcp_sdk_private_adapter.py # Day90: pinned real-SDK private Adapter
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -75,18 +79,21 @@ ai-agent/
 │   ├── test_day87_framework_selection_evidence.py # Day87: 22 evidence-policy tests
 │   ├── test_day88_agent_framework_adapter.py # Day88: shared two-Adapter boundary matrix
 │   ├── test_day89_mcp_protocol_model.py # Day89: protocol and reconciliation tests
-│   └── test_day89_seed_grader.py # Day89: seed grader integrity tests
-├── evals/                        # Day83–Day89 version-1 seed cases + runners
-├── examples/                     # Day83 checkpoint + Day84–Day88 deterministic scenarios
-├── evidence/                     # Day83–Day88 validation and Decision records
-├── research/                     # Day87 refresh + Day88 mapping/ranking evidence
-└── docs/                         # Day71–Day88 designs + classroom records
+│   ├── test_day89_seed_grader.py # Day89: seed grader integrity tests
+│   ├── test_day90_mcp_client.py  # Day90: deterministic Client boundary tests
+│   ├── test_day90_mcp_sdk_integration.py # Day90: separate-process SDK integration
+│   └── test_day90_seed_grader.py # Day90: seed grader controls
+├── evals/                        # Day83–Day90 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day90
+├── evidence/                     # validation records through Day90
+├── research/                     # official framework, MCP and SDK evidence
+└── docs/                         # designs and classroom records through Day90
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day89 documented; deterministic
-`EXECUTED_LOCAL_RUNTIME` from Day72 onward).
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day90 documented; Day90 adds bounded
+`INTEGRATION_RUNTIME` evidence).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -455,9 +462,39 @@ Evidence: 21 Day89 / 560 cumulative tests, 16/16 Day89 seed cases and the determ
 Python 3.11.5. Real MCP SDK/Client/Server/remote transport, production authentication/Tool/database/deployment,
 `INTEGRATION_RUNTIME` and `PRODUCTION` are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
+## Day90 MCP Client Engineering
+
+Day90 preserves the Day89 application DTOs while adding a dependency-free codec/transport Client and an
+SDK-private Adapter pinned to `mcp==2.2.0`. The application creates and persists the binding and dispatch
+marker before the Adapter sends; the exact bound protocol request ID reaches the Server. A timeout or
+connection loss after possible send becomes `OUTCOME_UNKNOWN` and `PENDING_RECONCILIATION`, never an
+automatic retry.
+
+The real-SDK suite starts a controlled Server in a separate process over stdio and exercises Tool, Resource
+and Prompt paths. SDK types are converted inside the Adapter. Capability evidence, complete Tool inventory,
+input Schema and a generation/request-fingerprint preflight permit are checked before a business attempt.
+The permit is protocol readiness evidence—not JWT, tenant or business authorization.
+
+See the [design](docs/DAY90_MCP_CLIENT_ENGINEERING.md),
+[classroom record](docs/day90-mcp-client-classroom-draft.md),
+[SDK evidence](research/day90-mcp-client-evidence.jsonl),
+[validation](evidence/day90-validation.json) and [Day91 handoff](docs/DAY90_TO_DAY91_HANDOFF.md).
+
+```sh
+PYTHONPATH=src python3.11 -m pytest -q --ignore=tests/test_day90_mcp_sdk_integration.py
+PYTHONPATH=src ../../.venv-day90/bin/python -m unittest -v tests.test_day90_mcp_sdk_integration
+PYTHONPATH=src python3.11 evals/run_day90_seed_eval.py
+PYTHONPATH=src python3.11 examples/day90_mcp_client_boundary.py
+```
+
+Evidence: 21 Day90 / 581 cumulative tests and 13/13 seed cases pass on Python 3.11.5. The controlled stdio
+boundary supports `INTEGRATION_RUNTIME`; real auth, production Tools, remote transport, monitoring,
+load/backpressure, failure drills and `PRODUCTION` are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day90 MCP Client Engineering behind the stable Day89 contracts.
+- Begin Day91 MCP Server responsibility boundaries without turning the controlled Day90 fixture into a
+  production claim.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

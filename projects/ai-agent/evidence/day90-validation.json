@@ -1,0 +1,106 @@
+{
+  "day": 90,
+  "title": "MCP Client Engineering",
+  "record_type": "local_uncommitted_course_artifact",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-11T23:18:32+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "remote_main_commit": "ae63f771d52ca10b03bfde38b1a54a686a27f048",
+    "day89_commit": "61a51167648fb65c2030ca9e3a14d2163eae38d1",
+    "workspace": "isolated_clean_checkout"
+  },
+  "protocol_and_sdk": {
+    "observed_specification_version": "2026-07-28",
+    "json_rpc_version": "2.0",
+    "python_sdk": "mcp==2.2.0",
+    "client_server_boundary": "separate_local_processes_over_stdio",
+    "application_binding_order_preserved": true,
+    "sdk_types_cross_adapter_boundary": false
+  },
+  "validation": {
+    "python_version": "3.11.5",
+    "python_3_12": "NOT_AVAILABLE",
+    "compileall": "PASS",
+    "day90_dependency_free_tests": {"passed": 8, "failed": 0},
+    "day90_sdk_integration_tests": {"passed": 10, "failed": 0},
+    "day90_seed_grader_tests": {"passed": 3, "failed": 0},
+    "focused_day90_total": {"passed": 21, "failed": 0},
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "day89_regression": {"passed": 21, "failed": 0},
+    "cumulative_split_execution": {
+      "system_python_without_sdk_integration_module": {"passed": 571, "failed": 0},
+      "sdk_venv_integration_module": {"passed": 10, "failed": 0},
+      "combined_repository_total": {"passed": 581, "failed": 0},
+      "reason_for_split": "The isolated SDK venv contains mcp==2.2.0 but not pytest; the repository Python contains pytest but not mcp."
+    },
+    "available_seed_suites": {
+      "day83": {"passed": 26, "failed": 0},
+      "day84": {"passed": 16, "failed": 0},
+      "day85": {"passed": 18, "failed": 0},
+      "day86": {"passed": 25, "failed": 0},
+      "day89": {"passed": 16, "failed": 0},
+      "day90": {"passed": 13, "failed": 0, "case_version": 1}
+    },
+    "day87_and_day88_seed_runners": "NOT_PRESENT_IN_BASELINE",
+    "first_day90_seed_run": {
+      "passed": 12,
+      "failed": 1,
+      "status": "SUPERSEDED_AFTER_GRADER_FIX",
+      "cause": "MCPCodecError was caught by a broader ValueError branch before its specific handler"
+    },
+    "final_review_seed_rerun": {
+      "initial_result": "12_PASS_1_FAIL",
+      "cause": "proven-not-sent classification was tightened to PRE_DISPATCH_ABORTED before its seed expectation was aligned",
+      "final_result": "13_PASS_0_FAIL"
+    },
+    "deterministic_example": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "git_diff_check": "PASS",
+    "lint_typecheck": "NOT_CONFIGURED"
+  },
+  "source_hashes": {
+    "projects/ai-agent/src/mcp_protocol_model.py": "1a5f313a336526cac6e271f880cb8f9de27ad034f8e84b0f009052cc5ee58dc0",
+    "projects/ai-agent/src/mcp_client_codec.py": "91db67c8304eaf18b01ce5bba22caaf29fd7053ab16ebea0f36c523f602e58ee",
+    "projects/ai-agent/src/mcp_client_transport.py": "8696e4772c7279b5cb521a0b4e5a131e3b24b615e3715ff63b815c4cb0964813",
+    "projects/ai-agent/src/mcp_client.py": "ce462a72cbe0c04e182d6f7358cb0536cd3c1b54c9d0252637b91741d9812281",
+    "projects/ai-agent/src/mcp_sdk_private_adapter.py": "fff7446cd3fd066b59cf4ea69eac68bc7489459ced69a7d78201a278acb2842f",
+    "projects/ai-agent/tests/fixtures/day90_mcp_stdio_server.py": "1e35786354c3f2bfbfc1662da34ccecfd92cc58725966d2f2edd7b600340b174",
+    "projects/ai-agent/tests/test_day90_mcp_client.py": "ae8389add36784845c16084543e71fcb11a6a9f97ee68dfc38e432d9d5c2dd80",
+    "projects/ai-agent/tests/test_day90_mcp_sdk_integration.py": "7400586cd6f020ccf527dbf683aefbd07227c63f0012a7b19bab074161a3b688",
+    "projects/ai-agent/tests/test_day90_seed_grader.py": "7892c8c8c897f5c4eaead2f2d43cbee784dffba9f308f2ee60c1b2806768c371",
+    "projects/ai-agent/evals/day90_mcp_client_seed.jsonl": "a54cb61e63689106d551a81e1e8ba318ae0fbe04aef9c3fef3a40ad522977c21",
+    "projects/ai-agent/evals/run_day90_seed_eval.py": "0a6a721dcf62eefa41d0b7f488bd63c98057ef232d9b12c9aa1c06033490b003",
+    "projects/ai-agent/examples/day90_mcp_client_boundary.py": "aa87e6d1787c38a26d78f895d017cec9ebc275865ae91a5e76a5ffbf4e925815",
+    "projects/ai-agent/requirements-day90.txt": "e2367eabd66e5e1e7233cac49d654de70976fee10ed5e31c52c110706d2e3192",
+    "projects/ai-agent/research/day90-mcp-client-evidence.jsonl": "2969e42658a3463f0efe0dc3266ed93fd001ab72bbb72409495abfdef884740e",
+    "projects/ai-agent/docs/DAY90_MCP_CLIENT_ENGINEERING.md": "71a273fabf5b2c450f5794d3e4fad6dcaa5253c7cdf43a864e969793509c0bf9",
+    "projects/ai-agent/docs/day90-mcp-client-classroom-draft.md": "9fba7e53a0383a8cf09e222b507163f31fbe174c6a386eaebb0b03f67c59089c",
+    "projects/ai-agent/docs/DAY90_TO_DAY91_HANDOFF.md": "48409ab33b221b31e76d00c3f9daccd3f08e49ce70b3ea369807cd4d86e813ad",
+    "docs/fastapi/day90-mcp-client-engineering.md": "130f27e12c166485a07676b9eac91fc13bdebfd5a37942d9496cae489193646d"
+  },
+  "controlled_integration_effect_counters": {
+    "sdk_client_lifecycles": 10,
+    "separate_stdio_server_processes": 10,
+    "tool_calls_reaching_fixture": 2,
+    "resource_reads_reaching_fixture": 1,
+    "prompt_gets_reaching_fixture": 1,
+    "production_tool_calls": 0,
+    "remote_transport_calls": 0,
+    "model_provider_calls": 0
+  },
+  "not_run": [
+    "real authentication and authorization infrastructure",
+    "production Tools or business side effects",
+    "remote HTTP transport and deployment",
+    "production database-backed binding and dispatch marker",
+    "automatic tools/list_changed notification subscription",
+    "monitoring and alert delivery",
+    "load and backpressure tests",
+    "production failure drills",
+    "model Provider integration",
+    "production"
+  ],
+  "execution_evidence": "INTEGRATION_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}
