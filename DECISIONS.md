@@ -486,3 +486,41 @@ operation and business authorization remain application-owned.
 Python 3.11.5 and `mcp==2.2.0` executed against a controlled separate-process stdio Server. Production auth,
 production Tools, remote transport, monitoring, load/backpressure and production failure drills were NOT RUN.
 Production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 012 — Keep MCP Server Handlers Candidate-only Behind Application-owned Admission
+
+Status: Accepted for Day91 course scope
+
+Date: 2026-09-14
+
+### Context
+
+Day90 proved a real MCP Client boundary against a controlled Server fixture. Turning that fixture into a
+Server implementation risks letting SDK registration, Resource URIs, Prompt text or handler return values
+bypass application identity, admission, output validation and the durable Committer.
+
+### Decision
+
+Confine Server SDK types and wire mapping to `mcp_server_adapter.py`. Convert inbound requests to
+application-owned DTOs, apply backpressure before handler entry, and inject only narrow controlled service
+ports at startup. Tool handlers return candidates or Tool-level errors; Resource handlers authorize before
+read and validate content after read; Prompt handlers validate before and after pure rendering. Signed Tool
+inventory cursors bind pagination to one revision. Shutdown closes admission, drains in-flight work and
+preserves uncertain operation IDs for reconciliation.
+
+### Consequences
+
+- Capability, inventory and Schema evidence do not grant application authorization.
+- Handlers cannot commit durable business state because they receive no Committer or durable-store authority.
+- SDK upgrades must rerun the separate-process Tool/Resource/Prompt and pagination proofs.
+- In-memory idempotency/lifecycle controls are teaching evidence, not production durability.
+- Day92 may add trusted identity and tenant authorization without moving those responsibilities into handlers.
+
+### Validation honesty
+
+Python 3.11.5 and `mcp==2.2.0` ran a real SDK Client and Server in separate local processes over stdio.
+Production auth, production Tools, durable idempotency/reconciliation stores, remote deployment, monitoring,
+load tests and failure drills were NOT RUN. Evidence is `INTEGRATION_RUNTIME`; readiness remains
+`MORE_EVIDENCE_NEEDED`.

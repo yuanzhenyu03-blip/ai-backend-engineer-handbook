@@ -1,0 +1,2 @@
+# Day91 keeps the Day90 real-SDK pin until an isolated upgrade proves the same contracts.
+mcp==2.2.0

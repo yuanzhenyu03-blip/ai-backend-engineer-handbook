@@ -1,0 +1,91 @@
+{
+  "day": 91,
+  "title": "MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries",
+  "record_type": "repository_release_artifact",
+  "formal_repository_published": true,
+  "recorded_at": "2026-09-14T00:00:00+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "remote_main_commit": "2dd3c86265c6935ec0f70cd118418dcb2406c29b",
+    "workspace": "isolated_clean_worktree"
+  },
+  "protocol_and_sdk": {
+    "observed_specification_version": "2026-07-28",
+    "json_rpc_version": "2.0",
+    "python_sdk": "mcp==2.2.0",
+    "client_server_boundary": "separate_local_processes_over_stdio",
+    "sdk_types_cross_server_adapter_boundary": false,
+    "tool_inventory_page_size": 1,
+    "signed_revision_bound_cursors": true
+  },
+  "validation": {
+    "python_version": "3.11.5",
+    "python_3_12": "NOT_AVAILABLE",
+    "compileall": "PASS",
+    "day91_dependency_free_and_grader_tests": {"passed": 25, "failed": 0},
+    "day91_sdk_integration_tests": {"passed": 15, "failed": 0},
+    "focused_day91_total": {"passed": 40, "failed": 0},
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "day89_regression": {"passed": 21, "failed": 0},
+    "day90_regression": {"passed": 21, "failed": 0},
+    "cumulative_split_execution": {
+      "system_python_without_sdk_integration_modules": {"passed": 596, "failed": 0},
+      "sdk_venv_integration_modules": {"passed": 25, "failed": 0},
+      "combined_repository_total": {"passed": 621, "failed": 0},
+      "reason_for_split": "The pinned SDK venv contains mcp==2.2.0 but not pytest; the repository Python contains pytest but not mcp."
+    },
+    "available_seed_suites": {
+      "day83": {"passed": 26, "failed": 0},
+      "day84": {"passed": 16, "failed": 0},
+      "day85": {"passed": 18, "failed": 0},
+      "day86": {"passed": 25, "failed": 0},
+      "day89": {"passed": 16, "failed": 0},
+      "day90": {"passed": 13, "failed": 0},
+      "day91": {"passed": 14, "failed": 0, "case_version": 1}
+    },
+    "day87_and_day88_seed_runners": "NOT_PRESENT_IN_BASELINE",
+    "deterministic_example": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "git_diff_check": "PASS",
+    "lint_typecheck": "NOT_CONFIGURED"
+  },
+  "source_hashes": {
+    "projects/ai-agent/src/mcp_server.py": "5f445d5fd0edc9a110406fa594f93d57a6e00f945ff773b33bf1ed3eaf754465",
+    "projects/ai-agent/src/mcp_server_adapter.py": "be9c74e088f6eb42307f109603d3e74743d6c10adb1019637d8e43256e62405e",
+    "projects/ai-agent/src/mcp_server_handlers.py": "a57c31a5596536a72e54e30f405841ec26bb45ea5283bb143abff3183cd1e998",
+    "projects/ai-agent/src/mcp_server_inventory.py": "6a3283c6bbf9512682da9466e2e108db11375fd93e5e5d72dffa2d6c5131b91f",
+    "projects/ai-agent/src/mcp_server_lifecycle.py": "0edd67e50c9d930df4ee9cecdbc9dc54bcac1736452aa72b796d53f6e0f1ce33",
+    "projects/ai-agent/tests/fixtures/day91_mcp_stdio_server.py": "f4990a65af75f902fd0592033258b0540c6fb8998b99a18ab9d9afc404587de4",
+    "projects/ai-agent/tests/test_day91_mcp_server_sdk_integration.py": "2a8ccbe9818c6deba4c4e9cb7feb0e52b330b8739268b890a842b7fa4a38b344",
+    "projects/ai-agent/evals/day91_mcp_server_seed.jsonl": "32af5ef7f10f70125f8400a3762e42f9369f0c9b46080054488ac16720873a08",
+    "projects/ai-agent/evals/run_day91_seed_eval.py": "4d35f36c150a2cc559184d9b2ad25068ed7bf89413333409e095de255715b43f",
+    "projects/ai-agent/examples/day91_mcp_server_boundary.py": "6bf4f98f04f6583cd49dec1d2f894e0a878463452a3828148176d140c2357e2f"
+  },
+  "controlled_integration_effect_counters": {
+    "separate_stdio_server_processes": 15,
+    "production_tool_calls": 0,
+    "remote_transport_calls": 0,
+    "model_provider_calls": 0,
+    "durable_business_transitions": 0
+  },
+  "implementation_findings": [
+    "SDK middleware observes the already serialized tools/list result dictionary.",
+    "SDK 2.2.0 does not inject Context into a static Resource handler; the controlled Resource remains a URI template rather than bypassing request conversion."
+  ],
+  "not_run": [
+    "real authentication and authorization infrastructure",
+    "production Tools or business side effects",
+    "durable database-backed idempotency and reconciliation",
+    "remote HTTP transport and deployment",
+    "monitoring and alert delivery",
+    "load and production backpressure tests",
+    "production failure drills",
+    "model Provider integration",
+    "production"
+  ],
+  "execution_evidence": "INTEGRATION_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "final_synthesis": "INSTRUCTOR_AND_LEARNER_AUTHORED",
+  "independent_learner_synthesis": "ASSESSED_PASS_WITH_DIRECTIONAL_CORRECTION",
+  "course_completion_gate": "PASSED"
+}

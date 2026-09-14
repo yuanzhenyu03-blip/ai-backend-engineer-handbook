@@ -9,6 +9,27 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries (Phase 7B)
+
+Date: 2026-09-14
+
+Released the 16-section Day91 lesson and evolved `projects/ai-agent/` with application-owned Server
+Tool/Resource/Prompt DTOs and handlers, narrow startup dependency injection, pre-handler capacity admission,
+signed revision-bound Tool pagination and bounded drain/reconciliation. The `mcp==2.2.0` SDK remains private
+to the Server Adapter, controlled fixture and SDK integration tests. Handlers return candidates and never
+receive durable Committer authority.
+
+Tool-level `isError=true` remains distinct from Protocol errors. Cross-tenant Resources reject before read;
+read content remains untrusted. Prompt input rejects before render and rendered text cannot call Tools or read
+Resources. The learner independently summarized the boundaries and passed with one correction to the inbound
+versus outbound Adapter direction.
+
+Validation: Python 3.11.5; 40 Day91 tests, 621 cumulative tests, 14/14 Day91 seed, Day88 43/43, Day89 21/21
+and Day90 21/21 regressions, available Day83–Day91 seed suites, deterministic example, compile, JSON/JSONL
+and whitespace checks passed. Evidence is `INTEGRATION_RUNTIME`. Real auth, production Tools, durable stores,
+remote deployment, monitoring, load/backpressure tests, failure drills, Provider integration and `PRODUCTION`
+are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day92 is next.
+
 ## Unreleased — Day90 — MCP Client Engineering (Phase 7B)
 
 Date: 2026-09-11
