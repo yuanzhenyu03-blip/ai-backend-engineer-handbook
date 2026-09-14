@@ -2038,3 +2038,36 @@ preflight permit
 Evidence: controlled separate-process stdio with `mcp==2.2.0` is `INTEGRATION_RUNTIME`; production readiness
 is `MORE_EVIDENCE_NEEDED`. Related:
 [Day90 lesson](../docs/fastapi/day90-mcp-client-engineering.md).
+
+## Day91 — MCP Server Engineering
+
+```text
+Tool     = candidate action interface
+Resource = candidate data interface
+Prompt   = candidate template interface
+
+Inbound:  MCP/SDK request → Server Adapter → application DTO
+Outbound: application decision → Server Adapter → MCP result/error
+```
+
+- MCP capability and Tool inventory are discovery evidence, not application authorization.
+- Apply capacity/backpressure before Tool, Resource or Prompt handler entry.
+- Tool `isError=true` is a Tool-level error inside a valid result; malformed/unknown/capacity/cursor failures
+  are Protocol errors.
+- `outputSchema` validates shape; application output validation verifies meaning, provenance and policy.
+- Resource URI is not scope permission: reject before read (`resource_reads=0`); validate permitted content
+  after read (`INDIRECT_PROMPT_INJECTION`, `resource_reads=1`, no model context).
+- Prompt is not system policy: reject unsafe arguments before render; rendered text has zero Tool calls and
+  zero Resource reads.
+- Same operation + same idempotency identity is duplicate; same operation + different identity is conflict;
+  neither executes twice.
+- Signed Tool-list cursors bind pages to one inventory revision. After `list_changed`, discard old pages and
+  restart.
+- Shutdown: close admission → drain in-flight work → CLEAN, or cancel at deadline and preserve
+  `PENDING_RECONCILIATION`.
+- Handler result → Client DTO → correlation → `ProtocolObservation` → output validation → Committer → optional
+  durable transition.
+
+Evidence: controlled separate-process stdio with `mcp==2.2.0` is `INTEGRATION_RUNTIME`; production readiness
+is `MORE_EVIDENCE_NEEDED`. Related:
+[Day91 lesson](../docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md).

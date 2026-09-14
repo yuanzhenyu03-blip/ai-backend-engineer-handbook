@@ -16,19 +16,19 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day90 is complete with a
-  version-pinned real MCP SDK Client and controlled separate-process stdio Server. Evidence is
+* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day91 is complete with
+  bounded Tool, Resource and Prompt Server handlers behind an SDK-private Adapter. Evidence is
   `INTEGRATION_RUNTIME`; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day90 — MCP Client Engineering](docs/fastapi/day90-mcp-client-engineering.md)
+* [Day91 — MCP Server Engineering](docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md)
 
-(For the full completed classroom history Day01–Day90, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day91, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries (Phase 7B; planned)
+* Day92 — MCP Authentication, Authorization and Tenant Isolation (Phase 7B; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

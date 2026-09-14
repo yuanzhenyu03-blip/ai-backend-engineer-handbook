@@ -333,7 +333,7 @@ not the business model. Do not pre-lock LangGraph.
 | Day88 | Agent Runtime Framework Selection Behind a Replaceable Adapter | ✅ Completed (guided classroom scope; Candidate C `pydantic-ai-slim==2.41.0` remains default; Decision 010 adds a dependency-free LangGraph-shaped contract translator; amendment matrix 43 focused / 539 cumulative on Python 3.11.5; not LangGraph runtime integration; production readiness MORE_EVIDENCE_NEEDED) |
 | Day89 | MCP Foundations and Protocol Model | ✅ Completed (guided classroom scope; current spec `2026-07-28`; 21 focused / 560 cumulative local tests; 16/16 seed; Fake Transport; no real MCP integration; readiness MORE_EVIDENCE_NEEDED) |
 | Day90 | MCP Client Engineering | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 21 focused / 581 cumulative tests; controlled separate-process stdio integration; 13/13 seed; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
-| Day91 | MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries | Planned |
+| Day91 | MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 40 focused / 621 cumulative tests; controlled separate-process stdio integration; 14/14 seed; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day92 | MCP Authentication, Authorization and Tenant Isolation | Planned |
 | Day93 | Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability | Planned |
 | Day94 | Agent + MCP Integration Capstone and English Interview | Planned |

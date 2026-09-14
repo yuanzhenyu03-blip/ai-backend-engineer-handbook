@@ -2814,3 +2814,47 @@ failure drills. Production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 The learner's final synthesis was independently authored and assessed with corrections. Related:
 [Day90 lesson](../docs/fastapi/day90-mcp-client-engineering.md).
+
+## Day91 — MCP Server Engineering (Phase 7B)
+
+### Beginner: What is the difference between a Tool, Resource and Prompt?
+
+**Strong answer:** A Tool is a candidate-action interface, a Resource is a candidate-data interface, and a
+Prompt is a candidate-template interface. They share MCP transport, but none grants business authorization or
+durable commit authority.
+
+### Intermediate: Where should SDK request conversion and authorization happen?
+
+**Strong answer:** The Server Adapter converts inbound SDK requests and Context into application-owned DTOs.
+Application admission then validates trusted identity, scope, permits and operation state. On the outbound
+path, the Adapter converts the application decision into an MCP result or Protocol error.
+
+### Intermediate: Why is `isError=true` not a Protocol error?
+
+**Strong answer:** It is a valid Tool call result reporting an anticipated Tool-level failure. A malformed
+request, unknown method, invalid cursor or capacity rejection prevents normal handler execution and belongs to
+the Protocol-error path.
+
+### Senior: How do you stop a side-effecting MCP Server safely?
+
+**Strong answer:** Close new admission first, drain in-flight handlers with a deadline, and preserve unresolved
+operation IDs for reconciliation. Cancelling a task after possible execution is not proof of failure and does
+not authorize blind retry.
+
+### Senior: What does the Day91 integration prove?
+
+**Strong answer:** A pinned real SDK Client and bounded Server ran as separate local processes over stdio and
+exercised Tool, Resource, Prompt, pagination, errors and lifecycle boundaries. This is
+`INTEGRATION_RUNTIME`; it does not prove production auth, durable idempotency, remote deployment, monitoring,
+load behavior, failure drills or production Tools.
+
+### Common weak answer
+
+“The SDK validates the request and the registered handler performs the operation.”
+
+This omits application authorization, idempotency, untrusted content, backpressure, correlation, output
+validation, reconciliation and Committer authority.
+
+The learner's independent synthesis passed with one correction to the inbound/outbound Adapter direction.
+Related:
+[Day91 lesson](../docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md).

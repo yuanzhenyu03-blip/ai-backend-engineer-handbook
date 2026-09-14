@@ -1725,7 +1725,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress at recorded classroom scope (Day79–Day90 Completed; Day91 Planned / not started). Guided or
+In Progress at recorded classroom scope (Day79–Day91 Completed; Day92 Planned). Guided or
 independent-assessment limitations remain recorded in the individual lesson entries.
 
 Objective:
@@ -1936,6 +1936,16 @@ Per-day topics:
   Scope: MCP server; Resources/Tools/Prompts responsibility boundaries.
   Connection: Day90 built the client; Day91 builds the server with clear Resource/Tool/Prompt boundaries;
   Day92 secures it with auth and tenant isolation.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md`.
+  Artifact: `projects/ai-agent/` gained application-owned Server DTOs and handlers, an SDK-private
+  `mcp==2.2.0` Adapter, signed revision-bound Tool pagination, Resource pre-read/content checks, Prompt
+  pre-render/post-render checks, pre-handler backpressure and bounded shutdown reconciliation. Evidence:
+  Python 3.11.5, 40 Day91 / 621 cumulative tests, 14/14 Day91 seed, Day88–Day90 regressions, available
+  Day83–Day91 seed suites and deterministic example PASS. Execution evidence is `INTEGRATION_RUNTIME`;
+  production auth, durable idempotency/reconciliation, production Tools, remote deployment, monitoring,
+  load/failure drills and Provider integration are NOT RUN; readiness `MORE_EVIDENCE_NEEDED`. Independent
+  learner synthesis passed with one inbound/outbound Adapter direction correction. Next: Day92.
 - Day92 — MCP Authentication, Authorization and Tenant Isolation.
   Scope: MCP authentication, authorization, tenant isolation.
   Connection: Day91 exposed server capabilities; Day92 adds MCP auth/authorization/tenant isolation (reusing

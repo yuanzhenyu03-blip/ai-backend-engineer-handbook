@@ -3,10 +3,10 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering is COMPLETE at classroom scope. Phase 7B — Agent Runtime and MCP
-Engineering is IN PROGRESS at classroom scope; Day90 is complete at guided classroom scope and Day91 is next.
+Engineering is IN PROGRESS at classroom scope; Day91 is complete at guided classroom scope and Day92 is next.
 
-Day59–Day90 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope:
-Day90 added bounded real-SDK Client integration; Day91 is next. Earlier evidence and NOT RUN boundaries remain
+Day59–Day91 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope:
+Day91 added bounded real-SDK Server integration; Day92 is next. Earlier evidence and NOT RUN boundaries remain
 recorded below.
 
 Previous Phase:
@@ -16,8 +16,18 @@ Phase 7A — LLM Application Engineering (Complete at classroom scope)
 
 ## Current Lesson
 
-Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries (Phase 7B) — next up.
-Most recent classroom lesson: Day90 — MCP Client Engineering.
+Day92 — MCP Authentication, Authorization and Tenant Isolation (Phase 7B) — next up.
+Most recent classroom lesson: Day91 — MCP Server Engineering.
+
+Day91 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md`. The
+continuing Artifact adds application-owned Server Tool/Resource/Prompt DTOs and handlers, pre-handler
+backpressure, signed revision-bound inventory cursors, bounded drain/reconciliation and an SDK-private
+`mcp==2.2.0` Server Adapter. Evidence: `INTEGRATION_RUNTIME` — Python 3.11.5, 40 Day91 / 621 cumulative tests,
+14/14 Day91 seed, Day88–Day90 regressions and available Day83–Day91 seeds PASS. Real auth, durable stores,
+production Tools, remote transport/deployment, monitoring, load tests, failure drills and Provider integration
+are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Independent learner synthesis passed with one Adapter
+direction correction. Day92 is next.
 
 Day90 is COMPLETE at guided classroom scope. Lesson: `docs/fastapi/day90-mcp-client-engineering.md`. The
 continuing Artifact adds a current codec, dispatch-certainty contract, dependency-free Client Adapter and a
@@ -25,7 +35,8 @@ version-pinned `mcp==2.2.0` SDK-private Adapter. A controlled separate-process s
 Tool, Resource and Prompt paths. Evidence: `INTEGRATION_RUNTIME` — Python 3.11.5, 21 Day90 / 581 cumulative
 tests, 13/13 Day90 seed, Day88/Day89 regressions and available Day83–Day90 seeds PASS. Production auth,
 production Tools, remote transport, monitoring, load/backpressure and failure drills are NOT RUN; readiness
-is `MORE_EVIDENCE_NEEDED`. Independent learner synthesis was assessed with corrections. Day91 is next.
+is `MORE_EVIDENCE_NEEDED`. Independent learner synthesis was assessed with corrections. This is the historical
+Day90 completion record; Day91 is recorded above.
 
 Day89 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day89-mcp-foundations-and-protocol-model.md`. The continuing `projects/ai-agent/` Artifact adds
@@ -49,7 +60,7 @@ shared two-Adapter amendment matrix is 43 focused / 539 cumulative tests on Pyth
 LangGraph runtime integration. Twelve normalized sensitivity scenarios produced zero winner flips.
 Production selection is false. Production Provider/Tool, containers, bundled artifacts,
 internal deployment and production deployment remain NOT EVALUATED; readiness is `MORE_EVIDENCE_NEEDED`.
-Day89 and Day90 are complete; Day91 is next.
+Day89–Day91 are complete; Day92 is next.
 
 Day87 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md`. The offline Artifact under
