@@ -84,6 +84,7 @@ class Day91MCPServerLifecycleTests(unittest.TestCase):
             self.reconciliation.operation_ids,
             ["operation-1", "operation-2"],
         )
+        self.assertEqual(report.committer_calls, 0)
         self.assertEqual(self.lifecycle.state, ServerLifecycleState.STOPPED)
 
     def test_late_completion_cannot_erase_pending_reconciliation(self) -> None:

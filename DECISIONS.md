@@ -565,3 +565,52 @@ separate-process stdio SDK integration remains the transport evidence; Day92 add
 local security runtime evidence. Real Authorization Server/JWKS, authenticated remote HTTP, durable stores,
 distributed rate limiting, monitoring, load tests and failure drills were NOT RUN. Evidence remains
 `INTEGRATION_RUNTIME`; production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 014 — Separate Remote Failure Evidence from Retry and Reconciliation Authority
+
+Status: Accepted for Day93 course scope
+
+Date: 2026-09-16
+
+### Context
+
+Day92 established trusted identity and current exact authorization, but a remote MCP timeout still cannot say
+whether transport handoff or controlled-service execution occurred. Retrying from exception type alone can
+duplicate external side effects. Reconnect, version changes, cancellation and late responses add further stale
+or ambiguous observations.
+
+### Decision
+
+Convert SDK/private transport outcomes into immutable application-owned `FailureEvidence` with separate
+dispatch and execution certainty. A durable dispatch marker is written before transport handoff. Retry policy
+is pure and bounded; it requires proven non-execution plus current caller intent, deadline, retry budget,
+authorization, capacity and circuit admission. A retry preserves operation/idempotency identity and creates a
+fresh protocol request ID and attempt number.
+
+Possibly executed operations enter `PENDING_RECONCILIATION`. Reconciliation receives only a read-only
+authoritative status port and cannot execute the original Tool. Its proposals still require the sole Committer
+to validate complete binding, pending state and version. Correlation and protocol negotiation are scoped to a
+transport generation; downgrade requires fresh preflight and cannot expand permission. Logs, metrics and
+traces remain diagnostic and never become authority evidence.
+
+### Consequences
+
+- Timeout and post-dispatch cancellation preserve unknown execution instead of authorizing retry.
+- Backoff/jitter limit traffic but cannot make an unsafe retry safe.
+- Conditional `READY_FOR_RETRY → DISPATCH_STARTED` ownership allows only one worker to dispatch.
+- A trusted controlled pre-handler rejection may prove sent-but-not-executed; unverified response text cannot.
+- Unknown reconciliation remains pending and alerts after bounded observation; it is never automatically replayed.
+- Unknown-key JWKS refresh outage returns 503 without inventing an old principal or permit.
+- Safe observability uses bounded metric dimensions and credential-free pseudonymous log correlation.
+- Day94 must compose these contracts through the Agent runtime without moving Committer authority.
+
+### Validation honesty
+
+Python 3.11.5 and `mcp==2.2.0` ran 62 Day93 tests, including two independent-process loopback Streamable HTTP
+tests. The read-timeout path observed the already-entered Tool complete after the Client abandoned its wait.
+The complete repository validation ran 691 dependency-free plus 28 real-SDK integration tests (719 total),
+and the 16/16 Day93 seed passed. This is `CONTROLLED_REMOTE_RUNTIME`, not production. Production Authorization
+Server/JWKS, authenticated deployment, durable distributed stores, rate limiting, telemetry, load tests and
+failure drills remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.

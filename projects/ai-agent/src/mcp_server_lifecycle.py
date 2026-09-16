@@ -51,6 +51,7 @@ class RequestAdmissionDecision:
 class DrainReport:
     outcome: DrainOutcome
     pending_operation_ids: tuple[str, ...]
+    committer_calls: int = 0
 
 
 class MCPServerLifecycle:

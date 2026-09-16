@@ -5,7 +5,10 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 from mcp import StdioServerParameters
+from mcp.shared.exceptions import MCPError
+from mcp_types import REQUEST_TIMEOUT
 
+from mcp_client_transport import DispatchCertainty
 from mcp_protocol_model import (
     BindingStatus,
     CURRENT_SPECIFICATION_VERSION,
@@ -18,6 +21,7 @@ from mcp_protocol_model import (
     ProtocolOutcome,
     validate_external_content_candidate,
 )
+from mcp_remote_lifecycle import FailureKind, FailurePhase
 from mcp_sdk_private_adapter import (
     CapabilityEvidenceError,
     SDKPrivateMCPClientAdapter,
@@ -324,6 +328,80 @@ class Day90SDKStdioIntegrationTests(unittest.IsolatedAsyncioTestCase):
         )
         self.assertIsNone(exchange.observation.payload)
         self.assertFalse(exchange.observation.durable_transition)
+
+    async def test_sdk_read_timeout_becomes_application_failure_evidence(
+        self,
+    ) -> None:
+        request_id = "request-read-timeout"
+        request = MCPRequestDTO(
+            specification_version=CURRENT_SPECIFICATION_VERSION,
+            protocol_request_id=request_id,
+            method="tools/call",
+            params={
+                "name": "research.lookup",
+                "arguments": {"query": "timeout evidence"},
+            },
+            client_capabilities=frozenset({"tools"}),
+            observed_server_capabilities=frozenset({"tools"}),
+        )
+        binding = MCPRequestBinding(
+            protocol_request_id=request_id,
+            application_operation_id="operation-read-timeout",
+            expected_method="tools/call",
+            request_fingerprint="fingerprint-read-timeout",
+            tenant_id="tenant-a",
+            resource_id="report-42",
+            idempotency_key="idem-read-timeout",
+        )
+        server = StdioServerParameters(
+            command=sys.executable,
+            args=[str(FIXTURE)],
+        )
+
+        async with SDKPrivateMCPClientAdapter(server) as adapter:
+            preflight_permit = adapter.issue_preflight_permit(
+                "tools/call",
+                tool_name="research.lookup",
+                arguments={"query": "timeout evidence"},
+            )
+            timed_out = AsyncMock(
+                side_effect=MCPError(
+                    REQUEST_TIMEOUT,
+                    "timed out while waiting for response",
+                )
+            )
+            with patch.object(
+                adapter._client.session._dispatcher,
+                "send_raw_request",
+                new=timed_out,
+            ):
+                exchange = await adapter.exchange(
+                    request,
+                    binding,
+                    preflight_permit,
+                    attempt_number=3,
+                )
+
+        assert exchange.observation is not None
+        self.assertEqual(
+            exchange.observation.outcome,
+            ProtocolOutcome.OUTCOME_UNKNOWN,
+        )
+        assert exchange.failure_evidence is not None
+        self.assertEqual(exchange.failure_evidence.phase, FailurePhase.READ)
+        self.assertEqual(
+            exchange.failure_evidence.kind,
+            FailureKind.READ_TIMEOUT,
+        )
+        self.assertEqual(
+            exchange.failure_evidence.dispatch_certainty,
+            DispatchCertainty.POSSIBLY_SENT,
+        )
+        self.assertEqual(exchange.failure_evidence.attempt_number, 3)
+        self.assertEqual(
+            exchange.failure_evidence.idempotency_key,
+            "idem-read-timeout",
+        )
 
     async def test_list_changed_invalidates_old_preflight_permit(self) -> None:
         request = MCPRequestDTO(

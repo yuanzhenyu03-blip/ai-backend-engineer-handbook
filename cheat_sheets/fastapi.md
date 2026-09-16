@@ -2100,3 +2100,52 @@ Capability     = protocol support, not permission
 Evidence: 35 Day92 / 656 combined tests, 16/16 Day92 seed, bounded `INTEGRATION_RUNTIME`; production readiness
 `MORE_EVIDENCE_NEEDED`. Related:
 [Day92 lesson](../docs/fastapi/day92-mcp-authentication-authorization-and-tenant-isolation.md).
+
+## Day93 — Remote MCP Lifecycle
+
+```text
+deadline            = absolute operation end time
+timeout             = one phase/wait limit
+timeout budget      = remaining usable parent time
+cancellation        = stop request, not rollback
+dispatch certainty  = transport-handoff evidence
+execution certainty = business-execution evidence
+```
+
+```text
+PROVEN_NOT_EXECUTED → independent bounded retry policy
+POSSIBLY_EXECUTED   → PENDING_RECONCILIATION → authority query
+```
+
+- Timeout proves that the caller stopped waiting; it does not prove non-execution.
+- Normalize SDK/HTTP failures into application-owned `FailureEvidence` before policy sees them.
+- Safe retry preserves `operation_id` and `idempotency_key`; it creates a fresh `protocol_request_id` and
+  increments `attempt_number`.
+- Retry requires current caller intent, deadline/budget, authorization, capacity and circuit admission.
+- Backoff controls load; it does not make an unsafe retry safe. Use bounded exponential backoff plus jitter.
+- Persist `DISPATCH_STARTED` before transport; only the conditional-update winner may dispatch.
+- Reconciliation queries authoritative status only. It never replays the original Tool.
+- `NOT_FOUND` is not `NOT_EXECUTED`; unknown remains pending and eventually alerts.
+- Reconnect creates a new transport generation. Correlate by `(generation, protocol_request_id)`.
+- Version/capability downgrade requires fresh preflight and cannot expand authorization.
+- Unknown signing key + JWKS refresh outage = 503, no reused principal/permit, zero handler/service calls.
+- Global pre-auth shedding uses trusted edge facts; tenant priority requires a current tenant-bound permit.
+- Metrics use bounded labels. Operation/tenant/resource/trace identities stay out of metric labels.
+- Logs and traces help locate evidence; neither is authority.
+
+Debugging order:
+
+```text
+parent deadline
+→ security/current permit
+→ durable dispatch marker
+→ transport generation/request correlation
+→ dispatch + execution certainty
+→ retry policy OR reconciliation
+→ output validation
+→ sole Committer
+```
+
+Evidence: 62 Day93 / 719 combined tests, 16/16 Day93 seed, independent loopback Streamable HTTP with
+`mcp==2.2.0`; `CONTROLLED_REMOTE_RUNTIME`, not production. Related:
+[Day93 lesson](../docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md).

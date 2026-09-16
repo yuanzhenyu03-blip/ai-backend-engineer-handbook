@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability (Phase 7B)
+
+Date: 2026-09-16
+
+Released the 16-section Day93 lesson and evolved `projects/ai-agent/` with application-owned remote failure
+evidence, independent dispatch/execution certainty, absolute deadline budgets, bounded retry/backoff/jitter,
+conditional single-worker dispatch, read-only authoritative reconciliation, late-response validation,
+generation-scoped reconnect/version/capability gates, fail-closed JWKS refresh, capacity/circuit boundaries
+and credential-safe observability. Decision 014 preserves the separation between facts, retry policy,
+reconciliation proposals and the sole Committer.
+
+The real `mcp==2.2.0` Client and an independent loopback Streamable HTTP Server exercised success and read
+timeout. The timeout path observed that the Client stopped waiting while the already-entered Tool completed,
+which proves why timeout remains `POSSIBLY_EXECUTED`. The learner's independent synthesis passed with required
+deadline/timeout, cancellation and certainty terminology corrections.
+
+Validation: Python 3.11.5; 62 Day93 tests, 691 dependency-free plus 28 real-SDK integration tests (719 total),
+16/16 Day93 seed, Day88 43/43, Day89 21/21, Day90 22/22, Day91 40/40 and Day92 35/35 regressions, all
+available Day83–Day93 seeds, deterministic example, compile, JSON/JSONL, links, whitespace and credential
+checks passed. Evidence is `CONTROLLED_REMOTE_RUNTIME`. Production Authorization Server/JWKS, authenticated
+deployment, durable distributed stores, distributed controls, telemetry delivery, load/failure drills and
+`PRODUCTION` are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day94 is next.
+
 ## Unreleased — Day92 — MCP Authentication, Authorization and Tenant Isolation (Phase 7B)
 
 Date: 2026-09-16

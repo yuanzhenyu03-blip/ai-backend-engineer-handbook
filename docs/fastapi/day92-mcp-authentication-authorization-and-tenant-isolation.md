@@ -9,7 +9,7 @@
 - Estimated study time: 7–8 hours
 - Prerequisite: Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries
 - Previous lesson: [Day91](day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md)
-- Next lesson: Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability
+- Next lesson: [Day93 — Remote MCP Lifecycle](day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md)
 - Engineering artifact: application-owned principal and authorization DTOs, HTTP/stdin security adapters,
   deterministic token verifier, tenant-bound permits, composed security tests, seed eval and Day93 handoff
 - Evidence: `INTEGRATION_RUNTIME`; production readiness `MORE_EVIDENCE_NEEDED`

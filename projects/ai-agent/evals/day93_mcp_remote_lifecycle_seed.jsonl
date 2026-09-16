@@ -1,0 +1,16 @@
+{"case_id":"REMOTE01","case_version":1,"category":"connect_timeout_before_dispatch","expected_outcome":"ELIGIBLE","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE02","case_version":1,"category":"read_timeout_possible_execution","expected_outcome":"PENDING_RECONCILIATION","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE03","case_version":1,"category":"cancellation_before_dispatch","expected_outcome":"PRE_DISPATCH_ABORTED","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE04","case_version":1,"category":"cancellation_after_dispatch","expected_outcome":"PENDING_RECONCILIATION","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE05","case_version":1,"category":"parent_deadline","expected_outcome":"8.0","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE06","case_version":1,"category":"retry_identity","expected_outcome":"SAME_OPERATION_FRESH_PROTOCOL_REQUEST","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE07","case_version":1,"category":"retry_budget_exhausted","expected_outcome":"RETRY_BUDGET_EXHAUSTED","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE08","case_version":1,"category":"stale_reconnect_response","expected_outcome":"STALE_GENERATION","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE09","case_version":1,"category":"incompatible_version","expected_outcome":"INCOMPATIBLE","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE10","case_version":1,"category":"capability_downgrade","expected_outcome":"CAPABILITY_REJECTED","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE11","case_version":1,"category":"trusted_capacity_rejection","expected_outcome":"PROVEN_NOT_EXECUTED","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE12","case_version":1,"category":"untrusted_remote_failure","expected_outcome":"POSSIBLY_EXECUTED","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE13","case_version":1,"category":"jwks_refresh_outage","expected_outcome":"503","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE14","case_version":1,"category":"reconciliation_not_executed","expected_outcome":"NOT_EXECUTED_THEN_POLICY","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":1}
+{"case_id":"REMOTE15","case_version":1,"category":"reconciliation_unknown_alert","expected_outcome":"OPERATIONAL_ALERT_REQUIRED","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}
+{"case_id":"REMOTE16","case_version":1,"category":"graceful_shutdown_unknown","expected_outcome":"PENDING_RECONCILIATION","expected_handler_calls":0,"expected_service_calls":0,"expected_committer_calls":0}

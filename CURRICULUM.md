@@ -1725,7 +1725,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress at recorded classroom scope (Day79–Day92 Completed; Day93 Planned). Guided or
+In Progress at recorded classroom scope (Day79–Day93 Completed; Day94 Planned). Guided or
 independent-assessment limitations remain recorded in the individual lesson entries.
 
 Objective:
@@ -1964,6 +1964,18 @@ Per-day topics:
   Scope: remote MCP lifecycle — timeout, retry, versioning, observability.
   Connection: Day92 secured MCP; Day93 hardens the remote lifecycle (timeout/retry/versioning/observability);
   Day94 integrates agent + MCP into a capstone.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md`. Artifact:
+  `projects/ai-agent/` gained application-owned failure evidence, separate dispatch/execution certainty,
+  absolute deadline budgeting, bounded retry with conditional dispatch claim, authoritative read-only
+  reconciliation, generation-scoped correlation/version gates, JWKS/capacity/circuit boundaries and safe
+  observability. Evidence: Python 3.11.5, 62 Day93 / 719 combined tests, 16/16 Day93 seed, Day88–Day92
+  regressions, available Day83–Day93 seeds and deterministic example PASS. A real `mcp==2.2.0` Client and
+  independent loopback Streamable HTTP Server proved `CONTROLLED_REMOTE_RUNTIME`; the read-timeout Tool
+  completed after the Client stopped waiting. Production auth/deployment, durable distributed stores,
+  distributed controls, telemetry delivery, load/failure drills and production are NOT RUN; readiness
+  `MORE_EVIDENCE_NEEDED`. Independent learner synthesis passed with required terminology corrections.
+  Next: Day94.
 - Day94 — Agent + MCP Integration Capstone and English Interview.
   Scope: integrate the agent runtime with MCP client/server; runnable checkpoint; phase-level English
   interview.

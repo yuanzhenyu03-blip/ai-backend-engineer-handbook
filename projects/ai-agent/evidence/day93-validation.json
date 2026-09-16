@@ -1,0 +1,168 @@
+{
+  "day": 93,
+  "title": "Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability",
+  "record_type": "local_uncommitted_classroom_validation_artifact",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-16T00:00:00+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "remote_main_commit": "d06fbeb2b82b0aa77a95e9244d7679e34c64fc4c",
+    "remote_day92_commit": "9e7304a48ba6a407b7db2f858cc518ce7b697825",
+    "classroom_baseline_ref": "origin/main",
+    "classroom_baseline_commit": "d06fbeb2b82b0aa77a95e9244d7679e34c64fc4c",
+    "workspace": "isolated_clean_clone_at_start"
+  },
+  "protocol_and_sdk": {
+    "observed_specification_version": "2026-07-28",
+    "observed_schema_version": "2026-07-28",
+    "python_sdk": "mcp==2.2.0",
+    "remote_transport": "Streamable HTTP",
+    "controlled_remote_boundary": "independent_loopback_process",
+    "sdk_types_cross_application_boundary": false,
+    "general_reliable_not_dispatched_proof_exposed_by_sdk": false,
+    "read_timeout_semantics": "caller_stopped_waiting_not_proof_of_non_execution"
+  },
+  "validation": {
+    "python_version": "3.11.5",
+    "python_3_12": "NOT_AVAILABLE",
+    "day93_focused_tests": {
+      "passed": 62,
+      "failed": 0,
+      "controlled_remote_streamable_http_tests": 2
+    },
+    "day92_security_regression": {"passed": 35, "failed": 0},
+    "day91_regression_with_seed_grader": {
+      "passed": 40,
+      "failed": 0,
+      "core_and_sdk": 37,
+      "seed_grader": 3
+    },
+    "day90_regression_with_seed_grader": {
+      "passed": 22,
+      "failed": 0,
+      "core": 8,
+      "sdk_integration": 11,
+      "seed_grader": 3,
+      "baseline_was_21_before_day93_added_one_sdk_failure_evidence_test": true
+    },
+    "day89_regression_with_seed_grader": {
+      "passed": 21,
+      "failed": 0,
+      "core": 18,
+      "seed_grader": 3
+    },
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "cumulative_split_execution": {
+      "dependency_free_suite": {"passed": 691, "failed": 0},
+      "real_sdk_integration_modules": {"passed": 28, "failed": 0},
+      "combined_repository_total": {"passed": 719, "failed": 0},
+      "sdk_split": {
+        "day90_stdio": 11,
+        "day91_stdio": 15,
+        "day93_streamable_http": 2
+      }
+    },
+    "available_seed_suites": {
+      "day83": {"passed": 26, "failed": 0},
+      "day84": {"passed": 16, "failed": 0},
+      "day85": {"passed": 18, "failed": 0},
+      "day86": {"passed": 25, "failed": 0},
+      "day89": {"passed": 16, "failed": 0},
+      "day90": {"passed": 13, "failed": 0},
+      "day91": {"passed": 14, "failed": 0},
+      "day92": {"passed": 16, "failed": 0},
+      "day93": {"passed": 16, "failed": 0, "case_version": 1}
+    },
+    "day87_and_day88_seed_runners": "NOT_PRESENT_IN_BASELINE",
+    "deterministic_example": "PASS",
+    "json_and_jsonl_parse": {"status": "PASS", "files": 38},
+    "changed_markdown_relative_links": {"status": "PASS", "links": 421},
+    "compileall": "PASS",
+    "git_diff_check": "PASS",
+    "credential_pattern_scan": "PASS_NO_MATCHES",
+    "lint_typecheck": "NOT_CONFIGURED"
+  },
+  "superseded_validation_attempts": [
+    {
+      "status": "INVALID_TEST_COLLECTION",
+      "reason": "The first unittest discovery omitted projects/ai-agent/src from PYTHONPATH and collected zero runnable Day93 tests."
+    },
+    {
+      "status": "INVALID_INTERPRETER_SELECTION",
+      "reason": "One parallel seed command selected system Python 3.9; Day89 and Day90 were rerun successfully with the pinned Python 3.11.5 environment."
+    }
+  ],
+  "source_hashes": {
+    "projects/ai-agent/src/mcp_remote_lifecycle.py": "602b131f3199e6b41b07a50601148e31af531a50572229d384fa14af333719a7",
+    "projects/ai-agent/src/mcp_retry_policy.py": "f24f64f18bb83b6299785a02c3a3f04f6df9edec56778b3d4b404668cedd1e7f",
+    "projects/ai-agent/src/mcp_reconciliation.py": "e9b85ea68589879c29db5ce24795fe53f97af4b921914b0f2b6b9051bcce53c4",
+    "projects/ai-agent/src/mcp_remote_session.py": "22fd9f77a6344b6da43e71a752865dd5f17f4e2824309d5e944025135b54d68e",
+    "projects/ai-agent/src/mcp_remote_failure_adapter.py": "d6f3eb32494ab881d4724662514317eb056c983c45d8ef74ad2d40d0d822d44b",
+    "projects/ai-agent/src/mcp_remote_protection.py": "cd9feb1cbd049d303faf9a63d7cc0a054b589aa3d879e9acca3057f962696d20",
+    "projects/ai-agent/src/mcp_jwks_lifecycle.py": "fe0fd4846e222f182d13643e64d8ce786dc553ea9757231469e99a20bf15611c",
+    "projects/ai-agent/src/mcp_versioning.py": "22290bd76f0a4e210b8fc6b272e7f9227e8694e7eb964552034c857f7d39501b",
+    "projects/ai-agent/src/mcp_observability.py": "f84ffa024d4d3fa32c932c0ed938456f1d278719a65ff3fca53737f143bdf3c8",
+    "projects/ai-agent/src/mcp_late_response.py": "f29899bc5ca5e2ede0453d775665f00d0dc1ada27195482519c8a973799eb631",
+    "projects/ai-agent/src/mcp_client.py": "4821f6c7023cfde7cbb76e6e92f32b1179487ba26474bbd4790234b384d3ddcb",
+    "projects/ai-agent/src/mcp_sdk_private_adapter.py": "6bfdbd63674874feccb7f3dda0a9b118addbcb30df9229f7da3a37d2b82eb34b",
+    "projects/ai-agent/tests/fixtures/day93_mcp_streamable_http_server.py": "9ef1bd1bb1f2e024b38e35a7fc483cb320105895ff1507fcbc62593cd5401b0b",
+    "projects/ai-agent/tests/test_day93_mcp_remote_integration.py": "436557afe902e814a4441e5000d549e04f6af8b94d5f8f9349a6fd7a67bcf839",
+    "projects/ai-agent/evals/day93_mcp_remote_lifecycle_seed.jsonl": "1d40323bda96dfb3ee1b8cf2865797893608d96470a83d331f53df901cff5a60",
+    "projects/ai-agent/evals/run_day93_seed_eval.py": "405eb877b8d0ed755cc6b3545f0f159a63d9502c9b85063844fb766178bd940e",
+    "projects/ai-agent/examples/day93_mcp_remote_lifecycle.py": "92e52965d5e18a78158a60de9db9a277d696c47e580045403e64bffe0252587b",
+    "projects/ai-agent/docs/DAY93_MCP_REMOTE_LIFECYCLE.md": "221951002782bf64e4a8026906b37f144326f62dd67537d77072569bd64e30f6",
+    "projects/ai-agent/docs/DAY93_TO_DAY94_HANDOFF.md": "727da1716a37aa32fcc1bcb25e144537e387cd9a10ff2e40bfeed455dca5c8cb",
+    "projects/ai-agent/research/day93-mcp-remote-lifecycle-evidence.jsonl": "daae2980d9dab06abc80caef78ce384a70d13b11dcf21e39d63aa18d62fef8e1",
+    "docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md": "6d37c3cfb9173ae4602a1385536c83a2138e917adcb5b0878e35b0707ac80f2c"
+  },
+  "controlled_effect_counters": {
+    "independent_loopback_server_processes": 2,
+    "controlled_remote_tool_entries": 2,
+    "controlled_remote_timeout_tool_completions": 1,
+    "production_credentials": 0,
+    "production_tool_calls": 0,
+    "model_provider_calls": 0,
+    "production_durable_business_transitions": 0
+  },
+  "implementation_findings": [
+    "The pinned SDK private dispatcher path must explicitly receive the configured read timeout; otherwise the controlled remote read-timeout test does not time out.",
+    "The controlled Streamable HTTP timeout aborted the Client wait while the already-entered Tool coroutine completed, proving that timeout is not non-execution evidence.",
+    "The SDK does not expose a general reliable not-dispatched proof after a remote timeout, so the application conservatively records POSSIBLY_SENT and POSSIBLY_EXECUTED.",
+    "A trusted locally configured pre-handler contract can prove PROVEN_SENT plus PROVEN_NOT_EXECUTED; an unverified peer response body cannot.",
+    "Authoritative NOT_EXECUTED is committed as a fact before the independent retry policy is consulted."
+  ],
+  "not_run": [
+    "production Authorization Server and production JWKS integration",
+    "authenticated production remote MCP deployment",
+    "durable database-backed operation, retry and reconciliation stores",
+    "distributed rate limiting, capacity admission and circuit breaker",
+    "production telemetry backend and alert delivery",
+    "load, soak and backpressure tests",
+    "production network partition, process crash and deployment failure drills",
+    "production Tools or customer data",
+    "model Provider integration",
+    "production"
+  ],
+  "execution_evidence": "CONTROLLED_REMOTE_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "independent_learner_synthesis": "ASSESSED_PASS_WITH_REQUIRED_TERMINOLOGY_CORRECTIONS",
+  "learner_synthesis_assessment": {
+    "correct_boundaries": [
+      "deadline is the overall time limit",
+      "post-dispatch cancellation cannot erase external side effects",
+      "unknown external effects require reconciliation",
+      "reconciliation preserves application identity and tenant binding",
+      "observability combines traces, structured logs and metrics without becoming authority",
+      "production readiness requires real authenticated remote deployment and operational evidence"
+    ],
+    "required_corrections": [
+      "timeout is a phase wait limit; timeout budget is the remaining portion of the absolute deadline",
+      "cancellation may occur before or after dispatch and remote cancellation acknowledgement is not rollback proof",
+      "dispatch certainty records evidence about transport handoff, not intent",
+      "execution certainty records evidence about business execution, independently of dispatch",
+      "retry requires proven non-execution plus independent current policy; reconciliation only queries authoritative status and never replays the Tool",
+      "version and capability negotiation are generation-scoped and cannot reuse stale authority after downgrade"
+    ]
+  },
+  "course_completion_gate": "PASSED"
+}

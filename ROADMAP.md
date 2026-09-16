@@ -335,7 +335,7 @@ not the business model. Do not pre-lock LangGraph.
 | Day90 | MCP Client Engineering | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 21 focused / 581 cumulative tests; controlled separate-process stdio integration; 13/13 seed; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day91 | MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 40 focused / 621 cumulative tests; controlled separate-process stdio integration; 14/14 seed; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day92 | MCP Authentication, Authorization and Tenant Isolation | ✅ Completed (guided classroom scope; 35 focused / 656 combined tests; 16/16 seed; HTTP/stdin identity + tenant-bound permits; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
-| Day93 | Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability | Planned |
+| Day93 | Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 62 focused / 719 combined tests; 16/16 seed; independent-process loopback Streamable HTTP; evidence CONTROLLED_REMOTE_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day94 | Agent + MCP Integration Capstone and English Interview | Planned |
 
 Deliverables:
