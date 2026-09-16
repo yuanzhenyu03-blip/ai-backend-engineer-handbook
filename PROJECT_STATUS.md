@@ -3,11 +3,11 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering is COMPLETE at classroom scope. Phase 7B — Agent Runtime and MCP
-Engineering is IN PROGRESS at classroom scope; Day92 is complete at guided classroom scope and Day93 is next.
+Engineering is IN PROGRESS at classroom scope; Day93 is complete at guided classroom scope and Day94 is next.
 
-Day59–Day92 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope:
-Day92 added authentication, authorization and tenant isolation; Day93 is next. Earlier evidence and NOT RUN boundaries remain
-recorded below.
+Day59–Day93 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope:
+Day93 added the remote lifecycle evidence/recovery boundary; Day94 is next. Earlier evidence and NOT RUN
+boundaries remain recorded below.
 
 Previous Phase:
 Phase 7A — LLM Application Engineering (Complete at classroom scope)
@@ -16,8 +16,20 @@ Phase 7A — LLM Application Engineering (Complete at classroom scope)
 
 ## Current Lesson
 
-Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability (Phase 7B) — next up.
-Most recent classroom lesson: Day92 — MCP Authentication, Authorization and Tenant Isolation.
+Day94 — Agent + MCP Integration Capstone and English Interview (Phase 7B) — next up.
+Most recent classroom lesson: Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability.
+
+Day93 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md`. The continuing
+Artifact adds application-owned failure evidence, independent dispatch/execution certainty, one absolute
+deadline, bounded retry with durable single-worker dispatch claim, read-only reconciliation/alerting,
+generation-scoped correlation/version gates, fail-closed JWKS refresh and credential-safe observability. A
+real `mcp==2.2.0` Client and independent loopback Streamable HTTP Server exercised success and read-timeout;
+the already-entered Tool completed after the Client stopped waiting. Evidence: `CONTROLLED_REMOTE_RUNTIME` —
+Python 3.11.5, 62 Day93 / 719 combined tests, 16/16 Day93 seed, Day88–Day92 regressions and available
+Day83–Day93 seeds PASS. Production auth/deployment, durable distributed stores, distributed controls,
+telemetry delivery, load/failure drills and production remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.
+Independent learner synthesis passed with required terminology corrections. Day94 is next.
 
 Day92 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day92-mcp-authentication-authorization-and-tenant-isolation.md`. The continuing Artifact adds
@@ -27,7 +39,7 @@ pre-auth edge protection. Evidence: `INTEGRATION_RUNTIME` — Python 3.11.5, 35 
 16/16 Day92 seed, Day88–Day91 regressions and available Day83–Day92 seeds PASS. Real Authorization Server/JWKS,
 authenticated remote HTTP, durable authorization stores, distributed rate limiting, monitoring, load tests and
 failure drills are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Independent learner synthesis passed with
-minor terminology corrections. Day93 is next.
+minor terminology corrections. This is the historical Day92 completion record; Day93 is recorded above.
 
 Day91 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md`. The
@@ -70,7 +82,7 @@ shared two-Adapter amendment matrix is 43 focused / 539 cumulative tests on Pyth
 LangGraph runtime integration. Twelve normalized sensitivity scenarios produced zero winner flips.
 Production selection is false. Production Provider/Tool, containers, bundled artifacts,
 internal deployment and production deployment remain NOT EVALUATED; readiness is `MORE_EVIDENCE_NEEDED`.
-Day89–Day92 are complete; Day93 is next.
+Day89–Day93 are complete; Day94 is next.
 
 Day87 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day87-agent-framework-and-job-market-refresh-checkpoint.md`. The offline Artifact under

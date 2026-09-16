@@ -2898,3 +2898,55 @@ and reuse the original operation ID and idempotency key. Timeout after possible 
 This omits current authorization, tenant isolation, exact grants, operation identity, capacity and unknown
 outcome handling. Related:
 [Day92 lesson](../docs/fastapi/day92-mcp-authentication-authorization-and-tenant-isolation.md).
+
+## Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability (Phase 7B)
+
+### Beginner: What is the difference between a deadline and a timeout?
+
+**Strong answer:** A deadline is the absolute end time for the whole operation. A timeout bounds one wait or
+phase and must fit inside the remaining deadline budget. A child phase cannot restart the parent clock.
+
+### Beginner: Does cancellation prove that the remote operation did not execute?
+
+**Strong answer:** No. Pre-dispatch cancellation may prove non-execution, but after possible dispatch it only
+asks future work to stop. A remote task may already have produced an external side effect.
+
+### Intermediate: What are dispatch certainty and execution certainty?
+
+**Strong answer:** Dispatch certainty records evidence about transport handoff: proven not sent, possibly sent
+or proven sent. Execution certainty independently records whether business execution is proven absent,
+possible or proven. A verified pre-handler rejection can be sent but not executed.
+
+### Intermediate: When is a remote MCP retry safe?
+
+**Strong answer:** Only after trusted evidence proves non-execution and current policy still permits another
+attempt. Preserve operation and idempotency identity, create a fresh request ID and attempt number, apply a
+bounded retry budget/backoff/jitter, and recheck caller intent, deadline, authorization, capacity and circuit.
+
+### Senior: How do you recover from a read timeout without duplicating a side effect?
+
+**Strong answer:** Record the attempt as possibly sent and possibly executed, keep the operation pending and
+query an authoritative status/result interface. Reconciliation cannot execute the Tool. A separate Committer
+validates the full binding and version. Only a committed `NOT_EXECUTED` fact may return to retry policy.
+
+### Senior: How do reconnect, version negotiation and capability downgrade affect authority?
+
+**Strong answer:** Correlate by transport generation plus request ID, reject stale responses, negotiate each
+generation and require fresh preflight/current authorization after downgrade. Protocol compatibility and
+capability support never grant application permission.
+
+### Senior follow-up: How should observability be designed?
+
+**Strong answer:** Use credential-safe structured logs with pseudonymous operation references, bounded metric
+labels and trace correlation. Keep operation, tenant, resource and trace identities out of metric labels.
+Observability explains decisions but never becomes authorization or execution evidence.
+
+### Common weak answer
+
+“Catch timeout, use exponential backoff and retry.”
+
+This confuses traffic control with retry safety and omits execution uncertainty, stable operation identity,
+single-worker dispatch, reconciliation, current authorization and the Committer boundary.
+
+Related:
+[Day93 lesson](../docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md).

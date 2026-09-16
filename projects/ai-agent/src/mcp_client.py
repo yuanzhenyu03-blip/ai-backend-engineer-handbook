@@ -16,6 +16,12 @@ from mcp_protocol_model import (
     ProtocolObservation,
     ProtocolOutcome,
 )
+from mcp_remote_lifecycle import (
+    ExecutionCertainty,
+    FailureEvidence,
+    FailureKind,
+    FailurePhase,
+)
 
 
 @dataclass(frozen=True)
@@ -24,11 +30,16 @@ class MCPClientExchange:
 
     response: MCPResponseDTO | None = None
     observation: ProtocolObservation | None = None
+    failure_evidence: FailureEvidence | None = None
 
     def __post_init__(self) -> None:
         if (self.response is None) == (self.observation is None):
             raise ValueError(
                 "exchange requires exactly one response or observation"
+            )
+        if self.failure_evidence is not None and self.observation is None:
+            raise ValueError(
+                "failure evidence requires a transport observation"
             )
 
 
@@ -43,6 +54,8 @@ class DependencyFreeMCPClientAdapter:
         self,
         request: MCPRequestDTO,
         binding: MCPRequestBinding,
+        *,
+        attempt_number: int = 1,
     ) -> MCPClientExchange:
         """Run one already-bound protocol attempt.
 
@@ -74,7 +87,23 @@ class DependencyFreeMCPClientAdapter:
                         binding.application_operation_id
                     ),
                     reason=error.reason,
-                )
+                ),
+                failure_evidence=FailureEvidence(
+                    operation_id=binding.application_operation_id,
+                    idempotency_key=binding.idempotency_key or "not-applicable",
+                    protocol_request_id=request.protocol_request_id,
+                    attempt_number=attempt_number,
+                    phase=FailurePhase.SEND,
+                    kind=FailureKind.SEND_FAILURE,
+                    dispatch_certainty=error.dispatch_certainty,
+                    execution_certainty=(
+                        ExecutionCertainty.PROVEN_NOT_EXECUTED
+                        if error.dispatch_certainty
+                        is DispatchCertainty.PROVEN_NOT_SENT
+                        else ExecutionCertainty.POSSIBLY_EXECUTED
+                    ),
+                    evidence_source="dependency-free-byte-transport",
+                ),
             )
 
         return MCPClientExchange(response=self.codec.decode_response(payload))

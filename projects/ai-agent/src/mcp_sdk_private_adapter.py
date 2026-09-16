@@ -13,10 +13,12 @@ from dataclasses import dataclass
 from importlib.metadata import version
 from typing import Any, Mapping
 
+import httpx2
 from jsonschema import exceptions as jsonschema_exceptions
 from jsonschema.protocols import Validator
 from jsonschema.validators import validator_for
 from mcp import Client, StdioServerParameters, types
+from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.dispatcher import CallOptions
 from mcp.shared.exceptions import MCPError
 from mcp_types import CONNECTION_CLOSED, REQUEST_TIMEOUT
@@ -31,6 +33,13 @@ from mcp_protocol_model import (
     ProtocolObservation,
     ProtocolOutcome,
 )
+from mcp_remote_lifecycle import (
+    ExecutionCertainty,
+    FailureEvidence,
+    FailureKind,
+    FailurePhase,
+)
+from mcp_client_transport import DispatchCertainty
 
 
 SUPPORTED_MCP_SDK_VERSION = "2.2.0"
@@ -98,6 +107,7 @@ class SDKPrivateMCPClientAdapter:
         server: StdioServerParameters | str,
         *,
         read_timeout_seconds: float | None = None,
+        http_client: httpx2.AsyncClient | None = None,
     ) -> None:
         installed = version("mcp")
         if installed != SUPPORTED_MCP_SDK_VERSION:
@@ -105,11 +115,19 @@ class SDKPrivateMCPClientAdapter:
                 "SDK-private adapter requires "
                 f"mcp=={SUPPORTED_MCP_SDK_VERSION}; found {installed}"
             )
+        if http_client is not None and not isinstance(server, str):
+            raise ValueError("custom HTTP client requires a Streamable HTTP URL")
+        transport = (
+            streamable_http_client(server, http_client=http_client)
+            if isinstance(server, str) and http_client is not None
+            else server
+        )
         self._client = Client(
-            server,
+            transport,
             mode="auto",
             read_timeout_seconds=read_timeout_seconds,
         )
+        self._read_timeout_seconds = read_timeout_seconds
         self._entered = False
         self._observed_server_capabilities: frozenset[str] = frozenset()
         self._observed_tool_names: frozenset[str] = frozenset()
@@ -313,6 +331,8 @@ class SDKPrivateMCPClientAdapter:
         request: MCPRequestDTO,
         binding: MCPRequestBinding,
         preflight_permit: MCPAttemptPreflightPermit,
+        *,
+        attempt_number: int = 1,
     ) -> MCPClientExchange:
         """Send one already-bound request through the real SDK transport.
 
@@ -383,6 +403,10 @@ class SDKPrivateMCPClientAdapter:
             "params": dict(request.params),
         }
         opts: CallOptions = {"request_id": request.protocol_request_id}
+        if self._read_timeout_seconds is not None:
+            # This private path bypasses ClientSession.send_request(), so it
+            # must carry the session timeout into the dispatcher explicitly.
+            opts["timeout"] = self._read_timeout_seconds
 
         # Version-pinned private seam: reuse the SDK's current per-request
         # metadata/header stamping, then supply the locally persisted ID before
@@ -396,6 +420,11 @@ class SDKPrivateMCPClientAdapter:
             )
         except MCPError as error:
             if error.code in {REQUEST_TIMEOUT, CONNECTION_CLOSED}:
+                kind = (
+                    FailureKind.READ_TIMEOUT
+                    if error.code == REQUEST_TIMEOUT
+                    else FailureKind.CONNECTION_LOST
+                )
                 return MCPClientExchange(
                     observation=ProtocolObservation(
                         outcome=ProtocolOutcome.OUTCOME_UNKNOWN,
@@ -404,7 +433,22 @@ class SDKPrivateMCPClientAdapter:
                             binding.application_operation_id
                         ),
                         reason=error.message,
-                    )
+                    ),
+                    failure_evidence=FailureEvidence(
+                        operation_id=binding.application_operation_id,
+                        idempotency_key=(
+                            binding.idempotency_key or "not-applicable"
+                        ),
+                        protocol_request_id=request.protocol_request_id,
+                        attempt_number=attempt_number,
+                        phase=FailurePhase.READ,
+                        kind=kind,
+                        dispatch_certainty=DispatchCertainty.POSSIBLY_SENT,
+                        execution_certainty=(
+                            ExecutionCertainty.POSSIBLY_EXECUTED
+                        ),
+                        evidence_source="mcp-sdk-2.2.0-dispatcher",
+                    ),
                 )
             error_value: dict[str, Any] = {
                 "code": error.code,

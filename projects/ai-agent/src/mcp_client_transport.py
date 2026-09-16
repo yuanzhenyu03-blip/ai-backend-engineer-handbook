@@ -10,6 +10,7 @@ class DispatchCertainty(str, Enum):
 
     PROVEN_NOT_SENT = "PROVEN_NOT_SENT"
     POSSIBLY_SENT = "POSSIBLY_SENT"
+    PROVEN_SENT = "PROVEN_SENT"
 
 
 class MCPTransportFailure(RuntimeError):

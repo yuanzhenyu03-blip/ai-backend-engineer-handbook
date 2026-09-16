@@ -20,6 +20,7 @@ from mcp_protocol_model import (
     ProtocolOutcome,
     validate_read_resource_content,
 )
+from mcp_remote_lifecycle import FailureKind, FailurePhase
 
 
 def request() -> MCPRequestDTO:
@@ -127,6 +128,16 @@ class Day90MCPClientTests(unittest.TestCase):
             "op-report-42",
         )
         self.assertFalse(exchange.observation.durable_transition)
+        assert exchange.failure_evidence is not None
+        self.assertEqual(exchange.failure_evidence.phase, FailurePhase.SEND)
+        self.assertEqual(
+            exchange.failure_evidence.kind,
+            FailureKind.SEND_FAILURE,
+        )
+        self.assertEqual(
+            exchange.failure_evidence.dispatch_certainty,
+            DispatchCertainty.POSSIBLY_SENT,
+        )
 
     def test_only_explicit_not_sent_evidence_is_pre_send_failure(self) -> None:
         transport = FailingTransport(DispatchCertainty.PROVEN_NOT_SENT)
@@ -139,6 +150,11 @@ class Day90MCPClientTests(unittest.TestCase):
         self.assertEqual(
             exchange.observation.outcome,
             ProtocolOutcome.PRE_DISPATCH_ABORTED,
+        )
+        assert exchange.failure_evidence is not None
+        self.assertEqual(
+            exchange.failure_evidence.dispatch_certainty,
+            DispatchCertainty.PROVEN_NOT_SENT,
         )
 
     def test_binding_mismatch_stops_before_transport(self) -> None:

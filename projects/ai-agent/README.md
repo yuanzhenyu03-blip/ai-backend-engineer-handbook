@@ -63,7 +63,13 @@ ai-agent/
 │   ├── mcp_server_adapter.py      # Day91: pinned SDK-private Server Adapter
 │   ├── mcp_auth.py                # Day92: minimized authenticated principal
 │   ├── mcp_authorization.py       # Day92: tenant/capability permits + identity binding
-│   └── mcp_security_adapter.py    # Day92: HTTP/stdin authentication boundary
+│   ├── mcp_security_adapter.py    # Day92: HTTP/stdin authentication boundary
+│   ├── mcp_remote_lifecycle.py    # Day93: failure evidence + deadline/cancellation
+│   ├── mcp_retry_policy.py        # Day93: bounded retry + durable dispatch claim
+│   ├── mcp_reconciliation.py      # Day93: authoritative read-only repair
+│   ├── mcp_remote_session.py      # Day93: generation-scoped correlation
+│   ├── mcp_versioning.py          # Day93: version/capability gates
+│   └── mcp_observability.py       # Day93: safe logs, metrics and traces
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -98,18 +104,19 @@ ai-agent/
 │   ├── test_day91_seed_grader.py # Day91: seed grader controls
 │   ├── test_day92_mcp_authentication.py # Day92: transport/token identity tests
 │   ├── test_day92_mcp_authorization.py # Day92: tenant/grant/permit tests
-│   └── test_day92_mcp_security_integration.py # Day92: composed security paths
-├── evals/                        # Day83–Day92 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day92
-├── evidence/                     # validation records through Day92
+│   ├── test_day92_mcp_security_integration.py # Day92: composed security paths
+│   └── test_day93_*.py           # Day93: lifecycle + controlled HTTP runtime
+├── evals/                        # Day83–Day93 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day93
+├── evidence/                     # validation records through Day93
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day92
+└── docs/                         # designs and classroom records through Day93
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day92 documented; Day92 preserves
-bounded `INTEGRATION_RUNTIME` evidence and `MORE_EVIDENCE_NEEDED` production readiness).
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day93 documented; Day93 adds
+bounded `CONTROLLED_REMOTE_RUNTIME` evidence and preserves `MORE_EVIDENCE_NEEDED` production readiness).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -566,10 +573,36 @@ Evidence: 35 Day92 / 656 combined tests and 16/16 seed cases pass on Python 3.11
 Server/JWKS, authenticated remote HTTP, durable authorization stores, distributed rate limiting, monitoring,
 load/failure drills and `PRODUCTION` are NOT RUN. Readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day93 Remote MCP Lifecycle
+
+Day93 records transport/SDK failure as application-owned evidence before recovery policy sees it. Dispatch
+certainty and execution certainty remain independent. One absolute deadline bounds every phase; timeout and
+post-dispatch cancellation cannot prove non-execution. Proven non-execution may enter bounded retry policy,
+while possible execution enters read-only authoritative reconciliation.
+
+Retry preserves operation/idempotency identity, creates a fresh protocol request ID/attempt number and uses a
+conditional `DISPATCH_STARTED` claim so one worker dispatches. Reconnect correlation and version/capability
+preflight are generation-scoped. Unknown-key JWKS refresh outage fails closed. Structured logs, bounded metrics
+and traces remain diagnostic and never become authority.
+
+See the [design](docs/DAY93_MCP_REMOTE_LIFECYCLE.md),
+[classroom record](docs/day93-mcp-remote-lifecycle-classroom-draft.md),
+[validation](evidence/day93-validation.json) and [Day94 handoff](docs/DAY93_TO_DAY94_HANDOFF.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day93*.py'
+PYTHONPATH=src python3.11 evals/run_day93_seed_eval.py
+PYTHONPATH=src python3.11 examples/day93_mcp_remote_lifecycle.py
+```
+
+Evidence: 62 Day93 / 719 combined tests and 16/16 seed cases pass on Python 3.11.5. Two real-SDK tests used
+an independent loopback Streamable HTTP Server and support `CONTROLLED_REMOTE_RUNTIME`. Production auth,
+deployment, durable distributed stores, distributed controls, telemetry delivery, load/failure drills and
+`PRODUCTION` are NOT RUN. Readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day93 remote timeout, retry, versioning and observability without weakening Day92 security or
-  operation-identity boundaries.
+- Begin Day94 Agent + MCP integration without weakening Day89–Day93 authority and lifecycle boundaries.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
