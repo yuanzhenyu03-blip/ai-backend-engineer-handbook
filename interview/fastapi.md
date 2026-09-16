@@ -2858,3 +2858,43 @@ validation, reconciliation and Committer authority.
 The learner's independent synthesis passed with one correction to the inbound/outbound Adapter direction.
 Related:
 [Day91 lesson](../docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md).
+
+## Day92 — MCP Authentication, Authorization and Tenant Isolation (Phase 7B)
+
+### Beginner: What is the difference between authentication and authorization?
+
+**Strong answer:** Authentication validates the transport-specific credential or trusted launch context and
+creates a minimized principal. Authorization checks current revocation, required scope, tenant membership and
+the exact Tool, Resource or Prompt grant for one operation.
+
+### Intermediate: Why can neither a Resource URI nor MCP capability authorize access?
+
+**Strong answer:** A URI is a requested target and capability negotiation proves only protocol support. The
+application must compare the verified principal with current tenant membership and an exact grant before
+issuing a narrow permit.
+
+### Intermediate: How do HTTP and stdio identity differ?
+
+**Strong answer:** Remote HTTP validates a Bearer token for each request, including signature, issuer,
+audience, time and subject. stdio trusts a controlled Launcher/process context. Request arguments are not
+credentials in either transport.
+
+### Senior: How do you prevent confused-deputy and cross-tenant MCP execution?
+
+**Strong answer:** Keep raw credentials at the Adapter, use a minimized principal, load current revocation and
+membership, require exact scope/grants, bind permits to principal/operation/tenant/capability and give the
+handler only a narrow controlled service. A Server credential cannot expand the caller-bound permit.
+
+### Senior: When is an MCP retry safe?
+
+**Strong answer:** Retry only when evidence proves the request did not cross a possible side-effect boundary,
+and reuse the original operation ID and idempotency key. Timeout after possible execution remains
+`PENDING_RECONCILIATION`; a new identity would bypass duplicate protection.
+
+### Common weak answer
+
+“The JWT is valid and the Client supports Tools, so the handler may execute.”
+
+This omits current authorization, tenant isolation, exact grants, operation identity, capacity and unknown
+outcome handling. Related:
+[Day92 lesson](../docs/fastapi/day92-mcp-authentication-authorization-and-tenant-isolation.md).

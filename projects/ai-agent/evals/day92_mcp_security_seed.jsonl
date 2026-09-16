@@ -1,0 +1,16 @@
+{"case_id":"SECURITY01","case_version":1,"category":"missing_credential","expected_outcome":"MISSING_CREDENTIAL","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY02","case_version":1,"category":"malformed_credential","expected_outcome":"MALFORMED_CREDENTIAL","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY03","case_version":1,"category":"invalid_signature","expected_outcome":"INVALID_SIGNATURE","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY04","case_version":1,"category":"expired","expected_outcome":"EXPIRED","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY05","case_version":1,"category":"not_yet_valid","expected_outcome":"NOT_YET_VALID","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY06","case_version":1,"category":"wrong_issuer","expected_outcome":"WRONG_ISSUER","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY07","case_version":1,"category":"wrong_audience","expected_outcome":"WRONG_AUDIENCE","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY08","case_version":1,"category":"missing_subject","expected_outcome":"MISSING_SUBJECT","expected_principal_built":false,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY09","case_version":1,"category":"insufficient_scope","expected_outcome":"INSUFFICIENT_SCOPE","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY10","case_version":1,"category":"tenant_mismatch","expected_outcome":"TENANT_MEMBERSHIP_MISMATCH","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY11","case_version":1,"category":"prompt_privilege","expected_outcome":"PROMPT_ARGUMENT_PRIVILEGE_ESCALATION","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY12","case_version":1,"category":"resource_cross_tenant","expected_outcome":"TENANT_MEMBERSHIP_MISMATCH","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY13","case_version":1,"category":"revoked","expected_outcome":"PRINCIPAL_REVOKED","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY14","case_version":1,"category":"key_rotation","expected_outcome":"AUTHENTICATED_BOTH_KEYS","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY15","case_version":1,"category":"authorization_unavailable","expected_outcome":"AUTHORIZATION_UNAVAILABLE","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}
+{"case_id":"SECURITY16","case_version":1,"category":"identity_conflict","expected_outcome":"IDENTITY_CONFLICT","expected_principal_built":true,"expected_handler_calls":0,"expected_service_calls":0}

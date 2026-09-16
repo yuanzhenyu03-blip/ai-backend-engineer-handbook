@@ -9,6 +9,27 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day92 — MCP Authentication, Authorization and Tenant Isolation (Phase 7B)
+
+Date: 2026-09-16
+
+Released the 16-section Day92 lesson and evolved `projects/ai-agent/` with transport-specific HTTP/stdin
+authentication, a minimized application principal, deterministic token verification, current revocation/scope/
+tenant/capability authorization, exact permits, operation identity binding and pre-auth edge protection.
+Payload identity, Resource URI, Prompt arguments, signed role claims and MCP capability negotiation cannot
+expand authority. Day91 handlers remain candidate-only and cannot access the durable Committer.
+
+The classroom preserved stdio/HTTP confusion, exact outcome corrections (`NOT_YET_VALID`,
+`INVALID_SIGNATURE`, `MISSING_SUBJECT`), capability-versus-capacity clarification, 403-versus-503 outage
+semantics and the final evidence-driven retry/reconciliation model. Independent learner synthesis passed with
+minor terminology corrections.
+
+Validation: Python 3.11.5; 35 Day92 tests, 656 combined tests, 16/16 Day92 seed, Day88 43/43, Day89 21/21,
+Day90 21/21 and Day91 40/40 regressions, available Day83–Day92 seed suites, deterministic example, compile,
+JSON/JSONL and whitespace checks passed. Evidence is `INTEGRATION_RUNTIME`. Real Authorization Server/JWKS,
+authenticated remote HTTP, durable authorization stores, distributed rate limiting, monitoring, load/failure
+drills and `PRODUCTION` are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day93 is next.
+
 ## Unreleased — Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries (Phase 7B)
 
 Date: 2026-09-14

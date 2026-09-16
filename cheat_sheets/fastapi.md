@@ -2071,3 +2071,32 @@ Outbound: application decision → Server Adapter → MCP result/error
 Evidence: controlled separate-process stdio with `mcp==2.2.0` is `INTEGRATION_RUNTIME`; production readiness
 is `MORE_EVIDENCE_NEEDED`. Related:
 [Day91 lesson](../docs/fastapi/day91-mcp-server-engineering-resources-tools-and-prompts-responsibility-boundaries.md).
+
+## Day92 — MCP Authentication, Authorization and Tenant Isolation
+
+```text
+HTTP identity  = verified Bearer token per request
+stdio identity = trusted Launcher / process context
+
+Authentication = establish minimized principal
+Authorization  = current scope + tenant membership + exact grant
+Tenant URI     = requested target, not membership evidence
+Capability     = protocol support, not permission
+```
+
+- Reject missing/malformed/bad-signature/expired/future/wrong-issuer/wrong-audience/missing-subject tokens
+  before authorization; raw token never enters the principal or handler.
+- Rotation overlap may trust old and new issuer keys; removed or token-supplied keys are not trusted.
+- A signed `role=admin` cannot replace required scope, current membership and exact capability permission.
+- Tool permit binds issuer, subject, operation, idempotency key, tenant and Tool.
+- Resource URI cannot authorize a read; Prompt arguments/rendered text cannot grant Tool/Resource authority.
+- Same operation + same binding = duplicate; different binding = identity conflict; both execute zero times.
+- 401 = invalid identity; 403 = explicit permission denial; 503 = authorization dependency unavailable.
+- Cheap body/source limits may run pre-auth; principal/tenant quota and app capacity run post-auth.
+- Proven pre-dispatch failure may retry the original identity. Possible execution requires
+  `PENDING_RECONCILIATION`.
+- Handler returns a candidate only; correlation, observation, output validation and Committer remain later.
+
+Evidence: 35 Day92 / 656 combined tests, 16/16 Day92 seed, bounded `INTEGRATION_RUNTIME`; production readiness
+`MORE_EVIDENCE_NEEDED`. Related:
+[Day92 lesson](../docs/fastapi/day92-mcp-authentication-authorization-and-tenant-isolation.md).
