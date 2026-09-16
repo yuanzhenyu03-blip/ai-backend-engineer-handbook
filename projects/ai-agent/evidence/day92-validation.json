@@ -1,0 +1,101 @@
+{
+  "day": 92,
+  "title": "MCP Authentication, Authorization and Tenant Isolation",
+  "record_type": "classroom_validation_artifact",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-16T00:00:00+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "remote_main_commit": "dc20c2192945e075d37c8c4d9de3363dd3dbcf6b",
+    "remote_day91_commit": "b845937a3c0aa6bf2d475b6873f6bcb6c9d7b999",
+    "classroom_baseline_commit": "dc20c2192945e075d37c8c4d9de3363dd3dbcf6b",
+    "workspace": "isolated_clean_worktree_at_start"
+  },
+  "protocol_and_sdk": {
+    "observed_specification_version": "2026-07-28",
+    "python_sdk": "mcp==2.2.0",
+    "http_identity_source": "per-request verified bearer credential",
+    "stdio_identity_source": "trusted launcher and process context",
+    "client_server_sdk_boundary": "inherited separate local stdio processes from Day91",
+    "real_authorization_server": "NOT_RUN",
+    "real_remote_http_auth_transport": "NOT_RUN"
+  },
+  "validation": {
+    "python_version": "3.11.5",
+    "python_3_12": "NOT_AVAILABLE",
+    "day92_security_tests": {"passed": 35, "failed": 0},
+    "day91_dependency_free_and_grader_tests": {"passed": 25, "failed": 0},
+    "day91_sdk_integration_tests": {"passed": 15, "failed": 0},
+    "focused_day91_total": {"passed": 40, "failed": 0},
+    "day90_dependency_free_and_grader_tests": {"passed": 11, "failed": 0},
+    "day90_sdk_integration_tests": {"passed": 10, "failed": 0},
+    "focused_day90_total": {"passed": 21, "failed": 0},
+    "day89_regression": {"passed": 21, "failed": 0},
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "cumulative_split_execution": {
+      "system_python_without_sdk_integration_modules": {"passed": 631, "failed": 0},
+      "sdk_venv_integration_modules": {"passed": 25, "failed": 0},
+      "combined_repository_total": {"passed": 656, "failed": 0},
+      "reason_for_split": "The pinned SDK venv contains mcp==2.2.0 while the repository runtime owns the dependency-free suite."
+    },
+    "available_seed_suites": {
+      "day83": {"passed": 26, "failed": 0},
+      "day84": {"passed": 16, "failed": 0},
+      "day85": {"passed": 18, "failed": 0},
+      "day86": {"passed": 25, "failed": 0},
+      "day89": {"passed": 16, "failed": 0},
+      "day90": {"passed": 13, "failed": 0},
+      "day91": {"passed": 14, "failed": 0},
+      "day92": {"passed": 16, "failed": 0, "case_version": 1}
+    },
+    "day87_and_day88_seed_runners": "NOT_PRESENT_IN_BASELINE",
+    "deterministic_example": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "compileall": "PASS",
+    "git_diff_check": "PASS",
+    "lint_typecheck": "NOT_CONFIGURED"
+  },
+  "source_hashes": {
+    "projects/ai-agent/src/mcp_auth.py": "09709b70711f3d03274bc30d3786188985308d7707ee298f682b894b02dd50ec",
+    "projects/ai-agent/src/mcp_authorization.py": "f5241b915dcd5d7974ab0029e6388b8b9e50868d6dcd9a09dcdb60f82f331821",
+    "projects/ai-agent/src/mcp_security_adapter.py": "703d823d0a3d51180dbe7fad57a29ded011d8d56e34a882de5ca67fa5f7d9b85",
+    "projects/ai-agent/tests/test_day92_mcp_authentication.py": "4e58e8ed019ee5fbbdc4ac6ee3f9f775b294ea4c3b2cfeef3c0b2e647f1d2258",
+    "projects/ai-agent/tests/test_day92_mcp_authorization.py": "cb56bfe07fc83a4a9bc3ef21293ef41a31e54ed06c675dfdc4392f993c4ddbaa",
+    "projects/ai-agent/tests/test_day92_mcp_security_integration.py": "c3e066af964ce6517df3b84d00bad300cec7b341e3f4207463a48042baf79f51",
+    "projects/ai-agent/evals/day92_mcp_security_seed.jsonl": "6c636cdaf1c2843a08fe13bc69cd831483ae413c5f58644c2fa61be1de3729cf",
+    "projects/ai-agent/evals/run_day92_seed_eval.py": "3b2ae232b9f965c98ffa0dee92e4e1c7c92eba2107fc052bc028eb25e5408f55",
+    "projects/ai-agent/examples/day92_mcp_security_boundary.py": "505e026ad136e0020dc251f03f97c8a401f4a4faf03f522d12cc6ceb48796f55",
+    "projects/ai-agent/docs/DAY92_MCP_SECURITY_ENGINEERING.md": "22ad7f4e145676a7465e71baad0118d421e9ff36aead6ce4e8e3e86a52ccb7aa",
+    "projects/ai-agent/docs/DAY92_TO_DAY93_HANDOFF.md": "8f6c80e7897a496f42e1c37752d41c31291a3cd9341c605b0371eeeaaee569bf"
+  },
+  "controlled_effect_counters": {
+    "production_credentials": 0,
+    "production_tool_calls": 0,
+    "remote_transport_calls": 0,
+    "model_provider_calls": 0,
+    "durable_business_transitions": 0
+  },
+  "implementation_findings": [
+    "HTTP and stdio require different trusted identity sources; stdio request arguments are not credentials.",
+    "A signed claim remains input to explicit application policy and is not automatic Tool, Resource or Prompt authority.",
+    "Pre-dispatch failures may retry with the original operation identity; possible post-dispatch execution requires reconciliation.",
+    "The deterministic HMAC verifier is a classroom test seam and not a production JWT/JWKS implementation."
+  ],
+  "not_run": [
+    "real Authorization Server and production JWKS integration",
+    "remote Streamable HTTP deployment with authentication middleware",
+    "production OAuth Client Credentials deployment",
+    "durable revocation, authorization and operation-binding stores",
+    "distributed rate limiting and tenant quotas",
+    "production Tools or business side effects",
+    "monitoring and alert delivery",
+    "load and production backpressure tests",
+    "production failure and key-rotation drills",
+    "model Provider integration",
+    "production"
+  ],
+  "execution_evidence": "INTEGRATION_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "independent_learner_synthesis": "ASSESSED_PASS_WITH_MINOR_TERMINOLOGY_CORRECTIONS",
+  "course_completion_gate": "PASSED"
+}

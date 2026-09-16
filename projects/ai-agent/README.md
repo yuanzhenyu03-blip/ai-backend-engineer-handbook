@@ -60,7 +60,10 @@ ai-agent/
 │   ├── mcp_server_handlers.py     # Day91: bounded Tool/Resource/Prompt handlers
 │   ├── mcp_server_inventory.py    # Day91: signed revision-bound pagination
 │   ├── mcp_server_lifecycle.py    # Day91: capacity, drain and reconciliation
-│   └── mcp_server_adapter.py      # Day91: pinned SDK-private Server Adapter
+│   ├── mcp_server_adapter.py      # Day91: pinned SDK-private Server Adapter
+│   ├── mcp_auth.py                # Day92: minimized authenticated principal
+│   ├── mcp_authorization.py       # Day92: tenant/capability permits + identity binding
+│   └── mcp_security_adapter.py    # Day92: HTTP/stdin authentication boundary
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -92,18 +95,21 @@ ai-agent/
 │   ├── test_day91_mcp_server_inventory.py # Day91: cursor and revision tests
 │   ├── test_day91_mcp_server_lifecycle.py # Day91: capacity/drain tests
 │   ├── test_day91_mcp_server_sdk_integration.py # Day91: separate-process SDK integration
-│   └── test_day91_seed_grader.py # Day91: seed grader controls
-├── evals/                        # Day83–Day91 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day91
-├── evidence/                     # validation records through Day91
+│   ├── test_day91_seed_grader.py # Day91: seed grader controls
+│   ├── test_day92_mcp_authentication.py # Day92: transport/token identity tests
+│   ├── test_day92_mcp_authorization.py # Day92: tenant/grant/permit tests
+│   └── test_day92_mcp_security_integration.py # Day92: composed security paths
+├── evals/                        # Day83–Day92 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day92
+├── evidence/                     # validation records through Day92
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day91
+└── docs/                         # designs and classroom records through Day92
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day91 documented; Day91 preserves
-bounded `INTEGRATION_RUNTIME` evidence).
+Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day92 documented; Day92 preserves
+bounded `INTEGRATION_RUNTIME` evidence and `MORE_EVIDENCE_NEEDED` production readiness).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -533,10 +539,37 @@ separate-process stdio boundary is `INTEGRATION_RUNTIME`; real auth, production 
 deployment, monitoring, load/backpressure tests, failure drills, Provider integration and `PRODUCTION` are
 NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
+## Day92 MCP Authentication, Authorization and Tenant Isolation
+
+Day92 places a transport-aware security boundary before the Day91 Server. HTTP validates a Bearer credential
+per request; stdio receives identity only from a trusted Launcher/process context. Application code receives a
+minimized principal with no raw credential. Current revocation, required scope, tenant membership and exact
+Tool/Resource/Prompt grants produce narrow permits.
+
+Payload identity, URI tenant, Prompt arguments, signed role text and MCP capability negotiation cannot expand
+authority. Operation bindings distinguish duplicate from identity conflict. Cheap source/body protection may
+run before authentication; principal/tenant quota and application capacity remain after authorization.
+Pre-dispatch failure may retry the original identity, while possible service execution remains
+`PENDING_RECONCILIATION`.
+
+See the [design](docs/DAY92_MCP_SECURITY_ENGINEERING.md),
+[classroom record](docs/day92-mcp-security-classroom-draft.md),
+[validation](evidence/day92-validation.json) and [Day93 handoff](docs/DAY92_TO_DAY93_HANDOFF.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day92*.py'
+PYTHONPATH=src python3.11 evals/run_day92_seed_eval.py
+PYTHONPATH=src python3.11 examples/day92_mcp_security_boundary.py
+```
+
+Evidence: 35 Day92 / 656 combined tests and 16/16 seed cases pass on Python 3.11.5. Real Authorization
+Server/JWKS, authenticated remote HTTP, durable authorization stores, distributed rate limiting, monitoring,
+load/failure drills and `PRODUCTION` are NOT RUN. Readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day92 authentication, authorization and tenant-isolation evidence without moving authority into MCP
-  handlers.
+- Begin Day93 remote timeout, retry, versioning and observability without weakening Day92 security or
+  operation-identity boundaries.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

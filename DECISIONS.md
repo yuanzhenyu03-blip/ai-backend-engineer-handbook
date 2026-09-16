@@ -487,8 +487,6 @@ Python 3.11.5 and `mcp==2.2.0` executed against a controlled separate-process st
 production Tools, remote transport, monitoring, load/backpressure and production failure drills were NOT RUN.
 Production readiness remains `MORE_EVIDENCE_NEEDED`.
 
----
-
 ## Decision 012 — Keep MCP Server Handlers Candidate-only Behind Application-owned Admission
 
 Status: Accepted for Day91 course scope
@@ -524,3 +522,46 @@ Python 3.11.5 and `mcp==2.2.0` ran a real SDK Client and Server in separate loca
 Production auth, production Tools, durable idempotency/reconciliation stores, remote deployment, monitoring,
 load tests and failure drills were NOT RUN. Evidence is `INTEGRATION_RUNTIME`; readiness remains
 `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 013 — Establish MCP Identity Before Current Application Authorization
+
+Status: Accepted for Day92 course scope
+
+Date: 2026-09-16
+
+### Context
+
+Day91 exposes bounded Tool, Resource and Prompt handlers, but protocol capability, request payload, Resource
+URI and Prompt text cannot establish caller identity or tenant authority. HTTP and stdio also have different
+trust boundaries: remote HTTP carries a per-request credential, while stdio is normally created by a trusted
+Launcher and process context.
+
+### Decision
+
+Keep raw HTTP credentials and transport-private auth details inside `mcp_security_adapter.py`. Validate the
+trusted signing key, signature, issuer, audience, expiration/not-before and subject before constructing a
+minimized application-owned principal. For stdio, accept identity only from the trusted Launcher context.
+
+Use current application facts for revocation, required scope, tenant membership and exact Tool/Resource/Prompt
+grants. Issue narrow principal-bound permits before Day91 capacity and handlers. Request payload, URI, Prompt,
+signed role text and MCP capability negotiation cannot expand authority. Bind authorized Tool operations to
+issuer, subject, operation ID, idempotency key, tenant and Tool.
+
+### Consequences
+
+- Missing/invalid identity stops before authorization; explicit denial stops before capacity/handler/service.
+- Cross-tenant and nonexistent Resource denial share a safe external message.
+- Cheap identity-independent edge limits may run before authentication; application quota/capacity does not.
+- Pre-dispatch failure may retry the original operation identity; possible execution requires reconciliation.
+- Day91 handlers remain candidate-only and cannot receive raw credentials or a durable Committer.
+- Day93 must add remote lifecycle and observability without weakening these boundaries.
+
+### Validation honesty
+
+Python 3.11.5 ran 35 focused Day92 tests, 16/16 seed cases and 656 combined repository tests. Day91's real
+separate-process stdio SDK integration remains the transport evidence; Day92 adds deterministic and composed
+local security runtime evidence. Real Authorization Server/JWKS, authenticated remote HTTP, durable stores,
+distributed rate limiting, monitoring, load tests and failure drills were NOT RUN. Evidence remains
+`INTEGRATION_RUNTIME`; production readiness remains `MORE_EVIDENCE_NEEDED`.

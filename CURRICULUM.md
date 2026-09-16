@@ -1725,7 +1725,7 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress at recorded classroom scope (Day79–Day91 Completed; Day92 Planned). Guided or
+In Progress at recorded classroom scope (Day79–Day92 Completed; Day93 Planned). Guided or
 independent-assessment limitations remain recorded in the individual lesson entries.
 
 Objective:
@@ -1950,6 +1950,16 @@ Per-day topics:
   Scope: MCP authentication, authorization, tenant isolation.
   Connection: Day91 exposed server capabilities; Day92 adds MCP auth/authorization/tenant isolation (reusing
   Day51/Day52); Day93 hardens the remote lifecycle.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day92-mcp-authentication-authorization-and-tenant-isolation.md`. Artifact:
+  `projects/ai-agent/` gained HTTP per-request Bearer and stdio trusted-Launcher identity boundaries, a
+  minimized principal, deterministic token validation, current revocation/scope/tenant/capability decisions,
+  exact permits, operation identity binding, enumeration resistance and pre-auth edge protection. Evidence:
+  Python 3.11.5, 35 Day92 / 656 combined tests, 16/16 Day92 seed, Day88–Day91 regressions, available
+  Day83–Day92 seeds and deterministic example PASS. Execution evidence is `INTEGRATION_RUNTIME`; real
+  Authorization Server/JWKS, authenticated remote HTTP, durable authorization stores, distributed rate
+  limiting, monitoring, load/failure drills and production are NOT RUN; readiness `MORE_EVIDENCE_NEEDED`.
+  Independent learner synthesis passed with minor terminology corrections. Next: Day93.
 - Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability.
   Scope: remote MCP lifecycle — timeout, retry, versioning, observability.
   Connection: Day92 secured MCP; Day93 hardens the remote lifecycle (timeout/retry/versioning/observability);
