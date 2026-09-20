@@ -69,6 +69,7 @@ class RetryAttemptPlan:
     protocol_request_id: str | int
     attempt_number: int
     delay_seconds: float
+    transport_generation: int | None = None
 
 
 class RetryDispatchDecisionKind(str, Enum):
@@ -135,8 +136,10 @@ def admit_retry_dispatch(
 
 
 class RetryDispatchRecordState(str, Enum):
+    READY_FOR_DISPATCH = "READY_FOR_DISPATCH"
     READY_FOR_RETRY = "READY_FOR_RETRY"
     DISPATCH_STARTED = "DISPATCH_STARTED"
+    COMPLETED = "COMPLETED"
 
 
 @dataclass(frozen=True)
@@ -146,7 +149,13 @@ class RetryDispatchRecord:
     state: RetryDispatchRecordState
     version: int
     attempt_number: int
-    protocol_request_id: str | int
+    protocol_request_id: str | int | None
+    tenant_id: str | None = None
+    resource_id: str | None = None
+    tool_name: str | None = None
+    fence_token: int = 0
+    transport_generation: int | None = None
+    external_object_id: str | None = None
 
 
 class RetryDispatchClaimOutcome(str, Enum):
@@ -155,7 +164,9 @@ class RetryDispatchClaimOutcome(str, Enum):
     IDENTITY_CONFLICT = "IDENTITY_CONFLICT"
     STATE_CONFLICT = "STATE_CONFLICT"
     VERSION_CONFLICT = "VERSION_CONFLICT"
+    FENCE_CONFLICT = "FENCE_CONFLICT"
     ATTEMPT_SEQUENCE_CONFLICT = "ATTEMPT_SEQUENCE_CONFLICT"
+    TRANSPORT_GENERATION_REQUIRED = "TRANSPORT_GENERATION_REQUIRED"
 
 
 @dataclass(frozen=True)
@@ -177,12 +188,28 @@ class InMemoryRetryDispatchStore:
         self._records: dict[str, RetryDispatchRecord] = {}
         self._lock = Lock()
 
-    def add_retryable(self, evidence: FailureEvidence) -> None:
+    def add_retryable(
+        self,
+        evidence: FailureEvidence,
+        *,
+        tenant_id: str | None = None,
+        resource_id: str | None = None,
+        tool_name: str | None = None,
+        version: int = 1,
+        fence_token: int = 0,
+    ) -> None:
         if (
             evidence.execution_certainty
             is not ExecutionCertainty.PROVEN_NOT_EXECUTED
         ):
             raise ValueError("only proven-not-executed attempts can retry")
+        supplied_binding = (tenant_id, resource_id, tool_name)
+        if any(value is not None for value in supplied_binding) and not all(
+            value for value in supplied_binding
+        ):
+            raise ValueError("retryable operation binding must be complete")
+        if version < 0 or fence_token < 0:
+            raise ValueError("retryable version and fence must be non-negative")
         with self._lock:
             if evidence.operation_id in self._records:
                 raise ValueError("operation is already registered")
@@ -190,9 +217,49 @@ class InMemoryRetryDispatchStore:
                 evidence.operation_id,
                 evidence.idempotency_key,
                 RetryDispatchRecordState.READY_FOR_RETRY,
-                version=1,
+                version=version,
                 attempt_number=evidence.attempt_number,
                 protocol_request_id=evidence.protocol_request_id,
+                tenant_id=tenant_id,
+                resource_id=resource_id,
+                tool_name=tool_name,
+                fence_token=fence_token,
+            )
+
+    def add_ready_operation(
+        self,
+        *,
+        operation_id: str,
+        idempotency_key: str,
+        tenant_id: str,
+        resource_id: str,
+        tool_name: str,
+        version: int,
+        fence_token: int,
+        previous_attempt_number: int = 0,
+    ) -> None:
+        """Register an initial Day94 operation without duplicating claim logic."""
+
+        if not all(
+            (operation_id, idempotency_key, tenant_id, resource_id, tool_name)
+        ):
+            raise ValueError("ready operation identity must be complete")
+        if version < 0 or fence_token < 0 or previous_attempt_number < 0:
+            raise ValueError("ready operation counters must be non-negative")
+        with self._lock:
+            if operation_id in self._records:
+                raise ValueError("operation is already registered")
+            self._records[operation_id] = RetryDispatchRecord(
+                operation_id=operation_id,
+                idempotency_key=idempotency_key,
+                state=RetryDispatchRecordState.READY_FOR_DISPATCH,
+                version=version,
+                attempt_number=previous_attempt_number,
+                protocol_request_id=None,
+                tenant_id=tenant_id,
+                resource_id=resource_id,
+                tool_name=tool_name,
+                fence_token=fence_token,
             )
 
     def read(self, operation_id: str) -> RetryDispatchRecord | None:
@@ -204,6 +271,14 @@ class InMemoryRetryDispatchStore:
         dispatch: RetryDispatchDecision,
         *,
         expected_version: int,
+        expected_state: RetryDispatchRecordState = (
+            RetryDispatchRecordState.READY_FOR_RETRY
+        ),
+        expected_fence: int | None = None,
+        new_fence: int | None = None,
+        tenant_id: str | None = None,
+        resource_id: str | None = None,
+        tool_name: str | None = None,
     ) -> RetryDispatchClaim:
         """Persist DISPATCH_STARTED before the winner may call transport."""
 
@@ -215,19 +290,37 @@ class InMemoryRetryDispatchStore:
             if (
                 current is None
                 or current.idempotency_key != attempt.idempotency_key
+                or (tenant_id is not None and current.tenant_id != tenant_id)
+                or (resource_id is not None and current.resource_id != resource_id)
+                or (tool_name is not None and current.tool_name != tool_name)
             ):
                 return RetryDispatchClaim(
                     RetryDispatchClaimOutcome.IDENTITY_CONFLICT
                 )
-            if current.state is not RetryDispatchRecordState.READY_FOR_RETRY:
+            if current.state is not expected_state:
                 return RetryDispatchClaim(RetryDispatchClaimOutcome.STATE_CONFLICT)
             if current.version != expected_version:
                 return RetryDispatchClaim(
                     RetryDispatchClaimOutcome.VERSION_CONFLICT
                 )
+            if expected_fence is not None and current.fence_token != expected_fence:
+                return RetryDispatchClaim(RetryDispatchClaimOutcome.FENCE_CONFLICT)
+            if (
+                new_fence is not None
+                and expected_fence is not None
+                and new_fence <= expected_fence
+            ):
+                return RetryDispatchClaim(RetryDispatchClaimOutcome.FENCE_CONFLICT)
             if attempt.attempt_number != current.attempt_number + 1:
                 return RetryDispatchClaim(
                     RetryDispatchClaimOutcome.ATTEMPT_SEQUENCE_CONFLICT
+                )
+            if (
+                current.tenant_id is not None
+                and attempt.transport_generation is None
+            ):
+                return RetryDispatchClaim(
+                    RetryDispatchClaimOutcome.TRANSPORT_GENERATION_REQUIRED
                 )
             updated = replace(
                 current,
@@ -235,6 +328,10 @@ class InMemoryRetryDispatchStore:
                 version=current.version + 1,
                 attempt_number=attempt.attempt_number,
                 protocol_request_id=attempt.protocol_request_id,
+                fence_token=(
+                    current.fence_token if new_fence is None else new_fence
+                ),
+                transport_generation=attempt.transport_generation,
             )
             self._records[attempt.operation_id] = updated
             return RetryDispatchClaim(
@@ -242,6 +339,49 @@ class InMemoryRetryDispatchStore:
                 updated,
                 durable_transition=True,
             )
+
+    def compare_and_set_completed(
+        self,
+        *,
+        operation_id: str,
+        idempotency_key: str,
+        tenant_id: str,
+        resource_id: str,
+        tool_name: str,
+        attempt_number: int,
+        protocol_request_id: str | int,
+        transport_generation: int,
+        expected_state: RetryDispatchRecordState,
+        expected_version: int,
+        expected_fence: int,
+        external_object_id: str,
+    ) -> RetryDispatchRecord | None:
+        """Atomically turn one exact dispatched attempt into durable success."""
+
+        with self._lock:
+            current = self._records.get(operation_id)
+            if (
+                current is None
+                or current.idempotency_key != idempotency_key
+                or current.tenant_id != tenant_id
+                or current.resource_id != resource_id
+                or current.tool_name != tool_name
+                or current.attempt_number != attempt_number
+                or current.protocol_request_id != protocol_request_id
+                or current.transport_generation != transport_generation
+                or current.state is not expected_state
+                or current.version != expected_version
+                or current.fence_token != expected_fence
+            ):
+                return None
+            updated = replace(
+                current,
+                state=RetryDispatchRecordState.COMPLETED,
+                version=current.version + 1,
+                external_object_id=external_object_id,
+            )
+            self._records[operation_id] = updated
+            return updated
 
 
 def recover_abandoned_dispatch(
@@ -269,6 +409,7 @@ def plan_retry_attempt(
     decision: RetryDecision,
     *,
     new_protocol_request_id: str | int,
+    transport_generation: int | None = None,
 ) -> RetryAttemptPlan:
     """Bind a policy-approved retry to a fresh protocol request identity."""
 
@@ -292,6 +433,7 @@ def plan_retry_attempt(
         protocol_request_id=new_protocol_request_id,
         attempt_number=decision.next_attempt_number,
         delay_seconds=decision.delay_seconds,
+        transport_generation=transport_generation,
     )
 
 

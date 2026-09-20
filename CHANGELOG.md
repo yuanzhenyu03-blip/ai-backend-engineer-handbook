@@ -9,6 +9,31 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day94 — Agent + MCP Integration Capstone and English Interview (Phase 7B)
+
+Date: 2026-09-20
+
+Released the 16-section Day94 lesson and completed Phase 7B at guided classroom scope. The continuing
+`projects/ai-agent/` Artifact now composes Framework proposal translation, application Tool governance,
+stable operation identity, separate human approval/current authorization, exact permits, generation-scoped
+preflight, atomic dispatch claims, real MCP transport, candidate correlation/protocol/output validation, the
+sole Committer, restart-aware journals, read-only reconciliation and operator evidence. No second operation or
+retry model was introduced.
+
+The real `mcp==2.2.0` Client and independent loopback Streamable HTTP Server exercised verified success and a
+read timeout after Tool entry. A separate dispatch process was terminated after persisting `DISPATCH_STARTED`
+and entering the Tool; a new recovery process read the journal and queried authority without replay. The
+Phase 7B English Interview and independently authored final synthesis passed with corrections to Committer,
+Adapter, authoritative-success, restart and eventual-consistency terminology.
+
+Validation: Python 3.11.5; 38 focused dependency-free tests, one seed grader, three SDK/restart integration
+tests; 730 dependency-free plus 31 integration tests (761 total); 16/16 Day94 seed; Day88 43/43, Day89 21/21,
+Day90 22/22, Day91 40/40, Day92 35/35 and Day93 62/62 regressions; all available Day83–Day94 seeds;
+deterministic example, compile, JSON/JSONL, links, whitespace and credential checks passed. Evidence is
+`RESTART_RECOVERY_RUNTIME`. Production identity/deployment, distributed stores/controls, telemetry delivery,
+load/failure drills, production Tools/data/Provider and `PRODUCTION` are NOT RUN; readiness is
+`MORE_EVIDENCE_NEEDED`. Day95 is next.
+
 ## Unreleased — Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability (Phase 7B)
 
 Date: 2026-09-16

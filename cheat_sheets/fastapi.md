@@ -2149,3 +2149,77 @@ parent deadline
 Evidence: 62 Day93 / 719 combined tests, 16/16 Day93 seed, independent loopback Streamable HTTP with
 `mcp==2.2.0`; `CONTROLLED_REMOTE_RUNTIME`, not production. Related:
 [Day93 lesson](../docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md).
+
+## Day94 — Agent + MCP Integration Capstone
+
+```text
+proposal ≠ authorization ≠ execution ≠ durable success
+
+Tool executes the action
+Committer establishes the durable business fact
+```
+
+End-to-end order:
+
+```text
+model/framework proposal
+→ Tool governance
+→ stable operation identity
+→ human approval + authentication/current authorization + exact permit
+→ deadline/version/capability/capacity/circuit preflight
+→ atomic DISPATCH_STARTED claim
+→ MCP Client Adapter → transport → Server Adapter
+→ candidate-only handler → controlled Tool → candidate result
+→ current attempt/generation correlation
+→ ProtocolObservation → protocol validation → output validation
+→ transition proposal → sole Committer
+→ VerifiedAgentObservation
+```
+
+Identity:
+
+```text
+stable  = operation_id + idempotency_key + tenant_id + resource_id + tool_name
+fresh   = attempt_number + protocol_request_id + current transport_generation
+mutable = state + version + fence
+```
+
+Recovery:
+
+```text
+DISPATCH_STARTED + no trusted result
+→ PENDING_RECONCILIATION
+→ Recovery Coordinator
+→ read-only authoritative query
+   SUCCEEDED    → bind/validate → Committer
+   FAILED       → durable failure + evidence
+   NOT_EXECUTED → Committer first → independent retry policy
+   NOT_FOUND    → remain pending; bounded re-query
+   UNKNOWN      → remain pending; re-query/alert
+```
+
+- Approval cannot replace authentication or current authorization.
+- Preflight does not dispatch; only the atomic claim winner may call transport.
+- A stale request/generation stops at correlation before output validation.
+- Handler, Adapter, Agent, retry policy and recovery scheduler receive no Committer authority.
+- Reconciliation never replays the original Tool.
+- `NOT_FOUND` may reflect eventual consistency; it is not `PROVEN_NOT_EXECUTED`.
+- Agent success exists only after `VerifiedAgentObservation` is constructed from a durable commit.
+- Logs, bounded metrics and traces diagnose; they never authorize or establish business truth.
+- Real SDK + independent loopback + separate restart process = `RESTART_RECOVERY_RUNTIME`, not production.
+
+Production gap checklist:
+
+```text
+production OAuth/OIDC + JWKS
+authenticated production MCP deployment
+distributed durable operation/retry/reconciliation store
+distributed capacity/rate limit/circuit controls
+production telemetry + alert delivery
+load/soak/backpressure + network/process/deployment failure drills
+SLOs/runbooks/rollback/incident response
+```
+
+Evidence: 730 dependency-free + 31 real-SDK/restart integration = 761 passed; Day94 seed 16/16;
+`MORE_EVIDENCE_NEEDED`. Related:
+[Day94 lesson](../docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md).

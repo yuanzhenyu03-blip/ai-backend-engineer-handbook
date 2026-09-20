@@ -312,6 +312,9 @@ Deliverables:
 
 # Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
+Status: ✅ Complete at guided classroom scope. Day94 reached bounded `RESTART_RECOVERY_RUNTIME`; production
+readiness remains `MORE_EVIDENCE_NEEDED`.
+
 Objective:
 Build a framework-agnostic Agent Runtime (loop, tools/permissions, state machine, budgets, durable jobs,
 human approval, memory vs business-state, multi-agent, security), then run a Framework / Job-Market Refresh,
@@ -336,13 +339,13 @@ not the business model. Do not pre-lock LangGraph.
 | Day91 | MCP Server Engineering: Resources, Tools and Prompts Responsibility Boundaries | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 40 focused / 621 cumulative tests; controlled separate-process stdio integration; 14/14 seed; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day92 | MCP Authentication, Authorization and Tenant Isolation | ✅ Completed (guided classroom scope; 35 focused / 656 combined tests; 16/16 seed; HTTP/stdin identity + tenant-bound permits; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day93 | Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability | ✅ Completed (guided classroom scope; `mcp==2.2.0`; 62 focused / 719 combined tests; 16/16 seed; independent-process loopback Streamable HTTP; evidence CONTROLLED_REMOTE_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
-| Day94 | Agent + MCP Integration Capstone and English Interview | Planned |
+| Day94 | Agent + MCP Integration Capstone and English Interview | ✅ Completed (guided classroom scope; 38 focused dependency-free + 1 grader + 3 SDK/restart integration tests; 761 total; 16/16 seed; evidence RESTART_RECOVERY_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 
 Deliverables:
 
 - A framework-agnostic Agent Runtime + a chosen framework behind a replaceable adapter + MCP client/server
-  with auth, tenant isolation, and a hardened remote lifecycle. Framework / Job-Market Refresh at Day87;
-  framework selection at Day88.
+  with auth, tenant isolation and a hardened remote lifecycle, composed through a runnable restart-recovery
+  capstone. Framework / Job-Market Refresh at Day87; framework selection at Day88; phase acceptance at Day94.
 
 ---
 

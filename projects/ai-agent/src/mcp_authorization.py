@@ -43,6 +43,7 @@ class ToolAuthorizationRequest:
     idempotency_key: str
     requested_tenant_id: str
     tool_name: str
+    resource_id: str | None = None
 
     def __post_init__(self) -> None:
         if not self.application_operation_id:
@@ -53,6 +54,8 @@ class ToolAuthorizationRequest:
             raise ValueError("authorization requires a requested tenant")
         if not self.tool_name:
             raise ValueError("authorization requires a Tool name")
+        if self.resource_id is not None and not self.resource_id:
+            raise ValueError("resource_id must be non-empty when provided")
 
 
 @dataclass(frozen=True)
@@ -65,6 +68,7 @@ class ToolAuthorizationPermit:
     idempotency_key: str
     tenant_id: str
     tool_name: str
+    resource_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -197,6 +201,7 @@ class OperationAuthorizationBinding:
     idempotency_key: str
     tenant_id: str
     tool_name: str
+    resource_id: str | None = None
 
 
 class OperationAuthorizationBindingPort(Protocol):
@@ -289,6 +294,7 @@ class ApplicationAuthorizationService:
             idempotency_key=request.idempotency_key,
             tenant_id=request.requested_tenant_id,
             tool_name=request.tool_name,
+            resource_id=request.resource_id,
         )
         binding_outcome = self.bindings.bind(binding)
         if binding_outcome is OperationBindingOutcome.DUPLICATE:
@@ -306,6 +312,7 @@ class ApplicationAuthorizationService:
                 idempotency_key=request.idempotency_key,
                 tenant_id=request.requested_tenant_id,
                 tool_name=request.tool_name,
+                resource_id=request.resource_id,
             ),
         )
 

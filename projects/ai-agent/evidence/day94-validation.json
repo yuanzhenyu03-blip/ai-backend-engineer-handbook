@@ -1,0 +1,169 @@
+{
+  "day": 94,
+  "title": "Agent + MCP Integration Capstone and English Interview",
+  "record_type": "local_uncommitted_classroom_validation_artifact",
+  "formal_repository_published": false,
+  "recorded_at": "2026-09-20T00:00:00+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "remote_main_commit": "67bd43e187e076292b0163d4ad07ca9cc3fc125e",
+    "remote_day93_commit": "c54cf654d24761448cf559b664786ae638bcfb3e",
+    "required_day93_merge_commit_present": true,
+    "classroom_baseline_ref": "origin/main",
+    "classroom_baseline_commit": "67bd43e187e076292b0163d4ad07ca9cc3fc125e",
+    "classroom_workdir": "/Users/yuanzhenyu/Documents/AI backend for codex/day94-classroom-67bd43e",
+    "workspace": "isolated_clean_clone_at_start",
+    "original_dirty_workspace_modified": false
+  },
+  "protocol_framework_and_sdk": {
+    "observed_mcp_specification_version": "2026-07-28",
+    "observed_mcp_schema_version": "2026-07-28",
+    "python_sdk": "mcp==2.2.0",
+    "framework_current_observed": "pydantic-ai==2.43.0",
+    "framework_adapter_baseline": "pydantic-ai==2.41.0",
+    "framework_adapter_compatibility": "PASS_CONTROLLED_ADAPTER_CONTRACT",
+    "remote_transport": "Streamable HTTP",
+    "controlled_remote_boundary": "independent_loopback_process",
+    "restart_boundary": "separate_dispatch_and_recovery_processes",
+    "sdk_or_framework_types_cross_application_boundary": false,
+    "model_provider_calls_required": false,
+    "read_timeout_semantics": "caller_stopped_waiting_not_proof_of_non_execution"
+  },
+  "validation": {
+    "python_version": "3.11.5",
+    "python_3_12": "NOT_AVAILABLE_IN_EXECUTED_ENVIRONMENT",
+    "day94_focused_dependency_free_tests": {
+      "passed": 38,
+      "failed": 0
+    },
+    "day94_seed_grader_tests": {
+      "passed": 1,
+      "failed": 0
+    },
+    "day94_real_sdk_and_restart_tests": {
+      "passed": 3,
+      "failed": 0,
+      "real_sdk_streamable_http": 2,
+      "independent_restart_recovery": 1
+    },
+    "day93_regression": {"passed": 62, "failed": 0},
+    "day92_regression": {"passed": 35, "failed": 0},
+    "day91_regression_with_seed_grader": {"passed": 40, "failed": 0},
+    "day90_regression_with_seed_grader": {"passed": 22, "failed": 0},
+    "day89_regression_with_seed_grader": {"passed": 21, "failed": 0},
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "cumulative_split_execution": {
+      "dependency_free_suite": {"passed": 730, "failed": 0},
+      "real_sdk_and_restart_integration_modules": {"passed": 31, "failed": 0},
+      "combined_repository_total": {"passed": 761, "failed": 0},
+      "integration_split": {
+        "day90_stdio": 11,
+        "day91_stdio": 15,
+        "day93_streamable_http": 2,
+        "day94_streamable_http": 2,
+        "day94_restart_recovery": 1
+      }
+    },
+    "available_seed_suites": {
+      "day83": {"passed": 26, "failed": 0},
+      "day84": {"passed": 16, "failed": 0},
+      "day85": {"passed": 18, "failed": 0},
+      "day86": {"passed": 25, "failed": 0},
+      "day89": {"passed": 16, "failed": 0},
+      "day90": {"passed": 13, "failed": 0},
+      "day91": {"passed": 14, "failed": 0},
+      "day92": {"passed": 16, "failed": 0},
+      "day93": {"passed": 16, "failed": 0},
+      "day94": {"passed": 16, "failed": 0, "case_version": 1}
+    },
+    "day87_and_day88_seed_runners": "NOT_PRESENT_IN_BASELINE",
+    "deterministic_capstone_example": "PASS",
+    "json_and_jsonl_parse": {"status": "PASS", "files": 40},
+    "changed_markdown_relative_links": {
+      "status": "PASS",
+      "links_checked": 432,
+      "reason": "changed and newly added publication Markdown targets resolved"
+    },
+    "compileall": "PASS",
+    "git_diff_check": "PASS",
+    "new_file_trailing_whitespace_scan": "PASS_NO_MATCHES",
+    "credential_pattern_scan": "PASS_NO_MATCHES",
+    "lint_typecheck": "NOT_CONFIGURED"
+  },
+  "runtime_findings": [
+    "A valid candidate reached durable success only after current-attempt correlation, protocol validation, application output validation and the sole Committer.",
+    "The real SDK read-timeout path entered and completed the controlled remote Tool while the application correctly remained PENDING_RECONCILIATION with zero Committer calls.",
+    "The restart fixture terminated a worker after DISPATCH_STARTED and Tool entry; a separate process recovered the marker and queried authority without replaying the Tool.",
+    "Authoritative NOT_FOUND remained pending because an eventually consistent authority view is not proof of non-execution.",
+    "Authoritative NOT_EXECUTED was committed before the independent retry policy created a fresh request and attempt under the same operation/idempotency identity.",
+    "Telemetry remained operator-facing diagnostic context and did not grant authorization, reconciliation truth or Committer access."
+  ],
+  "source_hashes": {
+    "projects/ai-agent/src/agent_mcp_capstone.py": "bce06bc3654ae6f50777f5a00fc35fd34fc374ea25c3de64527edeadce5ede7b",
+    "projects/ai-agent/src/agent_mcp_orchestrator.py": "530f3e6283d10da9eff68ca8d1acbd28b5a4f9323b1fc7475c4eddd777ed6b0e",
+    "projects/ai-agent/src/agent_mcp_recovery.py": "8606db64150d4d06c95463e185d688a23f656f62f1655dd730a6b42c13bc0eb0",
+    "projects/ai-agent/src/pydantic_ai_capstone_adapter.py": "274db5eb218fea406dad9d5a914205bed67dbd19fe5ce8b56ed8f09ac7b367f5",
+    "projects/ai-agent/evals/day94_agent_mcp_capstone_seed.jsonl": "de1e468019dcd9b9eacf7e4e73f7d209f86cba696d3f7d7f483daeda5be7f83b",
+    "projects/ai-agent/evals/run_day94_seed_eval.py": "882b4e2c3f5c34702c0952b94c56ea41922431fe41340998b70b92b24c3cc112",
+    "projects/ai-agent/examples/day94_agent_mcp_capstone.py": "4a5d73c66212acafb22df87fc2dcaa4181ef63c677718272d2a0808dbe14b66b",
+    "projects/ai-agent/docs/DAY94_AGENT_MCP_CAPSTONE.md": "283e9f9445aaf79342783f07fdd26adfa6e0b355a8b875c0532d3d6fe2b71581",
+    "projects/ai-agent/docs/day94-agent-mcp-capstone-classroom-draft.md": "92fdab4ad0f81815c5450045c183d669981f7dd9b4e4b42174b166e82b856cb6",
+    "projects/ai-agent/docs/DAY94_TO_DAY95_HANDOFF.md": "4a98569def06eaef14003dbf005b0298941bb0294875cb3b6984ead3779fb60c",
+    "projects/ai-agent/research/day94-agent-mcp-capstone-evidence.jsonl": "5811cf7f87e37cc8bdc95627ce0eff264abade8903856b32cdee197dc8106a53"
+  },
+  "controlled_effect_counters": {
+    "independent_loopback_server_processes": 3,
+    "controlled_remote_tool_entries": 3,
+    "recovery_tool_replays": 0,
+    "production_credentials": 0,
+    "production_tool_calls": 0,
+    "production_customer_records": 0,
+    "model_provider_calls": 0,
+    "production_durable_business_transitions": 0
+  },
+  "not_run": [
+    "production Authorization Server and production JWKS integration",
+    "authenticated production remote MCP deployment",
+    "durable distributed operation, retry and reconciliation stores",
+    "distributed rate limiting, capacity admission and circuit breaker",
+    "production telemetry backend and alert delivery",
+    "load, soak and backpressure tests",
+    "production network partition, process crash and deployment failure drills",
+    "production Tools or customer data",
+    "real model Provider integration",
+    "production"
+  ],
+  "execution_evidence": "RESTART_RECOVERY_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "phase_7b_english_interview": {
+    "result": "PASS_WITH_LANGUAGE_CORRECTIONS",
+    "levels_completed": ["BEGINNER", "INTERMEDIATE", "SENIOR"],
+    "technical_content": "PASS",
+    "main_language_corrections": [
+      "The Committer is the sole durable transition authority, not the Tool executor.",
+      "Observability must never be treated as authority.",
+      "Production readiness requires executed evidence, not merely a list of real components."
+    ]
+  },
+  "independent_learner_synthesis": "ASSESSED_PASS_WITH_REQUIRED_BOUNDARY_CORRECTIONS",
+  "learner_synthesis_assessment": {
+    "correct_boundaries": [
+      "application-owned operation and idempotency identity",
+      "separate human approval and current authorization",
+      "preflight plus durable dispatch marker before transport handoff",
+      "candidate correlation, protocol validation, output validation and sole Committer",
+      "pending reconciliation after timeout and restart",
+      "retry only after committed authoritative non-execution",
+      "production identity, distributed correctness and operational evidence gaps"
+    ],
+    "required_corrections": [
+      "include the controlled Tool call between the candidate-only handler and returned candidate",
+      "authoritative success still requires exact binding and validation before Committer",
+      "the Committer establishes durable truth but does not execute the Tool or grant Tool permission",
+      "restart begins with Recovery Coordinator and read-only reconciliation, never direct retry",
+      "NOT_FOUND under eventual consistency is not PROVEN_NOT_EXECUTED"
+    ]
+  },
+  "classroom_completion_gate": "PASSED",
+  "repository_publication_gate": "WAITING_FOR_EXPLICIT_UPDATE_REPOSITORY_INSTRUCTION"
+}

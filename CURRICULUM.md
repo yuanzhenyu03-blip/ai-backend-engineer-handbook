@@ -1725,8 +1725,8 @@ runtime/integration/production evidence only when actually executed and saved.
 ## Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94)
 
 Status:
-In Progress at recorded classroom scope (Day79–Day93 Completed; Day94 Planned). Guided or
-independent-assessment limitations remain recorded in the individual lesson entries.
+✅ Complete at guided classroom scope (Day79–Day94 Completed). Guided or independent-assessment limitations
+remain recorded in the individual lesson entries; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Objective:
 Build a framework-agnostic Agent Runtime — agent loop, tool registry/permissions, state machine, termination
@@ -1748,6 +1748,7 @@ LLM Application Runtime (Phase 7A)
     -> framework-agnostic Agent Runtime (loop, tools, state, durability, memory, security)
     -> Framework/Job-Market Refresh -> chosen framework behind a replaceable adapter
     -> MCP client/server + auth + tenant isolation + remote lifecycle
+    -> Agent + MCP end-to-end capstone + restart recovery
 ```
 
 Reused project directory: `projects/ai-agent/` (agent runtime, tools, MCP).
@@ -1981,6 +1982,21 @@ Per-day topics:
   interview.
   Connection: Day93 completed remote MCP; Day94 integrates agent + MCP into a runnable capstone and runs the
   phase interview; Phase 7C grounds the agent with a Production RAG subsystem.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md`. Artifact:
+  `projects/ai-agent/` gained application-owned Agent/MCP proposal and identity boundaries, separate human
+  approval/current authorization composition, generation-scoped preflight, atomic dispatch claim, candidate
+  correlation/protocol/output validation, a sole Committer, restart-aware dispatch journal, read-only
+  reconciliation composition, operator evidence, deterministic example and 16-case seed. A real `mcp==2.2.0`
+  Client and independent Streamable HTTP Server exercised durable success and post-entry read timeout; a
+  separate recovery process read `DISPATCH_STARTED` and queried authority without replaying the Tool.
+  Evidence: Python 3.11.5, 38 focused dependency-free tests, one seed grader, three SDK/restart integration
+  tests, 730 dependency-free plus 31 integration tests (761 total), 16/16 Day94 seed, Day88–Day93 regressions,
+  available Day83–Day94 seeds and deterministic example PASS. Evidence level is `RESTART_RECOVERY_RUNTIME`.
+  The Phase 7B English Interview and independent learner synthesis passed with terminology/language
+  corrections. Production OAuth/JWKS, authenticated production remote MCP, distributed durable stores and
+  controls, production telemetry, load/failure drills, production Tools/data/Provider and production are NOT
+  RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day95.
 
 Phase deliverable:
 
