@@ -69,7 +69,11 @@ ai-agent/
 │   ├── mcp_reconciliation.py      # Day93: authoritative read-only repair
 │   ├── mcp_remote_session.py      # Day93: generation-scoped correlation
 │   ├── mcp_versioning.py          # Day93: version/capability gates
-│   └── mcp_observability.py       # Day93: safe logs, metrics and traces
+│   ├── mcp_observability.py       # Day93: safe logs, metrics and traces
+│   ├── agent_mcp_capstone.py      # Day94: identity/access/claim/candidate/Committer core
+│   ├── agent_mcp_orchestrator.py  # Day94: thin end-to-end typed-decision router
+│   ├── agent_mcp_recovery.py      # Day94: restart-aware dispatch journal
+│   └── pydantic_ai_capstone_adapter.py # Day94: Framework-private proposal translation
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -105,18 +109,19 @@ ai-agent/
 │   ├── test_day92_mcp_authentication.py # Day92: transport/token identity tests
 │   ├── test_day92_mcp_authorization.py # Day92: tenant/grant/permit tests
 │   ├── test_day92_mcp_security_integration.py # Day92: composed security paths
-│   └── test_day93_*.py           # Day93: lifecycle + controlled HTTP runtime
-├── evals/                        # Day83–Day93 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day93
-├── evidence/                     # validation records through Day93
+│   ├── test_day93_*.py           # Day93: lifecycle + controlled HTTP runtime
+│   └── test_day94_*.py           # Day94: capstone + SDK + restart recovery
+├── evals/                        # Day83–Day94 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day94
+├── evidence/                     # validation records through Day94
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day93
+└── docs/                         # designs and classroom records through Day94
 ```
 
 ## Progress
 
-Status: Phase 7A complete; Phase 7B in progress at classroom scope (Day71–Day93 documented; Day93 adds
-bounded `CONTROLLED_REMOTE_RUNTIME` evidence and preserves `MORE_EVIDENCE_NEEDED` production readiness).
+Status: Phase 7A and Phase 7B complete at guided classroom scope (Day71–Day94 documented; Day94 adds bounded
+`RESTART_RECOVERY_RUNTIME` evidence and preserves `MORE_EVIDENCE_NEEDED` production readiness).
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -600,9 +605,39 @@ an independent loopback Streamable HTTP Server and support `CONTROLLED_REMOTE_RU
 deployment, durable distributed stores, distributed controls, telemetry delivery, load/failure drills and
 `PRODUCTION` are NOT RUN. Readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day94 Agent + MCP Integration Capstone
+
+Day94 composes the application-owned Agent proposal boundary, Tool governance, human checkpoint, current
+authorization, exact permits, generation-scoped preflight, atomic dispatch claim, real MCP transport,
+candidate validation, sole Committer and restart recovery. Framework output remains a proposal; handlers and
+reconciliation remain candidate/proposal-only; only the Committer may establish durable success.
+
+Stable operation/idempotency/tenant/resource/Tool identity survives retries and restarts. Each safe retry uses
+a fresh attempt and protocol request ID plus the current transport generation. A read timeout after possible
+dispatch remains `PENDING_RECONCILIATION`. Recovery reads the durable marker and queries authoritative status
+without replaying the Tool; `NOT_FOUND` remains ambiguous under eventual consistency, and only committed
+`PROVEN_NOT_EXECUTED` evidence may reach independent retry policy.
+
+See the [design](docs/DAY94_AGENT_MCP_CAPSTONE.md),
+[classroom record](docs/day94-agent-mcp-capstone-classroom-draft.md),
+[validation](evidence/day94-validation.json) and [Day95 handoff](docs/DAY94_TO_DAY95_HANDOFF.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day94*.py'
+PYTHONPATH=src python3.11 evals/run_day94_seed_eval.py
+PYTHONPATH=src python3.11 examples/day94_agent_mcp_capstone.py
+```
+
+Evidence: 38 focused dependency-free tests, one seed grader and three real-SDK/restart integration tests;
+730 dependency-free plus 31 integration tests, 761 total; 16/16 Day94 seed; deterministic example PASS on
+Python 3.11.5. The real SDK path used an independent Streamable HTTP Server, and a separate recovery process
+read a persisted dispatch marker without replaying the Tool. Evidence is `RESTART_RECOVERY_RUNTIME`.
+Production identity/deployment, distributed stores/controls, telemetry delivery, load/failure drills,
+production Tools/data/Provider and `PRODUCTION` are NOT RUN. Readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day94 Agent + MCP integration without weakening Day89–Day93 authority and lifecycle boundaries.
+- Begin Day95 RAG ingestion without weakening Day94 identity, authority, candidate-result and recovery boundaries.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

@@ -2,22 +2,34 @@
 
 ## Current Phase
 
-Phase 7A — LLM Application Engineering is COMPLETE at classroom scope. Phase 7B — Agent Runtime and MCP
-Engineering is IN PROGRESS at classroom scope; Day93 is complete at guided classroom scope and Day94 is next.
+Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
+guided classroom scope. Phase 7C — Production RAG Engineering is next; Day95 is planned.
 
-Day59–Day93 are complete at their recorded evidence levels. Phase 7B is IN PROGRESS at guided classroom scope:
-Day93 added the remote lifecycle evidence/recovery boundary; Day94 is next. Earlier evidence and NOT RUN
-boundaries remain recorded below.
+Day59–Day94 are complete at their recorded evidence levels. Day94 integrated the Agent Runtime and MCP
+boundaries through controlled remote and restart-recovery paths. Earlier evidence and NOT RUN boundaries
+remain recorded below.
 
 Previous Phase:
-Phase 7A — LLM Application Engineering (Complete at classroom scope)
+Phase 7B — Agent Runtime and MCP Engineering (Complete at guided classroom scope)
 
 ---
 
 ## Current Lesson
 
-Day94 — Agent + MCP Integration Capstone and English Interview (Phase 7B) — next up.
-Most recent classroom lesson: Day93 — Remote MCP Lifecycle: Timeout, Retry, Versioning and Observability.
+Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C) — next up.
+Most recent classroom lesson: Day94 — Agent + MCP Integration Capstone and English Interview.
+
+Day94 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md`. The continuing Artifact composes
+application-owned proposal/identity, Tool governance, human approval, authentication/current authorization,
+exact permits, generation-scoped preflight, atomic dispatch claim, real MCP transport, candidate correlation/
+validation, the sole Committer, timeout preservation, restart recovery and operator evidence. Evidence:
+`RESTART_RECOVERY_RUNTIME` — Python 3.11.5, 38 focused dependency-free tests, one seed grader, three real-SDK/
+restart integration tests, 730 dependency-free plus 31 integration tests (761 total), 16/16 Day94 seed,
+Day88–Day93 regressions and all available Day83–Day94 seeds PASS. Phase 7B English Interview and independent
+learner synthesis passed with terminology/language corrections. Production identity/deployment, distributed
+stores/controls, telemetry delivery, load/failure drills and production remain NOT RUN; readiness is
+`MORE_EVIDENCE_NEEDED`. Day95 is next.
 
 Day93 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md`. The continuing

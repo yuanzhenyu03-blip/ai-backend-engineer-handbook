@@ -742,3 +742,4 @@ Related artifacts:
 - [Validation evidence](../../projects/ai-agent/evidence/day93-validation.json)
 - [Deterministic example](../../projects/ai-agent/examples/day93_mcp_remote_lifecycle.py)
 - [Day94 handoff](../../projects/ai-agent/docs/DAY93_TO_DAY94_HANDOFF.md)
+- [Day94 integration capstone](day94-agent-mcp-integration-capstone-and-english-interview.md)

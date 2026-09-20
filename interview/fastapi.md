@@ -2950,3 +2950,89 @@ single-worker dispatch, reconciliation, current authorization and the Committer 
 
 Related:
 [Day93 lesson](../docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md).
+
+## Day94 — Agent + MCP Integration Capstone and English Interview (Phase 7B)
+
+### Beginner: What is the difference between an Agent proposal and application authorization?
+
+**Learner progression:** “Agent or model just offers a proposal; application authorization is authority.”
+
+**Strong answer:** An Agent proposal is an untrusted suggestion translated into an application-owned DTO.
+Application authorization evaluates the current principal and the exact operation, tenant, resource and Tool.
+The proposal cannot authorize, dispatch or commit itself.
+
+### Beginner: What is the difference between an MCP result and durable business success?
+
+**Strong answer:** An MCP result is a candidate. It must be converted from SDK-private types, correlated to
+the current request/attempt/generation, validated at protocol and application levels, and passed to the sole
+Committer. Only the Committer's atomic durable transition is business success.
+
+### Beginner: Why does timeout not prove non-execution?
+
+**Learner answer:** “The Tool may already have executed and produced a side-effect artifact.”
+
+**Strong answer:** Timeout proves that the caller stopped waiting. The remote Tool may already have started or
+finished, so the application preserves possible execution and enters reconciliation instead of blind retry.
+
+### Intermediate: How do you preserve operation identity across retries?
+
+**Strong answer:** Keep operation ID, idempotency key, tenant, resource and Tool stable. Increment the attempt,
+create a fresh protocol request ID and use the current transport generation. Preserve prior attempts and let
+state, version and fence advance through durable conditional transitions.
+
+### Intermediate: How do human approval and current authorization compose?
+
+**Strong answer:** They remain separate typed decisions. Approval records human risk acceptance for an exact
+action; current authorization checks the authenticated principal, revocation, membership and grant. Both must
+pass, and approval cannot restore a revoked permit.
+
+### Intermediate: How do you recover from a possibly executed Tool call?
+
+**Strong answer:** Keep the operation pending, preserve the dispatch marker and use a read-only authoritative
+status query. Recovery and reconciliation produce typed observations without replaying the Tool. Correlate and
+validate resolved results before the Committer. Retry only after non-execution is durably proven.
+
+### Senior: Design an end-to-end Agent + MCP system that survives timeout, reconnect and restart
+
+**Strong answer:** Bind stable application identity before current authorization. Compose Tool governance,
+approval, current authorization and preflight, then atomically persist the exact dispatch claim. Keep Framework
+and SDK types in Adapters and Server handlers candidate-only. Correlate by attempt and transport generation,
+validate before the sole Committer, advance generation on reconnect, and after restart query authority from
+the durable marker without replaying the Tool.
+
+### Senior: Where do you place the Committer, and why?
+
+**Learner correction:** The learner first called it “the real executor.”
+
+**Strong answer:** Place the application-owned Committer after correlation and validation, or after a resolved
+and validated reconciliation proposal. It does not execute the Tool. It is the sole durable-transition
+authority and rechecks binding, attempt, state, version and fence before an atomic conditional write.
+
+### Senior: How do you prove observability does not become authority?
+
+**Strong answer:** Authorization, reconciliation and commit decisions depend only on current authority
+services and durable stores. Telemetry sinks have no Committer interface. Tests show that missing, delayed,
+duplicated or incorrect logs, metrics or traces cannot change a durable transition.
+
+### Senior: What evidence is still required before production readiness?
+
+**Strong answer:** I would require production OAuth/OIDC and JWKS lifecycle evidence, authenticated production
+remote MCP, distributed durable stores and concurrency controls, distributed capacity/rate-limit/circuit
+behavior, production telemetry and alert delivery, load/soak/backpressure tests, network/process/deployment
+failure drills, tenant/credential tests, SLOs, runbooks, rollback and incident-response exercises.
+
+### Common weak answer
+
+“The model calls MCP, the Tool returns success, and timeout can be retried with backoff.”
+
+This collapses proposal, authority, execution and commit; ignores stable identity, duplicate side effects,
+stale attempts, reconciliation and evidence levels.
+
+### Phase result
+
+`PASS_WITH_LANGUAGE_CORRECTIONS`: technical boundary reasoning reached the senior design level. Improve
+spelling, singular/plural agreement and prefer precise words such as `authority`, `evidence`, `candidate`,
+`proposal` and `durable fact` over vague words such as “real” or “true.”
+
+Related:
+[Day94 lesson](../docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md).

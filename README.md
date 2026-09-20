@@ -16,19 +16,19 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — in progress at classroom scope. Day93 is complete with a
-  hardened remote MCP lifecycle and controlled Streamable HTTP evidence. Production readiness remains
-  `MORE_EVIDENCE_NEEDED`.
+* Phase 7B — Agent Runtime and MCP Engineering — complete at guided classroom scope. Day94 composes the
+  Agent Runtime and MCP boundaries with controlled Streamable HTTP plus restart/recovery evidence. Production
+  readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day93 — Remote MCP Lifecycle](docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md)
+* [Day94 — Agent + MCP Integration Capstone and English Interview](docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md)
 
-(For the full completed classroom history Day01–Day93, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day94, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day94 — Agent + MCP Integration Capstone and English Interview (Phase 7B; planned)
+* Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 
