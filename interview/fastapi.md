@@ -3036,3 +3036,86 @@ spelling, singular/plural agreement and prefer precise words such as `authority`
 
 Related:
 [Day94 lesson](../docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md).
+
+## Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C)
+
+### Beginner: Why is a filename not a document identity?
+
+**Strong answer:** A filename is caller-controlled and may be renamed, reused or manipulated. The application
+assigns a stable `document_id` to the logical document and an immutable `document_version_id` to each admitted
+content/contract version. Source bytes are preserved through a tenant-bound `source_artifact_id` and stable
+Object Storage key/version.
+
+### Beginner: What is the difference between a SourceArtifact and an active DocumentVersion?
+
+**Strong answer:** A SourceArtifact proves that admitted immutable bytes and their checksum, size, media type
+and storage reference were recorded. It is not parsed business truth. A DocumentVersion becomes active only
+after parser output is adapted, correlated and validated, and the sole Committer atomically activates it and
+updates the document's active-version pointer.
+
+### Beginner: Why is a parser result only a candidate?
+
+**Strong answer:** It is still parser-private, potentially stale, malformed, mis-correlated or incompatible
+with the application contract. The Adapter must translate it into an application-owned candidate, then the
+pipeline checks correlation, manifest, artifact/checksum, structure and application binding before producing
+a proposal for the Committer.
+
+### Intermediate: How do duplicate upload, re-ingestion and supersede differ?
+
+**Strong answer:** An exact duplicate has the same stable operation/idempotency binding and source fingerprint,
+so it converges. Changed bytes or a changed parser contract is re-ingestion under a new immutable document
+version. Supersede happens only after the new version is atomically activated; the previous active version is
+retained and marked superseded rather than overwritten.
+
+### Intermediate: What happens when parsing a new version fails?
+
+**Strong answer:** The old active version and active pointer remain unchanged. The new version is failed or
+quarantined, and its SourceArtifact, identity binding and error evidence remain available for audit. It is
+never partially activated and never sent to chunking.
+
+### Intermediate: Why does parser timeout not justify immediate retry?
+
+**Strong answer:** Timeout proves only that the caller stopped waiting. The parser may have produced a durable
+artifact, so the operation enters `PENDING_RECONCILIATION`. Recovery performs bounded authoritative queries;
+`NOT_FOUND` remains ambiguous under eventual consistency. Retry begins only after the Committer persists
+`PROVEN_NOT_EXECUTED`.
+
+### Senior: Design a crash-safe ingestion and activation boundary
+
+**Strong answer:** Admit and store immutable source bytes first, then persist their stable reference and
+application identities. Create a fresh attempt, run current preflight, and conditionally claim dispatch by
+state, version and fence before persisting `DISPATCH_STARTED` and handing off to the parser. Convert parser
+output into an application candidate and validate every binding. Finally, the sole Committer conditionally
+and atomically writes the immutable parsed artifact, activates the new version, supersedes the old version,
+updates the active pointer, completes the operation and records evidence plus the Outbox intent.
+
+### Senior: How do quarantine, tombstone and physical deletion differ?
+
+**Strong answer:** Quarantine isolates an unsafe or invalid version from parsing, activation, model access and
+downstream work while retaining evidence. Tombstone records logical deletion or unavailability. Physical
+deletion is a later retention-controlled operation that first confirms expiry and absence of durable published
+references, with bounded rechecks for eventually consistent storage.
+
+### Senior: What evidence is still required for production readiness?
+
+**Strong answer:** I would require the exact parser deployment and contract, real signature/media validation,
+production authorization, versioned Object Storage, durable transactional storage, multi-process crash and
+recovery drills, concurrency/fence tests, load/backpressure tests, telemetry and delivered operator alerts.
+Deterministic tests prove application control flow, not distributed durability.
+
+### Common weak answer
+
+“Upload the file, let the parser return text, store it, and retry on timeout.”
+
+This trusts caller-controlled identity, collapses source evidence into active truth, omits candidate validation
+and atomic activation, and may duplicate parser side effects after an unknown outcome.
+
+### Phase result
+
+`PASS_WITH_REQUIRED_BOUNDARY_CORRECTIONS`: the learner independently reconstructed the end-to-end pipeline
+and recovery model. Corrections focused on SourceArtifact admission semantics, content-hash limits,
+reconciliation query versus retry, retry versus re-ingestion, quarantine versus tombstone and the complete
+Day96 eligibility predicate.
+
+Related:
+[Day95 lesson](../docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md).

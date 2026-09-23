@@ -10,17 +10,43 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is next: Day95 is planned.
+Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95 is complete and
+Day96 is planned.
 
-Day59–Day94 are complete at their recorded evidence levels. Day94 added the integrated Agent + MCP capstone,
-real SDK remote paths and restart recovery. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day95 are complete at their recorded evidence levels. Day95 added the RAG source-admission, parser-
+candidate, atomic-activation and restart-reconciliation boundary. Earlier evidence and NOT RUN boundaries
+remain recorded below.
 
 ---
 
 ## Current Lesson
 
-Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C) — next up.
-Most recent classroom lesson: Day94 — Agent + MCP Integration Capstone and English Interview.
+Day96 — Chunking Strategy and Experiments (Phase 7C) — next up.
+Most recent classroom lesson: Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle.
+
+Day95 completion record:
+
+- [x] Treat filename, declared MIME and uploaded bytes as untrusted; validate authorization, tenant/document
+  binding, signature, exact size/checksum, media contract and resource limits before source acceptance.
+- [x] Write immutable bytes first, then persist the stable object key/version, SourceArtifact, logical Document,
+  immutable DocumentVersion and stable IngestionOperation/idempotency binding.
+- [x] Create fresh attempt number, parser request ID and parser generation; run current identity/contract/auth/
+  capacity/circuit/deadline/cancellation preflight before a conditional state/version/fence dispatch claim.
+- [x] Persist `DISPATCH_STARTED` before parser handoff and exercise success plus hang-after-parse timeout in an
+  independent child process.
+- [x] Translate parser-private output into an application candidate and require correlation, artifact/manifest/
+  checksum, structural and application-binding validation.
+- [x] Give only the Committer authority to atomically persist the parsed artifact, activate/supersede versions,
+  update the active pointer, complete the operation and record evidence plus Outbox intent.
+- [x] Preserve exact-duplicate convergence, identity-conflict fail-closed behavior, re-ingestion as a new
+  immutable version, cross-tenant isolation and old-active-version safety on failure.
+- [x] Preserve `PENDING_RECONCILIATION` after timeout/`NOT_FOUND`/`UNKNOWN`; query authority without parser
+  replay and gate a fresh attempt behind committed `PROVEN_NOT_EXECUTED`.
+- [x] Preserve quarantined/tombstoned source and error evidence; allow Day96 only from the active pointer.
+- [x] Run 60 focused tests, 16/16 seed, deterministic example, Day88–Day94 dependency-free regressions and
+  31/31 real-SDK/restart regressions on Python 3.11.5.
+- [x] Release the lesson, design, classroom record, cheat sheet/interview, evidence and Day96 handoff.
+- [x] Record bounded `INTEGRATION_RUNTIME` and production readiness `MORE_EVIDENCE_NEEDED`.
 
 Day94 completion record:
 
@@ -170,10 +196,11 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day94 is documented at guided classroom scope and Phase 7B is complete. Day95 is next; production readiness remains `MORE_EVIDENCE_NEEDED`.
+Day95 is documented at guided classroom scope and Phase 7C is in progress. Day96 is next; production readiness
+remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
-(Day95); Day94 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
+(Day96); Day95 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
 The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 
 ---

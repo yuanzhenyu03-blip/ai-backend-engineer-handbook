@@ -40,13 +40,14 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day91 — MCP Server Engineering: Resources, Tools and Prompts Responsibility
-  Boundaries (guided classroom scope; `mcp==2.2.0`; 40 Day91 / 621 cumulative tests and 14/14 seed cases on
-  Python 3.11.5; controlled separate-process stdio evidence is INTEGRATION_RUNTIME; production readiness
-  MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day92 — MCP Authentication, Authorization and Tenant Isolation (Phase 7B; Planned).
-- Day88 used guided evidence review. Production Provider/Tool/PostgreSQL/Broker/Worker, container/bundled distribution and real integration gates remain NOT EVALUATED / MORE_EVIDENCE_NEEDED.
-- Current phase: Phase 7B — Agent Runtime and MCP Engineering is IN PROGRESS at classroom scope.
+- Last Completed Lesson: Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (guided classroom
+  scope; 60 focused tests, 16/16 seed and an independent parser-process success/timeout path on Python 3.11.5;
+  bounded evidence is INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED).
+- Current / Next Lesson: Day96 — Chunking Strategy and Experiments (Phase 7C; Planned).
+- Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
+  container/bundled distribution and production integration gates remain NOT EVALUATED /
+  MORE_EVIDENCE_NEEDED.
+- Current phase: Phase 7C — Production RAG Engineering is IN PROGRESS at guided classroom scope.
 
 Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
 permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008 in DECISIONS.md):

@@ -9,6 +9,32 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C)
+
+Date: 2026-09-23
+
+Released the 16-section Day95 lesson and began Phase 7C at guided classroom scope. The continuing
+`projects/ai-agent/` Artifact now admits untrusted uploads into tenant-bound immutable SourceArtifacts, keeps
+logical Document identity separate from immutable DocumentVersions, binds exact parser name/version/contract,
+persists a conditional dispatch marker before parser handoff, translates parser-private output into an
+application-owned candidate, validates correlation/manifest/artifact/checksum/structure/application binding,
+and gives only the Committer authority to atomically activate a version and update the active pointer.
+
+The lifecycle handles exact duplicates, identity conflicts, re-ingestion, supersede, quarantine and tombstone
+without overwriting or prematurely deleting evidence. An independent parser process exercised success and a
+hang-after-parse timeout. Timeout, `NOT_FOUND` and `UNKNOWN` remain `PENDING_RECONCILIATION`; recovery queries
+the authoritative parsed-artifact registry without parser replay, and only committed `PROVEN_NOT_EXECUTED`
+may reach the independent retry policy. The independent learner synthesis passed with required boundary
+corrections, and the English interview passed with language corrections.
+
+Validation: Python 3.11.5; 60 focused Day95 tests; 16/16 Day95 seed; deterministic example; Day88 43/43,
+Day89 21/21, Day90 dependency-free 11/11, Day91 dependency-free 25/25, Day92 35/35, Day93 dependency-free
+60/60 and Day94 dependency-free 38/38 regressions; 31/31 available real-`mcp==2.2.0` SDK/restart regressions;
+compile, JSON/JSONL, lesson-section, links, whitespace and credential checks passed. Evidence is bounded
+`INTEGRATION_RUNTIME`. Production parser deployment, durable transactional storage, versioned Object Storage,
+real authorization, distributed recovery/load drills, telemetry/alert delivery and `PRODUCTION` are NOT RUN;
+readiness is `MORE_EVIDENCE_NEEDED`. Day96 is next.
+
 ## Unreleased — Day94 — Agent + MCP Integration Capstone and English Interview (Phase 7B)
 
 Date: 2026-09-20

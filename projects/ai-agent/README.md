@@ -73,7 +73,16 @@ ai-agent/
 │   ├── agent_mcp_capstone.py      # Day94: identity/access/claim/candidate/Committer core
 │   ├── agent_mcp_orchestrator.py  # Day94: thin end-to-end typed-decision router
 │   ├── agent_mcp_recovery.py      # Day94: restart-aware dispatch journal
-│   └── pydantic_ai_capstone_adapter.py # Day94: Framework-private proposal translation
+│   ├── pydantic_ai_capstone_adapter.py # Day94: Framework-private proposal translation
+│   ├── rag_ingestion_contracts.py # Day95: document/source/attempt/candidate contracts
+│   ├── rag_source_admission.py    # Day95: untrusted upload admission boundary
+│   ├── rag_parser_adapter.py      # Day95: parser-private to application candidate
+│   ├── rag_parser_process.py      # Day95: independent parser process harness
+│   ├── rag_ingestion_orchestrator.py # Day95: dispatch/candidate proposal routing
+│   ├── rag_ingestion_committer.py # Day95: sole atomic lifecycle authority
+│   ├── rag_ingestion_recovery.py  # Day95: authoritative bounded reconciliation
+│   ├── rag_ingestion_retry.py     # Day95: retry after proven non-execution
+│   └── rag_document_lifecycle.py  # Day95: quarantine/tombstone/Day96 eligibility
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -110,18 +119,20 @@ ai-agent/
 │   ├── test_day92_mcp_authorization.py # Day92: tenant/grant/permit tests
 │   ├── test_day92_mcp_security_integration.py # Day92: composed security paths
 │   ├── test_day93_*.py           # Day93: lifecycle + controlled HTTP runtime
-│   └── test_day94_*.py           # Day94: capstone + SDK + restart recovery
-├── evals/                        # Day83–Day94 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day94
-├── evidence/                     # validation records through Day94
+│   ├── test_day94_*.py           # Day94: capstone + SDK + restart recovery
+│   └── test_day95_*.py           # Day95: ingestion, parser, activation + recovery
+├── evals/                        # Day83–Day95 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day95
+├── evidence/                     # validation records through Day95
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day94
+└── docs/                         # designs and classroom records through Day95
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope (Day71–Day94 documented; Day94 adds bounded
-`RESTART_RECOVERY_RUNTIME` evidence and preserves `MORE_EVIDENCE_NEEDED` production readiness).
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day95
+documented). Day95 adds bounded `INTEGRATION_RUNTIME` parser-process evidence and preserves
+`MORE_EVIDENCE_NEEDED` production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -635,9 +646,46 @@ read a persisted dispatch marker without replaying the Tool. Evidence is `RESTAR
 Production identity/deployment, distributed stores/controls, telemetry delivery, load/failure drills,
 production Tools/data/Provider and `PRODUCTION` are NOT RUN. Readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day95 RAG Ingestion Pipeline, Parsing and Document Lifecycle
+
+Day95 starts Phase 7C with a narrow production boundary: untrusted upload arguments become an authorized,
+tenant-bound immutable SourceArtifact before parsing. A logical `Document` keeps stable identity while every
+changed source or parser contract creates a new immutable `DocumentVersion`. Parser output remains a candidate;
+only the sole Committer may establish the active version and update `Document.active_version_pointer`.
+
+The dispatch path creates a fresh attempt number, parser request ID and parser generation, runs current
+preflight, then wins a conditional state/version/fence claim and persists `DISPATCH_STARTED` before parser
+handoff. The Adapter translates parser-private output into an application-owned candidate, which must pass
+correlation, artifact/manifest/checksum, structural and application-binding validation. Activation atomically
+writes the immutable parsed artifact, activates the new version, supersedes the old version, updates the active
+pointer, completes the operation and records evidence plus an Outbox intent.
+
+Timeout after possible parser execution becomes `PENDING_RECONCILIATION`. Recovery queries the authoritative
+parsed-artifact registry without parsing again; `NOT_FOUND` and `UNKNOWN` remain ambiguous under eventual
+consistency. Only a committed `PROVEN_NOT_EXECUTED` fact may enter independent retry policy. Quarantine and
+tombstone block unsafe/unavailable versions while retaining source and audit evidence. Day96 may consume only
+the Committer-activated version referenced by the active pointer.
+
+See the [design](docs/DAY95_RAG_INGESTION.md),
+[classroom record](docs/day95-rag-ingestion-classroom-draft.md),
+[validation](evidence/day95-validation.json) and [Day96 handoff](docs/DAY95_TO_DAY96_HANDOFF.md).
+
+```sh
+PYTHONPATH=src python3.11 -m unittest discover -s tests -p 'test_day95_*.py'
+PYTHONPATH=src python3.11 evals/run_day95_seed_eval.py
+PYTHONPATH=src python3.11 examples/day95_rag_ingestion.py
+```
+
+Evidence: 60 focused tests and 16/16 seed cases PASS on Python 3.11.5. An independent child parser process
+exercised success plus a hang-after-parse timeout, supporting `INTEGRATION_RUNTIME` for that bounded path.
+Day88–Day94 dependency-free regressions and 31/31 available real-MCP-SDK/restart regressions also pass.
+Production parser deployment, durable transactional storage, versioned Object Storage, real authorization,
+distributed recovery/load drills, telemetry/alert delivery and `PRODUCTION` are NOT RUN. Readiness remains
+`MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day95 RAG ingestion without weakening Day94 identity, authority, candidate-result and recovery boundaries.
+- Begin Day96 chunking experiments using only the Day95 Committer-activated `active_version_pointer`.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
