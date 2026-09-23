@@ -16,19 +16,19 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7B — Agent Runtime and MCP Engineering — complete at guided classroom scope. Day94 composes the
-  Agent Runtime and MCP boundaries with controlled Streamable HTTP plus restart/recovery evidence. Production
+* Phase 7C — Production RAG Engineering — in progress. Day95 establishes the admitted-source, immutable
+  document-version, parser-candidate, sole-Committer and restart-reconciliation boundaries. Production
   readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day94 — Agent + MCP Integration Capstone and English Interview](docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md)
+* [Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle](docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md)
 
-(For the full completed classroom history Day01–Day94, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the full completed classroom history Day01–Day95, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C; planned)
+* Day96 — Chunking Strategy and Experiments (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

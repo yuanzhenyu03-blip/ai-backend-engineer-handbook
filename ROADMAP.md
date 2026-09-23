@@ -351,6 +351,11 @@ Deliverables:
 
 # Phase 7C — Production RAG Engineering (Day95–Day106)
 
+Status: In progress. Day95 is complete at guided classroom scope with `INTEGRATION_RUNTIME` evidence for an
+independent parser process. Production parser deployment, durable transactional/Object Storage infrastructure,
+real authorization, distributed recovery/load drills and alert delivery remain NOT RUN; readiness is
+`MORE_EVIDENCE_NEEDED`.
+
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
 chunking, metadata/tenant/ACL/provenance, embeddings/index, hybrid retrieval/filtering, query
@@ -359,7 +364,7 @@ not a chunk-and-search demo.
 
 | Day | Topic | Status |
 |------|-------------------------------|-----------|
-| Day95 | RAG Ingestion Pipeline, Parsing and Document Lifecycle | Planned |
+| Day95 | RAG Ingestion Pipeline, Parsing and Document Lifecycle | ✅ Completed (guided classroom scope; 60 focused tests; 16/16 seed; independent parser process; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day96 | Chunking Strategy and Experiments | Planned |
 | Day97 | Metadata, Tenant, ACL and Provenance | Planned |
 | Day98 | Embedding Model Selection and Versioning | Planned |

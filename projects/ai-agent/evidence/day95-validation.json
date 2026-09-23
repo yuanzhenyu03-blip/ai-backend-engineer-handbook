@@ -1,0 +1,125 @@
+{
+  "day": 95,
+  "title": "RAG Ingestion Pipeline, Parsing, and Document Lifecycle",
+  "record_type": "repository_validation_artifact",
+  "formal_repository_published": true,
+  "recorded_at": "2026-09-23T00:00:00+08:00",
+  "baseline": {
+    "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+    "classroom_baseline_ref": "origin/main",
+    "classroom_baseline_commit": "3e77db0112d2b111ca294227924d9d84c84ea705",
+    "day94_development_commit_present": true,
+    "classroom_workdir": "/Users/yuanzhenyu/Documents/AI backend for codex/day95-classroom-3e77db0",
+    "workspace": "isolated_clean_worktree_at_start",
+    "repository_writes_published": true
+  },
+  "runtime": {
+    "executed_python": "3.11.5",
+    "current_stable_python_observed": "3.14.7",
+    "python_3_12_or_newer_used": false,
+    "model_provider_calls": 0,
+    "production_customer_documents": 0,
+    "network_required_by_day95_runtime": false
+  },
+  "validation": {
+    "day95_tests": {"passed": 60, "failed": 0},
+    "day95_seed": {"passed": 16, "failed": 0, "case_version": 1},
+    "independent_parser_process": {
+      "passed": 2,
+      "failed": 0,
+      "success_path": 1,
+      "response_timeout_pending_reconciliation_path": 1
+    },
+    "day94_dependency_free_regression": {"passed": 38, "failed": 0},
+    "day93_regression": {
+      "passed": 62,
+      "failed": 0,
+      "dependency_free": 60,
+      "streamable_http": 2
+    },
+    "day92_regression": {"passed": 35, "failed": 0},
+    "day91_regression": {
+      "passed": 40,
+      "failed": 0,
+      "dependency_free": 25,
+      "stdio_sdk": 15
+    },
+    "day90_regression": {
+      "passed": 22,
+      "failed": 0,
+      "dependency_free": 11,
+      "stdio_sdk": 11
+    },
+    "day89_regression": {"passed": 21, "failed": 0},
+    "day88_adapter_regression": {"passed": 43, "failed": 0},
+    "real_mcp_sdk_and_remote_regression": {
+      "status": "PASS",
+      "passed": 31,
+      "failed": 0,
+      "mcp": "2.2.0",
+      "httpx2": "2.13.0",
+      "stdio": 26,
+      "streamable_http": 4,
+      "restart_recovery": 1,
+      "old_day94_results_reused_as_current_execution": false
+    },
+    "deterministic_example": "PASS",
+    "compileall": "PASS",
+    "git_diff_check": "PASS",
+    "line_length_check": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "lesson_template_and_fence_check": "PASS",
+    "relative_link_check": "PASS",
+    "credential_scan": "PASS"
+  },
+  "runtime_findings": [
+    "Untrusted source bytes became an active version only after source admission, durable dispatch claim, Parser Adapter conversion, candidate validation, and the sole Committer.",
+    "The independent child-process parser success path returned a candidate and did not own lifecycle authority.",
+    "A timeout after possible child-process parsing persisted PENDING_RECONCILIATION and did not replay the parser.",
+    "Authoritative NOT_FOUND and UNKNOWN remained pending under bounded reconciliation.",
+    "Only a persisted PROVEN_NOT_EXECUTED fact entered the independent bounded retry policy.",
+    "Changed content or parse contract created a new immutable version while exact duplicates converged.",
+    "Quarantine and tombstone retained source and parsed evidence while blocking Day96 eligibility.",
+    "Day96 eligibility required an active document, exact active pointer, active version, parsed artifact, and completed operation."
+  ],
+  "source_hashes": {
+    "projects/ai-agent/src/rag_document_lifecycle.py": "a88258228bb517733cc96ccfacdcbe7e60ba25d770fe50db22f2472b1c489d8a",
+    "projects/ai-agent/src/rag_ingestion_committer.py": "460a8562386179a9421b174242f8e1cdc98317aa5b222503178fbfa7c542ed9c",
+    "projects/ai-agent/src/rag_ingestion_contracts.py": "03c2039066d0964aff733818aef632c8a15444ff09c43bb29de50757d6d14845",
+    "projects/ai-agent/src/rag_ingestion_orchestrator.py": "afd8a023d4a92ef3df1150f7ea4d53daa744e35b2b5a213e5c534fdf44567af7",
+    "projects/ai-agent/src/rag_ingestion_recovery.py": "1b279e9f7ba0cee607b2bf93653af178813e2f5c2b2f2f1488debf7acccd7ad3",
+    "projects/ai-agent/src/rag_ingestion_retry.py": "d00590ffbb74dea9a0bf71ad1fb7f75e5e90c88be4877f429a94859503622977",
+    "projects/ai-agent/src/rag_parser_adapter.py": "d12263a28c99709dbf557f40ca6d50f123ce80f6c51f34f5f211e72a67eb98d9",
+    "projects/ai-agent/src/rag_parser_process.py": "c899561fb08e5d6ed04fc3ac19525e1cb48bc5db1f291a8a932f781796808a01",
+    "projects/ai-agent/src/rag_source_admission.py": "77885d4fcaf21d6fab724a4c5d5753a40fe7952151c26582cccffd475dd4b30d",
+    "projects/ai-agent/examples/day95_rag_ingestion.py": "d13fe8c1e512ece584c62bd863208297ae08075895a1dd3c6747e75a824bf178",
+    "projects/ai-agent/evals/day95_rag_ingestion_seed.jsonl": "67290adb817227be2cf844f25f06d1c9142db71c719990caa4b83ffbf51fa5f9",
+    "projects/ai-agent/evals/run_day95_seed_eval.py": "1748af4133f31699741dbc36f870fc4c809c5fe055c4d2d85f009548f7a036e8"
+  },
+  "learner_assessment": {
+    "independent_synthesis": "PASS_WITH_REQUIRED_BOUNDARY_CORRECTIONS",
+    "english_interview": "PASS_WITH_LANGUAGE_CORRECTIONS",
+    "retained_corrections": [
+      "source artifact is admitted bytes evidence but not validated knowledge",
+      "re-ingestion identity differs from retry identity",
+      "reconciliation query is not parser retry",
+      "quarantine and tombstone have different lifecycle meanings",
+      "Day96 requires the complete durable eligibility predicate"
+    ]
+  },
+  "not_run": [
+    "production Authorization Server, OIDC, and JWKS",
+    "distributed transactional ingestion store",
+    "production object storage consistency and retention",
+    "authenticated production parser deployment",
+    "distributed capacity, rate limiting, and circuit breaking",
+    "production telemetry backend and alert delivery",
+    "load, soak, and backpressure tests",
+    "production network partition and deployment failure drills",
+    "Day95 distributed process-restart persistence against a real durable store"
+  ],
+  "execution_evidence": "INTEGRATION_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "classroom_completion_gate": "PASSED",
+  "repository_publication_gate": "PASSED_BY_EXPLICIT_UPDATE_REPOSITORY_INSTRUCTION"
+}

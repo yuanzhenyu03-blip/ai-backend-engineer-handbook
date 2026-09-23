@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-Planned
+In Progress (Day95 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2037,12 +2037,25 @@ Agent Runtime + MCP (Phase 7B)
 
 Reused project directory: `projects/ai-agent/` (RAG subsystem).
 
-Per-day topics (Topic + concise scope; each Status: Planned):
+Per-day topics (Topic + concise scope; completed days carry an explicit release record):
 
 - Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle.
   Scope: ingestion pipeline, parsing, document lifecycle.
   Connection: Phase 7B gave the agent tools but no grounded knowledge; Day95 builds ingestion/parsing and the
   document lifecycle; Day96 experiments with chunking.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md`. Artifact:
+  `projects/ai-agent/` gained tenant-bound source admission, immutable SourceArtifact/DocumentVersion identity,
+  versioned parser contracts, fresh attempt/request/generation identity, conditional dispatch markers, an
+  independent parser process, application-owned candidate validation, sole-Committer atomic activation,
+  duplicate/conflict/re-ingestion rules, quarantine/tombstone evidence retention, authoritative recovery and
+  a retry gate requiring committed `PROVEN_NOT_EXECUTED`. Evidence: Python 3.11.5, 60 focused Day95 tests,
+  16/16 seed, deterministic example and independent parser-process success/timeout PASS; Day88–Day94
+  dependency-free regressions and 31/31 available real-SDK/restart regressions PASS. Evidence level is
+  `INTEGRATION_RUNTIME`. The independent synthesis passed with required boundary corrections and the English
+  interview passed with language corrections. Production parser deployment, durable transactional storage,
+  versioned Object Storage, real authorization, distributed recovery/load drills, telemetry/alert delivery and
+  production are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day96.
 - Day96 — Chunking Strategy and Experiments.
   Scope: chunking strategies and measurable experiments.
   Connection: Day95 ingested documents; Day96 experiments with chunking strategies; Day97 attaches

@@ -3,21 +3,35 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is next; Day95 is planned.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95 is complete and Day96 is
+planned.
 
-Day59–Day94 are complete at their recorded evidence levels. Day94 integrated the Agent Runtime and MCP
-boundaries through controlled remote and restart-recovery paths. Earlier evidence and NOT RUN boundaries
-remain recorded below.
+Day59–Day95 are complete at their recorded evidence levels. Day95 adds bounded independent parser-process
+evidence while preserving the Day94 identity, candidate-result, Committer and recovery boundaries. Earlier
+evidence and NOT RUN boundaries remain recorded below.
 
-Previous Phase:
-Phase 7B — Agent Runtime and MCP Engineering (Complete at guided classroom scope)
+Phase record:
+Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ---
 
 ## Current Lesson
 
-Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C) — next up.
-Most recent classroom lesson: Day94 — Agent + MCP Integration Capstone and English Interview.
+Day96 — Chunking Strategy and Experiments (Phase 7C) — next up.
+Most recent classroom lesson: Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle.
+
+Day95 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md`. The continuing Artifact adds
+tenant-bound source admission, immutable SourceArtifact/DocumentVersion identities, parser contract/version
+binding, conditional dispatch markers, an independent parser process, application-owned candidates, layered
+validation, sole-Committer atomic activation, duplicate/conflict/re-ingestion rules, quarantine/tombstone
+evidence retention and authoritative restart reconciliation. Evidence: `INTEGRATION_RUNTIME` for the bounded
+independent parser-process path — Python 3.11.5, 60 focused Day95 tests, 16/16 seed, deterministic example,
+Day88–Day94 dependency-free regressions and 31/31 real-SDK/restart regressions PASS. Independent learner
+synthesis passed with required boundary corrections; the English interview passed with language corrections.
+Production parser deployment, durable transactional storage, versioned Object Storage, real authorization,
+distributed recovery/load drills, telemetry/alert delivery and production are NOT RUN; readiness is
+`MORE_EVIDENCE_NEEDED`. Day96 is next.
 
 Day94 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md`. The continuing Artifact composes
@@ -29,7 +43,7 @@ restart integration tests, 730 dependency-free plus 31 integration tests (761 to
 Day88–Day93 regressions and all available Day83–Day94 seeds PASS. Phase 7B English Interview and independent
 learner synthesis passed with terminology/language corrections. Production identity/deployment, distributed
 stores/controls, telemetry delivery, load/failure drills and production remain NOT RUN; readiness is
-`MORE_EVIDENCE_NEEDED`. Day95 is next.
+`MORE_EVIDENCE_NEEDED`. This is the historical Day94 completion record; Day95 is recorded above.
 
 Day93 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day93-remote-mcp-lifecycle-timeout-retry-versioning-and-observability.md`. The continuing

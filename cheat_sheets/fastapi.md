@@ -2223,3 +2223,53 @@ SLOs/runbooks/rollback/incident response
 Evidence: 730 dependency-free + 31 real-SDK/restart integration = 761 passed; Day94 seed 16/16;
 `MORE_EVIDENCE_NEEDED`. Related:
 [Day94 lesson](../docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md).
+
+## Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle
+
+```text
+filename       = untrusted upload argument
+Document       = stable logical document identity
+DocumentVersion = immutable content/contract version
+SourceArtifact = admitted immutable source-byte evidence
+ParserResult   = candidate, never an active version
+Committer      = sole durable lifecycle authority
+```
+
+Happy path:
+
+```text
+authorize + tenant/document binding
+→ signature/size/checksum/media/resource admission
+→ immutable Object Storage write + stable object key/version
+→ durable SourceArtifact + DocumentVersion + IngestionOperation
+→ fresh attempt_number + parser_request_id + parser_generation
+→ identity/contract/auth/capacity/circuit/deadline/cancellation preflight
+→ conditional state/version/fence claim + durable DISPATCH_STARTED
+→ parser handoff
+→ Adapter creates application-owned ParsedDocumentCandidate
+→ correlation + artifact/manifest/checksum/structural/application validation
+→ proposal
+→ sole Committer atomically writes parsed artifact + ACTIVE version + active pointer
+  + COMPLETED operation + evidence + Outbox intent
+```
+
+- Exact duplicate: same operation/idempotency binding and source fingerprint converges on the existing result.
+- Changed bytes or parser contract: re-ingestion creates a new immutable `document_version_id`; never overwrite
+  the old version.
+- Cross-tenant equal bytes never authorize cross-tenant deduplication or reuse.
+- Activation requires one conditional atomic transaction comparing `state + version + fence`.
+- A failed new version leaves the previous active version and `active_version_pointer` unchanged.
+- `QUARANTINED` blocks parsing, activation, model access and downstream chunking while retaining evidence.
+- `TOMBSTONED` means logically deleted/unavailable; do not immediately erase provenance or source bytes.
+- Timeout after dispatch becomes `PENDING_RECONCILIATION`; query the authoritative parsed-artifact registry.
+- `NOT_FOUND`/`UNKNOWN` may be eventual consistency, so bounded backoff/jitter re-query does not replay parsing.
+- Only after the Committer persists `PROVEN_NOT_EXECUTED` may independent retry policy create a fresh attempt.
+- Safe retry preserves operation/document/source identity; fresh fields are attempt number, request ID and
+  parser generation.
+- Day96 may consume only the Committer-activated version referenced by `Document.active_version_pointer`.
+
+Evidence: 60 focused Day95 tests, 16/16 seed cases and an independent parser process; existing real MCP SDK
+regressions remain 31/31. Production parser deployment, durable transactional storage, versioned Object
+Storage, real authorization, distributed recovery/load drills and alert delivery are NOT RUN. Readiness is
+`MORE_EVIDENCE_NEEDED`. Related:
+[Day95 lesson](../docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md).
