@@ -706,7 +706,10 @@ rejected experiments remain auditable.
 See the [design](docs/DAY96_CHUNKING_STRATEGY_EXPERIMENTS.md),
 [classroom record](docs/day96-chunking-classroom-draft.md),
 [experiment report](evidence/day96-experiment-report.json),
-[validation](evidence/day96-validation.json) and [Day97 handoff](docs/DAY96_TO_DAY97_HANDOFF.md).
+[validation](evidence/day96-validation.json),
+[repository publication event](evidence/day96-repository-publication.json) and
+[Day97 handoff](docs/DAY96_TO_DAY97_HANDOFF.md). The validation file is a pre-publication snapshot; the
+later PR event is separate audit evidence, not a rewrite of that snapshot.
 
 ```sh
 PYTHONPATH=src:. python3.11 -m unittest discover -s tests -p 'test_day96_*.py' -q

@@ -1,0 +1,16 @@
+{
+  "day": 96,
+  "record_type": "repository_publication_event",
+  "event": "PR_OPENED",
+  "event_at": "2026-09-28T08:48:05Z",
+  "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+  "pull_request": 8,
+  "pull_request_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/8",
+  "base_branch": "main",
+  "head_branch": "day96-chunking-strategy-experiments",
+  "initial_head_commit": "c589dca6571782162fcf664d3db0e19282120226",
+  "preceding_validation_record": "day96-validation.json",
+  "preceding_validation_record_scope": "Pre-publication local snapshot; its original values are preserved for audit.",
+  "merge_claim": false,
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}
