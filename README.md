@@ -16,19 +16,19 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7C — Production RAG Engineering — in progress. Day95 establishes the admitted-source, immutable
-  document-version, parser-candidate, sole-Committer and restart-reconciliation boundaries. Production
-  readiness remains `MORE_EVIDENCE_NEEDED`.
+* Phase 7C — Production RAG Engineering — in progress. Day95 establishes active immutable parsed content;
+  Day96 adds versioned, provenance-bound ChunkSets and controlled strategy experiments. Production readiness
+  remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle](docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md)
+* [Day96 — Chunking Strategy and Experiments](docs/fastapi/day96-chunking-strategy-and-experiments.md)
 
-(For the full completed classroom history Day01–Day95, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day96, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day96 — Chunking Strategy and Experiments (Phase 7C; planned)
+* Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

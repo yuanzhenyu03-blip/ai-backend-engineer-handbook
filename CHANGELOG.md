@@ -9,6 +9,29 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day96 — Chunking Strategy and Experiments (Phase 7C)
+
+Date: 2026-09-28
+
+Released the 16-section Day96 lesson, application-owned chunking design, classroom record, Day97 handoff,
+cheat-sheet and English-interview sections, controlled example, 16-case seed/evaluator, 25 focused tests,
+research and validation evidence. The continuing `projects/ai-agent/` Artifact accepts only the exact Day95
+active immutable ParsedArtifact, versions the full tokenizer/strategy/normalization/budget contract, produces
+fixed-token, recursive and section-aware ChunkSetCandidates, and validates exact source segments, coverage,
+overlap, hard token limits, hashes and manifests before the sole Committer inserts immutable ChunkSets.
+
+Selection remains an independent conditional pointer fact with a modeled atomic outbox intent. Exact retries
+converge; changed contracts conflict or require explicit new experiments; stale attempts or a changed Day95
+active version cannot select. The synthetic experiment preserves three validated strategies and one rejected
+fail-closed run, without treating structural metrics as retrieval quality. The learner's independent synthesis
+and English Interview passed with recorded boundary/language corrections.
+
+Validation: Python 3.11.5; 25/25 Day96 tests, 16/16 seed, deterministic example/report, 60/60 Day95 tests,
+674/674 available Day-series regressions and 846/846 full ai-agent tests PASS; compile, JSON/JSONL, links, whitespace and credential
+pattern checks passed. Evidence is `EXECUTED_LOCAL_RUNTIME`. Real model tokenizer, distributed durable
+transactions/fencing/recovery, outbox delivery, measured load/CPU/RSS, Day97 ACL and Day103 retrieval/answer
+evaluation are NOT RUN; readiness remains `MORE_EVIDENCE_NEEDED`. Day97 is next.
+
 ## Unreleased — Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C)
 
 Date: 2026-09-23

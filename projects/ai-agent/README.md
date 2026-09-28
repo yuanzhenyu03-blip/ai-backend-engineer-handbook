@@ -82,7 +82,15 @@ ai-agent/
 │   ├── rag_ingestion_committer.py # Day95: sole atomic lifecycle authority
 │   ├── rag_ingestion_recovery.py  # Day95: authoritative bounded reconciliation
 │   ├── rag_ingestion_retry.py     # Day95: retry after proven non-execution
-│   └── rag_document_lifecycle.py  # Day95: quarantine/tombstone/Day96 eligibility
+│   ├── rag_document_lifecycle.py  # Day95: quarantine/tombstone/Day96 eligibility
+│   ├── rag_chunking_contracts.py  # Day96: immutable identities and versioned contract
+│   ├── rag_tokenizer_adapter.py   # Day96: deterministic classroom TokenizerPort
+│   ├── rag_chunking_normalization.py # Day96: canonical source offset map
+│   ├── rag_chunking_strategies.py # Day96: bounded candidate-only strategies
+│   ├── rag_chunking_validator.py  # Day96: independent source/budget validation
+│   ├── rag_chunking_orchestrator.py # Day96: eligibility/claim/commit routing
+│   ├── rag_chunking_committer.py  # Day96: immutable set and guarded selection
+│   └── rag_chunking_experiments.py # Day96: controlled structural reports
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -120,18 +128,19 @@ ai-agent/
 │   ├── test_day92_mcp_security_integration.py # Day92: composed security paths
 │   ├── test_day93_*.py           # Day93: lifecycle + controlled HTTP runtime
 │   ├── test_day94_*.py           # Day94: capstone + SDK + restart recovery
-│   └── test_day95_*.py           # Day95: ingestion, parser, activation + recovery
-├── evals/                        # Day83–Day95 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day95
-├── evidence/                     # validation records through Day95
+│   ├── test_day95_*.py           # Day95: ingestion, parser, activation + recovery
+│   └── test_day96_*.py           # Day96: chunking, identity, selection + seed
+├── evals/                        # Day83–Day96 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day96
+├── evidence/                     # validation records through Day96
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day95
+└── docs/                         # designs and classroom records through Day96
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day95
-documented). Day95 adds bounded `INTEGRATION_RUNTIME` parser-process evidence and preserves
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day96
+documented). Day96 adds bounded `EXECUTED_LOCAL_RUNTIME` chunking evidence and preserves
 `MORE_EVIDENCE_NEEDED` production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -683,9 +692,36 @@ Production parser deployment, durable transactional storage, versioned Object St
 distributed recovery/load drills, telemetry/alert delivery and `PRODUCTION` are NOT RUN. Readiness remains
 `MORE_EVIDENCE_NEEDED`.
 
+## Day96 Chunking Strategy and Experiments
+
+Day96 uses only the Day95 Committer-activated ParsedArtifact referenced by the current active version.
+Application-owned identity and contract types bind strategy/tokenizer/normalization versions, token and
+resource budgets, source lineage, stable operation/idempotency identity and fresh attempt identity. Three
+candidate-only strategies—fixed-token, recursive and section-aware—run on one synthetic corpus. Independent
+validation reconstructs chunks from exact canonical source segments, checks manifest/checksum/token budget,
+full coverage, overlap and source order, then the sole Committer conditionally inserts an immutable ChunkSet.
+The selected pointer is an independent revision/fence-guarded fact with an outbox intent. Old sets and
+rejected experiments remain auditable.
+
+See the [design](docs/DAY96_CHUNKING_STRATEGY_EXPERIMENTS.md),
+[classroom record](docs/day96-chunking-classroom-draft.md),
+[experiment report](evidence/day96-experiment-report.json),
+[validation](evidence/day96-validation.json) and [Day97 handoff](docs/DAY96_TO_DAY97_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.11 -m unittest discover -s tests -p 'test_day96_*.py' -q
+PYTHONPATH=src:. python3.11 evals/run_day96_seed_eval.py
+PYTHONPATH=src:. python3.11 examples/day96_chunking_experiments.py
+```
+
+Evidence: 25 focused tests, 16/16 seed, four-run deterministic experiment (three structurally validated,
+one fail-closed rejection) and 674 available Day-series regressions PASS on Python 3.11.5. This proves local
+control flow, not real model token counts, distributed durability or retrieval quality. Day97 ACL, Day98
+embedding, Day99 index and Day103 evaluation remain future; production readiness is `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day96 chunking experiments using only the Day95 Committer-activated `active_version_pointer`.
+- Begin Day97 metadata/tenant/ACL/provenance enforcement on the selected current ChunkSet.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
