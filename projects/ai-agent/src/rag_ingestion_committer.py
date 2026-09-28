@@ -323,6 +323,14 @@ class InMemoryIngestionLifecycleStore:
         with self._lock:
             return self._parsed_artifacts.get(parsed_artifact_id)
 
+    def read_source_artifact(
+        self, source_artifact_id: str
+    ) -> SourceArtifactReference | None:
+        """Expose immutable admitted source evidence to downstream validators."""
+
+        with self._lock:
+            return self._source_artifacts.get(source_artifact_id)
+
     def claim_parse_dispatch(
         self,
         *,

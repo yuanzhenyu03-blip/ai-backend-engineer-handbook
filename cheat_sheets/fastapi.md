@@ -2273,3 +2273,52 @@ regressions remain 31/31. Production parser deployment, durable transactional st
 Storage, real authorization, distributed recovery/load drills and alert delivery are NOT RUN. Readiness is
 `MORE_EVIDENCE_NEEDED`. Related:
 [Day95 lesson](../docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md).
+
+## Day96 — Chunking Strategy and Experiments
+
+```text
+Day95 active ParsedArtifact = verified source content, not a retrieval unit
+ChunkSetCandidate            = proposed split, no durable authority
+ChunkSet                     = immutable, contract/provenance-bound result
+chunk_index                  = order only inside one ChunkSet
+chunk content hash           = byte equality, not identity or authorization
+selected pointer             = guarded current-set signal, not an ACL permit
+```
+
+Fast review path:
+
+```text
+ACTIVE Day95 version + exact parsed/source/manifest/checksum binding
+→ stable chunking operation + fresh attempt + complete versioned contract
+→ bounded tokenizer/strategy Adapter → candidate
+→ independent span/coverage/overlap/token/manifest validation
+→ sole Committer inserts immutable set
+→ conditional pointer selection + outbox intent
+→ Day97 checks active version and principal ACL again
+```
+
+| Decision | Rule |
+|---|---|
+| Changed source or parser contract | Day95 re-ingestion; new immutable DocumentVersion |
+| Changed chunk strategy/tokenizer/config | Day96 re-chunking; new immutable ChunkSet |
+| Exact same input and contract | Return the existing ChunkSet; do not duplicate effects |
+| Same operation, changed contract | Identity conflict or explicit new experiment |
+| Soft target | Desired size, not a hard ceiling |
+| Hard max | Strict ceiling including repeated header/context and overlap |
+| Oversized atomic unit | Fail closed or explicit bounded fallback with source spans |
+| Source gap | Reject candidate; overlap elsewhere cannot repair it |
+| Stale attempt or changed Day95 active version | Reject selection, retain evidence and old set |
+| Zero-row conditional selection | Converge to same winner or reject; never unconditional retry |
+
+Debugging questions: Did the source pass the **current** Day95 active-version gate? Which exact tokenizer and
+normalization versions produced these token counts and offsets? Do body spans progress to full canonical
+coverage? Is repeated text tied to its original occurrence? Did the Committer compare expected selection
+revision and fence? Does a reader recheck ACL before exposure?
+
+Interview one-liner: “A ChunkSet is an immutable, contract-bound view of one active ParsedArtifact; its
+selection is a separate guarded fact, and structural quality is not retrieval quality.”
+
+Evidence: 25 focused tests, 16/16 seed and 674 Day-series regressions on Python 3.11.5; three structurally
+valid strategies plus one retained fail-closed rejection. Real model tokenizer, distributed durable store,
+ACL enforcement and retrieval evaluation are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
+[Day96 lesson](../docs/fastapi/day96-chunking-strategy-and-experiments.md).

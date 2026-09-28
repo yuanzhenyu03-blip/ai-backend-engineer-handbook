@@ -3119,3 +3119,78 @@ Day96 eligibility predicate.
 
 Related:
 [Day95 lesson](../docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md).
+
+## Day96 — Chunking Strategy and Experiments (Phase 7C)
+
+### Beginner: ParsedArtifact versus ChunkSet?
+
+**Strong answer:** A ParsedArtifact is validated parsed content associated with a Day95 active
+DocumentVersion. A ChunkSet is an immutable, contract-bound collection of bounded chunks derived from it,
+with exact canonical-source provenance. One ParsedArtifact can produce several experimental ChunkSets; only
+one may be selected for the current active version.
+
+### Beginner: Why not use `chunk_index` or text hash as chunk identity?
+
+**Strong answer:** Index is only an ordinal within one set; strategies change boundaries and ordering. A
+hash shows equal bytes but not source position, tenant, version or authorization. Chunk identity binds the
+ChunkSet and exact source segments, so repeated text in different sections remains distinct.
+
+### Beginner: Character limit versus token limit?
+
+**Strong answer:** Character count measures characters; token count comes from a specific versioned
+tokenizer. The counts are not interchangeable, and hard token limits must include repeated context.
+
+### Intermediate: What does overlap solve and what does it cost?
+
+**Strong answer:** Overlap repeats nearby source text so each adjacent chunk retains boundary context. It
+costs tokens, storage and potentially duplicate retrieval results. Both chunks must record the shared exact
+source interval. Overlap does not substitute for full source-coverage validation.
+
+### Intermediate: Re-ingestion versus re-chunking?
+
+**Strong answer:** Changed source content or parser contract goes through Day95 and creates a new immutable
+DocumentVersion/ParsedArtifact. Changing only the chunking strategy, tokenizer or relevant configuration
+uses the same active ParsedArtifact and creates a new immutable ChunkSet.
+
+### Intermediate: Oversized table row or paragraph?
+
+**Strong answer:** Follow the versioned contract: fail closed with reason, or use an explicit bounded
+fallback that preserves exact source spans. Never silently exceed the hard token maximum; repeated table
+header tokens also count.
+
+### Senior: Compare three strategies without cherry-picking?
+
+**Strong answer:** Freeze one corpus and input, predeclare hard validity gates and structural metrics,
+save every exact contract and result including rejected runs, rerun deterministically, then document the
+selection's trade-off and uncertainty. A candidate with a source gap is rejected before cost ranking. One
+synthetic corpus does not prove a universal winner, and Day103 still needs actual retrieval evaluation.
+
+### Senior: Prevent stale selection after two workers race or Day95 activates v3?
+
+**Strong answer:** The sole Committer rechecks Day95 active version, current claim generation/fence and the
+expected selected pointer/revision, then performs one atomic conditional update with outbox intent. A
+zero-row loser converges only if the same result won; otherwise it is rejected with evidence. Old v2 sets
+remain auditable but cannot be served as current v3 knowledge.
+
+### Senior: Citation lineage and production readiness?
+
+**Strong answer:** New chunk IDs still bind exact source segments in the original ParsedArtifact; citations
+follow those positions, not reused indices or text hashes. Production additionally needs a fixed real model
+tokenizer, durable multi-process transactions/fencing/recovery, outbox delivery/deduplication, current ACL
+enforcement, load/telemetry and labeled retrieval/answer evaluation.
+
+### Common weak answer and follow-up
+
+“Overlap prevents missing source content, and a deterministic splitter proves good retrieval.” This
+confuses context duplication with coverage and reproducibility with relevance. Ask: if offsets 700–750 are
+uncovered, can overlap elsewhere repair them? No. If coverage is 100%, is `Recall@5` proven? No; it needs
+authorized gold evidence, labeled queries and actual retrieved results.
+
+### Classroom interview result
+
+`PASS_WITH_TECHNICAL_AND_LANGUAGE_CORRECTIONS`. The learner corrected `immutable`, distinguished overlap
+from coverage, classified parser-contract change as re-ingestion, rejected unconditional stale-writer retry,
+and named real tokenizer/durable-store/retrieval evidence gaps. These are guided classroom answers, not a
+production-readiness claim.
+
+Related: [Day96 lesson](../docs/fastapi/day96-chunking-strategy-and-experiments.md).

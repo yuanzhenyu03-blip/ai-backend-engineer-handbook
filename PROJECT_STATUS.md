@@ -3,12 +3,12 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95 is complete and Day96 is
-planned.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day96 are complete and
+Day97 is planned.
 
-Day59–Day95 are complete at their recorded evidence levels. Day95 adds bounded independent parser-process
-evidence while preserving the Day94 identity, candidate-result, Committer and recovery boundaries. Earlier
-evidence and NOT RUN boundaries remain recorded below.
+Day59–Day96 are complete at their recorded evidence levels. Day96 adds bounded deterministic chunking
+experiments and provenance-bound immutable ChunkSets on Day95's active parsed-artifact base. Earlier evidence
+and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -17,8 +17,20 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day96 — Chunking Strategy and Experiments (Phase 7C) — next up.
-Most recent classroom lesson: Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle.
+Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C) — next up.
+Most recent classroom lesson: Day96 — Chunking Strategy and Experiments.
+
+Day96 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day96-chunking-strategy-and-experiments.md`. The continuing Artifact adds strict Day95 active
+ParsedArtifact eligibility; versioned application-owned chunking/tokenizer contracts; fixed-token, recursive
+and section-aware candidate strategies; exact canonical-source segments, normalization mapping and
+coverage/overlap/token validation; sole-Committer immutable set insertion; conditional selection with outbox
+intent; and a controlled four-run experiment retaining one rejected attempt. Evidence:
+`EXECUTED_LOCAL_RUNTIME` — Python 3.11.5, 25 focused tests, 16/16 seed, deterministic report and 674
+available Day-series regressions PASS. Independent learner synthesis and English Interview passed with
+recorded technical/language corrections. Real model tokenizer, distributed durable transaction/fencing and
+recovery, outbox delivery, measured resource/load behavior, Day97 ACL and Day103 retrieval quality are NOT
+RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day97 is next.
 
 Day95 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md`. The continuing Artifact adds
@@ -31,7 +43,7 @@ Day88–Day94 dependency-free regressions and 31/31 real-SDK/restart regressions
 synthesis passed with required boundary corrections; the English interview passed with language corrections.
 Production parser deployment, durable transactional storage, versioned Object Storage, real authorization,
 distributed recovery/load drills, telemetry/alert delivery and production are NOT RUN; readiness is
-`MORE_EVIDENCE_NEEDED`. Day96 is next.
+`MORE_EVIDENCE_NEEDED`. This is the historical Day95 record; Day96 is recorded above.
 
 Day94 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day94-agent-mcp-integration-capstone-and-english-interview.md`. The continuing Artifact composes

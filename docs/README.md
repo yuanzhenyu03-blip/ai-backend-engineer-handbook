@@ -55,7 +55,8 @@ docs/
 │   ├── day82-durable-agent-jobs-checkpoint-resume-and-recovery.md # durable recovery facts + classified continuation
 │   ├── day83-human-approval-interrupt-and-escalation-boundaries.md # human control + local runnable checkpoint
 │   ├── day84-conversation-memory-vs-durable-business-state-boundaries.md # bounded context + durable control boundary
-│   └── day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md # Phase 7C begins
+│   ├── day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md # Phase 7C begins
+│   └── day96-chunking-strategy-and-experiments.md # immutable ChunkSets + experiments
 ├── playwright/
 └── n8n/
 ```

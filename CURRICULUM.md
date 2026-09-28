@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-In Progress (Day95 completed at guided classroom scope)
+In Progress (Day95–Day96 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2060,6 +2060,16 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: chunking strategies and measurable experiments.
   Connection: Day95 ingested documents; Day96 experiments with chunking strategies; Day97 attaches
   metadata/tenant/ACL/provenance.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day96-chunking-strategy-and-experiments.md`. Artifact: `projects/ai-agent/` gained a strict
+  Day95 active-artifact eligibility gate; application-owned versioned chunking/tokenizer contracts; fixed,
+  recursive and section-aware candidate strategies; exact canonical-source spans/normalization; independent
+  manifest/coverage/overlap/token-budget validation; immutable ChunkSet and conditional selection/outbox
+  modeling; and a deterministic four-run experiment preserving a rejected attempt. Evidence: Python 3.11.5,
+  25 focused tests, 16/16 seed, deterministic example and 674 available Day-series regressions PASS.
+  Evidence level: `EXECUTED_LOCAL_RUNTIME`. Independent synthesis and English Interview passed with recorded
+  technical/language corrections. Real model tokenizer, distributed durable store/recovery, Day97 ACL and
+  Day103 retrieval evaluation are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day97.
 - Day97 — Metadata, Tenant, ACL and Provenance.
   Scope: metadata, tenant scoping, ACL, provenance.
   Connection: Day96 produced chunks; Day97 adds metadata/tenant/ACL/provenance (reusing Day52 tenant

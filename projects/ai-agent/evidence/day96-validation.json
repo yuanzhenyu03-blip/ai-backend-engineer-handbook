@@ -1,0 +1,96 @@
+{
+  "day": 96,
+  "title": "Chunking Strategy and Experiments",
+  "record_type": "local_classroom_validation_artifact",
+  "recorded_at": "2026-09-28",
+  "formal_repository_published": false,
+  "baseline": {
+    "classroom_baseline_ref": "origin/main",
+    "classroom_baseline_commit": "30eedfbf223283c59b8f81abb04606e3cb381359",
+    "workspace": "isolated_worktree",
+    "repository_writes_published": false
+  },
+  "runtime": {
+    "executed_python": "3.11.5",
+    "current_stable_python_observed": "3.14.7",
+    "python_3_12_or_newer_used": false,
+    "tokenizer": "deterministic_classroom_lexical_v1",
+    "real_model_tokenizer_used": false,
+    "model_provider_calls": 0,
+    "production_customer_documents": 0,
+    "day96_runtime_network_calls": 0
+  },
+  "validation": {
+    "day96_tests": {"passed": 25, "failed": 0},
+    "day95_tests": {"passed": 60, "failed": 0},
+    "day83_to_day96_regression": {"passed": 674, "failed": 0},
+    "all_ai_agent_tests": {"passed": 846, "failed": 0},
+    "day96_seed": {"passed": 16, "failed": 0, "case_version": 1},
+    "available_seed_evaluators": {"passed": 12, "failed": 0},
+    "deterministic_experiment_example": "PASS",
+    "experiment_report": "evidence/day96-experiment-report.json",
+    "experiment_attempts": 4,
+    "structurally_validated_experiments": 3,
+    "rejected_experiments_retained": 1,
+    "compileall": "PASS",
+    "git_diff_check": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "saved_experiment_report_rerun_match": "PASS",
+    "formal_lesson_16_section_order": "PASS",
+    "markdown_relative_link_check": "PASS",
+    "python_line_length_check": "PASS",
+    "trailing_whitespace_check": "PASS",
+    "credential_pattern_scan": "NO_MATCH"
+  },
+  "controlled_experiment": {
+    "fixed_token_chunks": 9,
+    "recursive_chunks": 10,
+    "section_aware_chunks": 11,
+    "all_validated_coverage_ratio": 1.0,
+    "all_validated_gap_count": 0,
+    "all_validated_oversized_chunk_count": 0,
+    "all_validated_deterministic_rerun": true,
+    "rejected_policy": "FAIL_CLOSED",
+    "rejected_reason": "OVERSIZED_ATOMIC_UNIT",
+    "selected_strategy_for_classroom_demo": "section-paragraph-sentence-aware",
+    "selection_outbox_intent_count": 1,
+    "retrieval_quality_proven": false
+  },
+  "boundaries": [
+    "Day95 active-version and exact source/parsed-artifact bindings are prerequisites; Day96 does not recreate document truth.",
+    "Canonical source offsets refer to Day95 parsed text, not original uploaded byte offsets.",
+    "The classroom tokenizer does not establish any embedding model token count.",
+    "The in-process store models atomic selection plus outbox intent but does not prove distributed durability, multi-process fencing, or crash recovery.",
+    "Structural comparison on one synthetic corpus does not prove general retrieval quality or answer quality.",
+    "Same-tenant visibility is principal- and ACL-dependent; Day97 must enforce authorization and evaluation labels must respect authorized source evidence."
+  ],
+  "not_run": [
+    "real model tokenizer integration",
+    "real tokenizer offline and concurrent execution checks",
+    "framework splitter integration",
+    "independent chunking process",
+    "distributed transactional chunk store and multi-process fencing",
+    "real outbox dispatcher and duplicate-delivery recovery",
+    "production telemetry backend and alert delivery",
+    "load, soak, memory RSS, and CPU measurement",
+    "Day97 ACL enforcement",
+    "embedding, index, retrieval, citations, and answer evaluation"
+  ],
+  "learner_assessment": {
+    "independent_synthesis": "PASS_WITH_REQUIRED_BOUNDARY_CORRECTIONS",
+    "english_interview": "PASS_WITH_TECHNICAL_AND_LANGUAGE_CORRECTIONS",
+    "retained_corrections": [
+      "Day95 activation is not authorization for every principal",
+      "selected pointer is necessary but not sufficient; its version must match Day95 current active version",
+      "overlap preserves nearby context but cannot repair a source-coverage gap",
+      "re-ingestion follows changed source or parser contract; re-chunking does not create a new ParsedArtifact",
+      "oversized atomic units may fail closed or use an explicit bounded fallback",
+      "a strategy with incomplete coverage is rejected before ranking",
+      "structural metrics do not establish Recall@k or Precision@k"
+    ]
+  },
+  "execution_evidence": "EXECUTED_LOCAL_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "classroom_completion_gate": "PASSED_WITH_RECORDED_CORRECTIONS",
+  "repository_publication_gate": "WAITING_FOR_EXPLICIT_UPDATE_REPOSITORY_INSTRUCTION"
+}
