@@ -9,6 +9,30 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C)
+
+Date: 2026-10-22
+
+Released the 16-section Day97 lesson, application contract, classroom record, Day98 handoff, cheat-sheet and
+English-interview sections, deterministic authorized-read example, 24-case seed/evaluator, focused tests,
+research and validation evidence. The continuing `projects/ai-agent/` Artifact rereads the current Day95 active
+version and Day96 committed selected ChunkSet, verifies the complete immutable provenance chain, validates
+namespaced typed-origin metadata without allowing source declarations to grant authority, and publishes
+immutable MetadataSnapshots through a sole CAS/fenced Committer with Outbox intent.
+
+Versioned ACL facts use default deny, deny-overrides, exact service actions and three-state decisions. PIP/PDP,
+bounded revision-aware decision cache, signed PermitIssuer and PEP GuardedChunkReader remain separate. Permits
+bind exact principal/tenant/resource/chunks/action/audience/purpose/expiry, authorization revisions/epoch,
+selected revision and document fence. PEP revalidation blocks tampering, replay, expiry, revocation and TOCTOU;
+safe denial resists enumeration and audit evidence excludes raw protected content.
+
+Validation: Python 3.11; 36/36 Day97 focused tests, 24/24 seed, deterministic example and 851/851 local
+dependency-free tests PASS. GitHub Actions passed 882/882 complete tests and every seed evaluator on Python
+3.12.15. Final checks are recorded in `projects/ai-agent/evidence/day97-validation.json`. Evidence is
+`EXECUTED_LOCAL_RUNTIME`. Production OIDC,
+policy engine, key custody/rotation, RLS, distributed cache/store/revocation, crash recovery, telemetry delivery,
+load/soak and Day98+ remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is next.
+
 ## Unreleased — Day96 — Chunking Strategy and Experiments (Phase 7C)
 
 Date: 2026-09-28
@@ -30,7 +54,8 @@ Validation: Python 3.11.5; 25/25 Day96 tests, 16/16 seed, deterministic example/
 674/674 available Day-series regressions and 846/846 full ai-agent tests PASS; compile, JSON/JSONL, links, whitespace and credential
 pattern checks passed. Evidence is `EXECUTED_LOCAL_RUNTIME`. Real model tokenizer, distributed durable
 transactions/fencing/recovery, outbox delivery, measured load/CPU/RSS, Day97 ACL and Day103 retrieval/answer
-evaluation are NOT RUN; readiness remains `MORE_EVIDENCE_NEEDED`. Day97 is next.
+evaluation were NOT RUN as Day96 evidence; readiness remains `MORE_EVIDENCE_NEEDED`. Day97 is recorded in the
+newer entry above.
 
 ## Unreleased — Day95 — RAG Ingestion Pipeline, Parsing and Document Lifecycle (Phase 7C)
 

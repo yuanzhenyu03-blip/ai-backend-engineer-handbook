@@ -1,0 +1,103 @@
+{
+  "day": 97,
+  "title": "Metadata, Tenant ACL and Provenance",
+  "record_type": "local_classroom_validation_artifact",
+  "recorded_at": "2026-10-22",
+  "baseline": {
+    "classroom_baseline_ref": "origin/main",
+    "classroom_baseline_commit": "51f8f0b0fa3cea7ead338203a17e3f94729e46da",
+    "workspace": "isolated_worktree",
+    "branch": "day97-metadata-tenant-acl-provenance"
+  },
+  "runtime": {
+    "executed_python": "3.11.5",
+    "repository_ci_target": "3.12",
+    "python_3_12_local_execution": false,
+    "github_actions_python": "3.12.15",
+    "model_provider_calls": 0,
+    "production_customer_documents": 0,
+    "day97_runtime_network_calls": 0
+  },
+  "validation": {
+    "day97_tests": {
+      "passed": 36,
+      "failed": 0
+    },
+    "day96_tests": {
+      "passed": 25,
+      "failed": 0
+    },
+    "day95_tests": {
+      "passed": 60,
+      "failed": 0
+    },
+    "dependency_free_ai_agent_tests": {
+      "passed": 851,
+      "failed": 0,
+      "runner": "pytest",
+      "excluded_environment_bound_test_files": 5
+    },
+    "github_actions_complete_suite": {
+      "passed": 882,
+      "failed": 0,
+      "python": "3.12.15",
+      "run_id": 39753253867,
+      "run_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/39753253867"
+    },
+    "day97_seed": {
+      "passed": 24,
+      "failed": 0,
+      "case_version": 1
+    },
+    "available_seed_evaluators": {
+      "passed": 13,
+      "failed": 0
+    },
+    "deterministic_authorized_access_example": "PASS",
+    "saved_example_report_rerun_match": "PASS",
+    "authorization_matrix": "evidence/day97-authorization-matrix.json",
+    "compileall": "PASS",
+    "formal_lesson_16_section_order": "PASS",
+    "git_diff_check": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "markdown_relative_link_check": "PASS",
+    "python_line_length_check": "PASS",
+    "trailing_whitespace_check": "PASS",
+    "duplicate_json_key_check": "PASS",
+    "credential_pattern_scan": "NO_MATCH"
+  },
+  "local_environment_limits": [
+    "Python 3.12 is not installed in the local classroom runtime.",
+    "The local Python 3.11 runtime does not contain the pinned mcp==2.2.0 integration dependency.",
+    "The managed sandbox does not allow the loopback listener used by the restart integration test.",
+    "The repository GitHub Actions workflow supplied the complete pinned-dependency Python 3.12 evidence; it does not change what was unavailable locally."
+  ],
+  "boundaries": [
+    "A tenant match is not a content-read grant.",
+    "Source-declared metadata cannot create ACL, role, membership, grant or tenant authority.",
+    "A cached authorization decision is only a candidate and remains bound to current revisions, epoch, pointer and fence.",
+    "A signed permit is short lived, one-time and bound to subject, tenant, exact chunks, action, audience and purpose.",
+    "The PEP rereads current authority and provenance immediately before content release.",
+    "The in-memory classroom stores do not prove distributed atomicity, multi-process fencing or production durability."
+  ],
+  "not_run_locally": [
+    "complete Python 3.12 suite with pinned MCP SDK dependency",
+    "real identity provider and policy service",
+    "distributed transactional metadata, ACL and permit-use stores",
+    "real outbox dispatcher and crash/restart recovery",
+    "load, soak, latency, RSS and CPU measurement",
+    "production telemetry backend and alert delivery",
+    "Day98 embedding, Day99 indexing and retrieval"
+  ],
+  "execution_evidence": "EXECUTED_LOCAL_RUNTIME",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "classroom_completion_gate": "PASSED_WITH_RECORDED_CORRECTIONS",
+  "repository_publication_gate": "PULL_REQUEST_OPEN_CI_PASSED",
+  "publication": {
+    "implementation_commit": "687ca6d536eeff805ef4ad3369175bed0ca85322",
+    "pull_request": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/9",
+    "ci_run": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/39753253867",
+    "merged": false,
+    "auto_merge_enabled": false
+  }
+}

@@ -40,10 +40,11 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day96 — Chunking Strategy and Experiments (guided classroom scope; 25 focused tests,
-  16/16 seed, 674 available Day-series regressions and a deterministic four-run comparison on Python 3.11.5;
-  bounded evidence is EXECUTED_LOCAL_RUNTIME; production readiness MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C; Planned).
+- Last Completed Lesson: Day97 — Metadata, Tenant, ACL and Provenance (guided classroom scope; deterministic
+  metadata/provenance/authorization implementation, 36 focused tests and 24/24 seed on Python 3.11 plus
+  882/882 complete tests on Python 3.12 CI; bounded evidence is EXECUTED_LOCAL_RUNTIME; production readiness
+  MORE_EVIDENCE_NEEDED).
+- Current / Next Lesson: Day98 — Embedding Model Selection and Versioning (Phase 7C; Planned).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /
   MORE_EVIDENCE_NEEDED.
@@ -69,7 +70,7 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day96 are complete at their recorded evidence levels and assessment scope. Day97 is current/next; do
+- Day59–Day97 are complete at their recorded evidence levels and assessment scope. Day98 is current/next; do
   not skip ahead.
 - Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries, and Day86 added security admission, Egress, Sandbox and incident-containment boundaries outside the model.
 

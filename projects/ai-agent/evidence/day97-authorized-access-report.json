@@ -1,0 +1,18 @@
+{
+  "audit_event_count": 1,
+  "authorization_outcome": "ALLOW",
+  "authorization_reason": "EXACT_CURRENT_AUTHORIZATION_ALLOW",
+  "authorized_chunk_count": 5,
+  "day98_handoff": {
+    "action": "chunk:read_for_embedding",
+    "authorization_epoch": 1,
+    "chunk_count": 5,
+    "classification": "PROTECTED"
+  },
+  "execution_evidence": "EXECUTED_LOCAL_RUNTIME",
+  "guarded_read_outcome": "RELEASED",
+  "metadata_commit_outcome": "COMMITTED",
+  "metadata_snapshot_id": "metadata:9b8137c68de89b7d187ddd6e6ae7e968eb89d4fcf34e24c6a6f96e906d96311e",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "selected_chunk_set_id": "chunk-set:06ab680c942809370ea13013cfd757bf0bf106ebcc53c353e96e793a27c0d913"
+}

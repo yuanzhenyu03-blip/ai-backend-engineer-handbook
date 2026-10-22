@@ -1,0 +1,145 @@
+{
+  "day": 97,
+  "schema_version": 1,
+  "title": "Metadata, Tenant ACL and Provenance Authorization Matrix",
+  "recorded_at": "2026-10-22",
+  "decision_rules": {
+    "default": "DENY",
+    "explicit_deny_precedence": true,
+    "indeterminate_external_status": 503,
+    "same_tenant_implies_read": false,
+    "child_allow_expands_parent_by_default": false,
+    "content_release_requires_current_pep_recheck": true
+  },
+  "authorization_decisions": [
+    {
+      "case": "owner-read",
+      "principal_kind": "HUMAN",
+      "action": "chunk:text:read",
+      "current_explicit_grant": true,
+      "outcome": "ALLOW",
+      "reason": "EXACT_CURRENT_AUTHORIZATION_ALLOW"
+    },
+    {
+      "case": "viewer-read",
+      "principal_kind": "HUMAN",
+      "action": "chunk:text:read",
+      "current_explicit_grant": true,
+      "outcome": "ALLOW",
+      "reason": "EXACT_CURRENT_AUTHORIZATION_ALLOW"
+    },
+    {
+      "case": "member-without-grant",
+      "principal_kind": "HUMAN",
+      "action": "chunk:text:read",
+      "current_explicit_grant": false,
+      "outcome": "DENY",
+      "reason": "DEFAULT_DENY_NO_APPLICABLE_GRANT"
+    },
+    {
+      "case": "viewer-export",
+      "principal_kind": "HUMAN",
+      "action": "chunk:export",
+      "current_explicit_grant": false,
+      "outcome": "DENY",
+      "reason": "DEFAULT_DENY_NO_APPLICABLE_GRANT"
+    },
+    {
+      "case": "worker-embedding",
+      "principal_kind": "SERVICE",
+      "action": "chunk:read_for_embedding",
+      "current_explicit_grant": true,
+      "outcome": "ALLOW",
+      "reason": "EXACT_CURRENT_AUTHORIZATION_ALLOW"
+    },
+    {
+      "case": "worker-text-read",
+      "principal_kind": "SERVICE",
+      "action": "chunk:text:read",
+      "current_explicit_grant": false,
+      "outcome": "DENY",
+      "reason": "DEFAULT_DENY_NO_APPLICABLE_GRANT"
+    },
+    {
+      "case": "disabled-worker",
+      "principal_kind": "SERVICE",
+      "action": "chunk:read_for_embedding",
+      "current_explicit_grant": true,
+      "outcome": "DENY",
+      "reason": "TENANT_MEMBERSHIP_NOT_ACTIVE"
+    },
+    {
+      "case": "explicit-deny",
+      "principal_kind": "HUMAN",
+      "action": "chunk:text:read",
+      "current_explicit_grant": true,
+      "outcome": "DENY",
+      "reason": "APPLICABLE_EXPLICIT_DENY"
+    },
+    {
+      "case": "authorization-outage",
+      "principal_kind": "HUMAN",
+      "action": "chunk:text:read",
+      "current_explicit_grant": "UNKNOWN",
+      "outcome": "INDETERMINATE",
+      "reason": "AUTHORIZATION_STATE_UNAVAILABLE"
+    },
+    {
+      "case": "unknown-chunk",
+      "principal_kind": "HUMAN",
+      "action": "chunk:text:read",
+      "current_explicit_grant": false,
+      "outcome": "DENY",
+      "reason": "RESOURCE_NOT_ACCESSIBLE"
+    }
+  ],
+  "permit_rechecks": [
+    {
+      "case": "permit-valid",
+      "outcome": "RELEASED",
+      "reason": "PERMIT_AND_CURRENT_STATE_VALID"
+    },
+    {
+      "case": "permit-expired",
+      "outcome": "DENIED",
+      "reason": "PERMIT_EXPIRED_OR_NOT_YET_VALID"
+    },
+    {
+      "case": "permit-epoch-stale",
+      "outcome": "DENIED",
+      "reason": "PERMIT_AUTHORIZATION_REVISION_MISMATCH"
+    },
+    {
+      "case": "permit-selection-stale",
+      "outcome": "DENIED",
+      "reason": "PERMIT_RESOURCE_REVISION_MISMATCH"
+    },
+    {
+      "case": "permit-state-outage",
+      "outcome": "INDETERMINATE",
+      "reason": "AUTHORIZATION_STATE_UNAVAILABLE"
+    },
+    {
+      "case": "permit-wrong-subject",
+      "outcome": "DENIED",
+      "reason": "PERMIT_CONTEXT_BINDING_MISMATCH"
+    },
+    {
+      "case": "permit-tampered",
+      "outcome": "DENIED",
+      "reason": "PERMIT_SIGNATURE_INVALID"
+    },
+    {
+      "case": "permit-replay",
+      "outcome": "DENIED",
+      "reason": "PERMIT_ALREADY_CONSUMED"
+    }
+  ],
+  "executed_seed": {
+    "source": "evals/day97_metadata_acl_provenance_seed.jsonl",
+    "passed": 24,
+    "failed": 0,
+    "execution_evidence": "EXECUTED_LOCAL_RUNTIME"
+  },
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}

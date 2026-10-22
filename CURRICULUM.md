@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-In Progress (Day95–Day96 completed at guided classroom scope)
+In Progress (Day95–Day97 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2074,6 +2074,17 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: metadata, tenant scoping, ACL, provenance.
   Connection: Day96 produced chunks; Day97 adds metadata/tenant/ACL/provenance (reusing Day52 tenant
   boundaries); Day98 selects and versions embeddings.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day97-metadata-tenant-acl-and-provenance.md`. Artifact: `projects/ai-agent/` gained strict
+  Day95/Day96 current-input and provenance validation, namespace/type/origin/sensitivity metadata contracts,
+  immutable MetadataSnapshot CAS/outbox publication, versioned tenant/resource/action ACL semantics,
+  PIP/PDP/PermitIssuer separation, revision/epoch-bound decision cache and signed narrow permits, plus a PEP
+  `GuardedChunkReader` that rechecks current state before one-time minimal text release. The deterministic
+  synthetic matrix covers ALLOW/DENY/INDETERMINATE, cross-tenant/default/explicit deny, service exact action,
+  metadata authority rejection, repeated provenance, revocation, expiry/replay/tampering and pointer/fence
+  TOCTOU. Evidence: `EXECUTED_LOCAL_RUNTIME`; 36 focused tests and 24/24 seed pass on Python 3.11. Production
+  OIDC/policy/key/RLS/distributed cache and durable stores, telemetry/load/recovery are NOT RUN; readiness is
+  `MORE_EVIDENCE_NEEDED`. Next: Day98.
 - Day98 — Embedding Model Selection and Versioning.
   Scope: embedding model selection and versioning.
   Connection: Day97 scoped and labeled chunks; Day98 selects/version embeddings; Day99 designs the vector

@@ -3,12 +3,12 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day96 are complete and
-Day97 is planned.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day97 are complete and
+Day98 is planned.
 
-Day59–Day96 are complete at their recorded evidence levels. Day96 adds bounded deterministic chunking
-experiments and provenance-bound immutable ChunkSets on Day95's active parsed-artifact base. Earlier evidence
-and NOT RUN boundaries remain recorded below.
+Day59–Day97 are complete at their recorded evidence levels. Day97 adds bounded deterministic metadata,
+tenant/ACL, provenance, signed-permit and guarded-read evidence on the Day95/Day96 base. Earlier evidence and
+NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -17,8 +17,21 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C) — next up.
-Most recent classroom lesson: Day96 — Chunking Strategy and Experiments.
+Day98 — Embedding Model Selection and Versioning (Phase 7C) — next up.
+Most recent classroom lesson: Day97 — Metadata, Tenant, ACL and Provenance.
+
+Day97 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day97-metadata-tenant-acl-and-provenance.md`. The continuing Artifact adds strict current
+Day95/Day96 lineage eligibility; namespaced type/origin/sensitivity metadata validation; immutable snapshot
+CAS/outbox publication; versioned resource/action ACLs; PIP/PDP/PermitIssuer separation; bounded
+revision/epoch-aware decision caching; signed short exact permits; and a PEP GuardedChunkReader that rechecks
+current authorization, selected pointer, document fence and provenance before one-time minimal text release.
+Evidence: `EXECUTED_LOCAL_RUNTIME` — Python 3.11, 36 focused tests, 24/24 seed and deterministic example PASS;
+Python 3.12.15 CI passed 882/882 complete tests and every available seed evaluator.
+The independent learner synthesis completed; the English Interview completed with recorded technical/language
+corrections and direct teaching for the senior synthesis. Production OIDC/policy engine/key custody/RLS,
+distributed cache/store/revocation, dispatcher/recovery, telemetry delivery, load/soak and production are NOT
+RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is next.
 
 Day96 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day96-chunking-strategy-and-experiments.md`. The continuing Artifact adds strict Day95 active
@@ -30,7 +43,8 @@ intent; and a controlled four-run experiment retaining one rejected attempt. Evi
 available Day-series regressions PASS. Independent learner synthesis and English Interview passed with
 recorded technical/language corrections. Real model tokenizer, distributed durable transaction/fencing and
 recovery, outbox delivery, measured resource/load behavior, Day97 ACL and Day103 retrieval quality are NOT
-RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day97 is next.
+RUN as Day96 evidence; readiness is `MORE_EVIDENCE_NEEDED`. This is the historical Day96 record; Day97 is
+recorded above.
 
 Day95 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md`. The continuing Artifact adds

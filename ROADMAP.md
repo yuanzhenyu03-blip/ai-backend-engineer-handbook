@@ -351,10 +351,10 @@ Deliverables:
 
 # Phase 7C — Production RAG Engineering (Day95–Day106)
 
-Status: In progress. Day95 is complete with bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96 is
-complete at guided classroom scope with `EXECUTED_LOCAL_RUNTIME` chunking evidence. Real model tokenizer,
-durable distributed chunk storage, ACL enforcement, retrieval evaluation and production remain NOT RUN;
-readiness is `MORE_EVIDENCE_NEEDED`.
+Status: In progress. Day95 has bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96 and Day97 are
+complete at guided classroom scope with `EXECUTED_LOCAL_RUNTIME` chunking and authorization/provenance
+evidence. Production identity/policy/key management, durable distributed storage, retrieval evaluation and
+production remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -366,7 +366,7 @@ not a chunk-and-search demo.
 |------|-------------------------------|-----------|
 | Day95 | RAG Ingestion Pipeline, Parsing and Document Lifecycle | ✅ Completed (guided classroom scope; 60 focused tests; 16/16 seed; independent parser process; evidence INTEGRATION_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day96 | Chunking Strategy and Experiments | ✅ Completed (guided classroom scope; 25 focused tests; 16/16 seed; three validated strategies and one rejected run; evidence EXECUTED_LOCAL_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
-| Day97 | Metadata, Tenant, ACL and Provenance | Planned |
+| Day97 | Metadata, Tenant, ACL and Provenance | ✅ Completed (guided classroom scope; 36 focused tests; 24/24 seed; signed narrow permits, guarded reads and immutable metadata/provenance evidence; EXECUTED_LOCAL_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day98 | Embedding Model Selection and Versioning | Planned |
 | Day99 | Vector Database and Vector Index Design | Planned |
 | Day100 | Hybrid Retrieval and Filtering | Planned |
