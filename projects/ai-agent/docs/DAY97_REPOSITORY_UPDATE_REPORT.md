@@ -41,11 +41,12 @@ real identity-provider integration or embedding execution.
 - Day97 seed: 24/24; all 13 available Day83-Day97 seed evaluators exited successfully.
 - Deterministic example, saved-report match and compileall: PASS.
 - Execution runtime: Python 3.11.5; no model Provider or production data was used.
+- GitHub Actions: Python 3.12.15, 882/882 complete tests and every available seed evaluator PASS in
+  [run 39753253867](https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/39753253867).
 
 The local environment does not contain the pinned MCP SDK and does not permit the loopback listener used
 by the restart test. Therefore the five environment-bound integration test files and Python 3.12 run are
-recorded as not run locally. The existing GitHub Actions workflow installs pinned dependencies and runs the
-complete suite on Python 3.12 after pull-request publication.
+recorded as not run locally; the repository CI result above supplies that bounded integration evidence.
 
 ## Security invariants demonstrated
 

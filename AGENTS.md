@@ -41,8 +41,9 @@ Current state:
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
 - Last Completed Lesson: Day97 — Metadata, Tenant, ACL and Provenance (guided classroom scope; deterministic
-  metadata/provenance/authorization implementation, 36 focused tests and 24/24 seed on Python 3.11; bounded
-  evidence is EXECUTED_LOCAL_RUNTIME; production readiness MORE_EVIDENCE_NEEDED).
+  metadata/provenance/authorization implementation, 36 focused tests and 24/24 seed on Python 3.11 plus
+  882/882 complete tests on Python 3.12 CI; bounded evidence is EXECUTED_LOCAL_RUNTIME; production readiness
+  MORE_EVIDENCE_NEEDED).
 - Current / Next Lesson: Day98 — Embedding Model Selection and Versioning (Phase 7C; Planned).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /

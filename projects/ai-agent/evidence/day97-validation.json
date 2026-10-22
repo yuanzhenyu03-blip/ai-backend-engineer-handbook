@@ -13,6 +13,7 @@
     "executed_python": "3.11.5",
     "repository_ci_target": "3.12",
     "python_3_12_local_execution": false,
+    "github_actions_python": "3.12.15",
     "model_provider_calls": 0,
     "production_customer_documents": 0,
     "day97_runtime_network_calls": 0
@@ -35,6 +36,13 @@
       "failed": 0,
       "runner": "pytest",
       "excluded_environment_bound_test_files": 5
+    },
+    "github_actions_complete_suite": {
+      "passed": 882,
+      "failed": 0,
+      "python": "3.12.15",
+      "run_id": 39753253867,
+      "run_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/39753253867"
     },
     "day97_seed": {
       "passed": 24,
@@ -62,7 +70,7 @@
     "Python 3.12 is not installed in the local classroom runtime.",
     "The local Python 3.11 runtime does not contain the pinned mcp==2.2.0 integration dependency.",
     "The managed sandbox does not allow the loopback listener used by the restart integration test.",
-    "The repository GitHub Actions workflow will run the complete suite with pinned dependencies on Python 3.12 after pull-request publication."
+    "The repository GitHub Actions workflow supplied the complete pinned-dependency Python 3.12 evidence; it does not change what was unavailable locally."
   ],
   "boundaries": [
     "A tenant match is not a content-read grant.",
@@ -84,5 +92,12 @@
   "execution_evidence": "EXECUTED_LOCAL_RUNTIME",
   "production_readiness": "MORE_EVIDENCE_NEEDED",
   "classroom_completion_gate": "PASSED_WITH_RECORDED_CORRECTIONS",
-  "repository_publication_gate": "AUTHORIZED_PENDING_PULL_REQUEST"
+  "repository_publication_gate": "PULL_REQUEST_OPEN_CI_PASSED",
+  "publication": {
+    "implementation_commit": "687ca6d536eeff805ef4ad3369175bed0ca85322",
+    "pull_request": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/9",
+    "ci_run": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/39753253867",
+    "merged": false,
+    "auto_merge_enabled": false
+  }
 }

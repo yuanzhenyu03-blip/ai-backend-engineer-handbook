@@ -26,9 +26,10 @@ bind exact principal/tenant/resource/chunks/action/audience/purpose/expiry, auth
 selected revision and document fence. PEP revalidation blocks tampering, replay, expiry, revocation and TOCTOU;
 safe denial resists enumeration and audit evidence excludes raw protected content.
 
-Validation: Python 3.11; 36/36 Day97 focused tests, 24/24 seed and deterministic example PASS. Day95/Day96,
-Day92 and Day86 focused regressions pass; final full-suite and repository checks are recorded in
-`projects/ai-agent/evidence/day97-validation.json`. Evidence is `EXECUTED_LOCAL_RUNTIME`. Production OIDC,
+Validation: Python 3.11; 36/36 Day97 focused tests, 24/24 seed, deterministic example and 851/851 local
+dependency-free tests PASS. GitHub Actions passed 882/882 complete tests and every seed evaluator on Python
+3.12.15. Final checks are recorded in `projects/ai-agent/evidence/day97-validation.json`. Evidence is
+`EXECUTED_LOCAL_RUNTIME`. Production OIDC,
 policy engine, key custody/rotation, RLS, distributed cache/store/revocation, crash recovery, telemetry delivery,
 load/soak and Day98+ remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is next.
 

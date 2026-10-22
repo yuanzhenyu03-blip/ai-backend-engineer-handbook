@@ -760,10 +760,10 @@ PYTHONPATH=src:. python3.11 evals/run_day97_seed_eval.py
 PYTHONPATH=src:. python3.11 examples/day97_authorized_chunk_access.py
 ```
 
-Evidence: 36 focused tests and 24/24 seed pass on Python 3.11 with deterministic example output. This proves
-in-process application control flow, not production OIDC/policy/key custody, RLS, distributed cache/store,
-revocation latency, crash recovery, telemetry delivery or load behavior. Production readiness remains
-`MORE_EVIDENCE_NEEDED`.
+Evidence: 36 focused tests and 24/24 seed pass on Python 3.11 with deterministic example output; Python 3.12.15
+CI passed 882/882 complete tests and every available seed evaluator. This proves in-process application control
+flow, not production OIDC/policy/key custody, RLS, distributed cache/store, revocation latency, crash recovery,
+telemetry delivery or load behavior. Production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 ## Future Milestones
 

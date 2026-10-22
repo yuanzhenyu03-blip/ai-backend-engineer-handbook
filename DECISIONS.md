@@ -660,7 +660,8 @@ in depth, not replacements for final application enforcement.
 ### Validation honesty
 
 Python 3.11 executed the deterministic in-process Day97 implementation, 36 focused tests, 24/24 seed and the
-authorized-read example. This proves application control flow and selected semantics only. HMAC does not prove
+authorized-read example; Python 3.12.15 CI passed 882/882 complete tests and every seed evaluator. This proves
+application control flow and selected semantics only. HMAC does not prove
 production key custody/rotation; in-memory locks do not prove distributed transaction, multi-process fencing,
 cache consistency, crash recovery or revocation latency. Production OIDC, policy deployment, RLS, vector store,
 telemetry/load/failure drills and production traffic were NOT RUN. Evidence is `EXECUTED_LOCAL_RUNTIME` and

@@ -1,0 +1,28 @@
+{
+  "day": 97,
+  "recorded_at": "2026-10-22",
+  "repository": "yuanzhenyu03-blip/ai-backend-engineer-handbook",
+  "base_branch": "main",
+  "source_branch": "day97-metadata-tenant-acl-provenance",
+  "implementation_commit": "687ca6d536eeff805ef4ad3369175bed0ca85322",
+  "pull_request": {
+    "number": 9,
+    "url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/9",
+    "state_at_recording": "OPEN",
+    "merged": false,
+    "auto_merge_enabled": false
+  },
+  "github_actions": {
+    "workflow": "AI agent classroom quality",
+    "job": "Python 3.12 tests and seed evaluations",
+    "run_id": 39753253867,
+    "url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/39753253867",
+    "conclusion": "SUCCESS",
+    "python": "3.12.15",
+    "complete_tests_passed": 882,
+    "complete_tests_failed": 0,
+    "all_available_seed_evaluators_passed": true
+  },
+  "merge_policy": "MANUAL_REVIEW_REQUIRED",
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}

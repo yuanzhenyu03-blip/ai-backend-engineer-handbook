@@ -26,7 +26,8 @@ Day95/Day96 lineage eligibility; namespaced type/origin/sensitivity metadata val
 CAS/outbox publication; versioned resource/action ACLs; PIP/PDP/PermitIssuer separation; bounded
 revision/epoch-aware decision caching; signed short exact permits; and a PEP GuardedChunkReader that rechecks
 current authorization, selected pointer, document fence and provenance before one-time minimal text release.
-Evidence: `EXECUTED_LOCAL_RUNTIME` — Python 3.11, 36 focused tests, 24/24 seed and deterministic example PASS.
+Evidence: `EXECUTED_LOCAL_RUNTIME` — Python 3.11, 36 focused tests, 24/24 seed and deterministic example PASS;
+Python 3.12.15 CI passed 882/882 complete tests and every available seed evaluator.
 The independent learner synthesis completed; the English Interview completed with recorded technical/language
 corrections and direct teaching for the senior synthesis. Production OIDC/policy engine/key custody/RLS,
 distributed cache/store/revocation, dispatcher/recovery, telemetry delivery, load/soak and production are NOT
