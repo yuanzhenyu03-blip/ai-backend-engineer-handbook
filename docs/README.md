@@ -56,7 +56,8 @@ docs/
 │   ├── day83-human-approval-interrupt-and-escalation-boundaries.md # human control + local runnable checkpoint
 │   ├── day84-conversation-memory-vs-durable-business-state-boundaries.md # bounded context + durable control boundary
 │   ├── day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md # Phase 7C begins
-│   └── day96-chunking-strategy-and-experiments.md # immutable ChunkSets + experiments
+│   ├── day96-chunking-strategy-and-experiments.md # immutable ChunkSets + experiments
+│   └── day97-metadata-tenant-acl-and-provenance.md # exact permits + guarded reads
 ├── playwright/
 └── n8n/
 ```

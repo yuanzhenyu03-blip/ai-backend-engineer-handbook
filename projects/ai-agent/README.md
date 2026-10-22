@@ -90,7 +90,16 @@ ai-agent/
 │   ├── rag_chunking_validator.py  # Day96: independent source/budget validation
 │   ├── rag_chunking_orchestrator.py # Day96: eligibility/claim/commit routing
 │   ├── rag_chunking_committer.py  # Day96: immutable set and guarded selection
-│   └── rag_chunking_experiments.py # Day96: controlled structural reports
+│   ├── rag_chunking_experiments.py # Day96: controlled structural reports
+│   ├── rag_metadata_contracts.py  # Day97: namespaced immutable metadata facts
+│   ├── rag_metadata_projection.py # Day97: candidate-only projection
+│   ├── rag_metadata_validator.py  # Day97: type/origin/authority gates
+│   ├── rag_metadata_committer.py  # Day97: snapshot CAS + outbox authority
+│   ├── rag_metadata_orchestrator.py # Day97: claim/validate/commit routing
+│   ├── rag_acl_contracts.py       # Day97: resource hierarchy + current ACL facts
+│   ├── rag_authorization.py       # Day97: PIP/PDP/cache/signed PermitIssuer
+│   ├── rag_provenance.py          # Day97: current exact lineage validation
+│   └── rag_authorized_chunk_reader.py # Day97: PEP + minimal protected read
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -129,18 +138,19 @@ ai-agent/
 │   ├── test_day93_*.py           # Day93: lifecycle + controlled HTTP runtime
 │   ├── test_day94_*.py           # Day94: capstone + SDK + restart recovery
 │   ├── test_day95_*.py           # Day95: ingestion, parser, activation + recovery
-│   └── test_day96_*.py           # Day96: chunking, identity, selection + seed
-├── evals/                        # Day83–Day96 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day96
-├── evidence/                     # validation records through Day96
+│   ├── test_day96_*.py           # Day96: chunking, identity, selection + seed
+│   └── test_day97_*.py           # Day97: metadata/ACL/provenance/permit + seed
+├── evals/                        # Day83–Day97 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day97
+├── evidence/                     # validation records through Day97
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day96
+└── docs/                         # designs and classroom records through Day97
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day96
-documented). Day96 adds bounded `EXECUTED_LOCAL_RUNTIME` chunking evidence and preserves
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day97
+documented). Day97 adds bounded `EXECUTED_LOCAL_RUNTIME` authorization/provenance evidence and preserves
 `MORE_EVIDENCE_NEEDED` production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -719,12 +729,45 @@ PYTHONPATH=src:. python3.11 examples/day96_chunking_experiments.py
 
 Evidence: 25 focused tests, 16/16 seed, four-run deterministic experiment (three structurally validated,
 one fail-closed rejection) and 674 available Day-series regressions PASS on Python 3.11.5. This proves local
-control flow, not real model token counts, distributed durability or retrieval quality. Day97 ACL, Day98
-embedding, Day99 index and Day103 evaluation remain future; production readiness is `MORE_EVIDENCE_NEEDED`.
+control flow, not real model token counts, distributed durability or retrieval quality. Day97 ACL is covered in
+the next section; Day98 embedding, Day99 index and Day103 evaluation remain future. Production readiness is
+`MORE_EVIDENCE_NEEDED`.
+
+## Day97 Metadata, Tenant, ACL and Provenance
+
+Day97 rereads the Day95 active version and Day96 selected committed ChunkSet, verifies the complete immutable
+SourceArtifact → ParsedArtifact → ChunkSet → Chunk/source-span chain, then combines current tenant membership
+with versioned resource/action ACL policy. PIP supplies facts, PDP evaluates default-deny/deny-overrides
+semantics, PermitIssuer signs only ALLOW, and the PEP `GuardedChunkReader` rechecks signature, subject,
+audience, purpose, expiry, policy/ACL/membership/role/action revisions, authorization epoch, selected-pointer
+revision and document state/fence before one-time minimal text release.
+
+The independent metadata path allowlists namespace/type/origin/sensitivity, rejects authority-bearing source
+fields and commits immutable MetadataSnapshots through one CAS/fenced Committer with an Outbox intent. ACL
+change does not create a new DocumentVersion, ChunkSet or metadata snapshot. Repeated text remains separate
+provenance occurrences.
+
+See the [design](docs/DAY97_METADATA_TENANT_ACL_PROVENANCE.md),
+[classroom record](docs/day97-metadata-acl-provenance-classroom-draft.md),
+[validation](evidence/day97-validation.json),
+[research evidence](research/day97-metadata-acl-provenance-evidence.jsonl),
+[repository report](docs/DAY97_REPOSITORY_UPDATE_REPORT.md) and
+[Day98 handoff](docs/DAY97_TO_DAY98_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.11 -m unittest discover -s tests -p 'test_day97_*.py' -q
+PYTHONPATH=src:. python3.11 evals/run_day97_seed_eval.py
+PYTHONPATH=src:. python3.11 examples/day97_authorized_chunk_access.py
+```
+
+Evidence: 36 focused tests and 24/24 seed pass on Python 3.11 with deterministic example output. This proves
+in-process application control flow, not production OIDC/policy/key custody, RLS, distributed cache/store,
+revocation latency, crash recovery, telemetry delivery or load behavior. Production readiness remains
+`MORE_EVIDENCE_NEEDED`.
 
 ## Future Milestones
 
-- Begin Day97 metadata/tenant/ACL/provenance enforcement on the selected current ChunkSet.
+- Begin Day98 embedding model selection/versioning using only the authorized Day97 handoff.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

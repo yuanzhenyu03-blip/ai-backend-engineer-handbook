@@ -614,3 +614,54 @@ The complete repository validation ran 691 dependency-free plus 28 real-SDK inte
 and the 16/16 Day93 seed passed. This is `CONTROLLED_REMOTE_RUNTIME`, not production. Production Authorization
 Server/JWKS, authenticated deployment, durable distributed stores, rate limiting, telemetry, load tests and
 failure drills remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 015 — Separate Immutable RAG Lineage from Mutable Authorization and Enforce at the Content Exit
+
+Status: Accepted for Day97 course scope
+
+Date: 2026-10-22
+
+### Context
+
+Day95 and Day96 establish immutable current content facts, but an active DocumentVersion and selected ChunkSet
+do not authorize a principal to read protected text. Tenant equality, Outbox delivery, metadata, content hashes,
+database credentials and future vector filters can all be present without an exact current grant. Authorization
+can also change after a decision but before content release.
+
+### Decision
+
+Keep immutable source/parse/chunk provenance separate from mutable tenant membership, ACL/policy revisions and
+per-resource `authorization_epoch`. Source-declared metadata remains descriptive and cannot create owner,
+membership, role, grant or ACL authority. Metadata contract changes append immutable snapshots; ACL changes do
+not re-ingest or re-chunk.
+
+Use application-owned PAP/PIP/PDP/PermitIssuer/PEP responsibilities. PIP rereads current facts; PDP applies
+default deny and applicable explicit-deny precedence; authorization outage remains `INDETERMINATE`; PermitIssuer
+signs only complete ALLOW into a short exact context-bound permit; the PEP revalidates signature, subject,
+tenant, action, audience, purpose, expiry, all revisions/epoch, active version, selected pointer and document
+fence immediately before `GuardedChunkReader` releases minimal text. Revocation advances ACL revision and epoch.
+
+Cache only bounded decision evidence under a key containing principal, tenant, resource, action and all relevant
+current revisions. Never cache a permanent authority or reusable permit. Treat RLS and vector filters as defense
+in depth, not replacements for final application enforcement.
+
+### Consequences
+
+- Same-tenant membership without an applicable grant is denied.
+- Service principals require an exact service action such as `chunk:read_for_embedding`.
+- Stale, expired, replayed, tampered or revision-mismatched permits release zero content.
+- Unauthorized and nonexistent resources share a safe external response; internal evidence remains protected.
+- Repeated text retains separate tenant/provenance/deletion occurrences even when bytes or hashes match.
+- Day98 receives protected, provenance-preserving authorized input and may not weaken Day97.
+- The extra current-state checks add latency and require production revocation/freshness engineering.
+
+### Validation honesty
+
+Python 3.11 executed the deterministic in-process Day97 implementation, 36 focused tests, 24/24 seed and the
+authorized-read example. This proves application control flow and selected semantics only. HMAC does not prove
+production key custody/rotation; in-memory locks do not prove distributed transaction, multi-process fencing,
+cache consistency, crash recovery or revocation latency. Production OIDC, policy deployment, RLS, vector store,
+telemetry/load/failure drills and production traffic were NOT RUN. Evidence is `EXECUTED_LOCAL_RUNTIME` and
+readiness remains `MORE_EVIDENCE_NEEDED`.

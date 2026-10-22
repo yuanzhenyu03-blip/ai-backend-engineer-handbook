@@ -2322,3 +2322,52 @@ Evidence: 25 focused tests, 16/16 seed and 674 Day-series regressions on Python 
 valid strategies plus one retained fail-closed rejection. Real model tokenizer, distributed durable store,
 ACL enforcement and retrieval evaluation are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
 [Day96 lesson](../docs/fastapi/day96-chunking-strategy-and-experiments.md).
+
+## Day97 — Metadata, Tenant, ACL and Provenance
+
+```text
+AuthenticatedPrincipal
+→ PIP: current membership + ACL/policy + epoch/revisions + current lineage
+→ PDP: PAP rules + facts → ALLOW / DENY / INDETERMINATE
+→ PermitIssuer: signed narrow short-lived permit (ALLOW only)
+→ PEP: signature/context/expiry/revision/epoch/pointer/fence recheck
+→ GuardedChunkReader: minimal authorized Chunk text
+```
+
+| Concept | Meaning | Not equivalent to |
+|---|---|---|
+| Authentication | verified identity | resource authorization |
+| Tenant membership | current organizational membership | an exact action grant |
+| Selected ChunkSet | current chunking output | a read permit |
+| Metadata | descriptive facts with origin/sensitivity | authority |
+| Provenance | immutable source/transform lineage | permission |
+| Grant/ACL | mutable authority fact | already released content |
+| Permit | signed, narrow, short, revision-bound capability | permanent bearer credential |
+| PEP | final enforcement at the protected exit | PDP decision only |
+
+Permit binds: `issuer + subject + tenant + resource/version/ChunkSet/exact Chunks + action + audience + purpose
++ expiry + policy/ACL/membership/role/action revisions + authorization_epoch + selection revision + document
+state/fence`.
+
+Rules:
+
+- default deny; any applicable explicit deny overrides allow;
+- same tenant without grant is deny;
+- unavailable authorization state is internal `INDETERMINATE` /
+  `AUTHORIZATION_STATE_UNAVAILABLE`, external `503`, zero text;
+- unauthorized and nonexistent use the same generic external `404` response;
+- revocation advances relevant ACL revision and `authorization_epoch`;
+- cached decision evidence includes all exact bindings/revisions and never stores a reusable permit;
+- source metadata cannot create `owner`, `role`, `membership`, `grant` or `acl`;
+- metadata contract change creates a new immutable snapshot; ACL change does not re-ingest or re-chunk;
+- repeated text at different source spans remains distinct provenance;
+- RLS and vector metadata filters are defense in depth, never the only authorization authority;
+- logs/traces may carry protected redacted detail; metrics labels remain bounded and low-cardinality.
+
+Day98 accepts only `chunk:read_for_embedding` under a verified service principal and current permit/evidence.
+Vectors remain protected derived data.
+
+Evidence: 36 focused tests and 24/24 seed on Python 3.11, deterministic in-process
+`EXECUTED_LOCAL_RUNTIME`. Production identity/policy/key/RLS/distributed stores/cache/revocation, telemetry and
+load/recovery are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
+[Day97 lesson](../docs/fastapi/day97-metadata-tenant-acl-and-provenance.md).

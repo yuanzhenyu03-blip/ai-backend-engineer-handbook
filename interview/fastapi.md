@@ -3194,3 +3194,79 @@ and named real tokenizer/durable-store/retrieval evidence gaps. These are guided
 production-readiness claim.
 
 Related: [Day96 lesson](../docs/fastapi/day96-chunking-strategy-and-experiments.md).
+
+## Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C)
+
+### Beginner: Authentication versus authorization?
+
+**Strong answer:** Authentication verifies the principal's identity. Authorization determines whether that
+principal may perform a specific action on a specific resource under current policy. Tenant membership is only
+one fact; it is not an exact grant.
+
+### Beginner: Metadata, authority and provenance?
+
+**Strong answer:** Metadata describes a resource and records its origin/sensitivity. Authority comes only from
+trusted identity, membership, ACL/grant and versioned policy paths. Provenance is immutable chain-of-custody from
+SourceArtifact through ParsedArtifact and ChunkSet to each Chunk/source span. Provenance proves origin, not
+permission.
+
+### Intermediate: Why is a selected ChunkSet not a permit?
+
+**Strong answer:** Selection says which committed chunking result is current. It does not bind a principal,
+action, audience, purpose, expiry, policy revision or epoch. A trusted PermitIssuer signs those exact bindings
+only after a current PDP ALLOW.
+
+### Intermediate: What happens when authorization state is unavailable?
+
+**Strong answer:** Return internal `INDETERMINATE` with `AUTHORIZATION_STATE_UNAVAILABLE`, expose `503 Service
+Unavailable`, issue no permit and release no protected content. Do not misrecord the outage as a permanent
+policy DENY.
+
+### Intermediate: How are stale cache and permits revoked?
+
+**Strong answer:** Cache only decision evidence under principal/tenant/resource/action and current revision/
+epoch/pointer/fence bindings. Revocation advances the ACL revision and relevant resource authorization epoch.
+The old cache key no longer matches, and PEP rejects old permits before content release.
+
+### Senior: Handle TOCTOU between PDP ALLOW and Chunk read?
+
+**Strong answer:** Keep enforcement at the content exit. PEP validates signature, subject, tenant, action,
+audience, purpose and expiry, rereads current authorization and lineage, compares policy/ACL/membership/role/
+action revisions, epoch, active version, selection revision and document fence, then atomically consumes the
+one-time permit before GuardedChunkReader materializes only bound chunks.
+
+### Senior: Application authorization, RLS and vector filters?
+
+**Strong answer:** Application authorization is the authoritative resource/action decision. RLS adds database
+row defense in depth; vector filters reduce candidate scope. Intersect all predicates, fail closed on incomplete
+translation, and authoritatively post-check results. Neither RLS nor a vector filter may replace PEP.
+
+### Senior: Immutable provenance with mutable authorization?
+
+**Strong answer:** Version them independently. Source/parse/chunk provenance remains append-only and is never
+rewritten by an ACL change. Membership, ACL/policy and epoch advance as mutable current facts. Each decision
+records the exact lineage IDs and authorization revisions it used, so current access can change without losing
+historical audit.
+
+### Senior: What evidence is missing before production-ready?
+
+**Strong answer:** Production identity/policy/key custody and rotation, durable distributed transaction and
+fencing, cache/revocation propagation, RLS/vector integration, dispatcher/crash recovery, telemetry/alerts,
+load/soak and security/failure drills, plus real traffic operations. Deterministic unit/in-process tests prove
+control flow, not those production properties.
+
+### Common weak answer and follow-up
+
+“The worker and data share a tenant, and the selected pointer says B is current.” Ask which current grant proves
+`chunk:read_for_embedding`, which revisions/epoch bind the decision, what stops a stale permit after revocation,
+and where protected bytes are finally enforced.
+
+### Classroom interview result
+
+`COMPLETED_WITH_TECHNICAL_AND_LANGUAGE_CORRECTIONS_AND_DIRECT_TEACHING`. The learner answered the basic
+identity/grant, outage, epoch, permit binding, provenance and PEP questions. Technical corrections were required
+for metadata/authority and source metadata. Direct teaching was required for ACL inheritance, missing production
+evidence and the complete senior synthesis. This is honest guided-classroom evidence, not independent fluent
+senior-English performance or production readiness.
+
+Related: [Day97 lesson](../docs/fastapi/day97-metadata-tenant-acl-and-provenance.md).
