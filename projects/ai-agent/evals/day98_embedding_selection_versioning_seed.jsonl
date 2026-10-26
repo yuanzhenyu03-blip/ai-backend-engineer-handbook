@@ -1,0 +1,17 @@
+{"case_id":"normal","mode":"NORMAL","expected":"COMMITTED"}
+{"case_id":"out-of-order-correlated","mode":"REVERSED","expected":"COMMITTED"}
+{"case_id":"missing","mode":"MISSING","expected":"REJECTED"}
+{"case_id":"duplicate","mode":"DUPLICATE","expected":"REJECTED"}
+{"case_id":"unknown","mode":"UNKNOWN","expected":"REJECTED"}
+{"case_id":"wrong-model","mode":"WRONG_MODEL","expected":"REJECTED"}
+{"case_id":"wrong-dimension","mode":"WRONG_DIMENSION","expected":"REJECTED"}
+{"case_id":"nan","mode":"NAN","expected":"REJECTED"}
+{"case_id":"infinity","mode":"INFINITY","expected":"REJECTED"}
+{"case_id":"zero","mode":"ZERO","expected":"REJECTED"}
+{"case_id":"wrong-type","mode":"WRONG_TYPE","expected":"REJECTED"}
+{"case_id":"wrong-schema","mode":"WRONG_SCHEMA","expected":"REJECTED"}
+{"case_id":"wrong-usage","mode":"WRONG_USAGE","expected":"REJECTED"}
+{"case_id":"partial","mode":"PARTIAL","expected":"REJECTED"}
+{"case_id":"timeout-unknown","mode":"TIMEOUT_UNKNOWN","expected":"RECONCILIATION_REQUIRED"}
+{"case_id":"proven-not-executed","mode":"PROVEN_NOT_EXECUTED","expected":"RETRY_ALLOWED"}
+{"case_id":"rate-limited","mode":"RATE_LIMITED","expected":"RETRY_ALLOWED"}

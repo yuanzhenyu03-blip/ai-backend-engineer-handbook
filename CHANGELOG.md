@@ -9,6 +9,31 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day98 — Embedding Model Selection and Versioning (Phase 7C)
+
+Date: 2026-10-26
+
+Released the 16-section Day98 lesson, application design, classroom record, Day99 handoff, cheat-sheet and
+English-interview sections, deterministic example, 17-case seed/evaluator, focused tests, research and
+validation evidence. The continuing `projects/ai-agent/` Artifact now admits only the exact Day97
+`chunk:read_for_embedding` handoff, freezes the complete model/tokenizer/preprocessing/input-role/token/vector/
+API/batch/egress contract, counts with the actual tokenizer, rejects overflow instead of truncating, and makes
+deterministic batches without splitting committed Chunks.
+
+Stable operation identity is separate from fresh attempts and request/batch/item correlation. Provider output
+remains a candidate. Missing, duplicate, unknown, partial, wrong-model/dimension, NaN/Inf, forbidden zero or
+normalization failure rejects the whole operation. Post-dispatch timeout remains `UNKNOWN` and requires
+reconciliation; only proven non-execution allows a fresh attempt. Immediately before commit, the sole
+Committer rereads permit expiry, all authorization revisions/epoch, active provenance, selection and document
+fences, then atomically writes immutable records/set/current pointer/Outbox under CAS.
+
+Validation: local bundled Python 3.12.14; 23/23 Day98 focused tests, 17/17 seed, deterministic example,
+36/36 Day97 regressions and 905/905 full tests PASS. GitHub Actions totals are recorded in
+`projects/ai-agent/evidence/day98-validation.json`. Evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. The real Provider/model weights, frozen local retrieval
+quality, production vector controls, vector index, distributed durability/reconciliation and load/soak remain
+NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day99 is next.
+
 ## Unreleased — Day97 — Metadata, Tenant, ACL and Provenance (Phase 7C)
 
 Date: 2026-10-22
@@ -31,7 +56,8 @@ dependency-free tests PASS. GitHub Actions passed 882/882 complete tests and eve
 3.12.15. Final checks are recorded in `projects/ai-agent/evidence/day97-validation.json`. Evidence is
 `EXECUTED_LOCAL_RUNTIME`. Production OIDC,
 policy engine, key custody/rotation, RLS, distributed cache/store/revocation, crash recovery, telemetry delivery,
-load/soak and Day98+ remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is next.
+load/soak and Day98+ remain NOT RUN as Day97 evidence; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is recorded
+in the newer entry above.
 
 ## Unreleased — Day96 — Chunking Strategy and Experiments (Phase 7C)
 

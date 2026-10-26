@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-In Progress (Day95–Day97 completed at guided classroom scope)
+In Progress (Day95–Day98 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2089,6 +2089,16 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: embedding model selection and versioning.
   Connection: Day97 scoped and labeled chunks; Day98 selects/version embeddings; Day99 designs the vector
   database and index.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day98-embedding-model-selection-and-versioning.md`. Artifact: `projects/ai-agent/` gained
+  three-candidate evidence, hard-gate-first frozen selection weights, an immutable model/tokenizer/
+  preprocessing/input-role/token/vector/API/batch/egress contract, exact authorized preprocessing,
+  deterministic batching, stable operation/fresh attempt identities, a fake Provider with injected failure
+  modes, whole-operation candidate validation, timeout reconciliation state, precommit authorization/
+  provenance rechecks, and a sole atomic EmbeddingSet/records/pointer/Outbox Committer. Evidence:
+  `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 23 focused tests and 17/17 seed pass on local Python 3.12.
+  Real model weights/provider, frozen local retrieval quality, vector index and distributed durability are NOT
+  RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day99.
 - Day99 — Vector Database and Vector Index Design.
   Scope: vector database and index design. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day98 produced embeddings; Day99 designs the vector store/index; Day100 adds hybrid retrieval

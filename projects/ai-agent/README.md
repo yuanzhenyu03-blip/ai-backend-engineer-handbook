@@ -99,7 +99,16 @@ ai-agent/
 │   ├── rag_acl_contracts.py       # Day97: resource hierarchy + current ACL facts
 │   ├── rag_authorization.py       # Day97: PIP/PDP/cache/signed PermitIssuer
 │   ├── rag_provenance.py          # Day97: current exact lineage validation
-│   └── rag_authorized_chunk_reader.py # Day97: PEP + minimal protected read
+│   ├── rag_authorized_chunk_reader.py # Day97/98: PEP + exact embedding handoff
+│   ├── rag_embedding_contracts.py # Day98: immutable vector-space identities and sets
+│   ├── rag_embedding_requirements.py # Day98: frozen requirements + token admission
+│   ├── rag_embedding_selection.py # Day98: hard gates before frozen preferences
+│   ├── rag_embedding_adapter.py # Day98: Provider port + deterministic failure fake
+│   ├── rag_embedding_batching.py # Day98: deterministic whole-Chunk batches
+│   ├── rag_embedding_validator.py # Day98: complete correlated candidate validation
+│   ├── rag_embedding_committer.py # Day98: atomic set/records/pointer/outbox authority
+│   ├── rag_embedding_orchestrator.py # Day98: thin authorization-to-commit flow
+│   └── rag_embedding_experiments.py # Day98: repeatable selection evidence
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -139,18 +148,19 @@ ai-agent/
 │   ├── test_day94_*.py           # Day94: capstone + SDK + restart recovery
 │   ├── test_day95_*.py           # Day95: ingestion, parser, activation + recovery
 │   ├── test_day96_*.py           # Day96: chunking, identity, selection + seed
-│   └── test_day97_*.py           # Day97: metadata/ACL/provenance/permit + seed
-├── evals/                        # Day83–Day97 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day97
-├── evidence/                     # validation records through Day97
+│   ├── test_day97_*.py           # Day97: metadata/ACL/provenance/permit + seed
+│   └── test_day98_*.py           # Day98: selection/contract/validation/commit + seed
+├── evals/                        # Day83–Day98 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day98
+├── evidence/                     # validation records through Day98
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day97
+└── docs/                         # designs and classroom records through Day98
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day97
-documented). Day97 adds bounded `EXECUTED_LOCAL_RUNTIME` authorization/provenance evidence and preserves
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day98
+documented). Day98 adds bounded deterministic embedding selection/versioning evidence and preserves
 `MORE_EVIDENCE_NEEDED` production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -765,9 +775,42 @@ CI passed 882/882 complete tests and every available seed evaluator. This proves
 flow, not production OIDC/policy/key custody, RLS, distributed cache/store, revocation latency, crash recovery,
 telemetry delivery or load behavior. Production readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day98 Embedding Model Selection and Versioning
+
+Day98 accepts only the exact Day97 `chunk:read_for_embedding` handoff and carries principal, tenant, purpose,
+permit expiry, authorization revisions/epoch, exact Chunk scope, selected revision and document fence through
+the workflow. It freezes model/tokenizer immutable revisions, preprocessing, document role/prefix, actual-token
+hard maximum with `REJECT`, dimensions/type/normalization, API/schema, batch limits and egress policy in one
+fingerprinted application contract.
+
+The deterministic planner splits only between complete Chunks. A Provider Adapter returns candidates with
+request/batch/item correlation. The validator rejects the whole operation on missing, duplicate, unknown,
+partial, wrong-model/dimension, NaN/Inf, forbidden zero or normalization failure. Timeout after dispatch stays
+`UNKNOWN`; proven non-execution permits a fresh attempt. The sole Committer rereads current authorization and
+provenance/fences, then atomically publishes immutable records/set/current pointer/Outbox under CAS.
+
+See the [design](docs/DAY98_EMBEDDING_MODEL_SELECTION_VERSIONING.md),
+[classroom record](docs/day98-embedding-model-selection-classroom-draft.md),
+[validation](evidence/day98-validation.json),
+[model evidence](research/day98-embedding-model-evidence.jsonl),
+[selection decision](research/day98-embedding-selection-decision.md),
+[repository report](docs/DAY98_REPOSITORY_UPDATE_REPORT.md) and
+[Day99 handoff](docs/DAY98_TO_DAY99_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day98_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day98_seed_eval.py
+PYTHONPATH=src:. python3.12 examples/day98_embedding_selection_versioning.py
+```
+
+Evidence: 23 focused tests, 17/17 seed, deterministic example and 905/905 full regressions pass locally on Python
+3.12.14. BGE-M3 is a provisional static-evidence candidate only. Real weights/Provider, frozen local retrieval
+quality, vector index, distributed durability/reconciliation and production traffic are NOT RUN. Production
+readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day98 embedding model selection/versioning using only the authorized Day97 handoff.
+- Begin Day99 vector database and versioned index design using only committed homogeneous Day98 sets.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

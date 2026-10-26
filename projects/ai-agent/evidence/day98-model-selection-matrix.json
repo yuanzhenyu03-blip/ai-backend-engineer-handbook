@@ -1,0 +1,51 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "openai/text-embedding-3-large",
+      "eligible": false,
+      "hard_gate_failures": [
+        "EXACT_MODEL_REVISION",
+        "EXACT_TOKENIZER_REVISION",
+        "PROTECTED_DATA_EGRESS"
+      ],
+      "score": null,
+      "unresolved": [
+        "immutable model snapshot not established",
+        "local corpus NOT RUN"
+      ]
+    },
+    {
+      "candidate_id": "cohere/embed-v5.0-pro",
+      "eligible": false,
+      "hard_gate_failures": [
+        "EXACT_MODEL_REVISION",
+        "EXACT_TOKENIZER_REVISION",
+        "RESPONSE_CORRELATION",
+        "PROTECTED_DATA_EGRESS"
+      ],
+      "score": null,
+      "unresolved": [
+        "dimension docs conflict",
+        "local corpus NOT RUN"
+      ]
+    },
+    {
+      "candidate_id": "BAAI/bge-m3@5617a9f61b028005a4858fdac845db406aefb181",
+      "eligible": true,
+      "hard_gate_failures": [],
+      "score": 53.75,
+      "unresolved": [
+        "real weights/runtime NOT RUN",
+        "local retrieval quality NOT RUN"
+      ]
+    }
+  ],
+  "evidence_scope": "OFFICIAL_STATIC_PLUS_DETERMINISTIC_POLICY_EXECUTION",
+  "outcome": "PROVISIONAL_SELECTED",
+  "preferences_version": "day98-selection-weights.v1",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "real_local_retrieval_quality": "NOT_RUN",
+  "real_provider_execution": "NOT_RUN",
+  "replay_checksum": "sha256:95806a960946b124ef37383dd557a7eb0098e02fb07f047bac72f486734d08ef",
+  "selected_candidate_id": "BAAI/bge-m3@5617a9f61b028005a4858fdac845db406aefb181"
+}

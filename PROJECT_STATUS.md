@@ -3,12 +3,12 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day97 are complete and
-Day98 is planned.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day98 are complete and
+Day99 is planned.
 
-Day59–Day97 are complete at their recorded evidence levels. Day97 adds bounded deterministic metadata,
-tenant/ACL, provenance, signed-permit and guarded-read evidence on the Day95/Day96 base. Earlier evidence and
-NOT RUN boundaries remain recorded below.
+Day59–Day98 are complete at their recorded evidence levels. Day98 adds bounded deterministic model-selection,
+embedding-contract, candidate-validation and immutable-set evidence on the Day95–Day97 base. Earlier evidence
+and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -17,8 +17,19 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day98 — Embedding Model Selection and Versioning (Phase 7C) — next up.
-Most recent classroom lesson: Day97 — Metadata, Tenant, ACL and Provenance.
+Day99 — Vector Database and Vector Index Design (Phase 7C) — next up.
+Most recent classroom lesson: Day98 — Embedding Model Selection and Versioning.
+
+Day98 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day98-embedding-model-selection-and-versioning.md`. The continuing Artifact accepts only the
+exact Day97 embedding action/scope, freezes model/tokenizer/preprocessing/role/token/vector/API/batch/egress,
+rejects silent truncation, creates deterministic whole-Chunk batches, validates complete correlated Provider
+candidates, separates stable operations from fresh attempts/unknown dispatch, rereads authorization and
+provenance immediately before commit, and atomically publishes immutable records/set/pointer/Outbox through a
+sole Committer. Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE` — Python 3.12.14, 23 focused tests,
+17/17 seed, deterministic example and 905/905 full regressions PASS locally. BGE-M3 is a provisional static-evidence
+candidate only; real weights/provider, local retrieval quality, index and distributed durability are NOT RUN.
+Readiness is `MORE_EVIDENCE_NEEDED`. Day99 is next.
 
 Day97 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day97-metadata-tenant-acl-and-provenance.md`. The continuing Artifact adds strict current
@@ -31,7 +42,7 @@ Python 3.12.15 CI passed 882/882 complete tests and every available seed evaluat
 The independent learner synthesis completed; the English Interview completed with recorded technical/language
 corrections and direct teaching for the senior synthesis. Production OIDC/policy engine/key custody/RLS,
 distributed cache/store/revocation, dispatcher/recovery, telemetry delivery, load/soak and production are NOT
-RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is next.
+RUN; readiness is `MORE_EVIDENCE_NEEDED`. Day98 is recorded above.
 
 Day96 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day96-chunking-strategy-and-experiments.md`. The continuing Artifact adds strict Day95 active

@@ -41,3 +41,7 @@ jobs:
       - name: Verify saved Day96 experiment report
         run: |
           python -c 'import json; from pathlib import Path; from examples.day96_chunking_experiments import run_example; expected = json.loads(Path("evidence/day96-experiment-report.json").read_text()); actual = json.loads(json.dumps(run_example())); assert actual == expected'
+      - name: Verify saved Day98 embedding evidence
+        run: |
+          python -c 'import json; from pathlib import Path; from examples.day98_embedding_selection_versioning import run_example; expected = json.loads(Path("evidence/day98-embedding-experiment-report.json").read_text()); actual = json.loads(json.dumps(run_example())); assert actual == expected'
+          python -c 'import json; from pathlib import Path; from rag_embedding_experiments import run_selection_experiment; expected = json.loads(Path("evidence/day98-model-selection-matrix.json").read_text()); actual = json.loads(json.dumps(run_selection_experiment())); assert actual == expected'

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 import hashlib
 import threading
@@ -95,14 +95,35 @@ class PermitUseStore:
 @dataclass(frozen=True)
 class AuthorizedEmbeddingInput:
     tenant_id: str
+    principal_subject: str = field(repr=False)
+    action: str
+    audience: str
+    purpose: str
+    permit_id: str = field(repr=False)
+    permit_expires_at: int
     document_id: str
     document_version_id: str
     chunk_set_id: str
-    chunks: tuple[AuthorizedChunkView, ...]
+    authorized_chunk_ids: tuple[str, ...]
+    chunks: tuple[AuthorizedChunkView, ...] = field(repr=False)
     authorization_decision_id: str
     authorization_revisions: AuthorizationRevisionVector
     authorization_epoch: int
+    selection_revision: int
+    document_state_version: int
+    document_fence: int
     protected_data_classification: str = "PROTECTED"
+
+    def __post_init__(self) -> None:
+        if self.action != "chunk:read_for_embedding":
+            raise ValueError("embedding input requires the exact embedding action")
+        if self.permit_expires_at <= 0:
+            raise ValueError("embedding input requires a permit expiry")
+        chunk_ids = tuple(chunk.chunk_id for chunk in self.chunks)
+        if not chunk_ids or chunk_ids != self.authorized_chunk_ids:
+            raise ValueError("embedding input must preserve ordered authorized chunks")
+        if len(set(chunk_ids)) != len(chunk_ids):
+            raise ValueError("embedding input chunk identities must be unique")
 
 
 class GuardedChunkReader:
@@ -230,13 +251,23 @@ class GuardedChunkReader:
         claims = permit.claims
         return AuthorizedEmbeddingInput(
             tenant_id=claims.tenant_id,
+            principal_subject=claims.subject,
+            action=claims.action,
+            audience=claims.audience,
+            purpose=claims.purpose,
+            permit_id=claims.permit_id,
+            permit_expires_at=claims.expires_at,
             document_id=claims.document_id,
             document_version_id=claims.document_version_id,
             chunk_set_id=claims.chunk_set_id,
+            authorized_chunk_ids=claims.chunk_ids,
             chunks=result.chunks,
             authorization_decision_id=claims.decision_id,
             authorization_revisions=claims.revisions,
             authorization_epoch=claims.revisions.authorization_epoch,
+            selection_revision=claims.selection_revision,
+            document_state_version=claims.document_state_version,
+            document_fence=claims.document_fence,
         )
 
     def _deny(self, permit: SignedPermit, reason: str) -> GuardedReadResult:
