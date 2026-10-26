@@ -1,0 +1,25 @@
+{
+  "date": "2026-10-26",
+  "python": "3.12.14",
+  "platform": "local Codex bundled runtime",
+  "focused_tests": {"passed": 23, "failed": 0},
+  "day97_regression_tests": {"passed": 36, "failed": 0},
+  "seed": {"passed": 17, "total": 17},
+  "example": "COMMITTED",
+  "full_repository_tests": {"passed": 905, "failed": 0},
+  "github_actions_python_3_12": {
+    "status": "PASSED",
+    "python": "3.12.15",
+    "run_id": 40323856971,
+    "job_id": 121575359294,
+    "full_repository_tests": {"passed": 905, "failed": 0},
+    "all_seed_evaluators": "PASSED",
+    "saved_day96_day98_evidence_replay": "PASSED"
+  },
+  "real_provider_execution": "NOT_RUN",
+  "real_model_weights": "NOT_RUN",
+  "real_local_retrieval_quality": "NOT_RUN",
+  "distributed_durability": "NOT_RUN",
+  "evidence_scope": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}

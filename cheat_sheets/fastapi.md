@@ -2371,3 +2371,45 @@ Evidence: 36 focused tests and 24/24 seed on Python 3.11, deterministic in-proce
 `EXECUTED_LOCAL_RUNTIME`. Production identity/policy/key/RLS/distributed stores/cache/revocation, telemetry and
 load/recovery are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
 [Day97 lesson](../docs/fastapi/day97-metadata-tenant-acl-and-provenance.md).
+
+## Day98 — Embedding Model Selection and Versioning
+
+```text
+exact Day97 embedding permit/scope
+→ frozen EmbeddingContract
+→ actual-token admission (overflow=REJECT)
+→ deterministic whole-Chunk batches
+→ stable operation + fresh attempt/request IDs
+→ Provider candidate
+→ complete correlation/shape/numeric validation
+→ current authorization/provenance/fence recheck
+→ sole Committer CAS
+→ immutable records + homogeneous set + pointer + outbox
+```
+
+Hard gates precede weighted preferences: exact model/tokenizer revision, no silent truncation, response
+correlation, approved protected-data handling and tenant isolation. Frozen weights: local quality 35%, security
+25%, reproducibility 15%, reliability 10%, cost 10%, operability 5%.
+
+The contract fingerprint includes model/revision/deployment; tokenizer/revision; preprocessing; document role/
+prefix; hard token max and `REJECT`; dimensions/type/normalization/zero policy; API/schema; batch item/token/byte
+limits; egress/retention/ZDR policy. Equal dimensions do not imply compatible vector spaces.
+
+Validation rules:
+
+- exactly one response per expected `chunk_id`; explicit IDs may restore out-of-order results;
+- any missing, duplicate, unknown, partial, wrong-model/dimension, NaN/Inf, forbidden zero or bad norm rejects
+  the whole operation;
+- earlier valid batches remain non-durable when a later batch fails;
+- timeout after dispatch is `UNKNOWN` and requires reconciliation, not blind retry;
+- proven non-execution may use a fresh attempt after bounded backoff/jitter/`Retry-After`;
+- immediately before commit, reread permit expiry, membership, all revisions/epoch, current lineage, selection
+  revision and document fence;
+- one CAS winner atomically writes records/set/pointer/Outbox; exact replay converges;
+- model/tokenizer/preprocessing change creates a new retained set; ACL-only change does not re-embed;
+- vectors are protected data and stay out of ordinary logs, metrics and evidence reports.
+
+Evidence: 23 focused tests, 17/17 seed and 905/905 full regressions on local Python 3.12.14 with a deterministic fake. Real model/
+Provider, frozen local retrieval quality, vector index and distributed durability are NOT RUN;
+`MORE_EVIDENCE_NEEDED`. Related:
+[Day98 lesson](../docs/fastapi/day98-embedding-model-selection-and-versioning.md).

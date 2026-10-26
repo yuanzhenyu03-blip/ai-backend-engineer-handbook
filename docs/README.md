@@ -57,7 +57,8 @@ docs/
 │   ├── day84-conversation-memory-vs-durable-business-state-boundaries.md # bounded context + durable control boundary
 │   ├── day95-rag-ingestion-pipeline-parsing-and-document-lifecycle.md # Phase 7C begins
 │   ├── day96-chunking-strategy-and-experiments.md # immutable ChunkSets + experiments
-│   └── day97-metadata-tenant-acl-and-provenance.md # exact permits + guarded reads
+│   ├── day97-metadata-tenant-acl-and-provenance.md # exact permits + guarded reads
+│   └── day98-embedding-model-selection-and-versioning.md # immutable EmbeddingSets
 ├── playwright/
 └── n8n/
 ```

@@ -666,3 +666,56 @@ production key custody/rotation; in-memory locks do not prove distributed transa
 cache consistency, crash recovery or revocation latency. Production OIDC, policy deployment, RLS, vector store,
 telemetry/load/failure drills and production traffic were NOT RUN. Evidence is `EXECUTED_LOCAL_RUNTIME` and
 readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 016 — Version the Complete Embedding Space and Publish Only Atomic Authorized Sets
+
+Status: Accepted for Day98 course scope
+
+Date: 2026-10-26
+
+### Context
+
+Embedding vectors have no stable meaning without the exact model, tokenizer, preprocessing, input role,
+numeric and normalization contracts that produced them. Provider responses can be partial, reordered,
+mis-correlated or numerically invalid. Authorization and selected provenance can also change while a Provider
+request is in flight. Persisting per-batch successes or retrying an uncertain dispatch can create mixed,
+duplicated or unauthorized durable state.
+
+### Decision
+
+Apply non-negotiable eligibility gates before frozen weighted preferences. Bind model and tokenizer immutable
+revisions, preprocessing, document role/prefix, actual-token hard maximum with overflow `REJECT`, dimensions,
+numeric type, normalization, API/schema, batch limits and egress policy in one immutable EmbeddingContract.
+Any semantic contract change creates a new EmbeddingSet; equal dimensions never imply compatibility.
+
+Accept only the exact Day97 `chunk:read_for_embedding` handoff. Preserve stable operation identity separately
+from fresh attempt/request identity. Treat every Provider response as a candidate and require complete unique
+item correlation plus structural/numeric validation. Reject the whole operation on any invalid item. Preserve
+post-dispatch timeout as `UNKNOWN`; retry only after proven non-execution or authoritative reconciliation.
+
+Immediately before commit, reread current permit expiry, membership and every authorization revision/epoch,
+plus Day95/Day96 current provenance, selection revision and document fence. Give only the EmbeddingCommitter
+authority to atomically create immutable EmbeddingRecords and homogeneous EmbeddingSet, move the current
+pointer under CAS, and insert an Outbox intent. Retain old sets. ACL-only changes do not re-embed unchanged
+content, although they invalidate stale in-flight authorization and govern later retrieval.
+
+### Consequences
+
+- Silent truncation is forbidden; an oversized committed Chunk returns to Day96 for a new versioned set.
+- Response order is insufficient unless an adapter proves an exact complete mapping to stable Chunk IDs.
+- No partial batch/set publication occurs, even when earlier Provider batches succeeded.
+- Exact replay converges; same stable identity with a different vector manifest is a conflict.
+- Vectors remain protected data and are excluded from ordinary logs, metrics and evidence reports.
+- Day99 receives immutable set metadata/storage references, not retrieval permission.
+- Additional storage, current-state reads, recomputation after partial failure and explicit model migrations are
+  accepted costs.
+
+### Validation honesty
+
+The deterministic fake workflow, 23 focused tests, 17/17 seed and Day97 regression ran locally on Python
+3.12.14. Static official evidence compared three candidates and provisionally selected an exact BGE-M3
+revision, but no real weights/Provider or frozen local retrieval-quality corpus ran. The in-memory lock does not
+prove a distributed transaction, fencing, crash recovery or Outbox delivery. Evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; production readiness remains `MORE_EVIDENCE_NEEDED`.

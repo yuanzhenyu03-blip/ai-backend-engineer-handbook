@@ -18,17 +18,18 @@ Current phase:
 
 * Phase 7C — Production RAG Engineering — in progress. Day95 establishes active immutable parsed content,
   Day96 adds provenance-bound ChunkSets, and Day97 adds metadata/tenant/ACL/provenance enforcement with narrow
-  signed permits and guarded reads. Production readiness remains `MORE_EVIDENCE_NEEDED`.
+  signed permits and guarded reads. Day98 adds eligibility-first embedding selection, a frozen vector-space
+  contract and atomic immutable EmbeddingSets. Production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day97 — Metadata, Tenant, ACL and Provenance](docs/fastapi/day97-metadata-tenant-acl-and-provenance.md)
+* [Day98 — Embedding Model Selection and Versioning](docs/fastapi/day98-embedding-model-selection-and-versioning.md)
 
-(For the completed classroom history Day01–Day97, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day98, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day98 — Embedding Model Selection and Versioning (Phase 7C; planned)
+* Day99 — Vector Database and Vector Index Design (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

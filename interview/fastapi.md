@@ -3270,3 +3270,67 @@ evidence and the complete senior synthesis. This is honest guided-classroom evid
 senior-English performance or production readiness.
 
 Related: [Day97 lesson](../docs/fastapi/day97-metadata-tenant-acl-and-provenance.md).
+
+## Day98 — Embedding Model Selection and Versioning (Phase 7C)
+
+### Beginner: Why is an embedding not just an array of floats?
+
+**Strong answer:** Its similarity meaning depends on the exact model revision, tokenizer, preprocessing, input
+role/prefix, dimensions, numeric type and normalization. The vector must retain that immutable contract. Equal
+dimensions do not prove compatibility.
+
+### Beginner: What should happen when a Chunk exceeds the model token limit?
+
+**Strong answer:** Count the exact prefixed text with the frozen real tokenizer and reject it. Return to Day96
+to create a new versioned ChunkSet. Silent truncation is forbidden because decisive content may be at the end.
+
+### Intermediate: How do you validate a batched response?
+
+**Strong answer:** Bind stable request, batch and item identities. Require exactly one response for each expected
+`chunk_id`, reject missing/duplicate/unknown/partial output, verify exact model identity, dimensions, finite
+values, zero policy and normalization. Out-of-order results are safe only with a proven explicit mapping. One
+invalid item rejects the whole operation.
+
+### Intermediate: Operation identity versus attempt identity?
+
+**Strong answer:** The operation and tenant-scoped idempotency key identify the desired stable result. Every
+execution uses a fresh attempt number, generation and request ID. A post-dispatch timeout is `UNKNOWN`, not
+failure; reconcile it. Only proven non-execution permits a fresh attempt directly.
+
+### Senior: Why recheck authorization after embedding computation?
+
+**Strong answer:** Permission or current content may change during the Provider call. Immediately before commit,
+the Committer rereads permit expiry, active membership, all policy/ACL/membership/role/action revisions and
+authorization epoch, plus the active DocumentVersion, selected ChunkSet, exact provenance, selection revision
+and document fence. Any stale or unavailable fact produces zero durable transition.
+
+### Senior: Design atomic publication and upgrades.
+
+**Strong answer:** Keep all batches as candidates until complete validation. Under a sole Committer and one
+conditional pointer baseline, atomically insert immutable EmbeddingRecords and one homogeneous EmbeddingSet,
+move the current pointer and insert Outbox intent. Exact retries converge; different vectors under one stable
+identity conflict. A model/tokenizer/preprocessing change creates a new set and preserves the old one. An
+ACL-only change alters current authorization, not unchanged vector semantics, so it does not itself re-embed.
+
+### Senior: How do you select a model honestly?
+
+**Strong answer:** Freeze non-negotiable gates and weights before results. Reject candidates that cannot prove
+revision/tokenizer pinning, no truncation, response correlation, approved protected-data handling or tenant
+isolation. Score only survivors against a frozen local corpus and operational criteria. Public benchmarks and
+fake adapters are supporting evidence, never substitutes for local quality and real runtime evidence.
+
+### Common weak answer and follow-up
+
+“Call the API, retry errors and store each vector by response position.” Ask what happens on a late timeout,
+missing plus duplicate output, a model alias change, token truncation, ACL revocation during execution and a
+later batch failure after earlier batches succeeded.
+
+### Classroom interview result
+
+`COMPLETED_WITH_TECHNICAL_AND_LANGUAGE_CORRECTIONS_AND_DIRECT_TEACHING`. The learner correctly rejected
+positional ambiguity, partial acceptance, blind retry, silent truncation, incompatible vector mixing and
+hard-gate compensation, then synthesized the eight-stage workflow. Direct teaching supplied the full immutable
+contract, usage confidence, recovery states, atomic Outbox consequences and Day99 boundary. This is guided
+classroom evidence, not real model-quality or independent production evidence.
+
+Related: [Day98 lesson](../docs/fastapi/day98-embedding-model-selection-and-versioning.md).
