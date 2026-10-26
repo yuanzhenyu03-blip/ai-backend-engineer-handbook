@@ -28,7 +28,8 @@ Committer rereads permit expiry, all authorization revisions/epoch, active prove
 fences, then atomically writes immutable records/set/current pointer/Outbox under CAS.
 
 Validation: local bundled Python 3.12.14; 23/23 Day98 focused tests, 17/17 seed, deterministic example,
-36/36 Day97 regressions and 905/905 full tests PASS. GitHub Actions totals are recorded in
+36/36 Day97 regressions and 905/905 full tests PASS. Python 3.12.15 GitHub Actions also passed 905/905,
+every seed evaluator and saved Day96/Day98 evidence replay. Exact CI evidence is recorded in
 `projects/ai-agent/evidence/day98-validation.json`. Evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. The real Provider/model weights, frozen local retrieval
 quality, production vector controls, vector index, distributed durability/reconciliation and load/soak remain

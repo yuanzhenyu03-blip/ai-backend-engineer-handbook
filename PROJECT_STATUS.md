@@ -27,8 +27,9 @@ rejects silent truncation, creates deterministic whole-Chunk batches, validates 
 candidates, separates stable operations from fresh attempts/unknown dispatch, rereads authorization and
 provenance immediately before commit, and atomically publishes immutable records/set/pointer/Outbox through a
 sole Committer. Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE` — Python 3.12.14, 23 focused tests,
-17/17 seed, deterministic example and 905/905 full regressions PASS locally. BGE-M3 is a provisional static-evidence
-candidate only; real weights/provider, local retrieval quality, index and distributed durability are NOT RUN.
+17/17 seed, deterministic example and 905/905 full regressions PASS locally; Python 3.12.15 GitHub Actions also
+passed 905/905, every seed evaluator and saved Day96/Day98 evidence replay. BGE-M3 is a provisional
+static-evidence candidate only; real weights/provider, local retrieval quality, index and distributed durability are NOT RUN.
 Readiness is `MORE_EVIDENCE_NEEDED`. Day99 is next.
 
 Day97 is COMPLETE at guided classroom scope. Lesson:

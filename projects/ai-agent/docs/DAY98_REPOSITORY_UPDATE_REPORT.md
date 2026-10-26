@@ -24,6 +24,7 @@ No real Provider, model weights, local retrieval-quality corpus, vector database
 dispatcher recovery, load/soak, production secrets or customer data were used.
 
 Local execution used bundled Python 3.12.14: 23/23 focused tests, 17/17 Day98 seed, 36/36 Day97 regression,
-905/905 complete tests, every available seed evaluator, compileall and saved-evidence replay passed. The final
-GitHub Actions result is recorded in `evidence/day98-validation.json`. Production readiness remains
+905/905 complete tests, every available seed evaluator, compileall and saved-evidence replay passed. GitHub
+Actions on Python 3.12.15 also passed 905/905, all seed evaluators and saved Day96/Day98 evidence replay; the
+exact run is recorded in `evidence/day98-validation.json`. Production readiness remains
 `MORE_EVIDENCE_NEEDED`.

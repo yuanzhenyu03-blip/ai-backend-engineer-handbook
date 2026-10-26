@@ -7,7 +7,15 @@
   "seed": {"passed": 17, "total": 17},
   "example": "COMMITTED",
   "full_repository_tests": {"passed": 905, "failed": 0},
-  "github_actions_python_3_12": "PENDING",
+  "github_actions_python_3_12": {
+    "status": "PASSED",
+    "python": "3.12.15",
+    "run_id": 40323856971,
+    "job_id": 121575359294,
+    "full_repository_tests": {"passed": 905, "failed": 0},
+    "all_seed_evaluators": "PASSED",
+    "saved_day96_day98_evidence_replay": "PASSED"
+  },
   "real_provider_execution": "NOT_RUN",
   "real_model_weights": "NOT_RUN",
   "real_local_retrieval_quality": "NOT_RUN",

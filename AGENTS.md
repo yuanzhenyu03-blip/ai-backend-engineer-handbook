@@ -41,7 +41,8 @@ Current state:
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
 - Last Completed Lesson: Day98 — Embedding Model Selection and Versioning (guided classroom scope;
-  deterministic authorized embedding implementation, 23 focused tests and 17/17 seed on local Python 3.12;
+  deterministic authorized embedding implementation, 23 focused tests and 17/17 seed locally plus 905/905
+  complete tests and all seed/evidence gates on Python 3.12.15 CI;
   bounded evidence is EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE; real model/provider quality is NOT RUN;
   production readiness MORE_EVIDENCE_NEEDED).
 - Current / Next Lesson: Day99 — Vector Database and Vector Index Design (Phase 7C; Planned).
