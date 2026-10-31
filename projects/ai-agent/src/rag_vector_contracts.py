@@ -9,6 +9,7 @@ import math
 from rag_chunking_contracts import stable_hash
 from rag_acl_contracts import AuthorizationRevisionVector
 from rag_embedding_contracts import (
+    canonical_float32_vector,
     EmbeddingSet,
     NormalizationPolicy,
     NumericType,
@@ -350,7 +351,8 @@ def generation_manifest(
         point_count=len(ordered),
         point_ids_digest=stable_hash(tuple(point.point_id for point in ordered)),
         vector_digest=stable_hash(tuple(
-            (point.point_id, point.vector) for point in ordered
+            (point.point_id, canonical_float32_vector(point.vector))
+            for point in ordered
         )),
         payload_digest=stable_hash(tuple(
             (point.point_id, point.payload) for point in ordered

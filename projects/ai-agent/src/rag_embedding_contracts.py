@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 import math
+import struct
 
 from rag_acl_contracts import AuthorizationRevisionVector
 from rag_chunking_contracts import stable_hash
@@ -27,6 +28,12 @@ class OverflowPolicy(str, Enum):
 
 class NumericType(str, Enum):
     FLOAT32 = "FLOAT32"
+
+
+def canonical_float32_vector(vector: tuple[float, ...]) -> tuple[str, ...]:
+    """Encode a FLOAT32 contract independently of Python/libm text rendering."""
+
+    return tuple(struct.pack("!f", value).hex() for value in vector)
 
 
 class NormalizationPolicy(str, Enum):
@@ -331,4 +338,7 @@ def vector_manifest_checksum(
 ) -> str:
     """Bind protected vectors without emitting them in ordinary evidence."""
 
-    return stable_hash((chunk_ids, vectors, contract_fingerprint))
+    canonical_vectors = tuple(
+        canonical_float32_vector(vector) for vector in vectors
+    )
+    return stable_hash((chunk_ids, canonical_vectors, contract_fingerprint))

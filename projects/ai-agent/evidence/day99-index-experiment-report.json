@@ -1,7 +1,7 @@
 {
   "approximate_method": "DETERMINISTIC_FAKE_PROPOSAL",
   "approximate_method_is_real_ann": false,
-  "corpus_checksum": "sha256:57b0042fcf1e2709714ac1288d354262d9f649511c30364a88dd3180ab2b0c9a",
+  "corpus_checksum": "sha256:62357515aa38da51ddaa6bd4bf58756bc7c02112e4d035283d4a447330d6fe0d",
   "corpus_size": 256,
   "corpus_version": "day99-controlled-vectors.v1",
   "dimensions": 8,

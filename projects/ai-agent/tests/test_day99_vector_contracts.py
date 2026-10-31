@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import math
 import unittest
 
 from examples.day99_vector_database_index_design import (
@@ -8,6 +9,7 @@ from examples.day99_vector_database_index_design import (
     classroom_retrieval_policy,
     classroom_vector_contract,
 )
+from rag_embedding_contracts import vector_manifest_checksum
 from rag_vector_adapter import cosine_similarity
 from rag_vector_contracts import (
     IndexAlgorithm,
@@ -17,6 +19,21 @@ from rag_vector_contracts import (
 
 
 class Day99VectorContractTests(unittest.TestCase):
+    def test_float32_manifest_ignores_sub_float32_runtime_noise(self) -> None:
+        baseline = (0.1, 0.2)
+        runtime_variant = (math.nextafter(0.1, 1.0), 0.2)
+        left = vector_manifest_checksum(
+            chunk_ids=("chunk-a",),
+            vectors=(baseline,),
+            contract_fingerprint="sha256:contract",
+        )
+        right = vector_manifest_checksum(
+            chunk_ids=("chunk-a",),
+            vectors=(runtime_variant,),
+            contract_fingerprint="sha256:contract",
+        )
+        self.assertEqual(left, right)
+
     def test_build_parameter_change_changes_physical_contract(self) -> None:
         fixture = build_day99_fixture()
         hnsw = classroom_vector_contract(

@@ -8,6 +8,7 @@ import math
 from typing import Protocol
 
 from rag_chunking_contracts import stable_hash
+from rag_embedding_contracts import canonical_float32_vector
 from rag_vector_contracts import (
     ApplicationVectorHit,
     VectorIndexContract,
@@ -323,7 +324,7 @@ class DeterministicFakeVectorProvider:
             point.tenant_id,
             point.embedding_id,
             point.chunk_id,
-            point.vector,
+            canonical_float32_vector(point.vector),
             point.payload,
         ) for point in sorted(points, key=lambda item: item.point_id))
         return stable_hash((generation_id, fence, canonical))

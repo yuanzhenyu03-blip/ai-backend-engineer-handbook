@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 
 from rag_chunking_contracts import stable_hash
+from rag_embedding_contracts import canonical_float32_vector
 from rag_vector_adapter import ExactFlatReference
 from rag_vector_contracts import VectorPoint
 
@@ -94,7 +95,12 @@ def run_controlled_index_experiment() -> dict[str, object]:
         recalls.append(recall_at_k(gold_ids, proposal_ids))
         overlaps.append(rank_overlap(gold_ids, proposal_ids))
     corpus_checksum = stable_hash(tuple(
-        (point.point_id, point.tenant_id, point.vector) for point in points
+        (
+            point.point_id,
+            point.tenant_id,
+            canonical_float32_vector(point.vector),
+        )
+        for point in points
     ))
     exact_checksum = stable_hash(tuple(exact_rankings))
     proposal_checksum = stable_hash(tuple(proposal_rankings))
