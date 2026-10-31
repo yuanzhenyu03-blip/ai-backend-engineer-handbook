@@ -2413,3 +2413,41 @@ Evidence: 23 focused tests, 17/17 seed and 905/905 full regressions on local Pyt
 Provider, frozen local retrieval quality, vector index and distributed durability are NOT RUN;
 `MORE_EVIDENCE_NEEDED`. Related:
 [Day98 lesson](../docs/fastapi/day98-embedding-model-selection-and-versioning.md).
+
+## Day99 — Vector Database and Vector Index Design
+
+```text
+current homogeneous EmbeddingSet
+→ exact embedding_set:read_for_indexing authorization
+→ immutable VectorIndexContract
+→ tenant/generation/embedding point identity
+→ deterministic tenant-only batches + exact ACK correlation
+→ isolated shadow generation
+→ canonical manifest + Provider readback/checkpoint
+→ Exact/Flat score and ordering comparison
+→ hard-gate evidence
+→ current authorization/lineage/set/contract/fence recheck
+→ sole fenced Committer seals generation + Outbox
+→ production activation refused until every gate passes
+```
+
+| Change | Required version action |
+|---|---|
+| embedding model/chunking/vector space | new EmbeddingSet and generation |
+| HNSW `m`, `ef_construction`; IVFFlat `lists` | new physical generation |
+| `ef_search`, `probes`, `top_k`, threshold | new RetrievalPolicy revision |
+| payload/indexed tenant field | new copy-on-write generation; vectors may be reused if verified |
+| ACL/grant only | current authorization update; normally no re-embedding/rebuild |
+
+For unit-L2 vectors, cosine similarity equals dot product and squared L2 equals `2 - 2 * dot`. The ordering may
+match while values, direction, thresholds and Provider operators remain different contracts. Adapter example:
+Provider cosine distance `0.18` becomes application similarity `0.82`.
+
+ACK is not readback. `NOT_RUN` means no test; `FAIL` means executed and outside gate; `UNKNOWN` means a side
+effect may have happened and requires reconciliation. A sealed generation is not automatically production
+ready. Hard gates cannot be compensated by weighted quality scores.
+
+Evidence: 36 focused tests, 8/8 seed, official pgvector/Qdrant/Pinecone research, deterministic fake control flow
+and a 256-vector exact/simulated recall experiment. Real vector Provider/ANN, capacity/latency, recovery and
+production traffic are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
+[Day99 lesson](../docs/fastapi/day99-vector-database-and-vector-index-design.md).

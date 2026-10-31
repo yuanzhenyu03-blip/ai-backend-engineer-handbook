@@ -1,0 +1,40 @@
+{
+  "candidates": [
+    {
+      "candidate_id": "postgresql-pgvector-0.8.7",
+      "criterion_scores": {"correctness_and_versionability": 90, "cost": 80, "durability_and_recovery": 80, "filtering_and_day100_fit": 85, "measured_local_index_behavior": 0, "operability_and_developer_experience": 75, "security_and_tenant_isolation": 85},
+      "deployment_mode": "SELF_HOSTED_POSTGRES",
+      "eligible": true,
+      "hard_gates": {"adapter_type_isolation": "PASS", "api_or_schema_version_strategy": "PASS", "application_owned_record_identity": "PASS", "backup_restore_facts": "PASS", "exact_manifest_validation": "PASS", "filter_path_not_authorization": "PASS", "generation_safe_update_delete": "PASS", "homogeneous_embedding_contract": "PASS", "license_or_commercial_acceptability": "PASS", "protected_vector_egress": "PASS", "shadow_and_repairable_cutover": "PASS", "tenant_isolation_strategy": "PASS", "timeout_reconciliation": "PASS", "vector_contract_compatibility": "PASS", "versioned_generation": "PASS"},
+      "product_version": "pgvector 0.8.7 / PostgreSQL 13+",
+      "unresolved": ["real pgvector runtime NOT RUN", "workload ANN recall/latency NOT RUN", "backup/restore drill NOT RUN"],
+      "weighted_score": 71.5
+    },
+    {
+      "candidate_id": "qdrant-1.20.0",
+      "criterion_scores": {"correctness_and_versionability": 80, "cost": 70, "durability_and_recovery": 70, "filtering_and_day100_fit": 90, "measured_local_index_behavior": 0, "operability_and_developer_experience": 80, "security_and_tenant_isolation": 80},
+      "deployment_mode": "SELF_HOSTED_OR_MANAGED",
+      "eligible": false,
+      "hard_gates": {"adapter_type_isolation": "PASS", "api_or_schema_version_strategy": "PASS", "application_owned_record_identity": "PASS", "backup_restore_facts": "UNKNOWN", "exact_manifest_validation": "PASS", "filter_path_not_authorization": "PASS", "generation_safe_update_delete": "PASS", "homogeneous_embedding_contract": "PASS", "license_or_commercial_acceptability": "PASS", "protected_vector_egress": "PASS", "shadow_and_repairable_cutover": "UNKNOWN", "tenant_isolation_strategy": "PASS", "timeout_reconciliation": "PASS", "vector_contract_compatibility": "PASS", "versioned_generation": "PASS"},
+      "product_version": "1.20.0",
+      "unresolved": ["application DB plus Qdrant alias atomicity not established", "distributed restore drill NOT RUN", "real Qdrant runtime NOT RUN"],
+      "weighted_score": null
+    },
+    {
+      "candidate_id": "pinecone-api-2025-10",
+      "criterion_scores": {"correctness_and_versionability": 70, "cost": 55, "durability_and_recovery": 70, "filtering_and_day100_fit": 80, "measured_local_index_behavior": 0, "operability_and_developer_experience": 85, "security_and_tenant_isolation": 65},
+      "deployment_mode": "MANAGED_SERVERLESS_OR_BYOC",
+      "eligible": false,
+      "hard_gates": {"adapter_type_isolation": "PASS", "api_or_schema_version_strategy": "PASS", "application_owned_record_identity": "PASS", "backup_restore_facts": "UNKNOWN", "exact_manifest_validation": "PASS", "filter_path_not_authorization": "PASS", "generation_safe_update_delete": "PASS", "homogeneous_embedding_contract": "PASS", "license_or_commercial_acceptability": "PASS", "protected_vector_egress": "UNKNOWN", "shadow_and_repairable_cutover": "UNKNOWN", "tenant_isolation_strategy": "PASS", "timeout_reconciliation": "PASS", "vector_contract_compatibility": "PASS", "versioned_generation": "PASS"},
+      "product_version": "2025-10 stable control-plane API",
+      "unresolved": ["protected-vector managed egress approval UNKNOWN", "cross-system atomic cutover not established", "backup API evidence observed only on alpha page", "offline/local runtime unavailable and real API NOT RUN"],
+      "weighted_score": null
+    }
+  ],
+  "evidence_scope": "OFFICIAL_STATIC_PLUS_POLICY_EXECUTION",
+  "outcome": "PROVISIONAL_SELECTED",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "real_database_execution": "NOT_RUN",
+  "selected_candidate_id": "postgresql-pgvector-0.8.7",
+  "weights": {"correctness_and_versionability": 0.2, "cost": 0.1, "durability_and_recovery": 0.15, "filtering_and_day100_fit": 0.1, "measured_local_index_behavior": 0.15, "operability_and_developer_experience": 0.05, "security_and_tenant_isolation": 0.25}
+}

@@ -9,6 +9,33 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day99 — Vector Database and Vector Index Design (Phase 7C)
+
+Date: 2026-10-31
+
+Released the Day99 lesson, application design, classroom record, Day100 handoff, cheat-sheet and interview
+sections, deterministic example, 8-case seed/evaluator, 36 focused tests and three replayable evidence reports.
+Official primary-source research retains pgvector 0.8.7, Qdrant 1.20.0 and Pinecone API 2025-10. The continuing
+`projects/ai-agent/` Artifact accepts only the current homogeneous Day98 EmbeddingSet under the narrow
+`embedding_set:read_for_indexing` action, separates physical
+VectorIndexContract from query RetrievalPolicy, implements application-owned cosine-similarity semantics and a
+deterministic Exact/Flat reference, and builds immutable tenant/generation/embedding-bound shadow generations.
+
+Deterministic tenant-only batches and exact request/batch/point correlation reject missing, duplicate, unknown,
+partial and mismatched ACKs. Canonical manifests plus checkpoint/readback reject cross-tenant, changed
+vector/payload and wrong ordering. Stable operation identity is separate from fresh attempts; the Committer
+issues monotonic fencing tokens, timeout after write remains `UNKNOWN`, blind retry is blocked and
+reconciliation may converge the original operation. The sole Committer rereads authorization, provenance,
+Day98 selection and selected index contract, then seals generation plus Outbox. Production activation refuses
+incomplete hard gates. A 256-vector corpus verifies Exact/Flat and recall@k arithmetic with an explicitly
+simulated ANN proposal.
+
+Validation: local Python 3.11.5 fallback runtime; 36/36 Day99 focused tests, 8/8 seed, deterministic example,
+all seed evaluators, compileall, three saved evidence replays and 941/941 complete repository tests PASS. The repository requires Python
+3.12 and CI remains the version gate; Python 3.12 CI is NOT RUN until push. The deterministic fake proves local
+control flow only; real vector Provider, real ANN recall, capacity/latency, distributed durability/recovery,
+deletion propagation and production traffic remain NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`. Day100 is next.
+
 ## Unreleased — Day98 — Embedding Model Selection and Versioning (Phase 7C)
 
 Date: 2026-10-26

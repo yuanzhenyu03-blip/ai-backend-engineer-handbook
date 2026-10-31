@@ -3334,3 +3334,57 @@ contract, usage confidence, recovery states, atomic Outbox consequences and Day9
 classroom evidence, not real model-quality or independent production evidence.
 
 Related: [Day98 lesson](../docs/fastapi/day98-embedding-model-selection-and-versioning.md).
+
+## Day99 — Vector Database and Vector Index Design (Phase 7C)
+
+### Beginner: Cosine similarity versus Provider distance?
+
+**Strong answer:** They are different typed semantics. For cosine distance, the application Adapter may expose
+similarity as `1 - distance`, then compare full precision with an explicit operator. Never let a Provider's
+private score direction leak into product thresholds.
+
+### Intermediate: Which index parameters require rebuilding?
+
+**Strong answer:** Parameters that define physical topology, such as HNSW `m` and `ef_construction` or IVFFlat
+`lists`, require a new immutable generation. Query exploration such as `ef_search` or `probes`, plus `top_k`
+and threshold, belongs to a RetrievalPolicy revision.
+
+### Intermediate: Why is ACK insufficient?
+
+**Strong answer:** ACK may mean accepted, not applied, query visible or correct. Build a canonical point/vector/
+payload manifest, read Provider state back, compare digests and checkpoint, then exercise the actual query path
+against an Exact/Flat oracle.
+
+### Intermediate: How do you validate a partially acknowledged write?
+
+**Strong answer:** Correlate every ACK by request, batch, tenant, namespace, generation and ordered point IDs.
+Reject missing, duplicate, unknown and partial identities. Even complete ACKs remain candidates until exact
+readback proves the manifest.
+
+### Senior: Design a safe index build and activation.
+
+**Strong answer:** Require the exact index-build action for one current homogeneous EmbeddingSet, freeze the
+selected physical contract, create deterministic tenant batches in a copy-on-write shadow generation, and use
+stable operation identity plus a Committer-issued fence. After ACK correlation and readback, reread current
+authorization, provenance, set and contract. Only the Committer may select generation+policy and Outbox under
+CAS. Provider aliases are derived from application-database authority.
+
+### Senior: What happens after a write timeout?
+
+**Strong answer:** Mark the attempt `UNKNOWN`; do not blind retry. Block a new attempt until reconciliation reads
+Provider state. If manifest and query evidence match, converge the original logical operation. A newer attempt
+gets a higher fence, and late old workers cannot commit.
+
+### Senior: Why can a sealed generation remain non-serving?
+
+**Strong answer:** Sealing proves only the executed gates. If ANN recall, production filter isolation,
+capacity/latency, recovery or real Provider evidence is `NOT_RUN`, readiness stays `MORE_EVIDENCE_NEEDED` and
+activation must fail, regardless of local exact results.
+
+### Common weak answer and follow-up
+
+“The vector DB returned success, so point the alias at it.” Ask which immutable contract and manifest were
+verified, how score direction is translated, which hard gates ran, what prevents a stale worker, and which
+database is authoritative after alias drift.
+
+Related: [Day99 lesson](../docs/fastapi/day99-vector-database-and-vector-index-design.md).
