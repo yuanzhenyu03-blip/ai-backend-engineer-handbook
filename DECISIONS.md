@@ -719,3 +719,48 @@ The deterministic fake workflow, 23 focused tests, 17/17 seed and Day97 regressi
 revision, but no real weights/Provider or frozen local retrieval-quality corpus ran. The in-memory lock does not
 prove a distributed transaction, fencing, crash recovery or Outbox delivery. Evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 017 — Exact Reference Before ANN and Immutable Fenced Vector Generations
+
+Status: Accepted for Day99 course scope
+
+Date: 2026-10-31
+
+### Context
+
+Vector Providers expose different metric operators, score directions, index parameters, ACK semantics and
+filter behavior. A successful request does not prove complete query-visible content. In-place rebuilds,
+Provider aliases, stale workers and mixed EmbeddingSets can make retrieval irreproducible or unsafe.
+
+### Decision
+
+Keep physical `VectorIndexContract` separate from query-time `RetrievalPolicyRevision`. Start with an
+application-owned Exact/Flat reference and typed score Adapter. Bind every physical generation to one current,
+homogeneous Day98 EmbeddingSet, immutable Provider engine revision, metric, build parameters, point identity,
+payload schema and canonical content manifest.
+
+Build copy-on-write shadow generations. Treat Provider ACK as weaker than readback; require point/vector/payload
+digest equality, checkpoint and exact-query parity before sealing. Use stable logical operation identity, fresh
+attempts and Committer-generated monotonic fences. A post-write timeout remains `UNKNOWN` and blocks blind retry
+until reconciliation. Only the Committer may seal generation plus Outbox or atomically select bundle plus
+Outbox under CAS. Provider alias is derived state.
+
+### Consequences
+
+- HNSW `m`/`ef_construction` and IVFFlat `lists` require a new physical generation.
+- `ef_search`, `probes`, `top_k` and threshold require a new policy revision, not necessarily a rebuild.
+- Provider-private distances never leak into application threshold semantics.
+- ACK-only, partial, changed-vector/payload or wrong-order state is rejected.
+- ACL-only changes do not rebuild unchanged vectors; query authorization remains authoritative later.
+- A sealed generation can remain non-serving when any hard gate is `NOT_RUN`, `UNKNOWN`, `FAIL` or `STALE`.
+
+### Validation honesty
+
+Official static research retains pgvector, Qdrant and Pinecone. The deterministic fake, 256-vector Exact/Flat
+corpus, simulated ANN proposal, 37 focused tests, 8/8 seed and example execute application control flow; the
+Python 3.12 CI gate also passes.
+The fake tenant filter is not production authorization evidence. Real vector Provider and real ANN recall,
+capacity/latency, distributed fencing, backup/restore, deletion propagation and traffic are NOT RUN. Evidence
+is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness is `MORE_EVIDENCE_NEEDED`.

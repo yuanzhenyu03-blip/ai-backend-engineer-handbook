@@ -108,7 +108,16 @@ ai-agent/
 │   ├── rag_embedding_validator.py # Day98: complete correlated candidate validation
 │   ├── rag_embedding_committer.py # Day98: atomic set/records/pointer/outbox authority
 │   ├── rag_embedding_orchestrator.py # Day98: thin authorization-to-commit flow
-│   └── rag_embedding_experiments.py # Day98: repeatable selection evidence
+│   ├── rag_embedding_experiments.py # Day98: repeatable selection evidence
+│   ├── rag_vector_contracts.py # Day99: physical/query/generation/evidence contracts
+│   ├── rag_vector_store_selection.py # Day99: hard gates + provisional store decision
+│   ├── rag_vector_index_authorization.py # Day99: narrow index-build authorization
+│   ├── rag_vector_index_planner.py # Day99: deterministic tenant-scoped batches
+│   ├── rag_vector_adapter.py # Day99: Provider port + Exact/Flat + score Adapter
+│   ├── rag_vector_validator.py # Day99: manifest/readback/exact validation
+│   ├── rag_vector_committer.py # Day99: fenced generation seal + activation authority
+│   ├── rag_vector_orchestrator.py # Day99: build/reconciliation control flow
+│   └── rag_vector_index_experiments.py # Day99: exact corpus + recall calculation
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -149,18 +158,19 @@ ai-agent/
 │   ├── test_day95_*.py           # Day95: ingestion, parser, activation + recovery
 │   ├── test_day96_*.py           # Day96: chunking, identity, selection + seed
 │   ├── test_day97_*.py           # Day97: metadata/ACL/provenance/permit + seed
-│   └── test_day98_*.py           # Day98: selection/contract/validation/commit + seed
-├── evals/                        # Day83–Day98 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day98
-├── evidence/                     # validation records through Day98
+│   ├── test_day98_*.py           # Day98: selection/contract/validation/commit + seed
+│   └── test_day99_*.py           # Day99: index contract/Flat/readback/fence + seed
+├── evals/                        # Day83–Day99 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day99
+├── evidence/                     # validation records through Day99
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day98
+└── docs/                         # designs and classroom records through Day99
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day98
-documented). Day98 adds bounded deterministic embedding selection/versioning evidence and preserves
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day99
+documented). Day99 adds bounded deterministic vector-generation/readback evidence and preserves
 `MORE_EVIDENCE_NEEDED` production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -808,9 +818,47 @@ Evidence: 23 focused tests, 17/17 seed, deterministic example and 905/905 full r
 quality, vector index, distributed durability/reconciliation and production traffic are NOT RUN. Production
 readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day99 Vector Database and Vector Index Design
+
+Day99 consumes only the current homogeneous Day98 EmbeddingSet. It freezes Provider engine revision, vector
+space, metric, physical algorithm/build parameters, namespace, point identity and payload schemas in one
+`VectorIndexContract`; query-time `top_k`, threshold, `ef_search` and `probes` remain in a separate
+`RetrievalPolicyRevision`.
+
+The classroom runtime first requires the exact `embedding_set:read_for_indexing` action, rereads current
+Day95–Day98 lineage and freezes a selected contract revision. It creates stable tenant-only batches and
+correlates request, batch, namespace, generation and point identities before exact manifest readback. An
+application Adapter converts cosine distance to similarity and compares every probe against Exact/Flat.
+Missing/duplicate/unknown/partial ACKs, cross-tenant points and changed content fail closed. Timeout after write
+is `UNKNOWN`, blocks blind retry and converges only through reconciliation. The sole Committer rechecks current
+authorization, lineage, set, contract and fence, seals one immutable generation plus Outbox, and refuses
+activation because real ANN, capacity, recovery and real Provider gates remain `NOT_RUN`.
+
+See the [design](docs/DAY99_VECTOR_DATABASE_INDEX_DESIGN.md),
+[classroom record](docs/day99-vector-database-index-classroom-draft.md),
+[validation](evidence/day99-validation.json),
+[candidate matrix](evidence/day99-vector-store-selection-matrix.json),
+[index experiment](evidence/day99-index-experiment-report.json),
+[official research](research/day99-vector-database-evidence.jsonl),
+[repository report](docs/DAY99_REPOSITORY_UPDATE_REPORT.md) and
+[Day100 handoff](docs/DAY99_TO_DAY100_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day99_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day99_seed_eval.py
+PYTHONPATH=src:. python3.12 examples/day99_vector_database_index_design.py
+```
+
+Evidence: 37 focused tests, 8/8 seed, deterministic example and 942/942 complete tests pass locally on Python
+3.11.5 and in Python 3.12.15 GitHub Actions. Official static research covers pgvector, Qdrant and
+Pinecone; a 256-vector corpus verifies Exact/Flat and recall@k arithmetic with a simulated proposal. This proves
+in-process contract, authorization, batching, readback, exact-score, fencing and reconciliation only. Real vector Provider/ANN, production
+tenant filtering, latency/capacity, durable recovery/deletion and traffic are NOT RUN. Production readiness
+remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day99 vector database and versioned index design using only committed homogeneous Day98 sets.
+- Begin Day100 hybrid retrieval and filtering using only sealed Day99 generation metadata.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

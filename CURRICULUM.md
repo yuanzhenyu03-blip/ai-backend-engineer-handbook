@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-In Progress (Day95–Day98 completed at guided classroom scope)
+In Progress (Day95–Day99 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2103,6 +2103,15 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: vector database and index design. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day98 produced embeddings; Day99 designs the vector store/index; Day100 adds hybrid retrieval
   and filtering.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day99-vector-database-and-vector-index-design.md`. Artifact: `projects/ai-agent/` gained a
+  physical VectorIndexContract separated from RetrievalPolicy, exact unit-L2 cosine Flat reference, application
+  score Adapter, tenant/generation/embedding point identity, canonical manifests, Provider readback/checkpoint,
+  immutable shadow generations, DB-issued fencing, timeout reconciliation, a sole Committer and hard-gate
+  activation refusal. Official pgvector/Qdrant/Pinecone evidence, a 256-vector exact/simulated experiment,
+  37 focused tests and 8/8 seed pass locally and the Python 3.12 CI gate passes. Real vector Provider, real ANN recall, capacity/latency,
+  distributed recovery and traffic are NOT RUN;
+  readiness is `MORE_EVIDENCE_NEEDED`. Next: Day100.
 - Day100 — Hybrid Retrieval and Filtering.
   Scope: hybrid (dense + lexical) retrieval and metadata/ACL filtering.
   Connection: Day99 built the index; Day100 adds hybrid retrieval with ACL filtering; Day101 improves ordering

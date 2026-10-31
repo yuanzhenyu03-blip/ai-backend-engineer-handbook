@@ -1,0 +1,8 @@
+{"case_id":"normal-flat-reference","mode":"NORMAL","expected":"SEALED","reconcile":false}
+{"case_id":"ack-without-application","mode":"ACK_ONLY","expected":"REJECTED","reconcile":false}
+{"case_id":"partial-write","mode":"PARTIAL_WRITE","expected":"REJECTED","reconcile":false}
+{"case_id":"wrong-vector","mode":"WRONG_VECTOR","expected":"REJECTED","reconcile":false}
+{"case_id":"wrong-payload","mode":"WRONG_PAYLOAD","expected":"REJECTED","reconcile":false}
+{"case_id":"wrong-query-order","mode":"WRONG_QUERY_ORDER","expected":"REJECTED","reconcile":false}
+{"case_id":"timeout-unknown","mode":"TIMEOUT_UNKNOWN","expected":"RECONCILIATION_REQUIRED","reconcile":false}
+{"case_id":"timeout-reconciled","mode":"TIMEOUT_UNKNOWN","expected":"SEALED","reconcile":true}

@@ -10,18 +10,39 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day98 are
-complete and Day99 is planned.
+Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day99 are
+complete and Day100 is planned.
 
-Day59–Day98 are complete at their recorded evidence levels. Day98 added bounded selection/contract/candidate/
-Committer evidence with a deterministic fake. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day99 are complete at their recorded evidence levels. Day99 added bounded vector-contract/Exact/Flat/
+readback/fencing evidence with a deterministic fake. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 ---
 
 ## Current Lesson
 
-Day99 — Vector Database and Vector Index Design (Phase 7C) — next up.
-Most recent classroom lesson: Day98 — Embedding Model Selection and Versioning.
+Day100 — Hybrid Retrieval and Filtering (Phase 7C) — next up.
+Most recent classroom lesson: Day99 — Vector Database and Vector Index Design.
+
+Day99 completion record:
+
+- [x] Admit only the exact current homogeneous Day98 EmbeddingSet and selection revision.
+- [x] Require `embedding_set:read_for_indexing` authorization before dispatch and immediately before commit.
+- [x] Save official pgvector/Qdrant/Pinecone evidence and retain candidates with `UNKNOWN` gates.
+- [x] Separate physical VectorIndexContract from query-time RetrievalPolicy revisions.
+- [x] Translate Provider cosine distance into application-owned similarity semantics.
+- [x] Build an exact float32/unit-L2 Flat oracle with deterministic point-ID tie-break.
+- [x] Bind point identity and payload to tenant, generation, embedding and immutable provenance IDs.
+- [x] Require canonical point/vector/payload manifests, Provider checkpoint and readback equality.
+- [x] Plan deterministic tenant-only batches and reject missing/duplicate/unknown/partial/wrong ACKs.
+- [x] Reject ACK-only, cross-tenant, changed-vector, changed-payload and wrong-order Provider state.
+- [x] Use stable operations, fresh attempts, Committer-issued fencing and timeout reconciliation.
+- [x] Seal immutable shadow generations and Outbox atomically; retain old generations on build changes.
+- [x] Keep ANN, latency/capacity, recovery and real Provider gates NOT_RUN; reject production activation.
+- [x] Verify recall@k on a replayable 256-vector Exact/Flat plus simulated proposal experiment.
+- [x] Verify one concurrent winner plus duplicate/delayed Outbox classification.
+- [x] Run 37 focused tests, 8/8 seed, deterministic evidence replay and 942/942 full tests locally and in Python 3.12 CI.
+- [x] Release lesson, design, classroom record, cheat sheet/interview, evidence and Day100 handoff.
+- [ ] Later: real vector Provider/ANN, capacity/latency, durable relay, deletion and recovery drills.
 
 Day98 completion record:
 
@@ -247,7 +268,7 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day95–Day98 are documented at guided classroom scope and Phase 7C is in progress. Day99 is next; production
+Day95–Day99 are documented at guided classroom scope and Phase 7C is in progress. Day100 is next; production
 readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up

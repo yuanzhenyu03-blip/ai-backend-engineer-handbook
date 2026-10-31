@@ -45,3 +45,8 @@ jobs:
         run: |
           python -c 'import json; from pathlib import Path; from examples.day98_embedding_selection_versioning import run_example; expected = json.loads(Path("evidence/day98-embedding-experiment-report.json").read_text()); actual = json.loads(json.dumps(run_example())); assert actual == expected'
           python -c 'import json; from pathlib import Path; from rag_embedding_experiments import run_selection_experiment; expected = json.loads(Path("evidence/day98-model-selection-matrix.json").read_text()); actual = json.loads(json.dumps(run_selection_experiment())); assert actual == expected'
+      - name: Verify saved Day99 vector evidence
+        run: |
+          python -c 'import json; from pathlib import Path; from examples.day99_vector_database_index_design import run_example; expected = json.loads(Path("evidence/day99-index-build-report.json").read_text()); actual = json.loads(json.dumps(run_example())); assert actual == expected'
+          python -c 'import json; from pathlib import Path; from rag_vector_index_experiments import run_controlled_index_experiment; expected = json.loads(Path("evidence/day99-index-experiment-report.json").read_text()); actual = json.loads(json.dumps(run_controlled_index_experiment())); assert actual == expected'
+          python -c 'import json; from pathlib import Path; from rag_vector_store_selection import run_store_selection_experiment; expected = json.loads(Path("evidence/day99-vector-store-selection-matrix.json").read_text()); actual = json.loads(json.dumps(run_store_selection_experiment())); assert actual == expected'

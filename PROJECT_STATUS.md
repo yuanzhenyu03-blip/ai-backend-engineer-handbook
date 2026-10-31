@@ -3,11 +3,10 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day98 are complete and
-Day99 is planned.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day99 are complete.
 
-Day59–Day98 are complete at their recorded evidence levels. Day98 adds bounded deterministic model-selection,
-embedding-contract, candidate-validation and immutable-set evidence on the Day95–Day97 base. Earlier evidence
+Day59–Day99 are complete at their recorded evidence levels. Day99 adds bounded deterministic physical/query
+contracts, Exact/Flat, readback, immutable-generation and fencing evidence on the Day95–Day98 base. Earlier evidence
 and NOT RUN boundaries remain recorded below.
 
 Phase record:
@@ -17,8 +16,19 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day99 — Vector Database and Vector Index Design (Phase 7C) — next up.
-Most recent classroom lesson: Day98 — Embedding Model Selection and Versioning.
+Day100 — Hybrid Retrieval and Filtering (Phase 7C) — next up.
+Most recent classroom lesson: Day99 — Vector Database and Vector Index Design.
+
+Day99 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day99-vector-database-and-vector-index-design.md`. The continuing Artifact accepts only the
+current homogeneous Day98 EmbeddingSet, requires narrow index authorization, freezes physical versus query
+contracts, plans deterministic tenant batches, translates Provider distance into application similarity,
+validates exact ACK correlation/manifests/readback, and seals immutable shadow generations through a sole
+fenced Committer with Outbox. Timeout after write remains `UNKNOWN` and requires reconciliation. Evidence
+combines `OFFICIAL_STATIC`, `DETERMINISTIC_FAKE`, `SIMULATED` and `EXECUTED_LOCAL_RUNTIME`: 37 focused tests,
+8/8 seed, deterministic evidence replay and 942/942 complete tests PASS locally on Python 3.11.5 and in
+Python 3.12.15 GitHub Actions. Real vector Provider, real ANN recall, capacity/latency,
+distributed durability/recovery and production traffic are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
 Day98 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day98-embedding-model-selection-and-versioning.md`. The continuing Artifact accepts only the
@@ -30,7 +40,7 @@ sole Committer. Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE` — P
 17/17 seed, deterministic example and 905/905 full regressions PASS locally; Python 3.12.15 GitHub Actions also
 passed 905/905, every seed evaluator and saved Day96/Day98 evidence replay. BGE-M3 is a provisional
 static-evidence candidate only; real weights/provider, local retrieval quality, index and distributed durability are NOT RUN.
-Readiness is `MORE_EVIDENCE_NEEDED`. Day99 is next.
+Readiness is `MORE_EVIDENCE_NEEDED`. Day99 is recorded above.
 
 Day97 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day97-metadata-tenant-acl-and-provenance.md`. The continuing Artifact adds strict current
