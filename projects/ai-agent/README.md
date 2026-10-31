@@ -849,8 +849,8 @@ PYTHONPATH=src:. python3.12 evals/run_day99_seed_eval.py
 PYTHONPATH=src:. python3.12 examples/day99_vector_database_index_design.py
 ```
 
-Evidence: 36 focused tests, 8/8 seed, deterministic example and 941/941 complete tests pass locally on Python
-3.11.5; Python 3.12 CI is NOT RUN for the unpushed change. Official static research covers pgvector, Qdrant and
+Evidence: 37 focused tests, 8/8 seed, deterministic example and 942/942 complete tests pass locally on Python
+3.11.5 and in Python 3.12.15 GitHub Actions. Official static research covers pgvector, Qdrant and
 Pinecone; a 256-vector corpus verifies Exact/Flat and recall@k arithmetic with a simulated proposal. This proves
 in-process contract, authorization, batching, readback, exact-score, fencing and reconciliation only. Real vector Provider/ANN, production
 tenant filtering, latency/capacity, durable recovery/deletion and traffic are NOT RUN. Production readiness

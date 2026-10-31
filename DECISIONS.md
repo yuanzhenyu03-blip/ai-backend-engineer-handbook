@@ -759,7 +759,8 @@ Outbox under CAS. Provider alias is derived state.
 ### Validation honesty
 
 Official static research retains pgvector, Qdrant and Pinecone. The deterministic fake, 256-vector Exact/Flat
-corpus, simulated ANN proposal, 36 focused tests, 8/8 seed and example execute local application control flow.
+corpus, simulated ANN proposal, 37 focused tests, 8/8 seed and example execute application control flow; the
+Python 3.12 CI gate also passes.
 The fake tenant filter is not production authorization evidence. Real vector Provider and real ANN recall,
 capacity/latency, distributed fencing, backup/restore, deletion propagation and traffic are NOT RUN. Evidence
 is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness is `MORE_EVIDENCE_NEEDED`.

@@ -2109,7 +2109,7 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   score Adapter, tenant/generation/embedding point identity, canonical manifests, Provider readback/checkpoint,
   immutable shadow generations, DB-issued fencing, timeout reconciliation, a sole Committer and hard-gate
   activation refusal. Official pgvector/Qdrant/Pinecone evidence, a 256-vector exact/simulated experiment,
-  36 focused tests and 8/8 seed pass locally. Real vector Provider, real ANN recall, capacity/latency,
+  37 focused tests and 8/8 seed pass locally and the Python 3.12 CI gate passes. Real vector Provider, real ANN recall, capacity/latency,
   distributed recovery and traffic are NOT RUN;
   readiness is `MORE_EVIDENCE_NEEDED`. Next: Day100.
 - Day100 — Hybrid Retrieval and Filtering.

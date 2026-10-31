@@ -40,7 +40,7 @@ Day99 completion record:
 - [x] Keep ANN, latency/capacity, recovery and real Provider gates NOT_RUN; reject production activation.
 - [x] Verify recall@k on a replayable 256-vector Exact/Flat plus simulated proposal experiment.
 - [x] Verify one concurrent winner plus duplicate/delayed Outbox classification.
-- [x] Run 36 focused tests, 8/8 seed, deterministic evidence replay and 941/941 full tests locally.
+- [x] Run 37 focused tests, 8/8 seed, deterministic evidence replay and 942/942 full tests locally and in Python 3.12 CI.
 - [x] Release lesson, design, classroom record, cheat sheet/interview, evidence and Day100 handoff.
 - [ ] Later: real vector Provider/ANN, capacity/latency, durable relay, deletion and recovery drills.
 

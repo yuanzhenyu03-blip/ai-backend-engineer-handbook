@@ -25,9 +25,9 @@ current homogeneous Day98 EmbeddingSet, requires narrow index authorization, fre
 contracts, plans deterministic tenant batches, translates Provider distance into application similarity,
 validates exact ACK correlation/manifests/readback, and seals immutable shadow generations through a sole
 fenced Committer with Outbox. Timeout after write remains `UNKNOWN` and requires reconciliation. Evidence
-combines `OFFICIAL_STATIC`, `DETERMINISTIC_FAKE`, `SIMULATED` and `EXECUTED_LOCAL_RUNTIME`: 36 focused tests,
-8/8 seed, deterministic evidence replay and 941/941 complete tests PASS locally on Python 3.11.5. Python 3.12
-CI is NOT RUN for this unpushed change. Real vector Provider, real ANN recall, capacity/latency,
+combines `OFFICIAL_STATIC`, `DETERMINISTIC_FAKE`, `SIMULATED` and `EXECUTED_LOCAL_RUNTIME`: 37 focused tests,
+8/8 seed, deterministic evidence replay and 942/942 complete tests PASS locally on Python 3.11.5 and in
+Python 3.12.15 GitHub Actions. Real vector Provider, real ANN recall, capacity/latency,
 distributed durability/recovery and production traffic are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
 Day98 is COMPLETE at guided classroom scope. Lesson:

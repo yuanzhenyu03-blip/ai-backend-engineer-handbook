@@ -14,7 +14,7 @@ This project follows a practical versioning style:
 Date: 2026-10-31
 
 Released the Day99 lesson, application design, classroom record, Day100 handoff, cheat-sheet and interview
-sections, deterministic example, 8-case seed/evaluator, 36 focused tests and three replayable evidence reports.
+sections, deterministic example, 8-case seed/evaluator, 37 focused tests and three replayable evidence reports.
 Official primary-source research retains pgvector 0.8.7, Qdrant 1.20.0 and Pinecone API 2025-10. The continuing
 `projects/ai-agent/` Artifact accepts only the current homogeneous Day98 EmbeddingSet under the narrow
 `embedding_set:read_for_indexing` action, separates physical
@@ -30,9 +30,10 @@ Day98 selection and selected index contract, then seals generation plus Outbox. 
 incomplete hard gates. A 256-vector corpus verifies Exact/Flat and recall@k arithmetic with an explicitly
 simulated ANN proposal.
 
-Validation: local Python 3.11.5 fallback runtime; 36/36 Day99 focused tests, 8/8 seed, deterministic example,
-all seed evaluators, compileall, three saved evidence replays and 941/941 complete repository tests PASS. The repository requires Python
-3.12 and CI remains the version gate; Python 3.12 CI is NOT RUN until push. The deterministic fake proves local
+Validation: local Python 3.11.5 fallback runtime; 37/37 Day99 focused tests, 8/8 seed, deterministic example,
+all seed evaluators, compileall, three saved evidence replays and 942/942 complete repository tests PASS.
+Python 3.12.15 GitHub Actions also passed 942/942 tests, every seed evaluator and all saved evidence replays.
+The deterministic fake proves application
 control flow only; real vector Provider, real ANN recall, capacity/latency, distributed durability/recovery,
 deletion propagation and production traffic remain NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`. Day100 is next.
 

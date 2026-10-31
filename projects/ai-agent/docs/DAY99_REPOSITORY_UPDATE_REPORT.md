@@ -72,8 +72,8 @@ Status: Completed at guided classroom scope; `MORE_EVIDENCE_NEEDED` for producti
 ## Validation Performed
 
 - Markdown: required 16 lesson sections and link targets inspected; `git diff --check` passed.
-- YAML: workflow diff inspected; authoritative GitHub execution remains pending until push.
-- Code: compileall passed; 36/36 focused tests and 941/941 full tests passed on local Python 3.11.5.
+- YAML: workflow inspected; authoritative GitHub Actions run 41215190908 passed on Python 3.12.15.
+- Code: compileall passed; 37/37 focused tests and 942/942 full tests passed locally and in CI.
 - Seeds: Day99 8/8 and every repository seed evaluator passed.
 - Replay: build, controlled index experiment and store-selection matrix matched saved JSON exactly.
 - JSON: all Day99 evidence files parsed successfully.
@@ -81,7 +81,7 @@ Status: Completed at guided classroom scope; `MORE_EVIDENCE_NEEDED` for producti
 
 ## Remaining TODO
 
-- Run the authoritative Python 3.12 GitHub Actions gate after push.
+- Run real vector Provider/ANN, capacity/latency, durable recovery/deletion and production traffic gates.
 - Execute real pgvector/other Provider, real HNSW/IVF recall, capacity/latency and filter-isolation tests.
 - Run durable backup/restore, Outbox relay, deletion-ledger and disaster-recovery drills.
 - Activate a selected generation only after every required hard gate is `PASS`.

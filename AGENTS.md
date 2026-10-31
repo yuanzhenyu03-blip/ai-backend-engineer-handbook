@@ -43,7 +43,8 @@ Current state:
 - Last Completed Lesson: Day99 — Vector Database and Vector Index Design (guided classroom scope; application-
   owned physical/query contracts, narrow index authorization, deterministic batches and Exact/Flat reference,
   immutable shadow generation, manifest readback, score Adapter, fencing/reconciliation and hard-gate
-  activation refusal; 36 focused tests, 8/8 seed and 941/941 complete tests pass locally; evidence combines
+  activation refusal; 37 focused tests, 8/8 seed and 942/942 complete tests pass locally and on Python 3.12
+  CI; evidence combines
   OFFICIAL_STATIC, DETERMINISTIC_FAKE, SIMULATED and EXECUTED_LOCAL_RUNTIME; real vector Provider,
   ANN/capacity/recovery and production traffic are NOT RUN; production readiness MORE_EVIDENCE_NEEDED).
 - Current / Next Lesson: Day100 — Hybrid Retrieval and Filtering (Phase 7C; Planned).

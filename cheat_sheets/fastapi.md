@@ -2447,7 +2447,7 @@ ACK is not readback. `NOT_RUN` means no test; `FAIL` means executed and outside 
 effect may have happened and requires reconciliation. A sealed generation is not automatically production
 ready. Hard gates cannot be compensated by weighted quality scores.
 
-Evidence: 36 focused tests, 8/8 seed, official pgvector/Qdrant/Pinecone research, deterministic fake control flow
-and a 256-vector exact/simulated recall experiment. Real vector Provider/ANN, capacity/latency, recovery and
+Evidence: 37 focused tests, 8/8 seed, a passing Python 3.12 CI gate, official pgvector/Qdrant/Pinecone research,
+deterministic fake control flow and a 256-vector exact/simulated recall experiment. Real vector Provider/ANN, capacity/latency, recovery and
 production traffic are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
 [Day99 lesson](../docs/fastapi/day99-vector-database-and-vector-index-design.md).
