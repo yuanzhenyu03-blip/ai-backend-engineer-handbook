@@ -1,0 +1,52 @@
+{
+  "validation_scope": "DAY100_ISOLATED_CLASSROOM_WORKTREE",
+  "baseline_commit": "3d013a9012379f9e69f5f736804146a10339875a",
+  "classroom_python": "3.11.5",
+  "repository_required_python": ">=3.12",
+  "day100_focused_tests": {
+    "passed": 64,
+    "total": 64,
+    "status": "PASS"
+  },
+  "day100_seed": {
+    "passed": 8,
+    "total": 8,
+    "status": "PASS"
+  },
+  "full_regression_suite": {
+    "passed": 1006,
+    "total": 1006,
+    "status": "PASS"
+  },
+  "all_available_seed_evaluators": "PASS",
+  "day96_saved_evidence_replay": "PASS",
+  "day98_build_evidence_replay": "PASS",
+  "day98_selection_evidence_replay": "PASS",
+  "day99_build_evidence_replay": "PASS",
+  "day99_experiment_evidence_replay": "PASS",
+  "day99_selection_evidence_replay": "PASS",
+  "day100_saved_evidence_replay": "PASS",
+  "day100_saved_evidence_checksum": "sha256:6e29970d1b3fe29886853a9fc10b4959d904ed954cf44e860f0bda77c17d21f1",
+  "real_day99_handoff_negative_path": "PASS",
+  "real_day99_handoff_database_calls": 0,
+  "synthetic_positive_fixture": "PASS",
+  "synthetic_fixture_scope": "DAY100_CLASSROOM_ONLY",
+  "synthetic_fixture_production_eligible": false,
+  "raw_query_in_normal_evidence": false,
+  "protected_text_in_normal_evidence": false,
+  "vectors_in_normal_evidence": false,
+  "github_actions_day100": "NOT_RUN_UNCOMMITTED_CLASSROOM_WORKTREE",
+  "baseline_main_ci_before_day100": {
+    "run_id": 41215453094,
+    "python": "3.12.15",
+    "status": "PASS"
+  },
+  "real_query_provider": "NOT_RUN",
+  "real_postgresql_pgvector_fts": "NOT_RUN",
+  "real_qdrant_hybrid": "NOT_RUN",
+  "real_pinecone_hybrid": "NOT_RUN",
+  "real_ann_recall": "NOT_RUN",
+  "real_latency_capacity": "NOT_RUN",
+  "real_backup_restore_failover": "NOT_RUN",
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}
