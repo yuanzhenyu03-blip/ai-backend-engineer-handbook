@@ -2451,3 +2451,51 @@ Evidence: 37 focused tests, 8/8 seed, a passing Python 3.12 CI gate, official pg
 deterministic fake control flow and a 256-vector exact/simulated recall experiment. Real vector Provider/ANN, capacity/latency, recovery and
 production traffic are NOT RUN; `MORE_EVIDENCE_NEEDED`. Related:
 [Day99 lesson](../docs/fastapi/day99-vector-database-and-vector-index-design.md).
+
+## Day100 — Hybrid Retrieval and Filtering
+
+```text
+exact current selected bundle
+→ query contract + egress gate
+→ current authorization scope ∩ validated business filter ∩ safety exclusions
+→ BM25 lexical branch + Exact/ANN dense branch
+→ generation/provenance candidate validation
+→ weighted RRF + occurrence-identity dedup + deterministic tie-break
+→ current grant/selection/provenance recheck
+→ bounded refill + guarded content release
+→ FULL / PARTIAL / EMPTY / DENIED / UNAVAILABLE
+```
+
+First gate: if the bundle is absent or the client generation mismatches, fail closed with query encoder, BM25,
+dense and database call counts all equal to zero. `SEALED` is immutable, not automatically selected or
+production-ready. Never auto-switch generations.
+
+```text
+effective scope = authorization-derived occurrence scope
+                AND validated client/business filter
+                AND system exclusions
+```
+
+The application owns filter meaning. The database may execute exact direct pre-filter, exact split `OR`, or
+authorization pre-filter plus bounded application post-filter. Unsupported clauses are never dropped.
+
+BM25 and dense raw scores are incomparable. Rank branches independently, then use:
+
+```text
+RRF(candidate) = Σ branch_weight / (rrf_k + branch_rank)
+tie-break = RRF desc, best branch rank asc, occurrence_id asc
+```
+
+Validate stale/cross-generation candidates before fusion. Recheck current authorization and provenance before
+release because a grant may change during retrieval. Candidate depth and refill may compensate for dedup,
+post-filter and revocation only within fixed round/candidate/deadline budgets; they never broaden scope.
+
+Lexical-only or dense-only is `PARTIAL` only when an explicit selected degradation policy allows it. A signed
+cursor binds principal/tenant, auth revision, selected bundle, query/filter hashes, policies, offsets and
+expiry. Cache derived candidate identities, not protected text, and reauthorize every hit.
+
+Evidence: 64 focused tests, 8/8 seed and 1006/1006 local regressions with deterministic fakes. The real Day99
+fixture proves only the sealed-but-unselected zero-call path; the positive fixture is
+`DAY100_CLASSROOM_ONLY` and `production_eligible=false`. Real query Provider/database/ANN,
+latency/capacity/recovery remain `NOT_RUN`; `MORE_EVIDENCE_NEEDED`. Related:
+[Day100 lesson](../docs/fastapi/day100-hybrid-retrieval-and-filtering.md).

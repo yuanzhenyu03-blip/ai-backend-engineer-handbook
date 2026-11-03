@@ -3,11 +3,11 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day99 are complete.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day100 are complete.
 
-Day59–Day99 are complete at their recorded evidence levels. Day99 adds bounded deterministic physical/query
-contracts, Exact/Flat, readback, immutable-generation and fencing evidence on the Day95–Day98 base. Earlier evidence
-and NOT RUN boundaries remain recorded below.
+Day59–Day100 are complete at their recorded evidence levels. Day100 adds authorization-first hybrid retrieval,
+filter, fusion, final-release, bounded-refill and authority-bound cursor/cache evidence on the Day95–Day99
+base. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -16,8 +16,20 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day100 — Hybrid Retrieval and Filtering (Phase 7C) — next up.
-Most recent classroom lesson: Day99 — Vector Database and Vector Index Design.
+Day101 — Query Rewriting and Re-ranking (Phase 7C) — next up.
+Most recent classroom lesson: Day100 — Hybrid Retrieval and Filtering.
+
+Day100 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day100-hybrid-retrieval-and-filtering.md`. The continuing Artifact requires an exact current
+application-selected retrieval bundle before query encoding or database work, freezes query-encoder/lexical/
+filter/retrieval/fusion contracts, applies current authorization intersection before BM25 and Exact cosine,
+validates generation/provenance before deterministic weighted RRF, and rechecks current grant/provenance before
+guarded release. Bounded refill, explicit branch degradation, signed cursor and candidate-only cache semantics
+remain authority-bound. The saved real Day99 generation is sealed but unselected and proves the zero-call
+negative path; the positive path uses only an isolated `DAY100_CLASSROOM_ONLY`, `production_eligible=false`
+fixture. Evidence: 64 focused tests, 8/8 seed, deterministic evidence replay and 1006/1006 complete local tests
+PASS on Python 3.11.5 fallback. Real query Provider, PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall,
+latency/capacity, backup/restore/failover and production are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
 Day99 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day99-vector-database-and-vector-index-design.md`. The continuing Artifact accepts only the

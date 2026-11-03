@@ -10,18 +10,35 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day99 are
-complete and Day100 is planned.
+Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day100 are
+complete and Day101 is planned.
 
-Day59–Day99 are complete at their recorded evidence levels. Day99 added bounded vector-contract/Exact/Flat/
-readback/fencing evidence with a deterministic fake. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day100 are complete at their recorded evidence levels. Day100 added authorization-first hybrid retrieval,
+filter/fusion, final-release and bounded pagination/cache evidence with deterministic fakes. Earlier evidence
+and NOT RUN boundaries remain recorded below.
 
 ---
 
 ## Current Lesson
 
-Day100 — Hybrid Retrieval and Filtering (Phase 7C) — next up.
-Most recent classroom lesson: Day99 — Vector Database and Vector Index Design.
+Day101 — Query Rewriting and Re-ranking (Phase 7C) — next up.
+Most recent classroom lesson: Day100 — Hybrid Retrieval and Filtering.
+
+Day100 completion record:
+
+- [x] Reject missing or mismatched selected retrieval bundles before encoder, filter or database calls.
+- [x] Preserve the real sealed-but-unselected Day99 negative path and isolate the synthetic positive fixture.
+- [x] Freeze query-encoder, lexical, filter-schema, retrieval and fusion contracts.
+- [x] Implement dependency-free BM25 and Exact cosine references with typed score semantics.
+- [x] Intersect current authorization, validated business filters and system-safety exclusions.
+- [x] Plan direct, split-OR and bounded authorization-prefilter/application-postfilter execution.
+- [x] Validate bundle, generation, occurrence and provenance before deterministic weighted RRF.
+- [x] Recheck current authorization/provenance and selected generation before guarded content release.
+- [x] Implement bounded candidate depth/refill and explicit FULL/PARTIAL/EMPTY/DENIED/UNAVAILABLE outcomes.
+- [x] Bind signed canonical cursors and candidate-only cache to authority, query, filter and policy identities.
+- [x] Run 64 focused tests, 8/8 seed, replay evidence and 1006/1006 full local tests.
+- [x] Release lesson, design, classroom record, cheat sheet/interview, evidence and Day101 handoff.
+- [ ] Later: real query Provider/database/ANN, latency/capacity and backup/restore/failover gates.
 
 Day99 completion record:
 
@@ -268,11 +285,11 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day95–Day99 are documented at guided classroom scope and Phase 7C is in progress. Day100 is next; production
+Day95–Day100 are documented at guided classroom scope and Phase 7C is in progress. Day101 is next; production
 readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
-(Day99); Day98 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
+(Day101); Day100 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
 The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 
 ---

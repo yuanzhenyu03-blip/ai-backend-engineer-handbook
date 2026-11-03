@@ -59,7 +59,8 @@ docs/
 │   ├── day96-chunking-strategy-and-experiments.md # immutable ChunkSets + experiments
 │   ├── day97-metadata-tenant-acl-and-provenance.md # exact permits + guarded reads
 │   ├── day98-embedding-model-selection-and-versioning.md # immutable EmbeddingSets
-│   └── day99-vector-database-and-vector-index-design.md # exact oracle + shadow generations
+│   ├── day99-vector-database-and-vector-index-design.md # exact oracle + shadow generations
+│   └── day100-hybrid-retrieval-and-filtering.md # authorization-first BM25/dense/RRF
 ├── playwright/
 └── n8n/
 ```

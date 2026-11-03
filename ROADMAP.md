@@ -351,9 +351,10 @@ Deliverables:
 
 # Phase 7C — Production RAG Engineering (Day95–Day106)
 
-Status: In progress. Day95 has bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96–Day99 are
+Status: In progress. Day95 has bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96–Day100 are
 complete at guided classroom scope with deterministic chunking, authorization/provenance, embedding and exact
-vector-generation control-flow evidence. Real embedding/vector Provider quality, ANN, durable distributed storage, retrieval
+vector-generation and hybrid-retrieval control-flow evidence. Real embedding/vector/query Provider quality,
+ANN, durable distributed storage, retrieval
 evaluation and production remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.
 
 Objective:
@@ -369,7 +370,7 @@ not a chunk-and-search demo.
 | Day97 | Metadata, Tenant, ACL and Provenance | ✅ Completed (guided classroom scope; 36 focused tests; 24/24 seed; signed narrow permits, guarded reads and immutable metadata/provenance evidence; EXECUTED_LOCAL_RUNTIME; production readiness MORE_EVIDENCE_NEEDED) |
 | Day98 | Embedding Model Selection and Versioning | ✅ Completed (guided classroom scope; 23 focused tests; 17/17 seed; eligibility-first selection, frozen contract, whole-operation validation and immutable EmbeddingSet Committer; deterministic fake runtime; production readiness MORE_EVIDENCE_NEEDED) |
 | Day99 | Vector Database and Vector Index Design | ✅ Completed (guided classroom scope; 37 focused tests; 8/8 seed; Python 3.12 CI passed; three-store official research, narrow authorization, deterministic batches, Exact/Flat and simulated recall, immutable shadow generation, manifest/readback, fencing/reconciliation; production readiness MORE_EVIDENCE_NEEDED) |
-| Day100 | Hybrid Retrieval and Filtering | Planned |
+| Day100 | Hybrid Retrieval and Filtering | ✅ Completed (guided classroom scope; 64 focused tests; 8/8 seed; 1006/1006 local regressions; selected-bundle gate, BM25 + Exact cosine, application filter AST, weighted RRF, final authorization/provenance recheck, bounded refill/degradation and signed cursors; real Day99 unselected negative path; production readiness MORE_EVIDENCE_NEEDED) |
 | Day101 | Query Rewriting and Re-ranking | Planned |
 | Day102 | Grounding, Citations and Source Verification | Planned |
 | Day103 | Retrieval Evaluation and RAG Answer Evaluation | Planned |
