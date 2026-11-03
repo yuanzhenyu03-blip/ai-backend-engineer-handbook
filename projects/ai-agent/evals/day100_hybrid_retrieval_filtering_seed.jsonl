@@ -1,0 +1,8 @@
+{"case_id":"real-day99-handoff-blocked","scenario":"NO_SELECTED","expected_outcome":"REJECTED","expected_reason":"NO_CURRENT_SELECTED_RETRIEVAL_BUNDLE"}
+{"case_id":"synthetic-authorized-hybrid","scenario":"NORMAL","expected_outcome":"FULL","expected_reason":"AUTHORIZED_HYBRID_RETRIEVAL_COMPLETED"}
+{"case_id":"client-generation-override","scenario":"CLIENT_GENERATION","expected_outcome":"REJECTED","expected_reason":"CLIENT_GENERATION_OVERRIDE_FORBIDDEN"}
+{"case_id":"sensitive-egress-lexical-only","scenario":"SENSITIVE_QUERY","expected_outcome":"PARTIAL","expected_reason":"AUTHORIZED_RETRIEVAL_EXPLICITLY_CLASSIFIED"}
+{"case_id":"query-contract-mismatch","scenario":"QUERY_CONTRACT","expected_outcome":"REJECTED","expected_reason":"QUERY_ENCODER_CONTRACT_MISMATCH"}
+{"case_id":"dense-timeout-degraded","scenario":"DENSE_TIMEOUT","expected_outcome":"PARTIAL","expected_reason":"AUTHORIZED_RETRIEVAL_EXPLICITLY_CLASSIFIED"}
+{"case_id":"authorization-denied","scenario":"NO_GRANT","expected_outcome":"AUTHORIZATION_DENIED","expected_reason":"CURRENT_RETRIEVAL_GRANT_NOT_ALLOWED"}
+{"case_id":"unsupported-client-field","scenario":"UNSUPPORTED_FILTER","expected_outcome":"REJECTED","expected_reason":"FILTER_FIELD_NOT_ALLOWED:tenant_id"}

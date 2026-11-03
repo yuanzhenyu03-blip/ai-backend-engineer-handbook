@@ -764,3 +764,52 @@ Python 3.12 CI gate also passes.
 The fake tenant filter is not production authorization evidence. Real vector Provider and real ANN recall,
 capacity/latency, distributed fencing, backup/restore, deletion propagation and traffic are NOT RUN. Evidence
 is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness is `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 018 — Authorize Before Retrieval and Fuse Only Version-bound Validated Candidates
+
+Status: Accepted for Day100 course scope
+
+Date: 2026-11-03
+
+### Context
+
+A sealed Day99 vector generation may be immutable without being selected or production-ready. Hybrid search
+adds lexical and dense branches whose raw scores use different scales, while Provider filter capabilities may
+not preserve the application's complete business-filter semantics. Authorization, selected generation and
+provenance can also change between request admission and content release.
+
+### Decision
+
+Require one exact current application-selected retrieval bundle before query encoding or database work. Bind
+that bundle to vector, embedding, chunk and lexical generations plus query-encoder, filter-schema, retrieval
+and fusion policy fingerprints. Current authorization derives the searchable occurrence scope; a validated
+client/business filter and system exclusions may only narrow that scope.
+
+Keep filter meaning in an application-owned typed AST. A database may execute a direct pre-filter, exact split
+branches, or an authorization pre-filter followed by bounded application post-filtering, but unsupported
+semantics are never silently removed. Rank lexical and dense branches independently and fuse validated,
+version-bound candidates with deterministic weighted RRF. Deduplicate by occurrence identity, not content
+hash. Immediately before release, reread current authorization, selected generation and provenance through a
+guarded reader. Bounded refill, degradation, cursor and cache reuse must never relax authority.
+
+### Consequences
+
+- Missing or mismatched selected bundle fails closed with zero encoder and database calls.
+- Query egress must pass its frozen policy; there is no automatic encoder fallback.
+- BM25 and dense raw scores are never added directly.
+- A stale/cross-generation candidate is rejected before fusion; a revoked candidate is rejected before release.
+- Lexical-only or dense-only results are `PARTIAL` only under an explicit selected degradation policy.
+- A cursor becomes invalid after authorization, query, filter, bundle or policy identity changes.
+- Candidate caches exclude protected text and always pass through current reauthorization.
+- More current-state reads and bounded overfetch are accepted costs for authorization and reproducibility.
+
+### Validation honesty
+
+The real saved Day99 generation is `SEALED` but unselected, so it proves only the negative zero-call handoff.
+An isolated `DAY100_CLASSROOM_ONLY`, `production_eligible=false` fixture, dependency-free BM25, Exact cosine,
+filter oracle, weighted RRF, signed cursor/cache controls, 64 focused tests, 8/8 seed and 1006/1006 local
+regressions exercise application control flow. Real query Provider, PostgreSQL/pgvector/FTS, Qdrant/Pinecone,
+ANN recall, latency/capacity, backup/restore/failover and production traffic are `NOT_RUN`. Evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.

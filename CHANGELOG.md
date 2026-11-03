@@ -9,6 +9,36 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day100 — Hybrid Retrieval and Filtering (Phase 7C)
+
+Date: 2026-11-03
+
+Released the 16-section Day100 lesson, application design, classroom record, Day101 handoff, cheat-sheet and
+interview sections, deterministic example, 8-case seed/evaluator, 64 focused tests, official research and
+three replayable evidence reports. The continuing `projects/ai-agent/` Artifact requires an exact current
+application-selected retrieval bundle before any query-encoder or database call; freezes query-encoder,
+lexical, filter-schema, retrieval and fusion contracts; and applies current authorization scope intersected
+with the validated business filter and system exclusions.
+
+Dependency-free BM25 and Exact cosine references rank lexical and dense branches independently. An
+application-owned typed filter AST plans exact direct pre-filter, split `OR`, or authorization pre-filter plus
+bounded application post-filter without silently weakening semantics. Candidate validation rejects stale or
+cross-generation occurrence/provenance before deterministic weighted RRF. A guarded releaser rereads current
+grant, selected generation and provenance before protected text leaves the system. Candidate depth/refill,
+explicit branch degradation, canonical signed cursors and candidate-only caches are bounded and cannot broaden
+authority.
+
+The saved real Day99 generation remains `SEALED` but unselected, so the real handoff proves the zero-call
+negative path only. Positive control flow uses an isolated `DAY100_CLASSROOM_ONLY`,
+`production_eligible=false` fixture and cannot upgrade real evidence. Validation: local Python 3.11.5 fallback;
+64/64 focused tests, 8/8 seed, deterministic evidence replay, every available seed evaluator, compileall,
+JSON parsing, type checking of new modules and 1006/1006 complete repository tests PASS.
+Python 3.12.15 GitHub Actions run `41572660971` also passed 1006/1006 tests, every available seed evaluator
+and the saved Day96/Day98/Day99/Day100 evidence replays. Real query Provider,
+PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall, production latency/capacity,
+backup/restore/failover and production traffic remain `NOT_RUN`. Readiness is `MORE_EVIDENCE_NEEDED`. Day101
+is next.
+
 ## Unreleased — Day99 — Vector Database and Vector Index Design (Phase 7C)
 
 Date: 2026-10-31

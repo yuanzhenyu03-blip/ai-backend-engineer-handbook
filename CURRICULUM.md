@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-In Progress (Day95–Day99 completed at guided classroom scope)
+In Progress (Day95–Day100 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2116,6 +2116,18 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: hybrid (dense + lexical) retrieval and metadata/ACL filtering.
   Connection: Day99 built the index; Day100 adds hybrid retrieval with ACL filtering; Day101 improves ordering
   with query rewriting and re-ranking.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day100-hybrid-retrieval-and-filtering.md`. Artifact: `projects/ai-agent/` gained an
+  application-selected retrieval-bundle gate; frozen query-encoder, lexical, filter, retrieval and fusion
+  contracts; dependency-free BM25 and Exact cosine references; capability-aware filter planning; deterministic
+  weighted RRF; occurrence-identity deduplication; final current authorization/provenance recheck; bounded
+  refill/degradation; and signed authority-bound cursors plus candidate-only cache. The real saved Day99
+  generation remains sealed but unselected and proves the zero-call negative path; an isolated
+  `production_eligible=false` fixture proves positive control flow. Evidence:
+  `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 64 focused tests, 8/8 seed and 1006/1006 regressions pass
+  locally and in Python 3.12.15 CI. Real query Provider/database/ANN, latency/capacity,
+  backup/restore/failover and production are
+  NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day101.
 - Day101 — Query Rewriting and Re-ranking.
   Scope: query rewriting and re-ranking.
   Connection: Day100 retrieved candidates; Day101 rewrites queries and re-ranks; Day102 grounds answers with

@@ -3388,3 +3388,70 @@ verified, how score direction is translated, which hard gates ran, what prevents
 database is authoritative after alias drift.
 
 Related: [Day99 lesson](../docs/fastapi/day99-vector-database-and-vector-index-design.md).
+
+## Day100 — Hybrid Retrieval and Filtering (Phase 7C)
+
+### Beginner: Why is a sealed generation not automatically production-ready?
+
+**Student's verbatim answer:** “because it must need to through latency test\ANN test\drill test\back up
+test.it must need through hard gate”
+
+**Strong answer:** Sealing proves immutability after the gates that ran. Production selection still requires all
+mandatory hard gates, including real Provider/database behavior, ANN recall, latency/capacity,
+backup-and-restore and recovery. Only the application authority may then atomically update the selected bundle.
+
+### Intermediate: Why not add BM25 and dense raw scores?
+
+**Student's verbatim answer:** “because system need  separate branch the rank of raw scores.raw scores is not a
+same reference criteria”
+
+**Strong answer:** BM25 and dense similarity use different scales and distributions. Rank each branch
+independently, then combine ranks through a frozen policy such as weighted RRF. Apply a deterministic tie-break
+and deduplicate by occurrence identity, not content hash.
+
+### Intermediate: Who owns filtering?
+
+**Strong answer:** The application owns the typed filter AST and logical meaning. Current authorization scope
+is intersected with the validated business filter and system exclusions. The database pre-filter, split-query
+plan or bounded application post-filter is only an execution strategy and may never broaden or silently weaken
+the condition.
+
+### Senior: Why authorize before retrieval and again before release?
+
+**Student's verbatim answer:** “because the authorization could be revoke before retrieval,and final
+authorization and provenance recheck make sure still current state don't change”
+
+**Strong answer:** Pre-retrieval authorization prevents unauthorized candidates and side channels from
+entering the query. A grant, selected generation or provenance may change while the branches run, so the
+guarded releaser rereads current authority immediately before protected content is returned.
+
+### Senior: What happens on a selected-generation mismatch?
+
+**Strong answer:** Fail at the selected retrieval bundle gate. Record a content-safe `MISMATCH_GENERATION`
+reason and request identity; do not invoke the query encoder, filter branches, BM25, dense retrieval or a
+database. Never auto-switch to the newest or client-requested generation.
+
+### Senior: Design bounded top-k and pagination semantics.
+
+**Strong answer:** Overfetch within fixed candidate, refill-round and deadline budgets because dedup,
+post-filter and final reauthorization can remove candidates. Corpus exhaustion may produce a complete result
+with fewer than `top_k`; budget exhaustion while work may remain is `PARTIAL`. Bind signed canonical cursors
+to current auth, bundle, query, filter, policies and offsets; any relevant change invalidates page two and
+requires a new first-page request.
+
+### Common weak answer and follow-up
+
+“Search both indexes, add the scores, and return the top ten.” Ask which exact selected bundle was authorized,
+whether query and document encoders are compatible, how unsupported `OR` filters preserve semantics, why raw
+scores are comparable, what happens after grant revocation, and whether refill or pagination can broaden scope.
+
+### Classroom interview result
+
+`COMPLETED_WITH_TECHNICAL_AND_LANGUAGE_CORRECTIONS`. The learner correctly distinguished sealed from selected,
+rejected generation mismatch before downstream calls, separated BM25/dense ranks, required authorization
+intersection and final reauthorization, labeled lexical-only degradation as partial, and kept real Day99
+negative evidence separate from the synthetic positive fixture. The learner initially answered “不知道” on
+that evidence distinction and then produced the correct independent synthesis. This remains guided classroom
+evidence, not real retrieval-quality or production evidence.
+
+Related: [Day100 lesson](../docs/fastapi/day100-hybrid-retrieval-and-filtering.md).

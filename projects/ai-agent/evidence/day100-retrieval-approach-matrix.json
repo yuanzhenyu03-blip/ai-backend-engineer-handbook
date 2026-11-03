@@ -1,0 +1,60 @@
+{
+  "decision_stage": "HARD_GATES_BEFORE_WEIGHTED_CRITERIA",
+  "weights": {
+    "authorization_and_tenant_isolation": 30,
+    "retrieval_correctness": 20,
+    "hybrid_capability": 15,
+    "local_reproducibility": 10,
+    "latency_and_capacity": 10,
+    "operability_and_recovery": 5,
+    "cost_and_egress": 5,
+    "portability": 5
+  },
+  "candidates": [
+    {
+      "candidate": "dependency-free BM25 + Exact/Flat + application RRF",
+      "role": "SELECTED_CLASSROOM_REFERENCE",
+      "official_static": "NOT_APPLICABLE",
+      "controlled_runtime": "PASS",
+      "real_engine_hard_gates": "NOT_APPLICABLE",
+      "production_eligible": false,
+      "weighted_score": null
+    },
+    {
+      "candidate": "PostgreSQL 18.x + pgvector 0.8.7 + PostgreSQL FTS",
+      "role": "PROVISIONAL_REAL_ENGINE_CANDIDATE",
+      "official_static": "PASS",
+      "real_filter_authorization": "NOT_RUN",
+      "real_ann_recall": "NOT_RUN",
+      "real_latency_capacity": "NOT_RUN",
+      "real_recovery": "NOT_RUN",
+      "production_eligible": false,
+      "weighted_score": null
+    },
+    {
+      "candidate": "Qdrant 1.20.0 hybrid retrieval",
+      "role": "RETAINED_CANDIDATE",
+      "official_static": "PASS",
+      "real_filter_authorization": "NOT_RUN",
+      "real_ann_recall": "NOT_RUN",
+      "real_latency_capacity": "NOT_RUN",
+      "real_recovery": "NOT_RUN",
+      "production_eligible": false,
+      "weighted_score": null
+    },
+    {
+      "candidate": "Pinecone date-versioned hybrid retrieval",
+      "role": "RETAINED_CANDIDATE",
+      "official_static": "PASS",
+      "real_filter_authorization": "NOT_RUN",
+      "real_ann_recall": "NOT_RUN",
+      "real_latency_capacity": "NOT_RUN",
+      "real_recovery": "NOT_RUN",
+      "query_egress": "NOT_RUN",
+      "production_eligible": false,
+      "weighted_score": null
+    }
+  ],
+  "production_winner": null,
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}

@@ -21,18 +21,20 @@ Current phase:
   signed permits and guarded reads. Day98 adds eligibility-first embedding selection, a frozen vector-space
   contract and atomic immutable EmbeddingSets. Day99 adds official three-store research, narrow index-build
   authorization, application-owned vector/index contracts, deterministic batches, an exact Flat oracle,
-  immutable shadow generations, readback evidence, fencing and reconciliation. Production
-  readiness remains `MORE_EVIDENCE_NEEDED`.
+  immutable shadow generations, readback evidence, fencing and reconciliation. Day100 adds authorization-first
+  hybrid BM25/Exact retrieval, application-owned filters, deterministic RRF, final reauthorization, bounded
+  refill/degradation and authority-bound cursor/cache semantics. Production readiness remains
+  `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day99 — Vector Database and Vector Index Design](docs/fastapi/day99-vector-database-and-vector-index-design.md)
+* [Day100 — Hybrid Retrieval and Filtering](docs/fastapi/day100-hybrid-retrieval-and-filtering.md)
 
-(For the completed classroom history Day01–Day99, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day100, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day100 — Hybrid Retrieval and Filtering (Phase 7C; planned)
+* Day101 — Query Rewriting and Re-ranking (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

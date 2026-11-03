@@ -117,7 +117,18 @@ ai-agent/
 │   ├── rag_vector_validator.py # Day99: manifest/readback/exact validation
 │   ├── rag_vector_committer.py # Day99: fenced generation seal + activation authority
 │   ├── rag_vector_orchestrator.py # Day99: build/reconciliation control flow
-│   └── rag_vector_index_experiments.py # Day99: exact corpus + recall calculation
+│   ├── rag_vector_index_experiments.py # Day99: exact corpus + recall calculation
+│   ├── rag_retrieval_contracts.py # Day100: bundle/query/lexical/filter/fusion contracts
+│   ├── rag_query_encoder.py      # Day100: query-role + egress validation
+│   ├── rag_lexical_retrieval.py  # Day100: dependency-free BM25 reference
+│   ├── rag_dense_retrieval.py    # Day100: Exact cosine reference
+│   ├── rag_retrieval_filters.py  # Day100: application AST + execution plans
+│   ├── rag_hybrid_fusion.py      # Day100: weighted RRF + occurrence dedup
+│   ├── rag_retrieval_validator.py # Day100: selected identity/provenance checks
+│   ├── rag_authorized_retriever.py # Day100: current scope + guarded release
+│   ├── rag_retrieval_cache.py    # Day100: signed cursor + candidate cache
+│   ├── rag_retrieval_orchestrator.py # Day100: authorization-first bounded flow
+│   └── rag_retrieval_experiments.py # Day100: content-safe evidence reports
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -159,19 +170,20 @@ ai-agent/
 │   ├── test_day96_*.py           # Day96: chunking, identity, selection + seed
 │   ├── test_day97_*.py           # Day97: metadata/ACL/provenance/permit + seed
 │   ├── test_day98_*.py           # Day98: selection/contract/validation/commit + seed
-│   └── test_day99_*.py           # Day99: index contract/Flat/readback/fence + seed
-├── evals/                        # Day83–Day99 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day99
-├── evidence/                     # validation records through Day99
+│   ├── test_day99_*.py           # Day99: index contract/Flat/readback/fence + seed
+│   └── test_day100_*.py          # Day100: gates/BM25/filter/RRF/release/cursor + seed
+├── evals/                        # Day83–Day100 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day100
+├── evidence/                     # validation records through Day100
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day99
+└── docs/                         # designs and classroom records through Day100
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day99
-documented). Day99 adds bounded deterministic vector-generation/readback evidence and preserves
-`MORE_EVIDENCE_NEEDED` production readiness.
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day100
+documented). Day100 adds bounded authorization-first hybrid retrieval and preserves `MORE_EVIDENCE_NEEDED`
+production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -856,9 +868,52 @@ in-process contract, authorization, batching, readback, exact-score, fencing and
 tenant filtering, latency/capacity, durable recovery/deletion and traffic are NOT RUN. Production readiness
 remains `MORE_EVIDENCE_NEEDED`.
 
+## Day100 Hybrid Retrieval and Filtering
+
+Day100 consumes only an exact current application-selected retrieval bundle. The selected identity binds the
+Day99 vector generation, Day98 EmbeddingSet, Day96 ChunkSet, aligned lexical corpus, query encoder, filter
+schema, retrieval policy and fusion policy. Missing selection or a client generation mismatch fails before
+query encoding, filter dispatch, BM25, dense retrieval or database access.
+
+The runtime derives a current authorization scope, intersects it with a validated application-owned business
+filter and system exclusions, and executes dependency-free BM25 plus Exact cosine references. Filter planning
+supports exact direct pre-filter, explicitly split `OR`, or authorization pre-filter plus bounded application
+post-filter; it never drops unsupported semantics. Candidates are validated against bundle, generation,
+occurrence identity and provenance before deterministic weighted RRF. Current grant, selected generation and
+provenance are reread before guarded content release. Bounded overfetch/refill, explicit branch-degradation,
+canonical signed cursors and candidate-only caches never broaden authorization.
+
+The saved real Day99 generation is `SEALED` but unselected, so its Day100 handoff proves only the negative
+zero-call path. The positive pipeline uses an isolated `DAY100_CLASSROOM_ONLY`,
+`production_eligible=false` fixture and cannot promote real Day99 evidence.
+
+See the [design](docs/DAY100_HYBRID_RETRIEVAL_FILTERING.md),
+[classroom record](docs/day100-hybrid-retrieval-filtering-classroom-draft.md),
+[validation](evidence/day100-validation.json),
+[pipeline report](evidence/day100-hybrid-retrieval-report.json),
+[authorization report](evidence/day100-filter-authorization-report.json),
+[approach matrix](evidence/day100-retrieval-approach-matrix.json),
+[official research](research/day100-hybrid-retrieval-evidence.jsonl),
+[repository report](docs/DAY100_REPOSITORY_UPDATE_REPORT.md) and
+[Day101 handoff](docs/DAY100_TO_DAY101_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day100_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day100_seed_eval.py
+PYTHONPATH=src:. python3.12 evals/run_day100_evidence_replay.py
+PYTHONPATH=src:. python3.12 examples/day100_hybrid_retrieval_filtering.py
+```
+
+Evidence: 64 focused tests, 8/8 seed, deterministic evidence replay and 1006/1006 complete tests pass locally
+on Python 3.11.5 fallback and in Python 3.12.15 GitHub Actions run `41572660971`. This proves application
+contracts, branch ranking, fusion, authorization/filter
+control flow, result classification and cursor/cache binding only. Real query Provider,
+PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall, production latency/capacity and
+backup/restore/failover remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day100 hybrid retrieval and filtering using only sealed Day99 generation metadata.
+- Begin Day101 query rewriting and reranking only over current authorized Day100 candidates.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.
