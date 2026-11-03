@@ -84,7 +84,8 @@ Status: Completed at guided classroom scope; `MORE_EVIDENCE_NEEDED` for producti
 - Replay: saved Day96, Day98, Day99 and Day100 reports matched deterministic output.
 - JSON: every Day100 JSON/JSONL evidence file parsed successfully.
 - Safety: no raw query, protected text or vector appears in normal Day100 evidence.
-- CI: Day100 branch Python 3.12 GitHub Actions result will be recorded after the pull request gate runs.
+- CI: GitHub Actions run `41572660971`, job `125708928954`, passed on Python 3.12.15 with 1006/1006 tests,
+  every available seed evaluator and the saved Day100 evidence replay.
 
 ## Remaining TODO
 

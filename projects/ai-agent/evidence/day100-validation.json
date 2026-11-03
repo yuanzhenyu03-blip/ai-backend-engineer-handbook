@@ -1,5 +1,5 @@
 {
-  "validation_scope": "DAY100_ISOLATED_CLASSROOM_WORKTREE",
+  "validation_scope": "DAY100_FORMAL_BRANCH_AND_PR_CI",
   "baseline_commit": "3d013a9012379f9e69f5f736804146a10339875a",
   "classroom_python": "3.11.5",
   "repository_required_python": ">=3.12",
@@ -35,7 +35,16 @@
   "raw_query_in_normal_evidence": false,
   "protected_text_in_normal_evidence": false,
   "vectors_in_normal_evidence": false,
-  "github_actions_day100": "NOT_RUN_UNCOMMITTED_CLASSROOM_WORKTREE",
+  "github_actions_day100": {
+    "run_id": 41572660971,
+    "job_id": 125708928954,
+    "branch_head_commit": "0b136017a15413fc2a508067ca9db08290b2742a",
+    "python": "3.12.15",
+    "full_regression_suite": "1006/1006 PASS",
+    "all_available_seed_evaluators": "PASS",
+    "day100_saved_evidence_replay": "PASS",
+    "status": "PASS"
+  },
   "baseline_main_ci_before_day100": {
     "run_id": 41215453094,
     "python": "3.12.15",

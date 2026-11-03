@@ -2124,8 +2124,9 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   refill/degradation; and signed authority-bound cursors plus candidate-only cache. The real saved Day99
   generation remains sealed but unselected and proves the zero-call negative path; an isolated
   `production_eligible=false` fixture proves positive control flow. Evidence:
-  `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 64 focused tests, 8/8 seed and 1006/1006 local regression
-  tests pass. Real query Provider/database/ANN, latency/capacity, backup/restore/failover and production are
+  `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 64 focused tests, 8/8 seed and 1006/1006 regressions pass
+  locally and in Python 3.12.15 CI. Real query Provider/database/ANN, latency/capacity,
+  backup/restore/failover and production are
   NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day101.
 - Day101 — Query Rewriting and Re-ranking.
   Scope: query rewriting and re-ranking.

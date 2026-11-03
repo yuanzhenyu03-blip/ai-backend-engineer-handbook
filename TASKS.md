@@ -36,7 +36,7 @@ Day100 completion record:
 - [x] Recheck current authorization/provenance and selected generation before guarded content release.
 - [x] Implement bounded candidate depth/refill and explicit FULL/PARTIAL/EMPTY/DENIED/UNAVAILABLE outcomes.
 - [x] Bind signed canonical cursors and candidate-only cache to authority, query, filter and policy identities.
-- [x] Run 64 focused tests, 8/8 seed, replay evidence and 1006/1006 full local tests.
+- [x] Run 64 focused tests, 8/8 seed, replay evidence and 1006/1006 full tests locally and in Python 3.12.15 CI.
 - [x] Release lesson, design, classroom record, cheat sheet/interview, evidence and Day101 handoff.
 - [ ] Later: real query Provider/database/ANN, latency/capacity and backup/restore/failover gates.
 

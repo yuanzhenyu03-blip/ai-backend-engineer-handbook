@@ -28,7 +28,9 @@ guarded release. Bounded refill, explicit branch degradation, signed cursor and 
 remain authority-bound. The saved real Day99 generation is sealed but unselected and proves the zero-call
 negative path; the positive path uses only an isolated `DAY100_CLASSROOM_ONLY`, `production_eligible=false`
 fixture. Evidence: 64 focused tests, 8/8 seed, deterministic evidence replay and 1006/1006 complete local tests
-PASS on Python 3.11.5 fallback. Real query Provider, PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall,
+PASS on Python 3.11.5 fallback; Python 3.12.15 GitHub Actions run `41572660971` also passed 1006/1006,
+every seed evaluator and saved evidence replay. Real query Provider, PostgreSQL/pgvector/FTS,
+Qdrant/Pinecone, ANN recall,
 latency/capacity, backup/restore/failover and production are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
 Day99 is COMPLETE at guided classroom scope. Lesson:

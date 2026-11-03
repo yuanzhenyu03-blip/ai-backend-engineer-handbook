@@ -32,7 +32,9 @@ The saved real Day99 generation remains `SEALED` but unselected, so the real han
 negative path only. Positive control flow uses an isolated `DAY100_CLASSROOM_ONLY`,
 `production_eligible=false` fixture and cannot upgrade real evidence. Validation: local Python 3.11.5 fallback;
 64/64 focused tests, 8/8 seed, deterministic evidence replay, every available seed evaluator, compileall,
-JSON parsing, type checking of new modules and 1006/1006 complete repository tests PASS. Real query Provider,
+JSON parsing, type checking of new modules and 1006/1006 complete repository tests PASS.
+Python 3.12.15 GitHub Actions run `41572660971` also passed 1006/1006 tests, every available seed evaluator
+and the saved Day96/Day98/Day99/Day100 evidence replays. Real query Provider,
 PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall, production latency/capacity,
 backup/restore/failover and production traffic remain `NOT_RUN`. Readiness is `MORE_EVIDENCE_NEEDED`. Day101
 is next.

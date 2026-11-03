@@ -905,7 +905,8 @@ PYTHONPATH=src:. python3.12 examples/day100_hybrid_retrieval_filtering.py
 ```
 
 Evidence: 64 focused tests, 8/8 seed, deterministic evidence replay and 1006/1006 complete tests pass locally
-on Python 3.11.5 fallback. This proves application contracts, branch ranking, fusion, authorization/filter
+on Python 3.11.5 fallback and in Python 3.12.15 GitHub Actions run `41572660971`. This proves application
+contracts, branch ranking, fusion, authorization/filter
 control flow, result classification and cursor/cache binding only. Real query Provider,
 PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall, production latency/capacity and
 backup/restore/failover remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.

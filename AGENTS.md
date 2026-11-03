@@ -43,7 +43,8 @@ Current state:
 - Last Completed Lesson: Day100 — Hybrid Retrieval and Filtering (guided classroom scope; exact selected-bundle
   and authorization gates, versioned query/lexical/filter/retrieval/fusion contracts, BM25 + Exact cosine,
   deterministic weighted RRF, final authorization/provenance recheck, bounded refill/degradation and signed
-  cursor/cache semantics; 64 focused tests, 8/8 seed and 1006/1006 local tests pass; evidence is
+  cursor/cache semantics; 64 focused tests, 8/8 seed and 1006/1006 tests pass locally and in Python 3.12.15
+  GitHub Actions run `41572660971`; evidence is
   EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE; real query Provider/database/ANN, latency/capacity,
   backup/restore/failover and production are NOT RUN; production readiness MORE_EVIDENCE_NEEDED).
 - Current / Next Lesson: Day101 — Query Rewriting and Re-ranking (Phase 7C; Planned).
