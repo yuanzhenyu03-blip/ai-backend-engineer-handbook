@@ -2018,7 +2018,7 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 ## Phase 7C — Production RAG Engineering (Day95–Day106)
 
 Status:
-In Progress (Day95–Day100 completed at guided classroom scope)
+In Progress (Day95–Day101 completed at guided classroom scope)
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2132,6 +2132,19 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: query rewriting and re-ranking.
   Connection: Day100 retrieved candidates; Day101 rewrites queries and re-ranks; Day102 grounds answers with
   citations.
+  Status: ✅ Completed (guided classroom scope). Released Lesson:
+  `docs/fastapi/day101-query-rewriting-and-re-ranking.md`. Artifact: `projects/ai-agent/` gained a real Day100
+  selected-bundle eligibility gate before side effects; versioned bounded rewrite contracts and semantic-scope
+  validation; unchanged per-variant calls through `AuthorizedHybridRetriever.retrieve`; occurrence-ID union
+  with preserved branch ranks and deterministic cross-variant RRF; explicit reranker input-window, model,
+  score, output-mode and egress contracts; strict Adapter/Validator correlation; and current authorization plus
+  provenance rechecks before and after reranking. Invalid Provider output fails closed unless a selected
+  unreranked fallback policy applies; final results are always a subset of the authorized candidate pool.
+  Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 56 focused tests, 10/10 seed, 1062/1062 complete
+  regressions, deterministic example and saved evidence replay pass locally. The real Day100 handoff still has
+  no production-selected bundle, so its zero-call negative path remains the only real handoff evidence. Real rewrite/reranker models,
+  labeled baseline/quality, protected egress, database/ANN, latency/capacity/cost/error-rate and production are
+  NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day102.
 - Day102 — Grounding, Citations and Source Verification.
   Scope: grounding, citations, source verification.
   Connection: Day101 improved relevance; Day102 grounds answers with citations and source verification; Day103

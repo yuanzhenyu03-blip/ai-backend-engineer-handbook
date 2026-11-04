@@ -3,11 +3,11 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day100 are complete.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day101 are complete.
 
-Day59–Day100 are complete at their recorded evidence levels. Day100 adds authorization-first hybrid retrieval,
-filter, fusion, final-release, bounded-refill and authority-bound cursor/cache evidence on the Day95–Day99
-base. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day101 are complete at their recorded evidence levels. Day101 adds bounded rewrite validation,
+per-variant Day100 retrieval, occurrence-identity fusion, strict reranker validation and final guarded release
+on the Day95–Day100 base. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -16,8 +16,21 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day101 — Query Rewriting and Re-ranking (Phase 7C) — next up.
-Most recent classroom lesson: Day100 — Hybrid Retrieval and Filtering.
+Day102 — Grounding, Citations and Source Verification (Phase 7C) — next up.
+Most recent classroom lesson: Day101 — Query Rewriting and Re-ranking.
+
+Day101 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day101-query-rewriting-and-re-ranking.md`. The continuing Artifact changes only the protected
+query expression, validates a bounded approved rewrite set, sends every variant through the unchanged Day100
+`AuthorizedHybridRetriever`, deduplicates by occurrence identity while preserving branch ranks, and permits a
+contract-bound reranker only to reorder or select from that authorized pool. Adapter/Validator correlation
+rejects malformed, duplicate, missing and unknown outputs. Current authorization and provenance are reread
+before reranker egress and again before guarded release; scores never override legality. Evidence: 56 focused
+tests, 10/10 seed, 1062/1062 complete regressions, deterministic example and evidence replay pass locally with
+deterministic fakes. The real Day100 handoff still has no production-selected bundle and proves the
+zero-side-effect negative path only.
+Real rewrite/reranker models, baseline and labeled quality, protected egress, database/ANN,
+latency/capacity/cost/error rate and production are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.
 
 Day100 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day100-hybrid-retrieval-and-filtering.md`. The continuing Artifact requires an exact current

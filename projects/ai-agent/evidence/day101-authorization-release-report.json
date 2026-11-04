@@ -1,0 +1,16 @@
+{
+  "report_kind": "DAY101_AUTHORIZATION_RELEASE_CORRECTNESS",
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "invariant": "final_reranked_occurrence_ids subset_of validated_current_authorized_day100_occurrence_ids",
+  "covered_cases": [
+    "rewrite cannot change tenant/principal/action/purpose/filter",
+    "every query variant reuses AuthorizedHybridRetriever.retrieve",
+    "unknown and duplicate reranker outputs fail closed",
+    "post-rerank authorization revocation removes candidate",
+    "post-rerank provenance change removes candidate",
+    "external candidate egress requires a separate gate"
+  ],
+  "real_authorization_service": "NOT_RUN",
+  "real_protected_candidate_egress": "NOT_RUN",
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}

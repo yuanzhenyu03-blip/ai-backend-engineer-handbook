@@ -23,18 +23,20 @@ Current phase:
   authorization, application-owned vector/index contracts, deterministic batches, an exact Flat oracle,
   immutable shadow generations, readback evidence, fencing and reconciliation. Day100 adds authorization-first
   hybrid BM25/Exact retrieval, application-owned filters, deterministic RRF, final reauthorization, bounded
-  refill/degradation and authority-bound cursor/cache semantics. Production readiness remains
+  refill/degradation and authority-bound cursor/cache semantics. Day101 adds bounded validated rewrites,
+  per-variant reuse of the Day100 boundary, occurrence-identity fusion, contract-validated re-ranking and a
+  final authorization/provenance guarded release. Production readiness remains
   `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day100 — Hybrid Retrieval and Filtering](docs/fastapi/day100-hybrid-retrieval-and-filtering.md)
+* [Day101 — Query Rewriting and Re-ranking](docs/fastapi/day101-query-rewriting-and-re-ranking.md)
 
-(For the completed classroom history Day01–Day100, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day101, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day101 — Query Rewriting and Re-ranking (Phase 7C; planned)
+* Day102 — Grounding, Citations and Source Verification (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

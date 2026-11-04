@@ -2499,3 +2499,52 @@ fixture proves only the sealed-but-unselected zero-call path; the positive fixtu
 `DAY100_CLASSROOM_ONLY` and `production_eligible=false`. Real query Provider/database/ANN,
 latency/capacity/recovery remain `NOT_RUN`; `MORE_EVIDENCE_NEEDED`. Related:
 [Day100 lesson](../docs/fastapi/day100-hybrid-retrieval-and-filtering.md).
+
+## Day101 — Query Rewriting and Re-ranking
+
+```text
+exact eligible Day100 handoff
+→ original query identity + bounded rewrite/egress contract
+→ validate approved rewrite set (semantic scope, count, bytes, one round)
+→ every variant calls AuthorizedHybridRetriever.retrieve
+→ occurrence-ID union while retaining all branch/variant ranks
+→ deterministic cross-variant RRF + bounded candidate pool
+→ current authorization/provenance recheck
+→ versioned reranker windows + explicit index-to-candidate map
+→ Adapter mapping + complete Validator correlation
+→ current authorization/provenance recheck
+→ guarded release of an authorized ordered subset
+```
+
+Rewrite rule: only `query_text` may change. Tenant, principal, action, purpose, filters, selected bundle and
+authorization rules stay fixed. An approved rewrite is another input to Day100, not a shortcut around it.
+
+Fusion rule: deduplicate by `occurrence_id`, but retain each occurrence's ranks from every query and branch.
+Duplicate content with different occurrence IDs remains distinct because authorization and provenance attach to
+the occurrence. Stable tie-break: fused score descending, best prior rank ascending, stable ID ascending.
+
+Reranker rule: output is an untrusted proposed ordering. Bind model revision, tokenizer revision, maximum input
+length, truncation-policy revision, input-window digest, candidate-pool digest, attempt and output mode.
+Duplicate or unknown candidates are Provider contract errors. Missing candidates are accepted only when the
+selected output-mode contract permits a subset. Scores are ordered values unless the contract explicitly gives
+calibrated probability semantics.
+
+```text
+reranker score ≠ authorization
+internal read permission ≠ external egress permission
+cache-time legality ≠ current legality
+HyDE/rewrite text ≠ source evidence or citation
+```
+
+Fallbacks must be explicit: `ORIGINAL_ONLY_FALLBACK` for rewrite failure; `UNRERANKED_FALLBACK` when the selected
+policy permits discarding the whole invalid rerank result. Final output contains ordered, currently authorized
+candidate occurrences plus provenance and execution/degradation state. It never contains a candidate invented
+by the reranker.
+
+Deterministic fake tests prove bounded flow, identity, validation and safety invariants. They do not prove real
+model quality or production performance. Required next evidence includes baseline comparisons, labeled quality
+metrics, protected egress and latency/capacity/cost/error-rate measurements.
+
+Evidence: 56 focused tests, 10/10 seed and saved replay with deterministic fakes. Real rewrite/reranker models,
+quality and production operations are `NOT_RUN`; `MORE_EVIDENCE_NEEDED`. Related:
+[Day101 lesson](../docs/fastapi/day101-query-rewriting-and-re-ranking.md).

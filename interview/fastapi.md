@@ -3455,3 +3455,72 @@ that evidence distinction and then produced the correct independent synthesis. T
 evidence, not real retrieval-quality or production evidence.
 
 Related: [Day100 lesson](../docs/fastapi/day100-hybrid-retrieval-and-filtering.md).
+
+## Day101 — Query Rewriting and Re-ranking (Phase 7C)
+
+### Beginner: What may a rewrite change, and what must remain fixed?
+
+**Student's final English answer:** “A rewrite can change only the query expression; it must never change the
+tenant, principal, purpose, filters, selected bundle, or authorization scope. Every rewrite must go through the
+same Day100 pipeline.”
+
+**Strong answer:** A rewrite may change only the query expression under a versioned semantic-scope and budget
+contract. Tenant, principal, action, purpose, filter, selected bundle and authorization policy remain fixed.
+Every approved variant re-enters the unchanged Day100 selected-bundle, authorization, filter, validation and
+guarded-release pipeline.
+
+### Intermediate: Why deduplicate occurrences before reranking but retain branch ranks?
+
+**Strong answer:** Repeated occurrence IDs represent one candidate and must consume one candidate slot. Keep
+all query/branch ranks as fusion and audit evidence, then compute one deterministic fused position. Do not
+deduplicate by content hash because two occurrences with identical text may have different provenance or
+authorization.
+
+### Intermediate: How should an Adapter handle `[C, A, C]` for input `[A, B, C]`?
+
+**Strong answer:** Map Provider outputs through the exact index-to-candidate table, detect duplicate `C`, and
+fail closed. If the contract requires complete output, the missing `B` is also invalid; if an explicitly
+selected subset mode permits omission, omission alone may be valid, but duplication never is. Silent deletion
+would disguise a Provider contract or wrong-pool error as success and corrupt the audit trail.
+
+### Senior: Why can neither a reranker score nor a cache fingerprint replace final authorization?
+
+**Strong answer:** A score measures ranking preference under its declared semantics, not legal authority. A
+cache fingerprint proves only the identities and legality observed when the cache was built. Authorization or
+provenance may change afterward, so current state must be reread before protected reranker egress and again at
+guarded release; revoked or stale candidates are removed regardless of score.
+
+### Senior: What must a reranker cache identity bind?
+
+**Strong answer:** Bind tenant/principal authorization scope, selected bundle, original query, approved rewrite
+set and multi-query plan, candidate-pool digest, immutable reranker model/tokenizer revision, maximum input
+length, truncation-policy revision and exact input-window digest. A cursor additionally binds the validated
+ordering, offset and expiry. Any relevant identity change rejects reuse and starts a fresh first page.
+
+### Senior: What do deterministic fake tests prove, and what remains before production?
+
+**Student's final English answer:** “Deterministic fake tests prove control-flow correctness, contract
+validation, and safety invariants. They don't prove real model quality or production performance. Before
+production, we still need baseline comparisons, labeled quality metrics, and evidence for latency, capacity,
+cost, and error rates.”
+
+**Strong answer:** Exactly. Add protected-egress validation, real Day100 data-chain evidence, real model/provider
+behavior and operational/recovery evidence. A hundred successful API calls would prove availability of that
+call path, not ranking quality or correctness of the real authorized retrieval chain.
+
+### Common weak answer and follow-up
+
+“Generate many rewrites, search everything, send it all to the reranker, and trust the top score.” Ask what
+bounds variant/candidate cost, which Day100 gates every rewrite passes, how duplicates retain evidence without
+consuming slots, how Provider output is correlated, whether content may egress, and where current authorization
+and provenance are rechecked.
+
+### Classroom interview result
+
+`COMPLETED_WITH_TECHNICAL_AND_LANGUAGE_CORRECTIONS`. The learner independently corrected rewrite bypass,
+occurrence-ID deduplication, silent Provider-output deletion, egress-vs-read authority, cache/cursor identity,
+final currentness and evidence-boundary mistakes. The learner also completed three English answers covering the
+immutable rewrite boundary, cursor invalidation and the limits of deterministic fake tests. This remains guided
+classroom evidence, not real reranker quality or production evidence.
+
+Related: [Day101 lesson](../docs/fastapi/day101-query-rewriting-and-re-ranking.md).

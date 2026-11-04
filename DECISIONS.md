@@ -813,3 +813,52 @@ filter oracle, weighted RRF, signed cursor/cache controls, 64 focused tests, 8/8
 regressions exercise application control flow. Real query Provider, PostgreSQL/pgvector/FTS, Qdrant/Pinecone,
 ANN recall, latency/capacity, backup/restore/failover and production traffic are `NOT_RUN`. Evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 019 — Rewrites May Change Retrieval Expression; Rerankers May Reorder, Never Authorize
+
+Status: Accepted for Day101 course scope
+
+Date: 2026-11-04
+
+### Context
+
+Query variants can improve recall, but they can also drift in meaning or accidentally bypass the exact
+selected-bundle, filter and authorization boundary established by Day100. Multi-query retrieval produces
+duplicate occurrences with different branch ranks. External rerankers can return malformed, partial,
+duplicated, stale or wrong-pool identities, and their scores say nothing about current authorization or
+provenance.
+
+### Decision
+
+A rewrite may change only the protected query expression. Tenant, principal, action, purpose, client filter,
+selected bundle and authorization rules remain immutable. Validate one bounded approved rewrite set and send
+every variant through the unchanged Day100 `AuthorizedHybridRetriever.retrieve` entry point. Deduplicate by
+occurrence identity while retaining every variant/branch rank, then apply deterministic cross-variant fusion.
+
+Treat reranker output as an untrusted candidate ordering. Bind each request to an explicit candidate map,
+candidate-pool digest, immutable model/tokenizer/input-window/truncation contract, output mode, score semantics,
+attempt identity and egress policy. An Adapter maps Provider output and a Validator rejects duplicate, missing,
+unknown, malformed or mismatched results. A reranker may only reorder or select a subset allowed by its
+contract; it may never add candidates, authorize content or serve as source evidence. Recheck current
+authorization and provenance before protected reranker egress and again before guarded release.
+
+### Consequences
+
+- Missing or ineligible Day100 handoff fails before rewrite, database or reranker side effects.
+- Semantic drift is rejected; controlled decomposition requires an explicit domain contract and validator.
+- Duplicate occurrences consume one candidate slot while preserving all branch-rank evidence.
+- Invalid Provider output fails closed unless a selected policy explicitly permits unreranked fallback.
+- Scores never compensate for revoked authorization or changed provenance.
+- Cache and cursor identities include authority, bundle, query, rewrite set, pool, model and input windows.
+- Latency and cost increase with variant count and pointwise candidate scoring, so every dimension is bounded.
+
+### Validation honesty
+
+The deterministic fake, 56 focused tests, 10/10 seed, example and saved evidence replay exercise bounded
+control flow, stable identities, validation, fallback and safety invariants. The real Day100 state still has no
+production-selected bundle and proves only the zero-call negative path. Real rewrite/reranker models,
+baseline/labeled quality, protected egress, database/ANN, latency/capacity/cost/error rates and production are
+`NOT_RUN`. Evidence is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains
+`MORE_EVIDENCE_NEEDED`.

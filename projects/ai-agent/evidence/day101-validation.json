@@ -1,0 +1,73 @@
+{
+  "day": 101,
+  "date": "2026-11-04",
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "runtime": {
+    "local_full_suite_python": "3.11.5",
+    "repository_minimum": "3.12+",
+    "python_3_12_ci": "PENDING"
+  },
+  "executed": {
+    "focused_tests": {
+      "status": "PASS",
+      "passed": 56,
+      "failed": 0
+    },
+    "full_ai_agent_tests": {
+      "status": "PASS",
+      "passed": 1062,
+      "failed": 0
+    },
+    "day101_seed": {
+      "status": "PASS",
+      "passed": 10,
+      "failed": 0
+    },
+    "all_seed_evaluators": {
+      "status": "PASS",
+      "evaluators": 17
+    },
+    "day100_evidence_replay": "PASS",
+    "day101_evidence_replay": {
+      "status": "PASS",
+      "checksum": "sha256:dfebfaf85deb709be4fd303148f6ef67fa12d42b9958a9fa8543a5c9a2e6b64c"
+    },
+    "deterministic_example": "PASS",
+    "compileall": "PASS",
+    "direct_saved_evidence_comparisons_day96_day98_day99": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "lesson_template_16_sections": "PASS",
+    "markdown_fences": "PASS",
+    "changed_markdown_relative_links": "PASS",
+    "protected_prompt_and_template_files": "PASS_UNCHANGED",
+    "credential_pattern_scan": "PASS_NO_FINDINGS",
+    "current_lesson_status_consistency": "PASS_DAY102_NEXT",
+    "git_diff_check": "PASS"
+  },
+  "real_negative_handoff": {
+    "selected_production_day100_bundle": false,
+    "outcome": "REJECTED",
+    "reason": "NO_CURRENT_DAY100_BUNDLE",
+    "rewrite_provider_calls": 0,
+    "reranker_provider_calls": 0,
+    "database_calls": 0
+  },
+  "classroom_positive_fixture": {
+    "scope": "DAY100_CLASSROOM_ONLY",
+    "production_eligible": false,
+    "purpose": "CONTROL_FLOW_AND_SAFETY_INVARIANTS_ONLY"
+  },
+  "not_run": [
+    "real rewrite provider",
+    "real local or hosted cross-encoder/reranker",
+    "labeled baseline and ranking-quality evaluation",
+    "real protected query and candidate egress",
+    "real PostgreSQL/pgvector/full-text retrieval chain",
+    "real ANN retrieval",
+    "latency, capacity, cost and error-rate gates",
+    "distributed cache and cursor behavior",
+    "production traffic"
+  ],
+  "claim_boundary": "Deterministic evidence proves bounded control flow, contract validation, stable identity, fallback recording and safety invariants. It does not prove real model quality or production performance."
+}

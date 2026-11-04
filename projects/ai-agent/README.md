@@ -128,7 +128,17 @@ ai-agent/
 │   ├── rag_authorized_retriever.py # Day100: current scope + guarded release
 │   ├── rag_retrieval_cache.py    # Day100: signed cursor + candidate cache
 │   ├── rag_retrieval_orchestrator.py # Day100: authorization-first bounded flow
-│   └── rag_retrieval_experiments.py # Day100: content-safe evidence reports
+│   ├── rag_retrieval_experiments.py # Day100: content-safe evidence reports
+│   ├── rag_query_rewrite_contracts.py # Day101: rewrite identities, budgets + modes
+│   ├── rag_query_rewriter.py      # Day101: bounded Provider + semantic validator
+│   ├── rag_multi_query_retrieval.py # Day101: unchanged Day100 calls per variant
+│   ├── rag_multi_query_fusion.py  # Day101: occurrence union + rank evidence
+│   ├── rag_reranker_contracts.py  # Day101: model/window/output/egress contracts
+│   ├── rag_reranker_adapter.py    # Day101: window builder + deterministic fake
+│   ├── rag_reranking_validator.py # Day101: complete output correlation
+│   ├── rag_reranking_cache.py     # Day101: authority/rewrite/model-bound identity
+│   ├── rag_reranking_orchestrator.py # Day101: authorization-first composed flow
+│   └── rag_reranking_experiments.py # Day101: content-safe evidence reports
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -171,18 +181,20 @@ ai-agent/
 │   ├── test_day97_*.py           # Day97: metadata/ACL/provenance/permit + seed
 │   ├── test_day98_*.py           # Day98: selection/contract/validation/commit + seed
 │   ├── test_day99_*.py           # Day99: index contract/Flat/readback/fence + seed
-│   └── test_day100_*.py          # Day100: gates/BM25/filter/RRF/release/cursor + seed
-├── evals/                        # Day83–Day100 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day100
-├── evidence/                     # validation records through Day100
+│   ├── test_day100_*.py          # Day100: gates/BM25/filter/RRF/release/cursor + seed
+│   └── test_day101_*.py          # Day101: rewrite/fusion/rerank/release/cache + seed
+├── evals/                        # Day83–Day101 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day101
+├── evidence/                     # validation records through Day101
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day100
+└── docs/                         # designs and classroom records through Day101
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day100
-documented). Day100 adds bounded authorization-first hybrid retrieval and preserves `MORE_EVIDENCE_NEEDED`
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day101
+documented). Day101 adds bounded validated query rewriting and candidate-only reranking while preserving
+the Day100 authorization boundary and `MORE_EVIDENCE_NEEDED`
 production readiness.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
@@ -911,9 +923,54 @@ control flow, result classification and cursor/cache binding only. Real query Pr
 PostgreSQL/pgvector/FTS, Qdrant/Pinecone, ANN recall, production latency/capacity and
 backup/restore/failover remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day101 Query Rewriting and Re-ranking
+
+Day101 may change only the protected query expression. Tenant, principal, action, purpose, filters, selected
+bundle and authorization rules remain fixed. Every approved variant re-enters the unchanged Day100
+`AuthorizedHybridRetriever.retrieve` boundary; rewrites never bypass selected-bundle admission, current
+authorization, filter validation, candidate validation or guarded release. Variant count, total query bytes,
+rewrite rounds and candidate observations are bounded.
+
+Multi-query fusion deduplicates by `occurrence_id` while retaining every variant/branch rank as evidence.
+Cross-variant RRF and stable tie-breaks create one bounded candidate pool. The reranker receives an explicit
+index-to-candidate map and versioned model, tokenizer, maximum-input, truncation, output-mode, score and egress
+contracts. Its Adapter and Validator reject duplicates, unknown candidates, missing required outputs, wrong
+attempt/pool/contract identities and invalid scores. A reranker may reorder or select only from that pool; it
+cannot add, authorize or release content.
+
+Current authorization and provenance are checked immediately before reranker egress and again before guarded
+release. Invalid Provider output fails closed unless the selected degradation policy explicitly permits an
+unreranked fallback. Cache and cursor identities bind authorization, selected bundle, original query, approved
+rewrite set, candidate pool, model/window contract and validated ordering; reuse never skips current release
+checks.
+
+See the [design](docs/DAY101_QUERY_REWRITING_RERANKING.md),
+[classroom record](docs/day101-query-rewriting-reranking-classroom-draft.md),
+[validation](evidence/day101-validation.json),
+[pipeline report](evidence/day101-query-rewrite-rerank-report.json),
+[authorization report](evidence/day101-authorization-release-report.json),
+[approach matrix](evidence/day101-reranker-approach-matrix.json),
+[research](research/day101-query-rewrite-reranker-evidence.jsonl),
+[repository report](docs/DAY101_REPOSITORY_UPDATE_REPORT.md) and
+[Day102 handoff](docs/DAY101_TO_DAY102_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day101_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day101_seed_eval.py
+PYTHONPATH=src:. python3.12 evals/run_day101_evidence_replay.py
+PYTHONPATH=src:. python3.12 examples/day101_query_rewriting_reranking.py
+```
+
+Evidence: 56 focused tests, 10/10 seed, 1062/1062 complete regressions and deterministic evidence replay pass
+locally. This proves bounded control flow, stable identities, output validation, safety invariants, fallback classification and final
+currentness checks with deterministic fakes. It does not prove real rewrite/reranker quality or production
+performance. Real models/providers, labeled baseline and quality metrics, protected egress, database/ANN,
+latency, capacity, cost, error rates and production remain `NOT_RUN`; readiness remains
+`MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day101 query rewriting and reranking only over current authorized Day100 candidates.
+- Begin Day102 grounding, citations and source verification only over current authorized Day101 occurrences.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

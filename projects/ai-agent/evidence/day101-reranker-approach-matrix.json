@@ -1,0 +1,44 @@
+{
+  "decision_status": "PROVISIONAL_EVIDENCE_BOUNDED",
+  "weights": {
+    "authorization_and_protected_data_safety": 25,
+    "contract_correctness_and_reproducibility": 20,
+    "controlled_local_ranking_behavior": 20,
+    "latency_and_capacity_fit": 15,
+    "operability_and_failure_handling": 10,
+    "cost": 5,
+    "portability_and_testability": 5
+  },
+  "weight_total": 100,
+  "selected_classroom_reference": "deterministic pointwise fake",
+  "production_selection": "NOT_MADE",
+  "candidates": [
+    {
+      "name": "BAAI/bge-reranker-v2-m3",
+      "immutable_revision": "953dc6f6f85a1b2dbfca4c34a2796e7dde08d41e",
+      "evidence": "OFFICIAL_STATIC",
+      "runtime": "NOT_RUN",
+      "latency_capacity": "NOT_RUN",
+      "quality": "NOT_RUN",
+      "weighted_score": null
+    },
+    {
+      "name": "Cohere rerank-v5.0-pro/fast",
+      "immutable_revision": "PROVIDER_MANAGED_VERSION_NAME",
+      "evidence": "OFFICIAL_STATIC",
+      "runtime": "NOT_RUN",
+      "protected_egress_approval": "NOT_RUN",
+      "latency_capacity_cost": "NOT_RUN",
+      "weighted_score": null
+    },
+    {
+      "name": "Jina hosted reranker",
+      "immutable_revision": "CURRENT_CATALOG_CONFLICT_REQUIRES_RECONCILIATION",
+      "evidence": "OFFICIAL_STATIC_CONFLICT",
+      "runtime": "NOT_RUN",
+      "latency_capacity_cost": "NOT_RUN",
+      "weighted_score": null
+    }
+  ],
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}
