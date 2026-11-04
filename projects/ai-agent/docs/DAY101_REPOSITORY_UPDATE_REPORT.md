@@ -52,7 +52,7 @@ interview guide, Agent instructions and CI workflow are synchronized through Day
 - Day101 deterministic example and Python compileall: PASS.
 - Final repository structure, Markdown/link, JSON, protected-file, secret-pattern and diff checks are recorded
   in `projects/ai-agent/evidence/day101-validation.json` after execution.
-- Python 3.12 CI: pending the pull-request run; not claimed locally.
+- Python 3.12 pull-request CI: PASS.
 
 ## Evidence boundary
 

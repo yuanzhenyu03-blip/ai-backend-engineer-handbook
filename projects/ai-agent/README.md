@@ -962,7 +962,7 @@ PYTHONPATH=src:. python3.12 examples/day101_query_rewriting_reranking.py
 ```
 
 Evidence: 56 focused tests, 10/10 seed, 1062/1062 complete regressions and deterministic evidence replay pass
-locally. This proves bounded control flow, stable identities, output validation, safety invariants, fallback classification and final
+locally and in Python 3.12 CI. This proves bounded control flow, stable identities, output validation, safety invariants, fallback classification and final
 currentness checks with deterministic fakes. It does not prove real rewrite/reranker quality or production
 performance. Real models/providers, labeled baseline and quality metrics, protected egress, database/ANN,
 latency, capacity, cost, error rates and production remain `NOT_RUN`; readiness remains

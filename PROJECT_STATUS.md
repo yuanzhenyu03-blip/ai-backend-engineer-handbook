@@ -26,8 +26,8 @@ query expression, validates a bounded approved rewrite set, sends every variant 
 contract-bound reranker only to reorder or select from that authorized pool. Adapter/Validator correlation
 rejects malformed, duplicate, missing and unknown outputs. Current authorization and provenance are reread
 before reranker egress and again before guarded release; scores never override legality. Evidence: 56 focused
-tests, 10/10 seed, 1062/1062 complete regressions, deterministic example and evidence replay pass locally with
-deterministic fakes. The real Day100 handoff still has no production-selected bundle and proves the
+tests, 10/10 seed, 1062/1062 complete regressions, deterministic example and evidence replay pass locally and
+in Python 3.12 CI with deterministic fakes. The real Day100 handoff still has no production-selected bundle and proves the
 zero-side-effect negative path only.
 Real rewrite/reranker models, baseline and labeled quality, protected egress, database/ANN,
 latency/capacity/cost/error rate and production are NOT RUN. Readiness is `MORE_EVIDENCE_NEEDED`.

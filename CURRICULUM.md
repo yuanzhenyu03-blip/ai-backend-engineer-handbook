@@ -2141,7 +2141,7 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   provenance rechecks before and after reranking. Invalid Provider output fails closed unless a selected
   unreranked fallback policy applies; final results are always a subset of the authorized candidate pool.
   Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 56 focused tests, 10/10 seed, 1062/1062 complete
-  regressions, deterministic example and saved evidence replay pass locally. The real Day100 handoff still has
+  regressions, deterministic example and saved evidence replay pass locally and in Python 3.12 CI. The real Day100 handoff still has
   no production-selected bundle, so its zero-call negative path remains the only real handoff evidence. Real rewrite/reranker models,
   labeled baseline/quality, protected egress, database/ANN, latency/capacity/cost/error-rate and production are
   NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day102.

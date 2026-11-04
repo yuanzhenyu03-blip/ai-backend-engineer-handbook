@@ -37,7 +37,7 @@ Day101 completion record:
 - [x] Prevent rerankers from adding candidates or replacing authorization/provenance decisions with scores.
 - [x] Recheck current authorization/provenance before egress and guarded final release.
 - [x] Bind cache/cursor identities to authorization, bundle, query, rewrite set, pool, model and windows.
-- [x] Run 56 focused tests, 10/10 seed, 1062/1062 complete regressions, deterministic example and replay locally.
+- [x] Run 56 focused tests, 10/10 seed, 1062/1062 regressions, example and replay locally and in Python 3.12 CI.
 - [x] Release lesson, design, classroom record, cheat sheet/interview, evidence and Day102 handoff.
 - [ ] Later: real rewrite/reranker Provider, labeled baseline/quality, protected egress and operations gates.
 

@@ -43,7 +43,7 @@ Current state:
 - Last Completed Lesson: Day101 — Query Rewriting and Re-ranking (guided classroom scope; bounded validated
   rewrites, unchanged Day100 authorization-first retrieval per variant, occurrence-identity fusion, strict
   reranker Adapter/Validator correlation and final authorization/provenance guarded release; 56 focused tests,
-  10/10 seed, 1062/1062 complete regressions and saved replay pass locally; evidence is
+  10/10 seed, 1062/1062 complete regressions and saved replay pass locally and in Python 3.12 CI; evidence is
   EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE; real
   rewrite/reranker models, baseline/quality, protected egress, database/ANN, operations and production are NOT
   RUN; production readiness MORE_EVIDENCE_NEEDED).

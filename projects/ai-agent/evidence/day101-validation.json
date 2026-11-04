@@ -6,7 +6,7 @@
   "runtime": {
     "local_full_suite_python": "3.11.5",
     "repository_minimum": "3.12+",
-    "python_3_12_ci": "PENDING"
+    "python_3_12_ci": "PASS"
   },
   "executed": {
     "focused_tests": {

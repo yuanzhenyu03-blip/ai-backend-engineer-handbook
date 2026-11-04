@@ -28,7 +28,7 @@ provenance are reread before reranker egress and guarded final release; high sco
 Fallback modes and cache/cursor identities remain explicit and bounded.
 
 Validation: 56/56 focused tests, 10/10 seed, 1062/1062 complete regressions, deterministic example, evidence
-replay, compile and JSON checks pass locally with deterministic fakes. The real Day100 handoff still lacks a
+replay, compile and JSON checks pass locally and in Python 3.12 CI with deterministic fakes. The real Day100 handoff still lacks a
 production-selected bundle and proves the zero-call negative path only. Real rewrite/reranker models, labeled baseline/quality, protected
 egress, database/ANN, latency/capacity/cost/error rates and production traffic remain `NOT_RUN`. Readiness is
 `MORE_EVIDENCE_NEEDED`. Day102 is next.
