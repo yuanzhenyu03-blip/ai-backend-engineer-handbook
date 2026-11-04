@@ -60,7 +60,8 @@ docs/
 │   ├── day97-metadata-tenant-acl-and-provenance.md # exact permits + guarded reads
 │   ├── day98-embedding-model-selection-and-versioning.md # immutable EmbeddingSets
 │   ├── day99-vector-database-and-vector-index-design.md # exact oracle + shadow generations
-│   └── day100-hybrid-retrieval-and-filtering.md # authorization-first BM25/dense/RRF
+│   ├── day100-hybrid-retrieval-and-filtering.md # authorization-first BM25/dense/RRF
+│   └── day101-query-rewriting-and-re-ranking.md # bounded rewrites + authorized reranking
 ├── playwright/
 └── n8n/
 ```

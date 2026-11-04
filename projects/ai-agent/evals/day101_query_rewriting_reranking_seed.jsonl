@@ -1,0 +1,10 @@
+{"case_id":"real-production-no-bundle","expected_outcome":"REJECTED","expected_reason":"NO_CURRENT_DAY100_BUNDLE"}
+{"case_id":"synthetic-full","expected_outcome":"FULL","expected_reranking_mode":"RERANKED_SUCCESS"}
+{"case_id":"rewrite-egress-denied","expected_rewrite_mode":"ORIGINAL_ONLY_FALLBACK","expected_rewrite_calls":0}
+{"case_id":"rewrite-timeout","expected_rewrite_mode":"ORIGINAL_ONLY_FALLBACK","expected_outcome":"DEGRADED"}
+{"case_id":"rerank-egress-denied","expected_reranking_mode":"UNRERANKED_FALLBACK","expected_reranker_calls":0}
+{"case_id":"reranker-failure","expected_reranking_mode":"UNRERANKED_FALLBACK","expected_reason":"RERANKER_FAILED"}
+{"case_id":"semantic-drift","expected_rewrite_mode":"PARTIAL_REWRITE","expected_rejected_reason":"SEMANTIC_DRIFT_REJECTED"}
+{"case_id":"post-rerank-revocation","expected_rejection":"STALE_AUTHORIZATION","forbidden_occurrence":"occurrence:B"}
+{"case_id":"post-rerank-provenance","expected_rejection":"STALE_PROVENANCE","forbidden_occurrence":"occurrence:B"}
+{"case_id":"content-safe-audit","expected_raw_query_logged":false,"expected_protected_text_logged":false}

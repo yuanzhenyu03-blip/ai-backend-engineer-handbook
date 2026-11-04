@@ -52,3 +52,5 @@ jobs:
           python -c 'import json; from pathlib import Path; from rag_vector_store_selection import run_store_selection_experiment; expected = json.loads(Path("evidence/day99-vector-store-selection-matrix.json").read_text()); actual = json.loads(json.dumps(run_store_selection_experiment())); assert actual == expected'
       - name: Verify saved Day100 hybrid retrieval evidence
         run: python evals/run_day100_evidence_replay.py
+      - name: Verify saved Day101 query rewrite and reranking evidence
+        run: python evals/run_day101_evidence_replay.py

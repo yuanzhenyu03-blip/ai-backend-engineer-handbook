@@ -40,14 +40,14 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day100 — Hybrid Retrieval and Filtering (guided classroom scope; exact selected-bundle
-  and authorization gates, versioned query/lexical/filter/retrieval/fusion contracts, BM25 + Exact cosine,
-  deterministic weighted RRF, final authorization/provenance recheck, bounded refill/degradation and signed
-  cursor/cache semantics; 64 focused tests, 8/8 seed and 1006/1006 tests pass locally and in Python 3.12.15
-  GitHub Actions run `41572660971`; evidence is
-  EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE; real query Provider/database/ANN, latency/capacity,
-  backup/restore/failover and production are NOT RUN; production readiness MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day101 — Query Rewriting and Re-ranking (Phase 7C; Planned).
+- Last Completed Lesson: Day101 — Query Rewriting and Re-ranking (guided classroom scope; bounded validated
+  rewrites, unchanged Day100 authorization-first retrieval per variant, occurrence-identity fusion, strict
+  reranker Adapter/Validator correlation and final authorization/provenance guarded release; 56 focused tests,
+  10/10 seed, 1062/1062 complete regressions and saved replay pass locally and in Python 3.12 CI; evidence is
+  EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE; real
+  rewrite/reranker models, baseline/quality, protected egress, database/ANN, operations and production are NOT
+  RUN; production readiness MORE_EVIDENCE_NEEDED).
+- Current / Next Lesson: Day102 — Grounding, Citations and Source Verification (Phase 7C; Planned).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /
   MORE_EVIDENCE_NEEDED.
@@ -73,7 +73,7 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day100 are complete at their recorded evidence levels and assessment scope. Day101 is current/next; do
+- Day59–Day101 are complete at their recorded evidence levels and assessment scope. Day102 is current/next; do
   not skip ahead.
 - Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries, and Day86 added security admission, Egress, Sandbox and incident-containment boundaries outside the model.
 

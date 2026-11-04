@@ -9,6 +9,30 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day101 — Query Rewriting and Re-ranking (Phase 7C)
+
+Date: 2026-11-04
+
+Released the 16-section Day101 lesson, application design, classroom record, Day102 handoff, cheat-sheet and
+interview sections, deterministic example, 10-case seed/evaluator, 56 focused tests, official/static research
+and three replayable evidence reports. The continuing `projects/ai-agent/` Artifact admits only an eligible
+exact current Day100 selected bundle before any rewrite/provider/database side effect. Rewrites may change only
+the query expression; immutable request authority is preserved and every approved variant re-enters the same
+Day100 `AuthorizedHybridRetriever` boundary.
+
+Occurrence-identity union preserves every branch/variant rank before deterministic cross-variant RRF. The
+reranker input binds explicit candidate mapping, model/tokenizer/input-window/truncation, score, output-mode and
+egress contracts. Adapter/Validator correlation rejects duplicate, missing, unknown, wrong-attempt/pool or
+malformed output. The reranker may reorder or select only from the authorized pool. Current authorization and
+provenance are reread before reranker egress and guarded final release; high scores cannot override legality.
+Fallback modes and cache/cursor identities remain explicit and bounded.
+
+Validation: 56/56 focused tests, 10/10 seed, 1062/1062 complete regressions, deterministic example, evidence
+replay, compile and JSON checks pass locally and in Python 3.12 CI with deterministic fakes. The real Day100 handoff still lacks a
+production-selected bundle and proves the zero-call negative path only. Real rewrite/reranker models, labeled baseline/quality, protected
+egress, database/ANN, latency/capacity/cost/error rates and production traffic remain `NOT_RUN`. Readiness is
+`MORE_EVIDENCE_NEEDED`. Day102 is next.
+
 ## Unreleased — Day100 — Hybrid Retrieval and Filtering (Phase 7C)
 
 Date: 2026-11-03
