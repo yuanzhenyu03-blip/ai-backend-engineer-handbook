@@ -523,8 +523,6 @@ Production auth, production Tools, durable idempotency/reconciliation stores, re
 load tests and failure drills were NOT RUN. Evidence is `INTEGRATION_RUNTIME`; readiness remains
 `MORE_EVIDENCE_NEEDED`.
 
----
-
 ## Decision 013 — Establish MCP Identity Before Current Application Authorization
 
 Status: Accepted for Day92 course scope
@@ -862,3 +860,52 @@ production-selected bundle and proves only the zero-call negative path. Real rew
 baseline/labeled quality, protected egress, database/ANN, latency/capacity/cost/error rates and production are
 `NOT_RUN`. Evidence is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains
 `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 020 — Ground Only from Immutable Bundles; Release Only Independently Verified Claims
+
+Status: Accepted for Day102 course scope
+
+Date: 2026-11-06
+
+### Context
+
+A top-ranked authorized candidate is still only a candidate. Provider prose can invent facts, attach valid-looking
+but unrelated citations, cite a source outside the supplied context, or become stale after authorization,
+provenance or source-version changes. A structurally valid citation proves neither semantic support nor permission
+to release the resulting Claim.
+
+### Decision
+
+Admit only a trusted final Day101 handoff bound to the original Query, authorization scope and validated ordered
+candidate identity. Recheck current authorization, provenance and superseded-source state, then freeze only exact,
+bounded source windows into an immutable `GroundingBundle`. A citation may target only a source identity, version
+and exact span present in that Bundle.
+
+Treat generated prose, extracted Claims and verifier output as untrusted. Bind each atomic Claim to its exact answer
+span, request item and cited evidence. Validate identities and Bundle membership structurally, then verify semantic
+support, contradiction and source currentness independently. Recheck currentness immediately before release.
+Reassemble the user-visible answer only from released Claims; never return raw Provider prose. Keep rejected Claims
+separate from unanswered request items and explicit Abstention. Preserve Day101, generator and verifier degradation
+history independently, and bind cache identity to both current authority and the complete Bundle/Claim/Citation/
+verification contract.
+
+### Consequences
+
+- Rank and reranker score remain retrieval evidence, never answer evidence.
+- A valid source pointer with an unsupported Claim is rejected.
+- Source revocation, provenance change or supersession invalidates release even after semantic support passed.
+- One failed Claim need not erase independently supported Claims; Request Coverage records the partial answer.
+- Missing evidence creates Abstention for the request item; it is not rewritten as a verifier rejection.
+- Generator and verifier egress each require their own current policy decision.
+- More identity records, current-state reads and verification calls are accepted costs for auditability and safety.
+
+### Validation honesty
+
+The deterministic generator, Claim extractor and verifier, 44 focused tests, 10/10 seed, refund-policy example,
+saved evidence replay and 1106/1106 local regressions exercise control flow, exact identity correlation, partial
+release, fallback recording and safety invariants. They do not prove real generation, extraction or entailment
+quality. Real generator, NLI/LLM verifier, protected egress, independently labeled evaluation, database/ANN,
+latency/capacity/cost/error rates and production traffic are `NOT_RUN`. Evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.

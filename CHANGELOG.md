@@ -9,6 +9,28 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day102 — Grounding, Citations and Source Verification (Phase 7C)
+
+Date: 2026-11-06
+
+Released the 16-section Day102 lesson, application design, bridge-classroom record, Day103 handoff, deterministic
+example, 10-case seed/evaluator, 44 focused tests, official capability research and replayable evidence. The
+continuing `projects/ai-agent/` Artifact now requires a trusted final Day101 handoff, freezes exact current
+source windows in an immutable Grounding Bundle, gates generator and verifier egress independently, extracts
+answer-span-bound Claims, validates Citation membership and exact source identity, and independently records
+support, non-support and contradiction before release.
+
+The user answer is reassembled only from released Claims. Rejected Claims, answered request items and
+Abstention remain separate structured facts. Current authorization, provenance and superseded-source state are
+rechecked before release; upstream and fallback degradation history cannot be rewritten as full success. Cache
+identity binds both authority and Bundle/Claim/Citation/verifier state.
+
+Validation: 44/44 focused tests, 10/10 seed, 1106/1106 complete regressions, deterministic example, all 18
+available seed evaluators and saved Day102 evidence replay pass locally and in Python 3.12 CI run
+`42193224231`. Real generator, Claim extractor,
+NLI/LLM verifier, labeled grounding quality, protected Provider egress, database/ANN, latency/capacity/cost/
+error rates and production remain `NOT_RUN`. Readiness is `MORE_EVIDENCE_NEEDED`. Day103 is next.
+
 ## Unreleased — Day101 — Query Rewriting and Re-ranking (Phase 7C)
 
 Date: 2026-11-04

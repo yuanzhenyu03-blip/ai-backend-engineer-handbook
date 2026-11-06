@@ -54,3 +54,5 @@ jobs:
         run: python evals/run_day100_evidence_replay.py
       - name: Verify saved Day101 query rewrite and reranking evidence
         run: python evals/run_day101_evidence_replay.py
+      - name: Verify saved Day102 grounding and citation evidence
+        run: python evals/run_day102_evidence_replay.py

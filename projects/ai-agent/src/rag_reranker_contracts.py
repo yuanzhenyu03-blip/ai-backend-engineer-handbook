@@ -252,6 +252,40 @@ class Day101Response:
     release_rejections: tuple[tuple[str, str], ...] = ()
     rewrite_provider_calls: int = 0
     reranker_provider_calls: int = 0
+    original_query_digest: str | None = None
+    authorization_scope_fingerprint: str | None = None
+
+    @property
+    def handoff_digest(self) -> str | None:
+        """Return a frozen identity for an eligible Day102 handoff."""
+
+        if (
+            not self.hits
+            or self.original_query_digest is None
+            or self.authorization_scope_fingerprint is None
+        ):
+            return None
+        return stable_hash((
+            "DAY101_HANDOFF_V1",
+            self.outcome.value,
+            self.safe_reason,
+            self.rewrite_mode,
+            self.reranking_mode.value if self.reranking_mode else None,
+            self.original_query_digest,
+            self.authorization_scope_fingerprint,
+            self.rewrite_set_fingerprint,
+            self.candidate_pool_digest,
+            self.validated_rerank_digest,
+            tuple((
+                hit.rank,
+                asdict(hit.identity),
+                hit.source_reference,
+                hit.reranker_score,
+                hit.prior_fusion_rank,
+                stable_hash(hit.text),
+            ) for hit in self.hits),
+            self.release_rejections,
+        ))
 
 
 @dataclass(frozen=True)

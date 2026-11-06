@@ -3,11 +3,11 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day101 are complete.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day102 are complete.
 
-Day59–Day101 are complete at their recorded evidence levels. Day101 adds bounded rewrite validation,
-per-variant Day100 retrieval, occurrence-identity fusion, strict reranker validation and final guarded release
-on the Day95–Day100 base. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day102 are complete at their recorded evidence levels. Day102 adds immutable Grounding Bundles,
+Claim/Citation mapping, independent source and semantic verification, partial answers and guarded release on
+the Day95–Day101 base. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -16,8 +16,19 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day102 — Grounding, Citations and Source Verification (Phase 7C) — next up.
-Most recent classroom lesson: Day101 — Query Rewriting and Re-ranking.
+Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C) — next up.
+Most recent classroom lesson: Day102 — Grounding, Citations and Source Verification.
+
+Day102 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day102-grounding-citations-and-source-verification.md`. The continuing Artifact admits only a
+trusted final Day101 handoff, rechecks current source authority, selects bounded exact windows into an immutable
+Grounding Bundle, gates generator/verifier egress, extracts answer-span-bound Claims, validates exact Citations,
+independently classifies support/contradiction and rechecks source currentness before Claim-level release.
+Request Coverage records partial answers and Abstention separately from rejected Claims. Evidence: 44 focused
+tests, 10/10 seed, 1106/1106 complete regressions, deterministic example and saved evidence replay pass locally
+and in Python 3.12 CI with deterministic fakes. Real generator, Claim extractor, NLI/LLM verifier, protected egress, labeled quality,
+database/ANN, latency/capacity/cost/error rates and production are NOT RUN. Readiness is
+`MORE_EVIDENCE_NEEDED`.
 
 Day101 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day101-query-rewriting-and-re-ranking.md`. The continuing Artifact changes only the protected

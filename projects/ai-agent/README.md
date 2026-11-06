@@ -138,7 +138,14 @@ ai-agent/
 │   ├── rag_reranking_validator.py # Day101: complete output correlation
 │   ├── rag_reranking_cache.py     # Day101: authority/rewrite/model-bound identity
 │   ├── rag_reranking_orchestrator.py # Day101: authorization-first composed flow
-│   └── rag_reranking_experiments.py # Day101: content-safe evidence reports
+│   ├── rag_reranking_experiments.py # Day101: content-safe evidence reports
+│   ├── rag_grounding_contracts.py # Day102: Bundle/Claim/Citation/result contracts
+│   ├── rag_grounding_planner.py # Day102: currentness + bounded source windows
+│   ├── rag_grounding_adapters.py # Day102: deterministic generator/extractor/verifier
+│   ├── rag_grounding_validator.py # Day102: exact identity + semantic result validation
+│   ├── rag_grounding_orchestrator.py # Day102: guarded partial/full answer release
+│   ├── rag_grounding_cache.py # Day102: authority/content-bound cache identity
+│   └── rag_grounding_experiments.py # Day102: replayable content-safe evidence
 ├── tests/
 │   ├── test_provider_adapters.py # Day72: 58 deterministic EXECUTED_LOCAL_RUNTIME tests
 │   ├── test_prompt_contracts.py  # Day73: 39 deterministic EXECUTED_LOCAL_RUNTIME tests
@@ -182,12 +189,13 @@ ai-agent/
 │   ├── test_day98_*.py           # Day98: selection/contract/validation/commit + seed
 │   ├── test_day99_*.py           # Day99: index contract/Flat/readback/fence + seed
 │   ├── test_day100_*.py          # Day100: gates/BM25/filter/RRF/release/cursor + seed
-│   └── test_day101_*.py          # Day101: rewrite/fusion/rerank/release/cache + seed
-├── evals/                        # Day83–Day101 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day101
-├── evidence/                     # validation records through Day101
+│   ├── test_day101_*.py          # Day101: rewrite/fusion/rerank/release/cache + seed
+│   └── test_day102_*.py          # Day102: grounding/citation/verification/release + seed
+├── evals/                        # Day83–Day102 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day102
+├── evidence/                     # validation records through Day102
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day101
+└── docs/                         # designs and classroom records through Day102
 ```
 
 ## Progress
@@ -968,9 +976,43 @@ performance. Real models/providers, labeled baseline and quality metrics, protec
 latency, capacity, cost, error rates and production remain `NOT_RUN`; readiness remains
 `MORE_EVIDENCE_NEEDED`.
 
+## Day102 Grounding, Citations and Source Verification
+
+Day102 consumes only a trusted final `Day101Response` and independently rechecks current source authority. A
+bounded Context Planner selects exact source windows across request facets and freezes Query, handoff,
+authorization, source version/span/content and policy identities into an immutable `GroundingBundle`.
+Generator and verifier egress are separate gates; retrieved content remains untrusted data.
+
+The generated answer is never released directly. The application extracts atomic answer-span-bound Claims,
+maps Citations only to Bundle windows, validates structured identities, independently classifies semantic
+support/contradiction, rechecks authorization/provenance/superseded state, and reassembles only released Claims.
+Rejected Claims and abstained request items remain distinct, allowing safe partial answers. Cache identity
+binds authority plus Query/Bundle/Claim/Citation/verifier state.
+
+See the [design](docs/DAY102_GROUNDING_CITATIONS_SOURCE_VERIFICATION.md),
+[classroom record](docs/day102-grounding-citations-classroom-draft.md),
+[pipeline report](evidence/day102-grounding-citation-report.json),
+[source-verification report](evidence/day102-source-verification-report.json),
+[research decision](research/day102-grounding-verification-decision.md),
+[official evidence](research/day102-grounding-verification-evidence.jsonl) and
+[Day103 handoff](docs/DAY102_TO_DAY103_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day102_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day102_seed_eval.py
+PYTHONPATH=src:. python3.12 evals/run_day102_evidence_replay.py
+PYTHONPATH=src:. python3.12 examples/day102_grounding_citations.py
+```
+
+Evidence: 44 focused tests, 10/10 seed, 1106/1106 complete regressions, deterministic example and evidence
+replay pass locally and in Python 3.12 CI with deterministic fakes. This proves identity, control-flow, failure-classification and
+release invariants only. Real generator/Claim extractor/NLI-or-LLM verifier, labeled quality, protected
+egress, database/ANN, latency/capacity/cost/error rates and production remain `NOT_RUN`; readiness remains
+`MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day102 grounding, citations and source verification only over current authorized Day101 occurrences.
+- Begin Day103 retrieval and grounded-answer evaluation with independent labeled evidence.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

@@ -1,0 +1,22 @@
+{
+  "day": 102,
+  "scope": "DETERMINISTIC_FAKE_SOURCE_AND_RELEASE_INVARIANTS",
+  "checks": {
+    "day101_handoff_digest_required": "PASS",
+    "day102_input_subset_of_day101_final_hits": "PASS",
+    "immutable_grounding_bundle": "PASS",
+    "citation_target_subset_of_bundle": "PASS",
+    "claim_and_evidence_digest_binding": "PASS",
+    "source_version_and_span_binding": "PASS",
+    "unsupported_claim_rejected": "PASS",
+    "contradicted_claim_rejected": "PASS",
+    "post_verification_authorization_recheck": "PASS",
+    "post_verification_provenance_recheck": "PASS",
+    "superseded_source_rejected": "PASS",
+    "request_item_abstention_recorded": "PASS",
+    "upstream_degradation_preserved": "PASS",
+    "protected_content_absent_from_audit": "PASS"
+  },
+  "real_source_verifier": "NOT_RUN",
+  "production_readiness": "MORE_EVIDENCE_NEEDED"
+}
