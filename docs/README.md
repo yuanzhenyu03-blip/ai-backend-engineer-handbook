@@ -61,7 +61,8 @@ docs/
 │   ├── day98-embedding-model-selection-and-versioning.md # immutable EmbeddingSets
 │   ├── day99-vector-database-and-vector-index-design.md # exact oracle + shadow generations
 │   ├── day100-hybrid-retrieval-and-filtering.md # authorization-first BM25/dense/RRF
-│   └── day101-query-rewriting-and-re-ranking.md # bounded rewrites + authorized reranking
+│   ├── day101-query-rewriting-and-re-ranking.md # bounded rewrites + authorized reranking
+│   └── day102-grounding-citations-and-source-verification.md # Claim/Evidence/Citation release
 ├── playwright/
 └── n8n/
 ```

@@ -25,18 +25,19 @@ Current phase:
   hybrid BM25/Exact retrieval, application-owned filters, deterministic RRF, final reauthorization, bounded
   refill/degradation and authority-bound cursor/cache semantics. Day101 adds bounded validated rewrites,
   per-variant reuse of the Day100 boundary, occurrence-identity fusion, contract-validated re-ranking and a
-  final authorization/provenance guarded release. Production readiness remains
+  final authorization/provenance guarded release. Day102 adds immutable Grounding Bundles, exact Claim-to-
+  Citation links, independent source/semantic verification, partial answers and guarded release. Production readiness remains
   `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day101 — Query Rewriting and Re-ranking](docs/fastapi/day101-query-rewriting-and-re-ranking.md)
+* [Day102 — Grounding, Citations and Source Verification](docs/fastapi/day102-grounding-citations-and-source-verification.md)
 
-(For the completed classroom history Day01–Day101, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day102, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day102 — Grounding, Citations and Source Verification (Phase 7C; planned)
+* Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

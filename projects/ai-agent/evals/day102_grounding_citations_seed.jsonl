@@ -1,0 +1,10 @@
+{"case_id":"happy-full","expected":{"outcome":"FULL","safe_reason":"FULLY_VERIFIED_GROUNDED_ANSWER","released_claim_ids":["claim:refund-window","claim:submission-channel"],"rejected_reasons":[],"abstained_count":0,"generator_calls":1,"verifier_calls":1}}
+{"case_id":"tampered-handoff","expected":{"outcome":"REJECTED","safe_reason":"INVALID_DAY101_HANDOFF","released_claim_ids":[],"generator_calls":0,"verifier_calls":0}}
+{"case_id":"degraded-upstream","expected":{"outcome":"DEGRADED","safe_reason":"VERIFIED_WITH_EXPLICIT_DEGRADATION","upstream_outcome":"DEGRADED","released_claim_ids":["claim:refund-window","claim:submission-channel"]}}
+{"case_id":"generator-egress-denied","expected":{"outcome":"REJECTED","safe_reason":"GENERATOR_EGRESS_DENIED","generator_calls":0,"verifier_calls":0}}
+{"case_id":"out-of-bundle-citation","expected":{"outcome":"PARTIAL","safe_reason":"PARTIAL_VERIFIED_ANSWER","released_claim_ids":["claim:refund-window"],"rejected_reasons":["CITATION_OUT_OF_BUNDLE"],"abstained_count":1}}
+{"case_id":"unsupported-claim","expected":{"outcome":"PARTIAL","released_claim_ids":["claim:refund-window"],"rejected_reasons":["UNSUPPORTED_CLAIM"],"abstained_count":1}}
+{"case_id":"contradicted-claim","expected":{"outcome":"PARTIAL","released_claim_ids":["claim:submission-channel"],"rejected_reasons":["CONTRADICTED_CLAIM"],"abstained_count":1}}
+{"case_id":"generator-timeout","expected":{"outcome":"UNAVAILABLE","safe_reason":"GENERATOR_TIMEOUT","generator_calls":1,"verifier_calls":0}}
+{"case_id":"verifier-timeout-fallback","expected":{"outcome":"DEGRADED","safe_reason":"VERIFIED_WITH_EXPLICIT_DEGRADATION","released_claim_ids":["claim:refund-window","claim:submission-channel"],"verifier_calls":2}}
+{"case_id":"post-verify-revocation","expected":{"outcome":"PARTIAL","released_claim_ids":["claim:submission-channel"],"rejected_reasons":["STALE_AUTHORIZATION"],"abstained_count":1}}

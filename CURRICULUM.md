@@ -2149,6 +2149,14 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: grounding, citations, source verification.
   Connection: Day101 improved relevance; Day102 grounds answers with citations and source verification; Day103
   measures retrieval and answer quality.
+  Completed at guided classroom scope with trusted Day101 handoff identity; immutable, bounded source-window
+  Grounding Bundles; independent generator/verifier egress; answer-span-bound atomic Claims; exact version/span
+  Citations; source and semantic Verification; Claim-level rejection, Request Coverage and Abstention; final
+  authorization/provenance/superseded-source checks; explicit upstream/fallback modes; and authority/content-
+  bound cache identity. Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 44 focused tests, 10/10
+  seed, 1106/1106 complete local regressions, deterministic example and saved evidence replay pass. Real
+  generator/Claim extractor/NLI-or-LLM verifier, labeled quality, protected egress, database/ANN,
+  latency/capacity/cost/error-rate and production are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day103.
 - Day103 — Retrieval Evaluation and RAG Answer Evaluation.
   Scope: retrieval evaluation and RAG answer evaluation. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day102 grounded answers; Day103 evaluates retrieval and answer quality; Day104 keeps the index

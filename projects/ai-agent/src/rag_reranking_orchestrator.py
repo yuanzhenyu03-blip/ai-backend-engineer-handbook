@@ -259,6 +259,8 @@ class AuthorizedRerankingOrchestrator:
             response.release_rejections,
             self.rewriter.provider.calls - rewrite_before,
             self.reranker.calls - reranker_before,
+            original.query_digest,
+            response.authorization_scope_fingerprint,
         )
         self.audit.record(ContentSafeRerankingAudit(
             request.operation_id,
@@ -562,6 +564,9 @@ class AuthorizedRerankingOrchestrator:
                 current_pool.digest,
                 validated.digest if validated else None,
                 all_rejections,
+                authorization_scope_fingerprint=(
+                    final.authorization_scope_fingerprint
+                ),
             ),
             rewrite_before=rewrite_before,
             reranker_before=reranker_before,
