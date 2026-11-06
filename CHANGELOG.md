@@ -26,7 +26,8 @@ rechecked before release; upstream and fallback degradation history cannot be re
 identity binds both authority and Bundle/Claim/Citation/verifier state.
 
 Validation: 44/44 focused tests, 10/10 seed, 1106/1106 complete regressions, deterministic example, all 18
-available seed evaluators and saved Day102 evidence replay pass locally. Real generator, Claim extractor,
+available seed evaluators and saved Day102 evidence replay pass locally and in Python 3.12 CI run
+`42193224231`. Real generator, Claim extractor,
 NLI/LLM verifier, labeled grounding quality, protected Provider egress, database/ANN, latency/capacity/cost/
 error rates and production remain `NOT_RUN`. Readiness is `MORE_EVIDENCE_NEEDED`. Day103 is next.
 

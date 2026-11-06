@@ -6,7 +6,9 @@
   "runtime": {
     "local_full_suite_python": "3.11.5",
     "repository_minimum": "3.12+",
-    "python_3_12_ci": "PENDING"
+    "python_3_12_ci": "PASS",
+    "python_3_12_ci_run_id": 42193224231,
+    "python_3_12_ci_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/42193224231"
   },
   "executed": {
     "focused_tests": {
@@ -27,6 +29,12 @@
     "all_seed_evaluators": {
       "status": "PASS",
       "evaluators": 18
+    },
+    "python_3_12_pull_request_ci": {
+      "status": "PASS",
+      "full_tests": 1106,
+      "seed_evaluators": 18,
+      "saved_evidence_replays": "PASS_DAY96_DAY98_DAY99_DAY100_DAY101_DAY102"
     },
     "day102_evidence_replay": {
       "status": "PASS",

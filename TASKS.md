@@ -37,7 +37,7 @@ Day102 completion record:
 - [x] Reassemble user answers only from released Claims; never return raw Provider prose.
 - [x] Preserve upstream, generator and verifier fallback/degradation modes independently.
 - [x] Bind cache identity to principal/authorization scope plus Bundle/Claim/Citation/verifier state.
-- [x] Run 44 focused tests, 10/10 seed, 1106/1106 regressions, example and saved replay locally.
+- [x] Run 44 focused tests, 10/10 seed, 1106/1106 regressions, example and saved replay locally and in Python 3.12 CI.
 - [x] Release lesson, design, classroom record, evidence, research decision and Day103 handoff.
 - [ ] Later: real generator/extractor/verifier, labeled quality, protected egress and operations gates.
 

@@ -1005,7 +1005,7 @@ PYTHONPATH=src:. python3.12 examples/day102_grounding_citations.py
 ```
 
 Evidence: 44 focused tests, 10/10 seed, 1106/1106 complete regressions, deterministic example and evidence
-replay pass locally with deterministic fakes. This proves identity, control-flow, failure-classification and
+replay pass locally and in Python 3.12 CI with deterministic fakes. This proves identity, control-flow, failure-classification and
 release invariants only. Real generator/Claim extractor/NLI-or-LLM verifier, labeled quality, protected
 egress, database/ANN, latency/capacity/cost/error rates and production remain `NOT_RUN`; readiness remains
 `MORE_EVIDENCE_NEEDED`.

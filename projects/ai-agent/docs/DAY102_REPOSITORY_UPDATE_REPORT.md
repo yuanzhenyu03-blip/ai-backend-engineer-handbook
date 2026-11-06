@@ -50,7 +50,8 @@ synchronized through Day102.
 - Day102 deterministic example, compileall and mypy over the new source/example surface: PASS.
 - Final structure, Markdown/link, JSON, protected-file, credential-pattern and diff checks are recorded in
   `projects/ai-agent/evidence/day102-validation.json` after execution.
-- Python 3.12 pull-request CI: pending at initial commit time.
+- Python 3.12 pull-request CI: PASS in GitHub Actions run `42193224231` (1106/1106 tests, all seed evaluators
+  and saved Day96–Day102 evidence replays).
 
 ## Evidence boundary
 

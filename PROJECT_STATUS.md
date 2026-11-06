@@ -25,8 +25,8 @@ trusted final Day101 handoff, rechecks current source authority, selects bounded
 Grounding Bundle, gates generator/verifier egress, extracts answer-span-bound Claims, validates exact Citations,
 independently classifies support/contradiction and rechecks source currentness before Claim-level release.
 Request Coverage records partial answers and Abstention separately from rejected Claims. Evidence: 44 focused
-tests, 10/10 seed, 1106/1106 complete local regressions, deterministic example and saved evidence replay pass
-with deterministic fakes. Real generator, Claim extractor, NLI/LLM verifier, protected egress, labeled quality,
+tests, 10/10 seed, 1106/1106 complete regressions, deterministic example and saved evidence replay pass locally
+and in Python 3.12 CI with deterministic fakes. Real generator, Claim extractor, NLI/LLM verifier, protected egress, labeled quality,
 database/ANN, latency/capacity/cost/error rates and production are NOT RUN. Readiness is
 `MORE_EVIDENCE_NEEDED`.
 

@@ -2154,7 +2154,8 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Citations; source and semantic Verification; Claim-level rejection, Request Coverage and Abstention; final
   authorization/provenance/superseded-source checks; explicit upstream/fallback modes; and authority/content-
   bound cache identity. Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 44 focused tests, 10/10
-  seed, 1106/1106 complete local regressions, deterministic example and saved evidence replay pass. Real
+  seed, 1106/1106 complete regressions, deterministic example and saved evidence replay pass locally and in
+  Python 3.12 CI. Real
   generator/Claim extractor/NLI-or-LLM verifier, labeled quality, protected egress, database/ANN,
   latency/capacity/cost/error-rate and production are NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day103.
 - Day103 — Retrieval Evaluation and RAG Answer Evaluation.
