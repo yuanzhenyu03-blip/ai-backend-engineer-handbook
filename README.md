@@ -26,18 +26,20 @@ Current phase:
   refill/degradation and authority-bound cursor/cache semantics. Day101 adds bounded validated rewrites,
   per-variant reuse of the Day100 boundary, occurrence-identity fusion, contract-validated re-ranking and a
   final authorization/provenance guarded release. Day102 adds immutable Grounding Bundles, exact Claim-to-
-  Citation links, independent source/semantic verification, partial answers and guarded release. Production readiness remains
+  Citation links, independent source/semantic verification, partial answers and guarded release. Day103 adds a frozen
+  independently labeled Q1–Q3 dataset, retrieval/answer/Citation/Abstention evaluators, slice analysis, non-compensable
+  hard gates, explicit regression decisions and content-safe replay evidence. Production readiness remains
   `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day102 — Grounding, Citations and Source Verification](docs/fastapi/day102-grounding-citations-and-source-verification.md)
+* [Day103 — Retrieval Evaluation and RAG Answer Evaluation](docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md)
 
-(For the completed classroom history Day01–Day102, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day103, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C; planned)
+* Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

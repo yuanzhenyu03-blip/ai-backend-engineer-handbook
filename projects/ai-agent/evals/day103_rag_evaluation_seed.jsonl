@@ -1,0 +1,10 @@
+{"case_id":"passing-baseline","expected":{"decision":"PASS","decision_reason":"ALL_GATES_AND_THRESHOLDS_PASSED","failure_count":0,"request_coverage_status":"PASS","multi_facet_status":"PASS","superseded_gate":true}}
+{"case_id":"slice-regression","expected":{"decision":"FAIL","decision_reason":"OBSERVED_HARD_GATE_VIOLATION","failure_count":0,"request_coverage_status":"FAIL","multi_facet_status":"FAIL","superseded_gate":true}}
+{"case_id":"superseded-release","expected":{"decision":"FAIL","decision_reason":"OBSERVED_HARD_GATE_VIOLATION","failure_count":0,"request_coverage_status":"FAIL","superseded_gate":false}}
+{"case_id":"correct-unfaithful","expected":{"decision":"FAIL","decision_reason":"OBSERVED_HARD_GATE_VIOLATION","failure_count":0,"request_coverage_status":"FAIL","superseded_gate":true}}
+{"case_id":"over-abstention","expected":{"decision":"FAIL","decision_reason":"OBSERVED_HARD_GATE_VIOLATION","failure_count":0,"request_coverage_status":"FAIL","superseded_gate":true}}
+{"case_id":"answer-timeout","expected":{"decision":"INCONCLUSIVE","decision_reason":"EVALUATOR_FAILURE","failure_count":1,"request_coverage_status":"NOT_RUN","superseded_gate":true}}
+{"case_id":"retrieval-timeout","expected":{"decision":"INCONCLUSIVE","decision_reason":"EVALUATOR_FAILURE","failure_count":1,"request_coverage_status":"PASS","multi_facet_status":"NOT_RUN","superseded_gate":true}}
+{"case_id":"citation-timeout","expected":{"decision":"INCONCLUSIVE","decision_reason":"EVALUATOR_FAILURE","failure_count":1,"request_coverage_status":"PASS","superseded_gate":null}}
+{"case_id":"all-evaluators-timeout","expected":{"decision":"INCONCLUSIVE","decision_reason":"EVALUATOR_FAILURE","failure_count":9,"request_coverage_status":"NOT_RUN","multi_facet_status":"NOT_RUN","superseded_gate":null}}
+{"case_id":"observed-gate-plus-timeout","expected":{"decision":"FAIL","decision_reason":"OBSERVED_HARD_GATE_VIOLATION","failure_count":1,"request_coverage_status":"NOT_RUN","superseded_gate":false}}

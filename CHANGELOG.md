@@ -9,6 +9,32 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C)
+
+Date: 2026-11-09
+
+Released the 16-section Day103 lesson, application design, actual classroom record, Day104 handoff, deterministic
+example, 10-case seed/evaluator, focused tests and replayable evidence. The continuing `projects/ai-agent/`
+Artifact now freezes a versioned A/B/C refund-policy source and Q1–Q3 dataset; keeps independent qrels,
+request-item labels and Citation-support labels separate from Day102 Verification predictions; computes
+Precision@k, Recall@k, MRR and nDCG@k; and separately measures Correctness, Faithfulness, Citation Precision,
+Citation Coverage, Request Coverage and Abstention quality.
+
+Overall and critical-slice thresholds remain visible beside non-compensable request-coverage,
+superseded-source-release and unknown-Citation hard gates. Evaluator failures are recorded as failures and make
+the run `INCONCLUSIVE` unless an independently observed violation already proves `FAIL`. Baseline/Candidate
+comparisons require the same dataset, labels, source/authorization snapshots, evaluator and policy identities.
+Reports contain IDs, digests, metrics, counts and checksums without raw Queries, protected Claims, Evidence or
+Provider payloads.
+
+Validation: 27/27 focused tests, 10/10 seed, 1133/1133 complete regressions, deterministic example, all 19 seed
+evaluators and all four saved evidence replays pass locally on the Python 3.11.5 fallback runtime. Compileall,
+mypy, JSON/JSONL, 16-section structure, 494 changed-Markdown relative links, credential-pattern and diff checks
+also pass. Python 3.12 CI is `NOT_RUN` because no push or pull request was authorized. Real retriever/generator
+quality, independent human-label runtime, calibrated LLM judge, protected egress, latency/capacity/cost/error
+rates and production remain `NOT_RUN`. Evidence is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness
+is `MORE_EVIDENCE_NEEDED`. Day104 is next.
+
 ## Unreleased — Day102 — Grounding, Citations and Source Verification (Phase 7C)
 
 Date: 2026-11-06

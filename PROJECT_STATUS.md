@@ -3,11 +3,11 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day102 are complete.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day103 are complete.
 
-Day59–Day102 are complete at their recorded evidence levels. Day102 adds immutable Grounding Bundles,
-Claim/Citation mapping, independent source and semantic verification, partial answers and guarded release on
-the Day95–Day101 base. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day103 are complete at their recorded evidence levels. Day103 adds independently owned evaluation
+labels, deterministic retrieval/answer/Citation/Abstention metrics, slice analysis, hard gates and replayable
+regression decisions on the Day95–Day102 base. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -16,8 +16,21 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C) — next up.
-Most recent classroom lesson: Day102 — Grounding, Citations and Source Verification.
+Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — next up.
+Most recent classroom lesson: Day103 — Retrieval Evaluation and RAG Answer Evaluation.
+
+Day103 is COMPLETE at guided classroom scope. Lesson:
+`docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md`. The continuing Artifact freezes a
+versioned A/B/C refund source snapshot and Q1–Q3 dataset, keeps independent qrels/request-item/Citation-support
+labels separate from Day102 Verification predictions, computes Precision/Recall/MRR/nDCG plus separate
+Correctness/Faithfulness/Citation/Request Coverage and Abstention results, exposes overall versus critical-slice
+quality, and enforces request-coverage, superseded-release and unknown-Citation hard gates. Evaluator failures
+remain observed facts and produce `INCONCLUSIVE` unless a separate observed violation already proves `FAIL`.
+Evidence: 27 focused tests, 10/10 seed, 1133/1133 complete regressions, deterministic example, all 19 seed
+evaluators and all four saved evidence replays pass on the local Python 3.11.5 fallback with deterministic fakes.
+Python 3.12 CI is NOT RUN. Real retriever/generator quality, independent human-label runtime, calibrated LLM
+judge, protected-data egress, latency/capacity/cost/error rates and production are NOT RUN. Readiness is
+`MORE_EVIDENCE_NEEDED`.
 
 Day102 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day102-grounding-citations-and-source-verification.md`. The continuing Artifact admits only a

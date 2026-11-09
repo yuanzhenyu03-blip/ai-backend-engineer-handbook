@@ -1,0 +1,69 @@
+{
+  "day": 103,
+  "date": "2026-11-09",
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "runtime": {
+    "local_full_suite_python": "3.11.5",
+    "repository_minimum": "3.12+",
+    "python_3_12_ci": "NOT_RUN_NO_PUSH_OR_PULL_REQUEST"
+  },
+  "executed": {
+    "focused_tests": {
+      "status": "PASS",
+      "passed": 27,
+      "failed": 0
+    },
+    "full_ai_agent_tests": {
+      "status": "PASS",
+      "passed": 1133,
+      "failed": 0
+    },
+    "day103_seed": {
+      "status": "PASS",
+      "passed": 10,
+      "failed": 0
+    },
+    "all_seed_evaluators": {
+      "status": "PASS",
+      "evaluators": 19
+    },
+    "all_saved_evidence_replays": {
+      "status": "PASS",
+      "replays": 4
+    },
+    "day103_evidence_replay": {
+      "status": "PASS",
+      "checksum": "sha256:21d4b21eea1a1046f941ff1f1221a0ac96f36a7037b4bfac6ec0cb181d46e51f"
+    },
+    "deterministic_example": "PASS",
+    "compileall_new_day103_surface": "PASS",
+    "mypy_new_day103_source_and_example_surface": "PASS",
+    "python_line_length_scan": "PASS_NO_LINES_OVER_100",
+    "json_and_jsonl_parse": "PASS",
+    "lesson_template_16_sections": "PASS",
+    "changed_markdown_relative_links": "PASS_494_LINKS",
+    "protected_prompt_and_template_files": "PASS_UNCHANGED",
+    "credential_pattern_scan": "PASS_NO_FINDINGS",
+    "current_lesson_status_consistency": "PASS_DAY104_NEXT",
+    "git_diff_check": "PASS"
+  },
+  "classroom_positive_fixture": {
+    "scenario": "fixed refund policy sources A, B and C with Queries Q1, Q2 and Q3",
+    "production_eligible": false,
+    "purpose": "EVALUATION_MECHANICS_IDENTITY_AND_RELEASE_INVARIANTS_ONLY"
+  },
+  "not_run": [
+    "real retriever",
+    "real generator",
+    "real independent human-label platform runtime",
+    "calibrated LLM judge",
+    "real protected evaluator egress",
+    "real PostgreSQL, vector database and ANN chain",
+    "latency, capacity, cost and error-rate gates",
+    "distributed evaluation orchestration",
+    "Python 3.12 pull-request CI",
+    "production traffic"
+  ],
+  "claim_boundary": "Deterministic evidence proves metric mechanics, identity correlation, independent-label separation, slice and hard-gate decisions, evaluator-failure semantics and content-safe replay. It does not prove real retrieval, generation, judge or production quality."
+}

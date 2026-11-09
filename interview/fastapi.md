@@ -3524,3 +3524,51 @@ immutable rewrite boundary, cursor invalidation and the limits of deterministic 
 classroom evidence, not real reranker quality or production evidence.
 
 Related: [Day101 lesson](../docs/fastapi/day101-query-rewriting-and-re-ranking.md).
+
+## Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C)
+
+### Beginner: Why can’t a system’s own Verification result be Ground Truth?
+
+**Student's original answer:** “because system only produce predication candidate,ground truth is come from human-remark”
+
+**Strong answer:** A Verification result is a Prediction produced by the system under evaluation. Ground Truth
+must come from independent labeling, review and adjudication; otherwise the system grades itself and can hide
+its errors.
+
+### Intermediate: How do you evaluate Correctness, Faithfulness and Citation Coverage separately?
+
+**Student's original answer:** “answer correctness is rely on gound truth,faithfulness means claim is supported
+by evidence even if that was wrong,citation coverage is each claim have own citation.”
+
+**Strong answer:** Correctness compares the answer with independent Ground Truth. Faithfulness checks whether
+each Claim is supported by the Evidence actually used, even when that old Evidence produces a currently
+incorrect answer. Citation Coverage measures how many evidence-requiring Claims have sufficient Citations; it
+does not require one exclusive Citation per Claim.
+
+### Senior: How do you prevent averages from hiding safety failures or slice regressions?
+
+**Student's first answer:** “不知道”
+
+**Student's corrected English answer:** “i would separate hard safety gates from average quality metrics. a
+safety violation must fail the evaluation regardless of the overall socre.i would also report metrics for
+critical slices and enfore per-slice tresholds,so a strong average cannot hide a regression in one important
+group.Missing or infsufficient slice evidence should produce an iconclusive result instead of a pass”
+
+**Strong answer:** Separate non-compensable safety gates from average quality metrics. Report critical slices
+with independent thresholds and minimum sample sizes. A safety violation fails regardless of the average; an
+incomplete evaluator or undersized critical slice produces `INCONCLUSIVE`, not `PASS`.
+
+### Common weak answer and follow-up
+
+“Run ten Queries, average the scores, and let the judge decide.” Ask who owns Ground Truth, whether the same
+model grades itself, which source/policy snapshot labels bind, what average hides, whether timeout defaults to
+PASS, and who owns deployment.
+
+### Classroom interview result
+
+`COMPLETED_WITH_DIRECT_TEACHING_AND_LANGUAGE_CORRECTIONS`. Beginner and intermediate technical models were
+correct after grammar and ownership corrections. The senior answer required direct teaching, after which the
+learner restated hard gates, slices and `INCONCLUSIVE` correctly. This is guided classroom evidence, not real
+evaluator or model-quality evidence.
+
+Related: [Day103 lesson](../docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md).

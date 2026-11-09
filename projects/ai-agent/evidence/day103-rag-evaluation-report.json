@@ -1,0 +1,595 @@
+{
+  "calibrated_llm_judge": "NOT_RUN",
+  "cases": [
+    {
+      "case_id": "passing-baseline",
+      "decision": "PASS",
+      "decision_reason": "ALL_GATES_AND_THRESHOLDS_PASSED",
+      "failure_reasons": [],
+      "hard_gates": [
+        [
+          "per_query_request_coverage",
+          true,
+          1.0
+        ],
+        [
+          "superseded_source_release_count",
+          true,
+          0
+        ],
+        [
+          "unknown_citation_count",
+          true,
+          0
+        ]
+      ],
+      "metrics": [
+        [
+          "precision_at_2",
+          0.666667,
+          "PASS"
+        ],
+        [
+          "recall_at_2",
+          1.0,
+          "PASS"
+        ],
+        [
+          "mrr",
+          1.0,
+          "PASS"
+        ],
+        [
+          "ndcg_at_3",
+          1.0,
+          "PASS"
+        ],
+        [
+          "answer_correctness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "claim_faithfulness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "request_coverage",
+          1.0,
+          "PASS"
+        ],
+        [
+          "citation_precision",
+          1.0,
+          "PASS"
+        ],
+        [
+          "citation_coverage",
+          1.0,
+          "PASS"
+        ]
+      ],
+      "report_checksum": "sha256:04723fd7063e3829d4c2ce1c1294a4618ea2654ed6461226d34ff09e6524d798",
+      "slices": [
+        [
+          "single-facet",
+          2,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ],
+        [
+          "multi-facet",
+          1,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "slice-and-coverage-regression",
+      "decision": "FAIL",
+      "decision_reason": "OBSERVED_HARD_GATE_VIOLATION",
+      "failure_reasons": [],
+      "hard_gates": [
+        [
+          "per_query_request_coverage",
+          false,
+          0.5
+        ],
+        [
+          "superseded_source_release_count",
+          true,
+          0
+        ],
+        [
+          "unknown_citation_count",
+          true,
+          0
+        ]
+      ],
+      "metrics": [
+        [
+          "precision_at_2",
+          0.5,
+          "PASS"
+        ],
+        [
+          "recall_at_2",
+          0.833333,
+          "PASS"
+        ],
+        [
+          "mrr",
+          0.833333,
+          "PASS"
+        ],
+        [
+          "ndcg_at_3",
+          0.850217,
+          "PASS"
+        ],
+        [
+          "answer_correctness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "claim_faithfulness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "request_coverage",
+          0.75,
+          "FAIL"
+        ],
+        [
+          "citation_precision",
+          1.0,
+          "PASS"
+        ],
+        [
+          "citation_coverage",
+          1.0,
+          "PASS"
+        ]
+      ],
+      "report_checksum": "sha256:3ea94ba139c0b3b3acb8cc1b800fb72cd2da22a90a0dfba87271329e46dbcf3d",
+      "slices": [
+        [
+          "single-facet",
+          2,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ],
+        [
+          "multi-facet",
+          1,
+          [
+            [
+              "recall_at_2",
+              0.5,
+              "FAIL"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "superseded-source-release",
+      "decision": "FAIL",
+      "decision_reason": "OBSERVED_HARD_GATE_VIOLATION",
+      "failure_reasons": [],
+      "hard_gates": [
+        [
+          "per_query_request_coverage",
+          false,
+          0.0
+        ],
+        [
+          "superseded_source_release_count",
+          false,
+          1
+        ],
+        [
+          "unknown_citation_count",
+          true,
+          0
+        ]
+      ],
+      "metrics": [
+        [
+          "precision_at_2",
+          0.666667,
+          "PASS"
+        ],
+        [
+          "recall_at_2",
+          1.0,
+          "PASS"
+        ],
+        [
+          "mrr",
+          0.833333,
+          "PASS"
+        ],
+        [
+          "ndcg_at_3",
+          0.876977,
+          "PASS"
+        ],
+        [
+          "answer_correctness",
+          0.75,
+          "PASS"
+        ],
+        [
+          "claim_faithfulness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "request_coverage",
+          0.75,
+          "FAIL"
+        ],
+        [
+          "citation_precision",
+          1.0,
+          "PASS"
+        ],
+        [
+          "citation_coverage",
+          1.0,
+          "PASS"
+        ]
+      ],
+      "report_checksum": "sha256:b6912c58bdddd19e5689947dd9f195a7c166d7dac75a0d4e1af2d034a461519b",
+      "slices": [
+        [
+          "single-facet",
+          2,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ],
+        [
+          "multi-facet",
+          1,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "correct-but-unfaithful",
+      "decision": "FAIL",
+      "decision_reason": "OBSERVED_HARD_GATE_VIOLATION",
+      "failure_reasons": [],
+      "hard_gates": [
+        [
+          "per_query_request_coverage",
+          false,
+          0.0
+        ],
+        [
+          "superseded_source_release_count",
+          true,
+          0
+        ],
+        [
+          "unknown_citation_count",
+          true,
+          0
+        ]
+      ],
+      "metrics": [
+        [
+          "precision_at_2",
+          0.666667,
+          "PASS"
+        ],
+        [
+          "recall_at_2",
+          1.0,
+          "PASS"
+        ],
+        [
+          "mrr",
+          1.0,
+          "PASS"
+        ],
+        [
+          "ndcg_at_3",
+          1.0,
+          "PASS"
+        ],
+        [
+          "answer_correctness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "claim_faithfulness",
+          0.75,
+          "PASS"
+        ],
+        [
+          "request_coverage",
+          0.75,
+          "FAIL"
+        ],
+        [
+          "citation_precision",
+          0.75,
+          "PASS"
+        ],
+        [
+          "citation_coverage",
+          0.75,
+          "PASS"
+        ]
+      ],
+      "report_checksum": "sha256:dcb95eb95983817cbfb330ae2528c8ff58716d2712224154320e98be813e5868",
+      "slices": [
+        [
+          "single-facet",
+          2,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ],
+        [
+          "multi-facet",
+          1,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "over-abstention",
+      "decision": "FAIL",
+      "decision_reason": "OBSERVED_HARD_GATE_VIOLATION",
+      "failure_reasons": [],
+      "hard_gates": [
+        [
+          "per_query_request_coverage",
+          false,
+          0.0
+        ],
+        [
+          "superseded_source_release_count",
+          true,
+          0
+        ],
+        [
+          "unknown_citation_count",
+          true,
+          0
+        ]
+      ],
+      "metrics": [
+        [
+          "precision_at_2",
+          0.666667,
+          "PASS"
+        ],
+        [
+          "recall_at_2",
+          1.0,
+          "PASS"
+        ],
+        [
+          "mrr",
+          1.0,
+          "PASS"
+        ],
+        [
+          "ndcg_at_3",
+          1.0,
+          "PASS"
+        ],
+        [
+          "answer_correctness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "claim_faithfulness",
+          1.0,
+          "PASS"
+        ],
+        [
+          "request_coverage",
+          0.75,
+          "FAIL"
+        ],
+        [
+          "citation_precision",
+          1.0,
+          "PASS"
+        ],
+        [
+          "citation_coverage",
+          1.0,
+          "PASS"
+        ]
+      ],
+      "report_checksum": "sha256:0227958a4495f82a05d76d964c0ffc0ab108444a7c02ac3558690c15dea8eb5e",
+      "slices": [
+        [
+          "single-facet",
+          2,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ],
+        [
+          "multi-facet",
+          1,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ]
+      ]
+    },
+    {
+      "case_id": "answer-evaluator-timeout",
+      "decision": "INCONCLUSIVE",
+      "decision_reason": "EVALUATOR_FAILURE",
+      "failure_reasons": [
+        "ANSWER_EVALUATOR_UNAVAILABLE"
+      ],
+      "hard_gates": [
+        [
+          "per_query_request_coverage",
+          null,
+          1.0
+        ],
+        [
+          "superseded_source_release_count",
+          true,
+          0
+        ],
+        [
+          "unknown_citation_count",
+          true,
+          0
+        ]
+      ],
+      "metrics": [
+        [
+          "precision_at_2",
+          0.666667,
+          "PASS"
+        ],
+        [
+          "recall_at_2",
+          1.0,
+          "PASS"
+        ],
+        [
+          "mrr",
+          1.0,
+          "PASS"
+        ],
+        [
+          "ndcg_at_3",
+          1.0,
+          "PASS"
+        ],
+        [
+          "answer_correctness",
+          1.0,
+          "NOT_RUN"
+        ],
+        [
+          "claim_faithfulness",
+          1.0,
+          "NOT_RUN"
+        ],
+        [
+          "request_coverage",
+          1.0,
+          "NOT_RUN"
+        ],
+        [
+          "citation_precision",
+          1.0,
+          "PASS"
+        ],
+        [
+          "citation_coverage",
+          1.0,
+          "PASS"
+        ]
+      ],
+      "report_checksum": "sha256:8f72c32575485a6050e851142161dd01cb5de42d8375e54205c176ddccdbee25",
+      "slices": [
+        [
+          "single-facet",
+          2,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ],
+        [
+          "multi-facet",
+          1,
+          [
+            [
+              "recall_at_2",
+              1.0,
+              "PASS"
+            ]
+          ]
+        ]
+      ]
+    }
+  ],
+  "day102_verification_is_ground_truth": false,
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "experiment_kind": "EVALUATION_MECHANICS_EXPERIMENT",
+  "experiment_warning": "deterministic mechanics are not real RAG quality evidence",
+  "fixture_checksum": "sha256:968e7a1299afb03a28ce1d1487eea048f8da7503b56465ca7aabb965e01896c0",
+  "fixture_production_eligible": false,
+  "fixture_scope": "DAY103_REFUND_CLASSROOM_ONLY",
+  "ground_truth_owner": "independent-label-review-adjudication-v1",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "protected_claims_in_report": false,
+  "protected_evidence_in_report": false,
+  "provider_payloads_in_report": false,
+  "raw_queries_in_report": false,
+  "real_generator": "NOT_RUN",
+  "real_independent_human_labels": "NOT_RUN",
+  "real_latency_capacity_cost_error_rate": "NOT_RUN",
+  "real_retriever": "NOT_RUN",
+  "report_checksum": "sha256:21d4b21eea1a1046f941ff1f1221a0ac96f36a7037b4bfac6ec0cb181d46e51f"
+}
