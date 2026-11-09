@@ -2548,3 +2548,48 @@ metrics, protected egress and latency/capacity/cost/error-rate measurements.
 Evidence: 56 focused tests, 10/10 seed and saved replay with deterministic fakes. Real rewrite/reranker models,
 quality and production operations are `NOT_RUN`; `MORE_EVIDENCE_NEEDED`. Related:
 [Day101 lesson](../docs/fastapi/day101-query-rewriting-and-re-ranking.md).
+
+## Day103 — Retrieval Evaluation and RAG Answer Evaluation
+
+```text
+independent labels + system Predictions
+→ retrieval metrics
+→ answer / Citation / Abstention metrics
+→ critical slices
+→ quality thresholds + hard gates
+→ PASS / FAIL / INCONCLUSIVE / NOT_RUN
+→ content-safe Evaluation Report
+```
+
+```text
+Precision@k = relevant in top k / k
+Recall@k    = relevant in top k / all relevant labels
+RR          = 1 / first relevant rank
+MRR         = mean RR
+nDCG@k      = position-discounted gain / ideal gain
+```
+
+| Axis | Reference |
+|---|---|
+| Correctness | independent Ground Truth |
+| Faithfulness | Evidence actually used |
+| Citation Precision | provided Claim/Citation links |
+| Citation Coverage | generated evidence-requiring Claims |
+| Request Coverage | all requested items |
+| Abstention Quality | expected answer/abstain label |
+
+```text
+Prediction ≠ Ground Truth
+Metric ≠ Threshold
+Threshold ≠ Hard Gate
+Evaluation Decision ≠ Deployment Authority
+```
+
+Baseline/Candidate comparisons hold dataset, labels, source/authorization snapshot, evaluator, metric, slice
+and threshold identities fixed. Only the system and resulting Predictions should vary. A fully measured failure
+is `FAIL`; evaluator timeout or missing labels make the run `INCONCLUSIVE`. Deterministic fake tests prove the
+evaluation mechanics, not real RAG quality.
+
+Evidence: 27 focused tests, 10/10 seed and saved replay with deterministic A/B/C fixtures. Real model/judge
+quality and production remain `NOT_RUN`; `MORE_EVIDENCE_NEEDED`. Related:
+[Day103 lesson](../docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md).

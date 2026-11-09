@@ -351,11 +351,11 @@ Deliverables:
 
 # Phase 7C — Production RAG Engineering (Day95–Day106)
 
-Status: In progress. Day95 has bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96–Day102 are
+Status: In progress. Day95 has bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96–Day103 are
 complete at guided classroom scope with deterministic chunking, authorization/provenance, embedding and exact
 vector-generation, hybrid-retrieval, rewrite and reranking control-flow evidence. Real embedding/vector/query/
-reranker Provider quality, ANN, durable distributed storage, retrieval
-evaluation and production remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.
+reranker Provider quality, ANN, durable distributed storage, independently labeled real-model evaluation and
+production remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`.
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -373,7 +373,7 @@ not a chunk-and-search demo.
 | Day100 | Hybrid Retrieval and Filtering | ✅ Completed (guided classroom scope; 64 focused tests; 8/8 seed; 1006/1006 local + Python 3.12 CI regressions; selected-bundle gate, BM25 + Exact cosine, application filter AST, weighted RRF, final authorization/provenance recheck, bounded refill/degradation and signed cursors; real Day99 unselected negative path; production readiness MORE_EVIDENCE_NEEDED) |
 | Day101 | Query Rewriting and Re-ranking | ✅ Completed (guided classroom scope; 56 focused tests; 10/10 seed; 1062/1062 local + Python 3.12 CI regressions; bounded rewrite validation, Day100-per-variant retrieval, occurrence-ID fusion, strict reranker Adapter/Validator, final current authorization/provenance release and signed cache/cursor identities; deterministic fake only; production readiness MORE_EVIDENCE_NEEDED) |
 | Day102 | Grounding, Citations and Source Verification | ✅ Completed (guided classroom scope; 44 focused tests; 10/10 seed; 1106/1106 local + Python 3.12 CI regressions; trusted Day101 handoff, immutable Grounding Bundle, exact Claim/Citation mapping, independent source/semantic verification, partial answers, final currentness and authority/content-bound cache identities; deterministic fake only; production readiness MORE_EVIDENCE_NEEDED) |
-| Day103 | Retrieval Evaluation and RAG Answer Evaluation | Planned |
+| Day103 | Retrieval Evaluation and RAG Answer Evaluation | ✅ Completed (guided classroom scope; 27 focused tests; 10/10 seed; 1133/1133 local full regressions on Python 3.11.5 fallback; all 19 seed evaluators and four saved replays; Python 3.12 CI NOT RUN; fixed independent refund labels, Precision/Recall/MRR/nDCG, answer/Citation/Abstention metrics, slices, hard gates and replayable evidence; deterministic fake only; production readiness MORE_EVIDENCE_NEEDED) |
 | Day104 | Index Update, Delete, Rebuild and Migration | Planned |
 | Day105 | RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries | Planned |
 | Day106 | Production RAG Capstone and English Interview | Planned |

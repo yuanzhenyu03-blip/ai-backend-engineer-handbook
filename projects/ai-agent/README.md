@@ -1010,9 +1010,41 @@ release invariants only. Real generator/Claim extractor/NLI-or-LLM verifier, lab
 egress, database/ANN, latency/capacity/cost/error rates and production remain `NOT_RUN`; readiness remains
 `MORE_EVIDENCE_NEEDED`.
 
+## Day103 Retrieval Evaluation and RAG Answer Evaluation
+
+Day103 consumes versioned structured Predictions and measures them against independently owned labels. The
+fixed refund dataset binds Q1–Q3, A/B/C source and authorization snapshots, qrels, request-item labels and
+Citation-support labels. Day102 Verification relations remain Prediction fields and are never reused as Ground
+Truth.
+
+Pure evaluators compute Precision@k, Recall@k, MRR, DCG/nDCG, Answer Correctness, Claim Faithfulness, Citation
+Precision/Coverage, Request Coverage and Abstention counts. The Orchestrator aggregates overall and critical
+slice results, enforces request-coverage/superseded-release/unknown-Citation hard gates, preserves evaluator
+timeouts, and emits `PASS`, `FAIL` or `INCONCLUSIVE` with a content-safe replay checksum.
+
+See the [design](docs/DAY103_RETRIEVAL_RAG_EVALUATION.md),
+[classroom record](docs/day103-retrieval-rag-evaluation-classroom-draft.md),
+[saved evaluation report](evidence/day103-rag-evaluation-report.json),
+[validation](evidence/day103-validation.json),
+[repository update report](docs/DAY103_REPOSITORY_UPDATE_REPORT.md) and
+[Day104 handoff](docs/DAY103_TO_DAY104_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day103_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day103_seed_eval.py
+PYTHONPATH=src:. python3.12 evals/run_day103_evidence_replay.py
+PYTHONPATH=src:. python3.12 examples/day103_rag_evaluation.py
+```
+
+Evidence: 27 focused tests, 10/10 seed, 1133/1133 complete regressions, deterministic example, all 19 seed
+evaluators and all four saved evidence replays pass on the local Python 3.11.5 fallback. Python 3.12 CI is
+`NOT_RUN`. The evidence level is `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. Real retriever/generator
+quality, independent human-label runtime, calibrated LLM judge, protected-data egress, latency/capacity/cost/
+error rates and production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day103 retrieval and grounded-answer evaluation with independent labeled evidence.
+- Begin Day104 index update/delete/rebuild/migration against the frozen Day103 baseline.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
 - Add integration tests with mocked model responses.

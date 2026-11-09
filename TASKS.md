@@ -10,19 +10,36 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day102 are
-complete and Day103 is planned.
+Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day103 are
+complete and Day104 is planned.
 
-Day59–Day102 are complete at their recorded evidence levels. Day102 added immutable Grounding Bundles,
-Claim/Citation links, source and semantic verification, partial release and Request Coverage with deterministic
-fakes. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day103 are complete at their recorded evidence levels. Day103 added independent labels, deterministic
+retrieval/answer/Citation/Abstention metrics, slice analysis, hard gates and replayable regression decisions.
+Earlier evidence and NOT RUN boundaries remain recorded below.
 
 ---
 
 ## Current Lesson
 
-Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C) — next up.
-Most recent classroom lesson: Day102 — Grounding, Citations and Source Verification.
+Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — next up.
+Most recent classroom lesson: Day103 — Retrieval Evaluation and RAG Answer Evaluation.
+
+Day103 completion record:
+
+- [x] Freeze dataset, Query-set, source, authorization-policy, label and adjudication identities.
+- [x] Keep independent qrels and answer/Citation labels separate from Day102 Verification predictions.
+- [x] Preserve superseded B as semantic evidence for the old Claim but never as a current positive qrel.
+- [x] Implement deterministic Precision@k, Recall@k, MRR, DCG and nDCG.
+- [x] Evaluate Correctness, Faithfulness, Citation Precision/Coverage, Request Coverage and Abstention separately.
+- [x] Expose single-facet versus multi-facet slice results and minimum sample sizes.
+- [x] Enforce request-coverage, superseded-release and unknown-Citation hard gates without average compensation.
+- [x] Distinguish `PASS`, `FAIL`, `INCONCLUSIVE` and `NOT_RUN`; never default evaluator timeout to PASS.
+- [x] Bind comparable runs to one dataset/evaluator/policy ruler while allowing system Predictions to differ.
+- [x] Produce a content-safe, replayable report and Day104 baseline handoff.
+- [x] Run 27 focused tests, 10/10 seed, 1133/1133 full regressions, all 19 seed evaluators, all four saved
+  evidence replays and the deterministic example on the local Python 3.11.5 fallback; Python 3.12 CI is NOT RUN.
+- [x] Release lesson, design, classroom record, evidence and Day104 handoff.
+- [ ] Later: real retriever/generator, independent human-label platform, calibrated judge, protected egress and operations gates.
 
 Day102 completion record:
 
@@ -319,11 +336,11 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day95–Day102 are documented at guided classroom scope and Phase 7C is in progress. Day103 is next; production
+Day95–Day103 are documented at guided classroom scope and Phase 7C is in progress. Day104 is next; production
 readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
-(Day103); Day102 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
+(Day104); Day103 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
 The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 
 ---

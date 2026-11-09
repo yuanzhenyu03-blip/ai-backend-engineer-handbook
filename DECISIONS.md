@@ -812,8 +812,6 @@ regressions exercise application control flow. Real query Provider, PostgreSQL/p
 ANN recall, latency/capacity, backup/restore/failover and production traffic are `NOT_RUN`. Evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.
 
----
-
 ## Decision 019 — Rewrites May Change Retrieval Expression; Rerankers May Reorder, Never Authorize
 
 Status: Accepted for Day101 course scope
@@ -907,5 +905,56 @@ The deterministic generator, Claim extractor and verifier, 44 focused tests, 10/
 saved evidence replay and 1106/1106 local regressions exercise control flow, exact identity correlation, partial
 release, fallback recording and safety invariants. They do not prove real generation, extraction or entailment
 quality. Real generator, NLI/LLM verifier, protected egress, independently labeled evaluation, database/ANN,
+latency/capacity/cost/error rates and production traffic are `NOT_RUN`. Evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 021 — Evaluate Predictions Against Independent Labels; Keep Hard Gates Non-compensable
+
+Status: Accepted for Day103 course scope
+
+Date: 2026-11-09
+
+### Context
+
+Day102 Verification results are produced by the system that Day103 must evaluate. Reusing them as labels would
+let the system grade itself. Average metrics can also hide multi-facet regressions, missing request items,
+superseded-source release and evaluator failures.
+
+### Decision
+
+Freeze an `EvaluationDatasetIdentity` that binds the Query set, source and authorization-policy snapshots,
+labeling policy, independent annotator/review/adjudication revision, split and protected-data policy. Store
+relevance, request-item and Citation-support labels separately from system Predictions. Preserve Day101 ranking
+and Day102 Claim/Citation/Verification output as Prediction evidence only.
+
+Compute Retrieval, Answer, Citation, Request Coverage and Abstention measurements independently. Aggregate
+overall metrics and critical slices, but enforce unauthorized/unknown/superseded release and required Request
+Coverage as non-compensable hard gates. `FAIL` means observed evidence violates a gate or threshold;
+`INCONCLUSIVE` means an attempted run lacks sufficient valid evidence; `NOT_RUN` identifies an evaluation that
+did not execute. The Evaluation Orchestrator emits evidence and a regression decision but never owns deployment.
+
+Baseline and Candidate comparisons require identical dataset, labels, source/authorization snapshots,
+evaluator, metric, slice and threshold identities. System and Prediction identities are expected to differ.
+
+### Consequences
+
+- A Day102 `SUPPORTED` relation can disagree with independent Ground Truth and remain measurable.
+- B may support the old “30 days” Claim semantically while remaining a current-policy negative and release gate failure.
+- An evaluator never repairs ranking, answer or Citation output before scoring.
+- High Citation Precision cannot compensate for missing Citation or Request Coverage.
+- Overall metric PASS cannot compensate for a critical slice or hard-gate failure.
+- Evaluator timeout never defaults to PASS or a fabricated score.
+- Reports keep protected Query, Claim, Evidence and Provider payloads out of ordinary evidence.
+- More identity and label governance is accepted to obtain reproducible, auditable comparisons.
+
+### Validation honesty
+
+The fixed synthetic refund dataset, deterministic outputs, 27 focused tests, 10/10 seed, 1133/1133 complete
+regressions, example, all 19 seed evaluators and all four saved replays exercise metric formulas, identity
+correlation, slice/gate decisions, timeout semantics and content-safe reports on the local Python 3.11.5
+fallback. Python 3.12 CI is NOT RUN. These checks do not prove real retrieval, generation, entailment, Citation,
+Abstention or judge quality. Real independent human-label runtime, calibrated LLM judge, protected egress,
 latency/capacity/cost/error rates and production traffic are `NOT_RUN`. Evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.

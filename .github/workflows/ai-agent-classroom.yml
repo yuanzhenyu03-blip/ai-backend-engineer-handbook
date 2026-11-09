@@ -56,3 +56,5 @@ jobs:
         run: python evals/run_day101_evidence_replay.py
       - name: Verify saved Day102 grounding and citation evidence
         run: python evals/run_day102_evidence_replay.py
+      - name: Verify saved Day103 RAG evaluation evidence
+        run: python evals/run_day103_evidence_replay.py

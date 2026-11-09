@@ -2162,6 +2162,17 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: retrieval evaluation and RAG answer evaluation. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
   Connection: Day102 grounded answers; Day103 evaluates retrieval and answer quality; Day104 keeps the index
   correct over time.
+  Completed at guided classroom scope with a frozen A/B/C refund-policy source and Q1–Q3 Query set; independent
+  qrels, request-item and Citation-support labels; dataset/source/authorization/label/system/evaluator identities;
+  deterministic Precision@k, Recall@k, MRR and nDCG@k; separate Correctness, Faithfulness, Citation Precision,
+  Citation Coverage, Request Coverage and Abstention evaluation; overall and critical-slice thresholds;
+  non-compensable request-coverage, superseded-release and unknown-Citation gates; fail-closed evaluator timeout
+  handling; `PASS`/`FAIL`/`INCONCLUSIVE`/`NOT_RUN` semantics; content-safe replayable reports; and a Day104
+  baseline handoff. Evidence: `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; 27 focused tests, 10/10 seed,
+  1133/1133 complete regressions, deterministic example, all 19 seed evaluators and all four saved replays pass
+  on the local Python 3.11.5 fallback. Python 3.12 CI is NOT RUN. Real retriever/generator quality, independent
+  human-label runtime, calibrated LLM judge, protected-data egress, latency/capacity/cost/error rates and
+  production remain NOT RUN; readiness is `MORE_EVIDENCE_NEEDED`. Next: Day104.
 - Day104 — Index Update, Delete, Rebuild and Migration.
   Scope: index update, delete, rebuild, migration.
   Connection: Day103 measured quality; Day104 adds index update/delete/rebuild/migration; Day105 defends RAG
