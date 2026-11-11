@@ -1064,6 +1064,7 @@ See the [design](docs/DAY104_INDEX_GENERATION_LIFECYCLE.md),
 [L3 integration notes](docs/DAY104_L3_REAL_PGVECTOR_INTEGRATION.md),
 [saved L3 integration report](evidence/day104-l3-integration-report.json),
 [offline L3 replay](evals/run_day104_l3_evidence_replay.py),
+[PR #16 Python 3.12 CI evidence](evidence/day104-pr16-ci-validation.json),
 [repository update report](docs/DAY104_REPOSITORY_UPDATE_REPORT.md) and
 [Day105 handoff](docs/DAY104_TO_DAY105_HANDOFF.md).
 
@@ -1078,7 +1079,9 @@ PYTHONPATH=src:. python3.12 examples/day104_index_lifecycle.py
 Frozen L2 baseline: 73/73 focused tests, 10/10 seed and the deterministic
 example PASS. Final repository verification after L3: `Ran 1245 tests` —
 `OK (skipped=7)` on the local Python 3.11.5 fallback; all 20 seed evaluators
-and all six saved evidence replays PASS. Python 3.12 CI is `NOT_RUN`. That policy layer is
+and all six saved evidence replays PASS. Subsequent PR #16 Python 3.12.16 CI
+run `42995652875` also passed 1245 tests, all 20 seed evaluators and all six
+saved evidence replays. That policy layer is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. Separately, the local L3 run
 on PostgreSQL 16.15/pgvector 0.8.7 passed 32/32 adapter unit tests, 7/7 real
 integration tests, all 17 runner gates and a database-container restart replay;
@@ -1094,7 +1097,7 @@ zero-downtime production migration, real traffic and production remain
 
 - Begin Day105 RAG security against the frozen, auditable Day104 index-lifecycle baseline.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
-- Validate Python 3.12 and broader real auth/queue/Worker integration; HA,
+- Validate broader real auth/queue/Worker integration; HA,
   restore and optional external-Provider gates remain NOT RUN.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

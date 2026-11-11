@@ -549,6 +549,7 @@ Primary artifacts:
 - [Seed evaluator](../../projects/ai-agent/evals/run_day104_seed_eval.py)
 - [L3 integration evidence](../../projects/ai-agent/evidence/day104-l3-integration-report.json)
 - [Offline L3 evidence replay](../../projects/ai-agent/evals/run_day104_l3_evidence_replay.py)
+- [PR #16 Python 3.12 CI evidence](../../projects/ai-agent/evidence/day104-pr16-ci-validation.json)
 - [L3 evidence boundary](../../projects/ai-agent/docs/DAY104_L3_REAL_PGVECTOR_INTEGRATION.md)
 
 From `projects/ai-agent/`, the validation entry points are:
@@ -608,9 +609,12 @@ separate Level 3 report proves the recorded local PostgreSQL/pgvector paths only
 - [ ] I can state exactly what L2 does and does not prove.
 - [ ] I can state exactly what local L3 proves and why it is not L4.
 
+After the original L2/L3 seal, PR #16 Python 3.12.16 CI run `42995652875`
+passed 1245 tests with 7 skips, all 20 seed evaluators and all six saved
+evidence replays. CI did not start Docker or re-execute the real L3 runtime.
+
 The following remain `NOT_RUN`:
 
-- Python 3.12 pull-request CI;
 - PostgreSQL HA, replica failover, restore drills and cross-region recovery;
 - durable broker relay, distributed multi-process Worker recovery, clock skew
   and network partition;

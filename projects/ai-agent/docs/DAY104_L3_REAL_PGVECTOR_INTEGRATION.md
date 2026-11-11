@@ -23,7 +23,8 @@ Executed artifacts:
 - [saved L3 integration report](../evidence/day104-l3-integration-report.json);
 - [offline saved-evidence replay](../evals/run_day104_l3_evidence_replay.py);
 - [real integration runner](../evals/run_day104_l3_integration.py);
-- [real integration tests](../tests/test_day104_l3_postgres_integration.py).
+- [real integration tests](../tests/test_day104_l3_postgres_integration.py);
+- [append-only PR #16 Python 3.12 CI evidence](../evidence/day104-pr16-ci-validation.json).
 
 Recorded result:
 
@@ -36,7 +37,8 @@ Recorded result:
   `sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85`;
 - HNSW plan proof: `index_points_embedding_hnsw_cosine_idx` was present in the
   forced-index query plan;
-- Python 3.12 pull-request CI: `NOT_RUN`.
+- Python 3.12 pull-request CI: PASS later in PR #16, run `42995652875`; CI
+  replayed this saved evidence but did not re-execute the real L3 runtime.
 
 ## Frozen prerequisite evidence
 
@@ -232,5 +234,8 @@ PASS:
 - canary or blue-green production rollout, real traffic, zero-downtime proof;
 - incident-response rehearsal and an adequate production observation window.
 
-Python 3.12 pull-request CI also remains `NOT_RUN`. Therefore production
-readiness remains `MORE_EVIDENCE_NEEDED` despite the local Level 3 PASS.
+The later PR #16 Python 3.12.16 CI run `42995652875` passed the deterministic
+and unit suite, seed evaluators and saved-evidence replays without starting
+Docker. It does not add HA, physical-purge, scale or production evidence;
+production readiness remains `MORE_EVIDENCE_NEEDED` despite the local Level 3
+PASS.

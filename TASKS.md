@@ -44,7 +44,9 @@ Day104 completion record:
 - [x] Preserve the actual classroom reasoning, corrections, 90/100 learning assessment and Level 2 boundary.
 - [x] Preserve the frozen L2 baseline: 73/73 focused tests, 10/10 seed and the deterministic example PASS.
 - [x] Run the final post-L3 repository verification on the local Python 3.11.5 fallback: `Ran 1245 tests` —
-  `OK (skipped=7)`; all 20 seed evaluators and all six saved evidence replays PASS. Python 3.12 CI is NOT RUN.
+  `OK (skipped=7)`; all 20 seed evaluators and all six saved evidence replays PASS.
+- [x] Record append-only PR #16 Python 3.12.16 CI run `42995652875`: 1245 tests with 7 skips, all 20 seed
+  evaluators and all six saved evidence replays PASS; Docker and the real L3 runtime were not executed in CI.
 - [x] Release lesson, design, classroom record, example, evidence, Decision 022 and Day105 handoff.
 - [x] Complete Level 3 on PostgreSQL 16.15/pgvector 0.8.7: 32/32 adapter unit tests, 7/7 real integration tests,
   17/17 runner gates and database-container restart replay PASS; save content-safe evidence and an offline replay.

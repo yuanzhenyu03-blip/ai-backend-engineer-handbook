@@ -47,7 +47,9 @@ Current state:
   retirement; frozen L2 baseline 73/73 focused tests and 10/10 seed; final post-L3 repository verification
   `Ran 1245 tests`, `OK (skipped=7)`, all 20 seed evaluators and all six saved evidence replays pass on the local
   Python 3.11.5 fallback; L3 also passed 32/32 adapter unit tests, 7/7 real integration tests, 17/17 runner gates
-  and container restart replay; Python 3.12 CI is NOT RUN; HA/restore, distributed recovery, physical purge,
+  and container restart replay; subsequent PR #16 Python 3.12.16 CI run `42995652875` passed 1245 tests,
+  all 20 seed evaluators and all six saved evidence replays without starting Docker; HA/restore, distributed
+  recovery, physical purge,
   production-size load, zero-downtime production migration, operations and production traffic remain NOT RUN;
   production readiness MORE_EVIDENCE_NEEDED).
 - Current / Next Lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage

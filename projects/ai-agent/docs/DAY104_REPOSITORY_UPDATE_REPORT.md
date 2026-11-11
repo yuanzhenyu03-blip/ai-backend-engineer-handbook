@@ -69,6 +69,8 @@ replay as PASS. `LOGICAL_RELEASE` and `SERVING_INDEX_ABSENCE` passed;
 - Evidence replay: `projects/ai-agent/evals/run_day104_evidence_replay.py`
 - Saved report: `projects/ai-agent/evidence/day104-index-lifecycle-report.json`
 - Validation: `projects/ai-agent/evidence/day104-validation.json`
+- Append-only PR #16 Python 3.12 CI evidence:
+  `projects/ai-agent/evidence/day104-pr16-ci-validation.json`
 - L3 contract/evidence notes:
   `projects/ai-agent/docs/DAY104_L3_REAL_PGVECTOR_INTEGRATION.md`
 - Saved L3 report:
@@ -97,12 +99,18 @@ the Python 3.12 workflow are synchronized through Day104.
 - Database-container restart replay and offline saved L3 evidence replay: PASS.
 - The first restricted-sandbox full-suite attempt could not bind three Day93/Day94 loopback servers; the same
   suite passed after loopback permission. This was an execution-environment restriction, not a test assertion.
-- Python 3.12 pull-request CI: `NOT_RUN`; no commit, push or pull request was authorized.
+- Python 3.12 pull-request CI: PASS in PR #16, run `42995652875` on CPython
+  3.12.16. It passed 1245 tests with 7 skips, all 20 seed evaluators and all
+  six saved evidence replays. It did not start Docker or re-execute the real
+  PostgreSQL/pgvector L3 integration.
 
 The frozen L2 structural checks remain recorded in
 `projects/ai-agent/evidence/day104-validation.json`; the final L3-linked
 Markdown-link, 16-section, replay, YAML and `git diff --check` checks were run
 separately and do not rewrite that L2 artifact.
+The later CI result is recorded append-only in
+`projects/ai-agent/evidence/day104-pr16-ci-validation.json`; neither frozen
+Day104 runtime report was rewritten.
 
 ## Evidence levels
 

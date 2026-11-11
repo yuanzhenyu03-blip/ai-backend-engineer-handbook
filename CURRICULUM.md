@@ -2191,7 +2191,9 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   all 20 seed evaluators and all six saved replays passed. The bounded local L3
   run on PostgreSQL 16.15/pgvector 0.8.7 passed 32/32 adapter unit tests, 7/7
   real integration tests, 17/17 runner gates and container restart replay.
-  Python 3.12 CI is NOT RUN. PostgreSQL HA/restore, distributed failure
+  Subsequent PR #16 Python 3.12.16 CI run `42995652875` passed 1245 tests,
+  all 20 seed evaluators and all six saved evidence replays; it did not start
+  Docker or re-execute the real L3 integration. PostgreSQL HA/restore, distributed failure
   recovery, physical purge, production-size ANN/load, zero-downtime production
   migration, real traffic and production remain NOT RUN or
   `MORE_EVIDENCE_NEEDED`. Next: Day105.

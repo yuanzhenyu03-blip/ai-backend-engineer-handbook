@@ -58,9 +58,14 @@ integration tests, 17/17 runner gates and a passing database-container restart
 replay. The [offline replay](../evals/run_day104_l3_evidence_replay.py) validates
 the saved, content-safe evidence without starting Docker.
 
+PR #16 Python 3.12.16 CI run `42995652875` subsequently passed 1245 tests,
+all 20 seed evaluators and all six saved evidence replays. Its append-only
+record is [day104-pr16-ci-validation.json](../evidence/day104-pr16-ci-validation.json).
+CI did not start Docker or re-execute the real PostgreSQL/pgvector L3 runtime.
+
 `fixture_production_eligible=false`. Day105 may use this as a tested local
 control-plane and retrieval baseline, but it must preserve the same frozen
-identity and release gates. Python 3.12 CI, PostgreSQL HA/failover and restore,
+identity and release gates. PostgreSQL HA/failover and restore,
 multi-node/distributed failure behavior, physical purge, production-size
 ANN/load, zero-downtime production migration and production traffic remain
 `NOT_RUN` or `MORE_EVIDENCE_NEEDED`; readiness remains
