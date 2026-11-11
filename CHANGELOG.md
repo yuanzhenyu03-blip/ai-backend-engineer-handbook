@@ -9,7 +9,7 @@ This project follows a practical versioning style:
 
 ---
 
-## Unreleased — Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C)
+## Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — Released to main
 
 Date: 2026-11-11
 
