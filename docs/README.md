@@ -63,7 +63,8 @@ docs/
 │   ├── day100-hybrid-retrieval-and-filtering.md # authorization-first BM25/dense/RRF
 │   ├── day101-query-rewriting-and-re-ranking.md # bounded rewrites + authorized reranking
 │   ├── day102-grounding-citations-and-source-verification.md # Claim/Evidence/Citation release
-│   └── day103-retrieval-evaluation-and-rag-answer-evaluation.md # independent RAG quality evaluation
+│   ├── day103-retrieval-evaluation-and-rag-answer-evaluation.md # independent RAG quality evaluation
+│   └── day104-index-update-delete-rebuild-and-migration.md # immutable index-generation lifecycle
 ├── playwright/
 └── n8n/
 ```

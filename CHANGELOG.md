@@ -9,6 +9,56 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C)
+
+Date: 2026-11-11
+
+Released the 16-section Day104 lesson, application design, actual classroom record, Day105 handoff, Decision 022,
+deterministic example, 10-case seed/evaluator, 73 focused tests and replayable evidence. The lesson keeps one
+A/B/C refund-policy corpus and Q1–Q3 evaluation ruler while evolving G1→G2. The continuing
+`projects/ai-agent/` Artifact freezes source, authorization, embedding, index-schema, watermark and deletion
+identity in one BuildSnapshot; builds and seals an immutable off-path Generation; compares Builder-owned Expected
+facts with independent Provider read-back; and requires exact IDs plus count, content, metadata and provenance
+digests before Day103 quality evidence can mark the candidate READY.
+
+Activation is modeled as one application-owned transaction over pointer CAS, target ACTIVE, previous DRAINING,
+ActivationRecord and Outbox intent. The external Provider alias is a recoverable projection of database truth.
+Requests atomically acquire one leased, fenced ReadView and never mix Generations; retirement waits for the
+authoritative ReadView ledger and retention policy. Tombstones and deletion snapshots prevent rebuild
+resurrection, while logical release, serving-index absence and physical purge remain separate evidence scopes.
+Rollback is a new forward CAS and is rejected when current source, authorization or deletion facts invalidate the
+old Generation.
+
+Added the opt-in real Level 3 implementation and content-safe saved evidence at
+`projects/ai-agent/evidence/day104-l3-integration-report.json`, with offline
+verification through
+`projects/ai-agent/evals/run_day104_l3_evidence_replay.py`. The pinned local run
+used PostgreSQL 16.15 and pgvector 0.8.7 and passed 32/32 PostgreSQL adapter
+unit tests, 7/7 real integration tests, all 17 runner gates and a
+database-container restart replay. The run also proved a real HNSW index plan,
+transaction rollback under injected activation failure, two-connection CAS,
+lease fencing, request pinning, durable replay and deletion non-resurrection for
+the fixed fixture. `LOGICAL_RELEASE` and `SERVING_INDEX_ABSENCE` passed;
+`PHYSICAL_PURGE` remains `NOT_RUN`.
+
+Validation: the frozen L2 baseline remains 73/73 focused tests, 10/10 seed and
+the deterministic example PASS. Final repository verification after L3 ran
+1245 tests with `OK (skipped=7)` on the local Python 3.11.5 fallback; all 20
+seed evaluators and all six saved evidence replays passed. Both saved Day104
+report checksums reproduce exactly. Compileall, mypy, JSON/JSONL, 16-section
+structure, Markdown links, credential-pattern and diff checks for the L2 seal
+remain recorded in `projects/ai-agent/evidence/day104-validation.json`; that
+frozen artifact was not rewritten for L3. Python
+3.12 CI is `NOT_RUN` because no push or pull request was authorized. CI only
+replays saved L3 evidence and does not start Docker. Level 2 evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; Level 3 evidence is
+`EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR`. PostgreSQL HA/failover
+and restore, distributed/multi-node failure recovery, physical purge,
+production-size ANN/load, zero-downtime production migration, real traffic,
+latency/capacity/cost/error rates and all Level 4 production evidence remain
+`NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Readiness is `MORE_EVIDENCE_NEEDED`.
+Day105 is next.
+
 ## Unreleased — Day103 — Retrieval Evaluation and RAG Answer Evaluation (Phase 7C)
 
 Date: 2026-11-09

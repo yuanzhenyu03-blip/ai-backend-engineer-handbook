@@ -1,0 +1,25 @@
+name: day104-l3
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
+    environment:
+      POSTGRES_DB: day104_l3
+      POSTGRES_USER: day104_l3
+      POSTGRES_PASSWORD: ${DAY104_L3_PG_PASSWORD:?set a disposable local password}
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - day104_l3_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 2s
+      timeout: 3s
+      start_period: 5s
+      retries: 30
+    stop_grace_period: 15s
+
+volumes:
+  day104_l3_pg_data:

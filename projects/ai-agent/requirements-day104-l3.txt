@@ -1,0 +1,4 @@
+# Day104 Level 3 is an opt-in disposable PostgreSQL + pgvector integration lab.
+# The vector type is exercised through parameterized SQL, so no Provider SDK is
+# required. This file is intentionally separate from the default classroom CI.
+psycopg2-binary==2.9.10

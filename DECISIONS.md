@@ -958,3 +958,64 @@ fallback. Python 3.12 CI is NOT RUN. These checks do not prove real retrieval, g
 Abstention or judge quality. Real independent human-label runtime, calibrated LLM judge, protected egress,
 latency/capacity/cost/error rates and production traffic are `NOT_RUN`. Evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 022 — Keep Generations Immutable; Activate Through an Application-owned Versioned Pointer
+
+Status: Accepted for Day104 guided classroom scope
+
+Date: 2026-11-11
+
+### Context
+
+An index is a rebuildable view of durable source, authorization, embedding, schema, watermark and deletion
+state. In-place mutation of the active index can expose partially rebuilt data, make rollback impossible and let
+one request observe two incompatible corpora. Counts alone cannot detect equal-count substitution, metadata or
+provenance drift, or resurrection of a tombstoned occurrence. Provider aliases are useful projections, but they
+do not own application truth.
+
+### Decision
+
+Freeze a `BuildSnapshot` before each build. Bind it to source (`S`), authorization (`P`), embedding (`E`),
+index schema (`IS`), watermark (`W`) and deletion snapshot (`D`) identities and digests. Build a new immutable
+Generation off the active path, seal its physical namespace, and let an independent validator read it back.
+Require exact occurrence IDs plus count, content, metadata and provenance digests. Reuse the fixed Day103 ruler
+for same-corpus migration and persist its dataset/evaluator/policy fingerprint in the build and artifact; a
+changed business truth requires a new snapshot, labels and baseline.
+
+Only the application-owned Committer may mark the candidate `READY` and conditionally move the versioned active
+pointer. It must recheck the current Build Snapshot, Manifest, provider checkpoint/fence, Validation record and
+exact Day103 Evaluation evidence digest in the same protected decision. Activation also requires an independently
+issued current Committer lease/fencing token. Pointer, target `ACTIVE`, previous `DRAINING`,
+Activation record and Outbox intent change atomically in the durable design. A provider alias is reconciled from
+that database truth. Each request atomically acquires a leased, fenced ReadView pinned to one pointer revision and
+Generation. Retirement waits for the durable ReadView ledger to drain and for the retention gate.
+
+Deletion begins with an application-owned Tombstone, deletion intent, durable verification policy and Outbox
+event. Future rebuilds freeze the deletion snapshot. Logical release, serving-index absence and physical purge
+remain separate evidence scopes whose accepted records bind a trusted validator, pointer revision, exact
+servable-Generation set and Tombstone set.
+Rollback to a draining Generation is allowed only when its complete frozen identity is still current; otherwise
+the safe response is to keep release closed and roll forward.
+
+### Consequences
+
+- A successful build, Provider write or alias update is never sufficient release evidence.
+- `INCONCLUSIVE` quality evidence keeps the candidate in `VALIDATING`; observed integrity or quality failure
+  moves it to `FAILED`.
+- Same operation identity plus the same payload converges; a changed payload is an identity conflict.
+- Fencing rejects late workers, and CAS plus pointer revisions prevent concurrent successors and ABA ambiguity.
+- Old requests continue on their pinned Generation while new requests pin the new active Generation.
+- Tombstones prevent rebuild resurrection; physical erasure still requires separate evidence.
+- More immutable artifacts, version rows, current-state reads and reconciliation work are accepted in exchange
+  for auditability, safe concurrency and explicit recovery.
+
+### Validation honesty
+
+The Day104 implementation uses process-local locks and a deterministic sealed Provider fake. Focused tests,
+seed cases, a deterministic example and content-safe replay exercise identity, state-machine, Manifest,
+idempotency, fencing, CAS, ReadView, drain, deletion and evidence-boundary mechanics. They do not prove real
+PostgreSQL transaction isolation, vector-store alias atomicity, distributed leases, crash recovery, delete
+visibility, ANN behavior, physical erasure, zero downtime, capacity, latency, cost or production safety. Those
+Level 3 and Level 4 gates remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.

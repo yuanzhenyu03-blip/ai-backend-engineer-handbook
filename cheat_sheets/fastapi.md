@@ -2593,3 +2593,41 @@ evaluation mechanics, not real RAG quality.
 Evidence: 27 focused tests, 10/10 seed and saved replay with deterministic A/B/C fixtures. Real model/judge
 quality and production remain `NOT_RUN`; `MORE_EVIDENCE_NEEDED`. Related:
 [Day103 lesson](../docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md).
+
+## Day104 — Index Update, Delete, Rebuild and Migration
+
+```text
+durable source/auth/delete truth
+→ BS = S + P + E + IS + W + D
+→ immutable shadow Generation
+→ Provider seal + independent read-back
+→ Manifest integrity + Day103 PASS
+→ READY
+→ application pointer CAS
+→ request ReadView pinning
+→ drain + rollback decision / retire
+```
+
+```text
+Generation artifact = immutable identity + physical namespace
+Lifecycle           = state + state_version + fence + reader summary
+Active pointer      = selected generation + monotonic revision
+Provider alias      = projection of application pointer
+ReadView            = one request pinned to one generation/revision
+```
+
+Release rules:
+
+- write ACK ≠ read-back proof;
+- equal count ≠ equal corpus: compare exact IDs, content, metadata and provenance digests;
+- `INCONCLUSIVE` stays `VALIDATING`; observed integrity/quality failure becomes `FAILED`;
+- pointer, target ACTIVE, previous DRAINING, ActivationRecord and Outbox change atomically;
+- old requests remain on their pinned Generation; new requests pin the new ACTIVE Generation;
+- Tombstones are BuildSnapshot inputs, so rebuild cannot resurrect deleted occurrences;
+- logical release, serving-index absence and physical purge are separate evidence scopes;
+- rollback is a new forward CAS and requires current `S/P/E/IS/W/D` eligibility.
+
+Evidence: 73 focused tests, 10/10 seed and saved replay with deterministic fakes. Real PostgreSQL/vector
+Provider, distributed recovery, physical purge and zero-downtime production migration remain `NOT_RUN`;
+`MORE_EVIDENCE_NEEDED`. Related:
+[Day104 lesson](../docs/fastapi/day104-index-update-delete-rebuild-and-migration.md).

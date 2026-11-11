@@ -58,3 +58,7 @@ jobs:
         run: python evals/run_day102_evidence_replay.py
       - name: Verify saved Day103 RAG evaluation evidence
         run: python evals/run_day103_evidence_replay.py
+      - name: Verify saved Day104 index lifecycle evidence
+        run: python evals/run_day104_evidence_replay.py
+      - name: Verify saved Day104 L3 evidence offline
+        run: python evals/run_day104_l3_evidence_replay.py

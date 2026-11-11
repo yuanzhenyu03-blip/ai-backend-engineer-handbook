@@ -2177,6 +2177,24 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: index update, delete, rebuild, migration.
   Connection: Day103 measured quality; Day104 adds index update/delete/rebuild/migration; Day105 defends RAG
   against injection and leakage.
+  Completed at guided classroom Level 2 and local integration Level 3 using the
+  same A/B/C refund source and Q1–Q3 ruler throughout one G1→G2 Generation
+  evolution. Durable source, authorization and deletion facts remain authoritative; a frozen
+  `S/P/E/IS/W/D` BuildSnapshot drives an immutable shadow Generation, Provider seal, independent exact-ID/count/
+  content/metadata/provenance read-back, Day103 evaluation and READY gate. Application-owned CAS atomically
+  changes the versioned pointer and lifecycle while Provider alias projection reconciles from database truth.
+  Leased/fenced ReadViews prevent mixed-Generation requests; Tombstones prevent rebuild resurrection; drain,
+  retention, rollback eligibility and three deletion-evidence scopes remain explicit. Frozen L2 evidence is
+  `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`: 73/73 focused tests, 10/10
+  seed and the deterministic example PASS. Final repository verification after
+  L3 ran 1245 tests with `OK (skipped=7)` on the local Python 3.11.5 fallback;
+  all 20 seed evaluators and all six saved replays passed. The bounded local L3
+  run on PostgreSQL 16.15/pgvector 0.8.7 passed 32/32 adapter unit tests, 7/7
+  real integration tests, 17/17 runner gates and container restart replay.
+  Python 3.12 CI is NOT RUN. PostgreSQL HA/restore, distributed failure
+  recovery, physical purge, production-size ANN/load, zero-downtime production
+  migration, real traffic and production remain NOT RUN or
+  `MORE_EVIDENCE_NEEDED`. Next: Day105.
 - Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries.
   Scope: prompt injection via documents, poisoned documents, data-leakage boundaries.
   Connection: Day104 kept the index correct; Day105 adds RAG security boundaries; Day106 integrates the

@@ -1,0 +1,103 @@
+{
+  "claim_boundary": "Deterministic evidence proves immutable-generation identity, Manifest read-back, READY gates, CAS activation, alias reconciliation, leased ReadView drain, logical deletion and serving-index absence mechanics. It does not prove real database isolation, a real vector Provider, physical erasure, zero downtime or production readiness.",
+  "day": 104,
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "example": {
+    "activation_outcome": "ACTIVATED",
+    "activation_record": {
+      "activation_id": "activate-G2",
+      "committer_fence": 1,
+      "digest": "sha256:43e844f40a478a3a3da4fd541939d22330d68a8fa77ebb1a3ca53e59b5421a92",
+      "from_revision": 7,
+      "to_revision": 8
+    },
+    "active_generation_state": "ACTIVE",
+    "active_pointer": {
+      "generation_id": "G2",
+      "revision": 8
+    },
+    "alias_projection_outcome": "ALREADY_APPLIED",
+    "build_snapshot": {
+      "authorization_snapshot": "P1",
+      "deletion_snapshot": "sha256:749928c637c4137586eafe993e506f521d23920f8dc6db4e346806a03b4478c5",
+      "deletion_snapshot_digest": "sha256:35d92585b24134fac236fc1aff92394d995ba147dd18042bbb2a386dac83db1a",
+      "embedding_contract": "E1",
+      "fingerprint": "sha256:ec63eec21a4f293060f781e61f63d5ece0d3a706bc0fcc0c908e855d7f05e9e4",
+      "index_schema": "IS1",
+      "source_snapshot": "S1",
+      "source_watermark": "W1"
+    },
+    "build_snapshot_fingerprint": "sha256:ec63eec21a4f293060f781e61f63d5ece0d3a706bc0fcc0c908e855d7f05e9e4",
+    "deletion_outcome": "VERIFIED",
+    "deletion_verification": {
+      "evidence_digest": "sha256:15d4c363426ac821fbada5fbebf0ddb2f77de2057ea6b3225330aa033ff5747f",
+      "evidence_ids": [
+        "delete-B-logical-release",
+        "delete-B-serving-absence"
+      ],
+      "policy_id": "day104-delete-policy-v1",
+      "required_scopes": [
+        "LOGICAL_RELEASE",
+        "SERVING_INDEX_ABSENCE"
+      ],
+      "snapshot_id": "sha256:749928c637c4137586eafe993e506f521d23920f8dc6db4e346806a03b4478c5"
+    },
+    "evaluation_ruler_fingerprint": "sha256:8a3039a34c951597346ea101ed1a25b6edd6877d91af8643ff98f81aac5bbc72",
+    "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+    "fixture_production_eligible": false,
+    "generation_evidence": {
+      "G1": {
+        "artifact_fingerprint": "sha256:9545e62c800f713f743878c9668152a366a3ef0d19aad9bc3166046bd09d7972",
+        "evaluation_evidence_digest": "sha256:8370546aed6c2903e3df973e94462600af180c45e264217e11af8b19f61453ab",
+        "evaluation_report_digest": "sha256:cfd2c71c75693da60de91287bbdee304a61df17388c64e5a125eca3d1a844b13",
+        "evaluation_ruler_fingerprint": "sha256:8a3039a34c951597346ea101ed1a25b6edd6877d91af8643ff98f81aac5bbc72",
+        "manifest_digest": "sha256:b4aa75b8d4395d5c344c909d2e3f3c1ec4c272b369f73b86b19ebc13526e2f60",
+        "physical_namespace": "refund/G1",
+        "validation_record_digest": "sha256:8b4ebae0c078498c443ea1a1e23d23fa7d2f35a8f112da6a5c93677c74b282d2"
+      },
+      "G2": {
+        "artifact_fingerprint": "sha256:aaa74be1d078c7187c1081cc379038296160831650a9cbe780c5fc07a51ae5ce",
+        "evaluation_evidence_digest": "sha256:7108324dc9c53c011c80b2ba9190e20d82e8b5046b7eb3b463326389c7cf3524",
+        "evaluation_report_digest": "sha256:a2322f5e6ef29fb4bcebf7742d8d5120d46a8e7effb43014ef95b6fd9373b5bd",
+        "evaluation_ruler_fingerprint": "sha256:8a3039a34c951597346ea101ed1a25b6edd6877d91af8643ff98f81aac5bbc72",
+        "manifest_digest": "sha256:b4aa75b8d4395d5c344c909d2e3f3c1ec4c272b369f73b86b19ebc13526e2f60",
+        "physical_namespace": "refund/G2",
+        "validation_record_digest": "sha256:b4483af69fc384449237a8a7c6b70c2749c7fe02370886ede0ae800705358743"
+      }
+    },
+    "old_generation_state": "RETIRED",
+    "physical_purge": "NOT_RUN",
+    "production_readiness": "MORE_EVIDENCE_NEEDED",
+    "provider_alias": "G2",
+    "raw_content_logged": false,
+    "raw_vectors_logged": false,
+    "read_view": {
+      "final_fencing_token": 2,
+      "final_status": "CLOSED",
+      "generation_id": "G1",
+      "pointer_revision": 7
+    },
+    "ready_generations": [
+      "G1",
+      "G2"
+    ],
+    "real_database": "NOT_RUN",
+    "real_vector_provider": "NOT_RUN",
+    "retirement_outcome": "RETIRED"
+  },
+  "example_checksum": "sha256:e10241aef4a74288c21b6086c9f01fffc9a39c816d7a44fd3dd238e7564170a9",
+  "fixture_production_eligible": false,
+  "not_run": [
+    "real PostgreSQL transaction isolation",
+    "real vector database and ANN",
+    "distributed leases and multi-process crash recovery",
+    "physical purge across caches and retained backups",
+    "latency, capacity, cost and error-rate gates",
+    "production traffic"
+  ],
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "raw_content_logged": false,
+  "raw_vectors_logged": false,
+  "report_checksum": "sha256:2faf8b4f538de1c5340596eb9b74ec5331fb23ba70a04bbd0fb97569359e7140",
+  "scenario_id": "day104-refund-index-generation-lifecycle-v1"
+}

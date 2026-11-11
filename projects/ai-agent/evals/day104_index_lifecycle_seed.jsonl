@@ -1,0 +1,10 @@
+{"case_id":"normal-migration","expected":{"activation_outcome":"ACTIVATED","active_generation":"G2","pointer_revision":8,"retirement_outcome":"RETIRED"}}
+{"case_id":"exact-id-substitution","expected":{"integrity_matches":false}}
+{"case_id":"content-drift","expected":{"integrity_matches":false}}
+{"case_id":"metadata-drift","expected":{"integrity_matches":false}}
+{"case_id":"provenance-drift","expected":{"integrity_matches":false}}
+{"case_id":"tombstone-resurrection","expected":{"integrity_matches":false}}
+{"case_id":"sealed-late-write","expected":{"provider_outcome":"SEALED"}}
+{"case_id":"inbox-exact-replay","expected":{"inbox_outcome":"EXACT_REPLAY"}}
+{"case_id":"inbox-payload-conflict","expected":{"inbox_outcome":"IDENTITY_CONFLICT"}}
+{"case_id":"evidence-boundary","expected":{"physical_purge":"NOT_RUN","real_database":"NOT_RUN","real_vector_provider":"NOT_RUN","production_readiness":"MORE_EVIDENCE_NEEDED"}}

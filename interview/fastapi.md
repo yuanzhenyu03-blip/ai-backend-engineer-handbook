@@ -3572,3 +3572,48 @@ learner restated hard gates, slices and `INCONCLUSIVE` correctly. This is guided
 evaluator or model-quality evidence.
 
 Related: [Day103 lesson](../docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md).
+
+## Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C)
+
+### Beginner: Why is a vector index derived state rather than durable truth?
+
+**Student's original idea:** S1 is the verified persistent fact and must correct G1; changes in the retrieval
+view must not rewrite source truth.
+
+**Strong answer:** The application source owns business truth. A vector index is a versioned materialized view
+built from frozen source, authorization, embedding, schema and deletion state. It may be durable on disk, but it
+must remain replaceable and must never rewrite source truth merely to make retrieval appear consistent.
+
+### Intermediate: Why must each request pin one index Generation?
+
+**Student's original idea:** Keep reading G1 so one request does not contain old and new data.
+
+**Strong answer:** Acquire a request-scoped ReadView atomically with the application pointer revision and ACTIVE
+state. Carry the same Generation through retrieval, grounding and release. A mid-request cutover affects only new
+requests; if current authorization invalidates the pinned data, reject and rerun the whole attempt rather than
+splicing results from two Generations.
+
+### Senior: Design safe activation and rollback
+
+**Student's demonstrated model:** Build a sealed shadow Generation, verify exact IDs/count/content/metadata/
+provenance, run the unchanged Day103 ruler, mark READY, CAS the pointer, pin new requests, drain old ReadViews and
+retire only after zero readers and retention. Reconcile the Provider alias from application database truth.
+
+**Strong answer:** Bind the candidate to one BuildSnapshot and Provider checkpoint, require independent Manifest
+and quality evidence, then atomically commit pointer revision, target ACTIVE, previous DRAINING, ActivationRecord
+and Outbox. Rollback is another forward CAS. It is forbidden if the old Generation violates current source,
+authorization, Tombstone or query-contract facts; in that case keep release closed and roll forward.
+
+### Common weak answer and follow-up
+
+“Rebuild the active collection, switch the alias, and switch back if metrics fall.” Ask where durable truth lives,
+how partial visibility is prevented, which identities the Manifest and evaluation bind, what happens after a lost
+alias ACK, how one request avoids mixed generations, and whether rollback re-exposes deleted or revoked data.
+
+### Classroom interview result
+
+The learner completed the three English questions with terminology corrections around Outbox wake-up signals,
+pointer ownership and request-scoped authorization. The 90/100 score records guided mechanics mastery, not real
+database/vector integration or production evidence.
+
+Related: [Day104 lesson](../docs/fastapi/day104-index-update-delete-rebuild-and-migration.md).
