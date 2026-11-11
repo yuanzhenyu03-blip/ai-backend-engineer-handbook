@@ -1,0 +1,517 @@
+{
+  "schema_version": "day104-l3-evidence.v1",
+  "scenario_id": "day104-refund-index-generation-lifecycle-l3-v1",
+  "run_id": "day104-l3-20261111T090329304964Z",
+  "overall_status": "PASS",
+  "evidence_level": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR",
+  "started_at": "2026-11-11T09:03:29.304964+00:00",
+  "completed_at": "2026-11-11T09:04:00+00:00",
+  "baselines": {
+    "day99_pgvector_selection": {
+      "evidence_path": "projects/ai-agent/evidence/day99-vector-store-selection-matrix.json",
+      "selected_candidate_id": "postgresql-pgvector-0.8.7",
+      "outcome": "PROVISIONAL_SELECTED",
+      "deployment_mode": "SELF_HOSTED_POSTGRES",
+      "real_database_execution_at_selection": "NOT_RUN"
+    },
+    "day104_level_2": {
+      "evidence_path": "projects/ai-agent/evidence/day104-index-lifecycle-report.json",
+      "report_checksum": "sha256:2faf8b4f538de1c5340596eb9b74ec5331fb23ba70a04bbd0fb97569359e7140",
+      "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE"
+    }
+  },
+  "environment": {
+    "docker_engine_version": "29.7.2",
+    "docker_compose_version": "5.5.0",
+    "image_reference": "pgvector/pgvector:0.8.7-pg16",
+    "image_digest": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+    "python_version": "3.11.5",
+    "database_driver": "psycopg2-binary",
+    "database_driver_version": "2.9.10",
+    "postgresql_server_version": "16.15",
+    "postgresql_server_version_num": 160015,
+    "pgvector_extension_version": "0.8.7",
+    "transaction_isolation": [
+      "READ COMMITTED",
+      "REPEATABLE READ"
+    ],
+    "database_identity_digest": "sha256:62c5db9be78130efae214c23494407a6c4f27ffc8f2f9c3aa7f7c58a0e99e6b0"
+  },
+  "scenario": {
+    "eligible_occurrence_ids": [
+      "A@v1",
+      "C@v1"
+    ],
+    "tombstoned_occurrence_ids": [
+      "B@v1"
+    ],
+    "queries": {
+      "Q1": [
+        "A@v1"
+      ],
+      "Q2": [
+        "C@v1"
+      ],
+      "Q3": [
+        "A@v1",
+        "C@v1"
+      ]
+    }
+  },
+  "identities": {
+    "source_snapshot": {
+      "identity": "S1",
+      "digest": "sha256:bd25bb0d8a74204fe7f31b4aa466b4caa0a19dee754e779a861866fc2f6bc8b5"
+    },
+    "authorization_snapshot": {
+      "identity": "P1",
+      "digest": "sha256:d8646daf21a79bc8d8fd2269ba0602803071759a0213bec228ea0c569860a819"
+    },
+    "embedding_contract": {
+      "identity": "E1",
+      "digest": "sha256:c5e5e5177ec75d792d7c945d6003dae382529c1d6a4fae65ba9c0b22645fb269"
+    },
+    "index_schema": {
+      "identity": "IS1",
+      "digest": "sha256:0adf67bf10d14cee7d80ce3148c5c2b1676fddce885756927ea210eb3877352b"
+    },
+    "source_watermark": {
+      "identity": "W1",
+      "digest": "sha256:3115a168e7f979b477ec3eca9094898a199405400067be5ecdbeccde2a451eeb"
+    },
+    "deletion_snapshot": {
+      "identity": "D1",
+      "digest": "sha256:1b54d30c6ae49748c8023361e8e347a43690192eabbf452298ec7e66e008c2fe"
+    },
+    "build_snapshot": {
+      "identity": "BS1",
+      "digest": "sha256:845a17d4664467ffe37aebaa4e4901c761829ec148ed6879f943deb7fa9fa0b2"
+    },
+    "evaluation_ruler": {
+      "identity": "Day103-Q1-Q2-Q3-R1",
+      "digest": "sha256:991ed63f34870154e42f58d77d76386c24a0b80b32c966476d9bf71d98a01635"
+    },
+    "generations": [
+      {
+        "generation_id": "G1",
+        "physical_namespace_digest": "sha256:9d90168c003c3b065e2de9ee3723eff408c302c690a2e8f7916f81ee19f6006c",
+        "build_snapshot_digest": "sha256:845a17d4664467ffe37aebaa4e4901c761829ec148ed6879f943deb7fa9fa0b2",
+        "manifest_digest": "sha256:2c71e6400e6edafa5d37a7fe15bd1765df2bbf6588e0a943fcd579c52a4979ff",
+        "validation_digest": "sha256:6f64c3bd440033b3e808ef4f511e7b89b3c34e4530862aafc60b54eef831db25",
+        "evaluation_digest": "sha256:7e7e8a408a581098fe0af6aafbaef604a317621cb4d6e9a436c83b2af9669bbb",
+        "lifecycle_state": "RETIRED",
+        "state_version": 8
+      },
+      {
+        "generation_id": "G2",
+        "physical_namespace_digest": "sha256:19ca9726c7d7d3b19d2055af98e8ec397d532409c91f075205b94b1091a1408d",
+        "build_snapshot_digest": "sha256:845a17d4664467ffe37aebaa4e4901c761829ec148ed6879f943deb7fa9fa0b2",
+        "manifest_digest": "sha256:2c71e6400e6edafa5d37a7fe15bd1765df2bbf6588e0a943fcd579c52a4979ff",
+        "validation_digest": "sha256:8a27db068550d7129cd5f37d1d7bfc2d8dde69fb8aa46004856a4d30117a3176",
+        "evaluation_digest": "sha256:81332c8dd06bc30b6cd22a160729e06310bcb44b527665cc908df4af392023a2",
+        "lifecycle_state": "ACTIVE",
+        "state_version": 10
+      }
+    ],
+    "pointer": {
+      "identity": "refund-serving@G2/r8",
+      "digest": "sha256:7f9b602397a75b169f7f0764c70c4ab6ef079139f272cd2b09b9007480316eda"
+    },
+    "activation": {
+      "identity": "G2-activation-at-r8",
+      "digest": "sha256:83b8a8a600c7a4039a9ed86718a1c910e8c0d69e1e3d37ef0a38d049b5bc52cb"
+    },
+    "read_views": [
+      {
+        "identity": "read-view-old-G1",
+        "digest": "sha256:deda9e9ff763b94aec419c8fd55b74d6deeca71efd5e3c1233cfd7611227b78f"
+      },
+      {
+        "identity": "read-view-new-G2",
+        "digest": "sha256:b2fd3f62301b7ed8fa80410536403baaa2232ab2ffa77d597e9bd1dc1d34de82"
+      },
+      {
+        "identity": "read-view-abandoned-G2-expired",
+        "digest": "sha256:163e49ee5ff9c248c8f9e76ed4f440329e2badd855c1a5298e86313630ff15cd"
+      }
+    ],
+    "deletion": {
+      "identity": "delete-B-v1@D1/VERIFIED",
+      "digest": "sha256:d2ccede26e4413684b748a9781bbda6fb088bee54f51e441e80e5de449e07798"
+    }
+  },
+  "hard_gates": {
+    "day99_candidate_identity_match": {
+      "status": "PASS",
+      "safe_reason": "Runtime readback matched the Day99 PostgreSQL 16 and pgvector 0.8.7 candidate boundary.",
+      "evidence_ids": [
+        "component-version-readback"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+        "sha256:f96f8c94a1d32d86cc9528acb60813611732b6c79ae1c1f6f296b3df89d3effc"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "schema_migration_integrity": {
+      "status": "PASS",
+      "safe_reason": "The isolated schema installed with its tables, constraints and triggers and the exercised repository contract completed.",
+      "evidence_ids": [
+        "installed-day104-l3-schema"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:2b5a853b6b6c2d258a0371b4d260a54ab45739d1366b6486ab3d636eece09f48"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "build_snapshot_repeatable_read": {
+      "status": "PASS",
+      "safe_reason": "A repeatable-read transaction retained one frozen BuildSnapshot while a concurrent snapshot changed, then CAS restoration was verified.",
+      "evidence_ids": [
+        "two-connection-repeatable-read-and-cas-restore"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:845a17d4664467ffe37aebaa4e4901c761829ec148ed6879f943deb7fa9fa0b2"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "physical_generation_immutability": {
+      "status": "PASS",
+      "safe_reason": "Both repository and database trigger rejected a late write to the sealed physical generation.",
+      "evidence_ids": [
+        "sealed-write-rejected"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:35c958cbea73fc16fc0b9ddc875a498d61cc636906b28bee3da9dd31950ec41a"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "manifest_exact_readback": {
+      "status": "PASS",
+      "safe_reason": "Read-back matched count, exact occurrence IDs and content, metadata and provenance digests for both sealed generations.",
+      "evidence_ids": [
+        "generation-manifest-readback-G1",
+        "generation-manifest-readback-G2"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:2c71e6400e6edafa5d37a7fe15bd1765df2bbf6588e0a943fcd579c52a4979ff"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "day103_evaluation_hard_gates": {
+      "status": "PASS",
+      "safe_reason": "The unchanged Day103 ruler passed Q1, Q2 and Q3 under exact and HNSW retrieval with all critical slices and hard gates satisfied.",
+      "evidence_ids": [
+        "Q1-Q2-Q3-query-matrix",
+        "day103-critical-slices-and-hard-gates"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:991ed63f34870154e42f58d77d76386c24a0b80b32c966476d9bf71d98a01635",
+        "sha256:7e7e8a408a581098fe0af6aafbaef604a317621cb4d6e9a436c83b2af9669bbb",
+        "sha256:0a7ba395ca94d518b4cf45f7a2c01696897e7c694ef34d10ee7bbd6d73b2456e",
+        "sha256:81332c8dd06bc30b6cd22a160729e06310bcb44b527665cc908df4af392023a2",
+        "sha256:10372180f6339acf51662704633f396c484cd722273feeb47b08b7fb94180a69"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "ready_freshness_guard": {
+      "status": "PASS",
+      "safe_reason": "READY and activation rejected a changed evaluation ruler and a stale BuildSnapshot instead of accepting check-then-change drift.",
+      "evidence_ids": [
+        "wrong-ruler-rejected",
+        "stale-build-snapshot-rejected"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:64be87034ca350d66014630ac1bfe23a5b2dd48332350c8d0ba918ecacccb8aa",
+        "sha256:7275e9934f625633b885014e681df6c8ce4c143dfa465a9bcbf4a5eb7b24b143"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "activation_transaction_atomicity": {
+      "status": "PASS",
+      "safe_reason": "An injected activation-record failure rolled back lifecycle, pointer, activation record and Outbox as one database transaction.",
+      "evidence_ids": [
+        "activation-record-fault-rolls-back-transaction"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:cfd7d4736cecd0c32af1aaac0e50f7efbebf8784e016b9a5ed1d57829838ff69"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "concurrent_pointer_cas": {
+      "status": "PASS",
+      "safe_reason": "Two concurrent activators produced exactly one CAS winner and one stale-pointer rejection.",
+      "evidence_ids": [
+        "two-connection-activation-race"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:7836f1d7a9a3c246bd746891b150602e89463c274f1e719116911e9415e42b41",
+        "sha256:83b8a8a600c7a4039a9ed86718a1c910e8c0d69e1e3d37ef0a38d049b5bc52cb"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "lease_fencing": {
+      "status": "PASS",
+      "safe_reason": "Lease rotation advanced the fencing token and rejected the stale committer token.",
+      "evidence_ids": [
+        "activation-lease-rotation"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:2d18402369a9eb8235d5ec23cd201b7eaff15ca6379e2472284ebb871efa796d"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "read_view_single_generation": {
+      "status": "PASS",
+      "safe_reason": "Each request used its durable ReadView and returned results from exactly one pinned generation.",
+      "evidence_ids": [
+        "old-G1-new-G2-read-views"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:deda9e9ff763b94aec419c8fd55b74d6deeca71efd5e3c1233cfd7611227b78f",
+        "sha256:b2fd3f62301b7ed8fa80410536403baaa2232ab2ffa77d597e9bd1dc1d34de82"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "drain_and_retirement": {
+      "status": "PASS",
+      "safe_reason": "G1 retired only after its reader count reached zero; the expired-view reaper decremented one abandoned lease exactly once.",
+      "evidence_ids": [
+        "G1-reader-drain-retire",
+        "expired-read-view-reaper"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:312a40330bab8454f7e9d1cdc762fefe8685c8cda345139bc5ed1278616b36ca",
+        "sha256:163e49ee5ff9c248c8f9e76ed4f440329e2badd855c1a5298e86313630ff15cd"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "pointer_projection_authority": {
+      "status": "PASS",
+      "safe_reason": "The database pointer remained authoritative while the provider projection reconciled to G2/r8.",
+      "evidence_ids": [
+        "database-pointer-remains-authoritative"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:7f9b602397a75b169f7f0764c70c4ab6ef079139f272cd2b09b9007480316eda"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "outbox_inbox_reconciliation": {
+      "status": "PASS",
+      "safe_reason": "A stale Outbox claim was fenced, exact replay converged, a different digest conflicted, and both durable events reached Inbox and DISPATCHED.",
+      "evidence_ids": [
+        "outbox-reclaim-inbox-replay-and-conflict",
+        "two-dispatched-outbox-two-inbox"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:7aa67580e239715effdd914ed2a7d1a3f8142a29e7d709b643202c4885bbf272"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "deletion_no_resurrection": {
+      "status": "PASS",
+      "safe_reason": "D1 remained VERIFIED, B@v1 was absent from both generation manifests and retrieval, and restart replay did not resurrect it.",
+      "evidence_ids": [
+        "D1-excludes-B-from-both-generations-and-retrieval",
+        "deletion-evidence-logical-release",
+        "deletion-evidence-serving-index-absence"
+      ],
+      "evidence_digests": [
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:d2ccede26e4413684b748a9781bbda6fb088bee54f51e441e80e5de449e07798",
+        "sha256:1b54d30c6ae49748c8023361e8e347a43690192eabbf452298ec7e66e008c2fe"
+      ],
+      "observed_at": "2026-11-11T09:03:38+00:00"
+    },
+    "restart_durability_and_idempotency": {
+      "status": "PASS",
+      "safe_reason": "After a real container restart, a new repository connection recovered G2/r8, lifecycle state, manifests, tombstone, Outbox/Inbox and exact plus HNSW query results.",
+      "evidence_ids": [
+        "container-restart-new-repository-readback",
+        "restart-Q1-Q2-Q3-exact-and-hnsw"
+      ],
+      "evidence_digests": [
+        "sha256:1950873817bac0ba7bc6fee7c1c4b3947447bd8ce0974bb7f0adf55a8e2a1bce",
+        "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507",
+        "sha256:62c5db9be78130efae214c23494407a6c4f27ffc8f2f9c3aa7f7c58a0e99e6b0",
+        "sha256:2c71e6400e6edafa5d37a7fe15bd1765df2bbf6588e0a943fcd579c52a4979ff"
+      ],
+      "observed_at": "2026-11-11T09:03:38+00:00"
+    }
+  },
+  "deletion_evidence": {
+    "verification_policy_id": "day104-l3-serving-absence-v1",
+    "logical_release": {
+      "status": "PASS",
+      "safe_reason": "The durable deletion ledger was D1 and B@v1 was excluded from the active logical release.",
+      "evidence_ids": [
+        "deletion-evidence-logical-release"
+      ],
+      "evidence_digests": [
+        "sha256:d2ccede26e4413684b748a9781bbda6fb088bee54f51e441e80e5de449e07798"
+      ],
+      "observed_at": "2026-11-11T09:03:30.028046+00:00"
+    },
+    "serving_index_absence": {
+      "status": "PASS",
+      "safe_reason": "B@v1 was absent from G2 manifest read-back and Q1, Q2 and Q3 serving results under exact and HNSW modes.",
+      "evidence_ids": [
+        "deletion-evidence-serving-index-absence"
+      ],
+      "evidence_digests": [
+        "sha256:d2ccede26e4413684b748a9781bbda6fb088bee54f51e441e80e5de449e07798",
+        "sha256:2c71e6400e6edafa5d37a7fe15bd1765df2bbf6588e0a943fcd579c52a4979ff"
+      ],
+      "observed_at": "2026-11-11T09:03:38+00:00"
+    },
+    "physical_purge": {
+      "status": "NOT_RUN",
+      "safe_reason": "This local fixture did not test physical erasure across WAL, backups, replicas, caches or managed storage.",
+      "evidence_ids": [],
+      "evidence_digests": [],
+      "observed_at": null
+    }
+  },
+  "test_runs": [
+    {
+      "runner_id": "day104-l3-unit",
+      "command_digest": "sha256:30f0deb48362da0061d68f729cd8f965f62d93c9dc92ff1a0e72205851cc55dd",
+      "status": "PASS",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0,
+      "report_digest": "sha256:7384c8edcdce8ae783fc17db68eb75048d289fe95014372ac3474992e8786de9"
+    },
+    {
+      "runner_id": "day104-l3-integration",
+      "command_digest": "sha256:5ade90d9c803f4b4461ab578c208d84d7bb00fe02376c0b57dbf05e89d452bb7",
+      "status": "PASS",
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "report_digest": "sha256:2c32486b4946af6f1d6718b5eb3dddf8d0561fff22b576bb480c261aef5c5e3a"
+    },
+    {
+      "runner_id": "day104-l3-runner",
+      "command_digest": "sha256:77905867d86584b3e497263e3e427b51d23c6e40366eae3f54eaf34e7891b5de",
+      "status": "PASS",
+      "passed": 17,
+      "failed": 0,
+      "skipped": 0,
+      "report_digest": "sha256:eeda55c84c37ae1eebaf81750e61f26a539276ded3f12f56e9a85789aa165507"
+    },
+    {
+      "runner_id": "day104-l3-restart-replay",
+      "command_digest": "sha256:f8351f420df194b0f35b31a694a43d457e315411e21bedb0d6f3df13994e24cf",
+      "status": "PASS",
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "report_digest": "sha256:1950873817bac0ba7bc6fee7c1c4b3947447bd8ce0974bb7f0adf55a8e2a1bce"
+    }
+  ],
+  "failure_injections": [
+    {
+      "checkpoint_id": "sealed-generation-late-write",
+      "expected_outcome": "reject mutation after seal",
+      "observed_outcome": "repository conflict and database trigger rejection",
+      "status": "PASS",
+      "evidence_digest": "sha256:35c958cbea73fc16fc0b9ddc875a498d61cc636906b28bee3da9dd31950ec41a"
+    },
+    {
+      "checkpoint_id": "wrong-evaluation-ruler",
+      "expected_outcome": "reject READY under changed ruler",
+      "observed_outcome": "identity conflict",
+      "status": "PASS",
+      "evidence_digest": "sha256:64be87034ca350d66014630ac1bfe23a5b2dd48332350c8d0ba918ecacccb8aa"
+    },
+    {
+      "checkpoint_id": "stale-build-snapshot-activation",
+      "expected_outcome": "reject activation after current BuildSnapshot changed",
+      "observed_outcome": "stale pointer",
+      "status": "PASS",
+      "evidence_digest": "sha256:7275e9934f625633b885014e681df6c8ce4c143dfa465a9bcbf4a5eb7b24b143"
+    },
+    {
+      "checkpoint_id": "activation-record-write-fault",
+      "expected_outcome": "roll back lifecycle, pointer, activation and Outbox",
+      "observed_outcome": "no partial durable state",
+      "status": "PASS",
+      "evidence_digest": "sha256:cfd7d4736cecd0c32af1aaac0e50f7efbebf8784e016b9a5ed1d57829838ff69"
+    },
+    {
+      "checkpoint_id": "concurrent-pointer-cas",
+      "expected_outcome": "allow exactly one activation winner",
+      "observed_outcome": "ACTIVATED plus STALE_POINTER",
+      "status": "PASS",
+      "evidence_digest": "sha256:7836f1d7a9a3c246bd746891b150602e89463c274f1e719116911e9415e42b41"
+    },
+    {
+      "checkpoint_id": "stale-activation-fence",
+      "expected_outcome": "reject old committer token",
+      "observed_outcome": "stale fence",
+      "status": "PASS",
+      "evidence_digest": "sha256:2d18402369a9eb8235d5ec23cd201b7eaff15ca6379e2472284ebb871efa796d"
+    },
+    {
+      "checkpoint_id": "expired-read-view",
+      "expected_outcome": "expire abandoned lease and decrement once",
+      "observed_outcome": "one ReadView reaped",
+      "status": "PASS",
+      "evidence_digest": "sha256:312a40330bab8454f7e9d1cdc762fefe8685c8cda345139bc5ed1278616b36ca"
+    },
+    {
+      "checkpoint_id": "stale-outbox-claim",
+      "expected_outcome": "fence replaced worker and converge exact replay",
+      "observed_outcome": "old worker rejected; exact replay converged; digest conflict rejected",
+      "status": "PASS",
+      "evidence_digest": "sha256:7aa67580e239715effdd914ed2a7d1a3f8142a29e7d709b643202c4885bbf272"
+    }
+  ],
+  "artifacts": {
+    "schema_migration_digest": "sha256:2b5a853b6b6c2d258a0371b4d260a54ab45739d1366b6486ab3d636eece09f48",
+    "integration_runner_digest": "sha256:5c96eaa36947c33ea97cdc2d39d6d5ea1203e4512c4b5a13958b0a896ad4ce7a",
+    "test_report_digest": "sha256:efefbddbfdf090390317f8d76c2f784327fc2236fb7c530eaaf6bb81e4b9d147",
+    "evidence_replay_runner_digest": "sha256:265da75505935a9bedec2d87b85d1fc49bbe6013a8e2e1f5a0023ad6d9ebfbef"
+  },
+  "cleanup": {
+    "status": "PASS",
+    "safe_reason": "At 2026-11-11T09:04:00+00:00 the isolated Day104 L3 container and named volume were both confirmed absent.",
+    "completed_at": "2026-11-11T09:04:00+00:00",
+    "removed_resource_identity_digests": [
+      "sha256:f7497aa288c8d0975256ab5ffb6e814993745eded2fe6cc4ff44bde461a6aec1",
+      "sha256:dff6450346ca3192a5f8fc263168f10f90d9ec0aef4266ba6f4c9e7f2bf347e5"
+    ]
+  },
+  "level_4": {
+    "ha_replica_failover_and_restore": "NOT_RUN",
+    "multi_node_partition_and_split_brain": "NOT_RUN",
+    "production_iam_tls_and_secret_rotation": "NOT_RUN",
+    "physical_purge_across_wal_backups_and_caches": "NOT_RUN",
+    "production_scale_recall_capacity_cost_and_soak": "NOT_RUN",
+    "canary_or_blue_green_production_traffic": "NOT_RUN",
+    "incident_response_and_observation_window": "NOT_RUN"
+  },
+  "claim_boundary": "Local Docker evidence for pinned PostgreSQL, pgvector, driver, schema and fixture only; no production-readiness or physical-purge claim.",
+  "fixture_production_eligible": false,
+  "raw_content_logged": false,
+  "raw_vectors_logged": false,
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "report_checksum": "sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85",
+  "replayed_report_checksum": "sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85"
+}

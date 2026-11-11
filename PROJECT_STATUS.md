@@ -3,11 +3,14 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day103 are complete.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day104 are complete.
 
-Day59–Day103 are complete at their recorded evidence levels. Day103 adds independently owned evaluation
-labels, deterministic retrieval/answer/Citation/Abstention metrics, slice analysis, hard gates and replayable
-regression decisions on the Day95–Day102 base. Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day104 are complete at their recorded evidence levels. Day104 adds
+immutable index-generation lifecycle, Tombstone propagation, independent
+read-back, Day103-bound release evidence, atomic pointer activation, leased
+ReadViews, drain/retirement and rollback controls on the Day95–Day103 base. Its
+policy mechanics passed Level 2 and its pinned local PostgreSQL/pgvector lab
+passed Level 3. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 Phase record:
 Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
@@ -16,8 +19,30 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — next up.
-Most recent classroom lesson: Day103 — Retrieval Evaluation and RAG Answer Evaluation.
+Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C) — next up.
+Most recent classroom lesson: Day104 — Index Update, Delete, Rebuild and Migration.
+
+Day104 is COMPLETE at guided classroom Level 2 and local integration Level 3. Lesson:
+`docs/fastapi/day104-index-update-delete-rebuild-and-migration.md`. The continuing Artifact treats durable source,
+authorization and deletion facts as truth and every index Generation as a rebuildable materialized view. A frozen
+`S/P/E/IS/W/D` BuildSnapshot drives an off-path build, independent exact-ID/content/metadata/provenance read-back,
+Day103 evaluation, READY gate and application-owned pointer CAS. New requests acquire one leased, fenced ReadView;
+old requests drain on their pinned Generation before retention-gated retirement. Tombstones prevent rebuild
+resurrection, while logical release, serving-index absence and physical purge remain separate evidence scopes.
+Frozen L2 baseline: 73/73 focused tests, 10/10 seed and the deterministic
+example PASS. Final repository verification after L3: `Ran 1245 tests` —
+`OK (skipped=7)` on the local Python 3.11.5 fallback; all 20 seed evaluators
+and all six saved evidence replays PASS. Python 3.12 CI is `NOT_RUN`. That L2 evidence is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. The saved L3 report at
+`projects/ai-agent/evidence/day104-l3-integration-report.json` records
+PostgreSQL 16.15, pgvector 0.8.7, 32/32 adapter unit tests, 7/7 real
+integration tests, 17/17 runner gates and a passing database-container restart
+replay. Its offline verifier is
+`projects/ai-agent/evals/run_day104_l3_evidence_replay.py`; CI runs that replay
+without starting Docker. PostgreSQL HA/restore, distributed failure recovery,
+physical purge, production-size ANN/load, latency/capacity/cost/error rates,
+zero-downtime production migration, production traffic and all L4 evidence are
+`NOT_RUN` or `MORE_EVIDENCE_NEEDED`; readiness is `MORE_EVIDENCE_NEEDED`.
 
 Day103 is COMPLETE at guided classroom scope. Lesson:
 `docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md`. The continuing Artifact freezes a

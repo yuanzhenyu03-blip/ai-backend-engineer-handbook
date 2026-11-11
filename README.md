@@ -28,18 +28,21 @@ Current phase:
   final authorization/provenance guarded release. Day102 adds immutable Grounding Bundles, exact Claim-to-
   Citation links, independent source/semantic verification, partial answers and guarded release. Day103 adds a frozen
   independently labeled Q1–Q3 dataset, retrieval/answer/Citation/Abstention evaluators, slice analysis, non-compensable
-  hard gates, explicit regression decisions and content-safe replay evidence. Production readiness remains
+  hard gates, explicit regression decisions and content-safe replay evidence. Day104 keeps the same refund case and
+  adds immutable index Generations, BuildSnapshot/Manifest/read-back gates, Tombstones, atomic pointer activation,
+  leased ReadViews, drain/retirement and safe rollback mechanics, with bounded local PostgreSQL/pgvector L3
+  evidence. Production readiness remains
   `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day103 — Retrieval Evaluation and RAG Answer Evaluation](docs/fastapi/day103-retrieval-evaluation-and-rag-answer-evaluation.md)
+* [Day104 — Index Update, Delete, Rebuild and Migration](docs/fastapi/day104-index-update-delete-rebuild-and-migration.md)
 
-(For the completed classroom history Day01–Day103, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day104, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C; planned)
+* Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

@@ -1042,10 +1042,59 @@ evaluators and all four saved evidence replays pass on the local Python 3.11.5 f
 quality, independent human-label runtime, calibrated LLM judge, protected-data egress, latency/capacity/cost/
 error rates and production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.
 
+## Day104 Index Update, Delete, Rebuild and Migration
+
+Day104 keeps the same A/B/C refund-policy corpus and Q1–Q3 Day103 ruler while evolving one immutable index
+Generation at a time. A BuildSnapshot freezes source, authorization, embedding, index schema, watermark and
+deletion identities. The Builder writes an off-path namespace; the independent Validator reads back exact IDs,
+count, content, metadata and provenance digests from a sealed checkpoint. Only a candidate with current bindings,
+Manifest integrity and bound Day103 PASS evidence may enter READY.
+
+The application Committer atomically models pointer CAS, target ACTIVE, previous DRAINING, ActivationRecord and
+Outbox intent. Provider alias projection reconciles after commit from database truth. Leased/fenced ReadViews pin
+one request to one Generation; retirement waits for ledger drain and retention. Tombstones enter every future
+BuildSnapshot, and logical release, serving-index absence and physical purge remain separate evidence scopes.
+Rollback is another forward CAS and is rejected when the old Generation no longer matches current source,
+authorization or deletion facts.
+
+See the [design](docs/DAY104_INDEX_GENERATION_LIFECYCLE.md),
+[classroom record](docs/day104-index-generation-lifecycle-classroom-draft.md),
+[saved lifecycle report](evidence/day104-index-lifecycle-report.json),
+[validation](evidence/day104-validation.json),
+[L3 integration notes](docs/DAY104_L3_REAL_PGVECTOR_INTEGRATION.md),
+[saved L3 integration report](evidence/day104-l3-integration-report.json),
+[offline L3 replay](evals/run_day104_l3_evidence_replay.py),
+[repository update report](docs/DAY104_REPOSITORY_UPDATE_REPORT.md) and
+[Day105 handoff](docs/DAY104_TO_DAY105_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day104_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day104_seed_eval.py
+PYTHONPATH=src:. python3.12 evals/run_day104_evidence_replay.py
+PYTHONPATH=src:. python3.12 evals/run_day104_l3_evidence_replay.py
+PYTHONPATH=src:. python3.12 examples/day104_index_lifecycle.py
+```
+
+Frozen L2 baseline: 73/73 focused tests, 10/10 seed and the deterministic
+example PASS. Final repository verification after L3: `Ran 1245 tests` —
+`OK (skipped=7)` on the local Python 3.11.5 fallback; all 20 seed evaluators
+and all six saved evidence replays PASS. Python 3.12 CI is `NOT_RUN`. That policy layer is
+`EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. Separately, the local L3 run
+on PostgreSQL 16.15/pgvector 0.8.7 passed 32/32 adapter unit tests, 7/7 real
+integration tests, all 17 runner gates and a database-container restart replay;
+its evidence level is
+`EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR`. The CI workflow only
+replays the saved L3 evidence and never starts Docker. PostgreSQL HA/restore,
+distributed failure behavior, physical purge, production-size ANN/load,
+zero-downtime production migration, real traffic and production remain
+`NOT_RUN` or `MORE_EVIDENCE_NEEDED`; readiness remains
+`MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day104 index update/delete/rebuild/migration against the frozen Day103 baseline.
+- Begin Day105 RAG security against the frozen, auditable Day104 index-lifecycle baseline.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
-- Validate Python3.12 and real auth/DB/queue/Worker integration; the optional real Provider gate remains NOT RUN.
+- Validate Python 3.12 and broader real auth/queue/Worker integration; HA,
+  restore and optional external-Provider gates remain NOT RUN.
 - Add integration tests with mocked model responses.
 - Add deployment notes.

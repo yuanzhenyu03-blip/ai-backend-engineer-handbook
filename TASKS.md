@@ -10,19 +10,46 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day103 are
-complete and Day104 is planned.
+Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day104 are
+complete and Day105 is planned.
 
-Day59–Day103 are complete at their recorded evidence levels. Day103 added independent labels, deterministic
-retrieval/answer/Citation/Abstention metrics, slice analysis, hard gates and replayable regression decisions.
-Earlier evidence and NOT RUN boundaries remain recorded below.
+Day59–Day104 are complete at their recorded evidence levels. Day104 added
+immutable index Generations, BuildSnapshot/Manifest/read-back gates,
+Tombstones, pointer CAS, leased ReadViews, drain/retirement and safe rollback
+mechanics; its local PostgreSQL/pgvector Level 3 lab is complete. Earlier
+evidence and NOT RUN boundaries remain recorded below.
 
 ---
 
 ## Current Lesson
 
-Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — next up.
-Most recent classroom lesson: Day103 — Retrieval Evaluation and RAG Answer Evaluation.
+Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C) — next up.
+Most recent classroom lesson: Day104 — Index Update, Delete, Rebuild and Migration.
+
+Day104 completion record:
+
+- [x] Keep the entire lesson on one A/B/C refund-policy Generation evolution with Q1/Q2/Q3 and the Day103 ruler.
+- [x] Freeze `S/P/E/IS/W/D` in a BuildSnapshot before any off-path Generation build.
+- [x] Separate immutable Generation artifact facts from mutable lifecycle, pointer and reader state.
+- [x] Seal the Provider namespace and compare Builder-owned Expected facts with Validator-owned read-back facts.
+- [x] Require exact occurrence IDs plus count, content, metadata and provenance digests; reject B resurrection.
+- [x] Bind READY to current BuildSnapshot, seal/checkpoint/fence, Manifest and Day103 PASS evidence.
+- [x] Keep `INCONCLUSIVE` in VALIDATING; move only observed integrity or evaluation failure to FAILED.
+- [x] Atomically model pointer CAS, target ACTIVE, previous DRAINING, ActivationRecord and Outbox intent.
+- [x] Treat Provider alias as a reconciled projection of the application database pointer.
+- [x] Pin each request to one leased/fenced ReadView; block retirement until ledger drain and retention pass.
+- [x] Commit Tombstone, deletion intent and Outbox together; freeze deletion snapshots into future rebuilds.
+- [x] Separate logical release, serving-index absence and physical purge evidence.
+- [x] Allow rollback only as a new forward CAS when the retained Generation remains current and policy-eligible.
+- [x] Preserve the actual classroom reasoning, corrections, 90/100 learning assessment and Level 2 boundary.
+- [x] Preserve the frozen L2 baseline: 73/73 focused tests, 10/10 seed and the deterministic example PASS.
+- [x] Run the final post-L3 repository verification on the local Python 3.11.5 fallback: `Ran 1245 tests` —
+  `OK (skipped=7)`; all 20 seed evaluators and all six saved evidence replays PASS. Python 3.12 CI is NOT RUN.
+- [x] Release lesson, design, classroom record, example, evidence, Decision 022 and Day105 handoff.
+- [x] Complete Level 3 on PostgreSQL 16.15/pgvector 0.8.7: 32/32 adapter unit tests, 7/7 real integration tests,
+  17/17 runner gates and database-container restart replay PASS; save content-safe evidence and an offline replay.
+- [ ] Later Level 4: HA/restore, physical purge, production-size ANN/load, production traffic, failure drills,
+  observability, rollback and operating evidence.
 
 Day103 completion record:
 
@@ -336,11 +363,12 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day95–Day103 are documented at guided classroom scope and Phase 7C is in progress. Day104 is next; production
+Day95–Day104 are documented at guided classroom scope and Phase 7C is in progress. Day105 is next; production
 readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
-(Day104); Day103 is finished at guided classroom scope; Day59–70 are complete. Phase 6 (Day67–70) is COMPLETE.
+(Day105); Day104 is finished at guided classroom Level 2 and local integration Level 3; Day59–70 are complete.
+Phase 6 (Day67–70) is COMPLETE.
 The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 
 ---

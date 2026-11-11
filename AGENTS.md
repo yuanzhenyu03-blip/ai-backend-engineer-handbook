@@ -40,15 +40,18 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day103 — Retrieval Evaluation and RAG Answer Evaluation (guided classroom scope;
-  frozen independently labeled refund dataset; deterministic Retrieval, Answer, Citation and Abstention
-  evaluators; slice thresholds; hard gates; explicit regression decisions; content-safe replay; 27 focused
-  tests, 10/10 seed, 1133/1133 full suite, all 19 seed evaluators and all four saved evidence replays pass on the
-  local Python 3.11.5 fallback; Python 3.12 CI is NOT RUN; evidence is
-  EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE; real model quality, independent human-label runtime,
-  calibrated judge, protected egress, operations and production are NOT RUN; production readiness
-  MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C; Planned).
+- Last Completed Lesson: Day104 — Index Update, Delete, Rebuild and Migration (guided classroom Level 2 plus
+  bounded local PostgreSQL 16.15/pgvector 0.8.7 Level 3;
+  immutable BuildSnapshot-bound Generations; independent Manifest read-back; Day103 quality evidence; READY
+  gates; pointer CAS; alias reconciliation; leased ReadViews; Tombstone/deletion evidence; drain, rollback and
+  retirement; frozen L2 baseline 73/73 focused tests and 10/10 seed; final post-L3 repository verification
+  `Ran 1245 tests`, `OK (skipped=7)`, all 20 seed evaluators and all six saved evidence replays pass on the local
+  Python 3.11.5 fallback; L3 also passed 32/32 adapter unit tests, 7/7 real integration tests, 17/17 runner gates
+  and container restart replay; Python 3.12 CI is NOT RUN; HA/restore, distributed recovery, physical purge,
+  production-size load, zero-downtime production migration, operations and production traffic remain NOT RUN;
+  production readiness MORE_EVIDENCE_NEEDED).
+- Current / Next Lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage
+  Boundaries (Phase 7C; Planned).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /
   MORE_EVIDENCE_NEEDED.
@@ -74,7 +77,7 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day103 are complete at their recorded evidence levels and assessment scope. Day104 is current/next; do
+- Day59–Day104 are complete at their recorded evidence levels and assessment scope. Day105 is current/next; do
   not skip ahead.
 - Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries, and Day86 added security admission, Egress, Sandbox and incident-containment boundaries outside the model.
 

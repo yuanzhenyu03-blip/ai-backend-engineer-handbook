@@ -1,0 +1,76 @@
+{
+  "classroom_positive_fixture": {
+    "production_eligible": false,
+    "purpose": "INDEX_LIFECYCLE_IDENTITY_STATE_AND_RELEASE_INVARIANTS_ONLY",
+    "scenario": "fixed A/B/C refund policy corpus, Q1/Q2/Q3 ruler and G1 to G2 generation evolution"
+  },
+  "claim_boundary": "Deterministic evidence proves process-local identity, Manifest, READY, CAS, fencing, deletion-policy, ReadView and reconciliation mechanics. It does not prove real database or vector-provider behavior, physical erasure, zero downtime or production readiness.",
+  "date": "2026-11-11",
+  "day": 104,
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "executed": {
+    "all_saved_evidence_replays": {
+      "replays": 5,
+      "status": "PASS"
+    },
+    "all_seed_evaluators": {
+      "evaluators": 20,
+      "status": "PASS"
+    },
+    "black_new_day104_surface": "PASS_14_FILES_UNCHANGED",
+    "compileall_day104_and_repository_python_surface": "PASS",
+    "credential_pattern_scan": "PASS_35_FILES_NO_FINDINGS",
+    "current_lesson_status_consistency": "PASS_DAY105_NEXT",
+    "day104_evidence_replay": {
+      "checksum": "sha256:2faf8b4f538de1c5340596eb9b74ec5331fb23ba70a04bbd0fb97569359e7140",
+      "status": "PASS"
+    },
+    "day104_seed": {
+      "failed": 0,
+      "passed": 10,
+      "status": "PASS"
+    },
+    "deterministic_example": "PASS",
+    "focused_tests": {
+      "failed": 0,
+      "passed": 73,
+      "status": "PASS"
+    },
+    "full_ai_agent_tests": {
+      "failed": 0,
+      "passed": 1206,
+      "status": "PASS"
+    },
+    "git_diff_check": "PASS",
+    "json_and_jsonl_parse": "PASS",
+    "lesson_template_16_sections": "PASS",
+    "markdown_fences": "PASS_17_FILES",
+    "markdown_relative_links": "PASS_509_LINKS",
+    "mypy_new_day104_source_example_and_eval_surface": "PASS_8_FILES",
+    "protected_prompt_and_template_files": "PASS_UNCHANGED",
+    "python_line_length_scan": "PASS_NO_LINES_OVER_100",
+    "restricted_sandbox_full_suite_attempt": "EXPECTED_ENVIRONMENT_FAILURE_LOOPBACK_PERMISSION_DENIED",
+    "workflow_yaml_parse": "PASS"
+  },
+  "learning_assessment": {
+    "level_1_conceptual": "PASS",
+    "level_2_deterministic_mechanics": "PASS",
+    "score_after_remediation": 90
+  },
+  "not_run": [
+    "real PostgreSQL transaction isolation and durability",
+    "real vector database, ANN, aliases, checkpoints and replicas",
+    "distributed leases, broker relay and multi-process crash recovery",
+    "physical purge across provider storage, caches and retained backups",
+    "latency, capacity, cost, error-rate and soak gates",
+    "Python 3.12 pull-request CI",
+    "canary or blue-green production migration",
+    "production traffic and incident-response observation window"
+  ],
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "runtime": {
+    "local_full_suite_python": "3.11.5",
+    "python_3_12_ci": "NOT_RUN_NO_PUSH_OR_PULL_REQUEST",
+    "repository_minimum": "3.12+"
+  }
+}
