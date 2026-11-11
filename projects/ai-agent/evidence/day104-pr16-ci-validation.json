@@ -1,0 +1,85 @@
+{
+  "schema_version": "day104-pr-ci-validation-v1",
+  "record_type": "APPEND_ONLY_POST_SEAL_CI_EVIDENCE",
+  "day": 104,
+  "recorded_at": "2026-11-11T09:37:05Z",
+  "pull_request": {
+    "number": 16,
+    "url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/16",
+    "head_sha": "41117b785941d66312f5af7ea11d1c9c7107bae9",
+    "merge_sha": "de924664eec0de626baeee2311aa8bfd052b86cf",
+    "merged_at": "2026-11-11T09:31:26Z"
+  },
+  "workflow": {
+    "name": "AI agent classroom quality",
+    "workflow_id": 368931184,
+    "run_id": 42995652875,
+    "run_number": 24,
+    "run_attempt": 1,
+    "event": "pull_request",
+    "run_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/42995652875",
+    "job_name": "Python 3.12 tests and seed evaluations",
+    "job_id": 130438998323,
+    "job_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/42995652875/job/130438998323",
+    "runner": "ubuntu-latest",
+    "python": "CPython 3.12.16",
+    "started_at": "2026-11-11T09:29:53Z",
+    "completed_at": "2026-11-11T09:30:49Z",
+    "github_status": "completed",
+    "github_conclusion": "success",
+    "normalized_result": "PASS"
+  },
+  "executed": {
+    "interpreter_assertion_and_compileall": "PASS",
+    "full_ai_agent_tests": {
+      "status": "PASS",
+      "ran": 1245,
+      "skipped": 7,
+      "duration_seconds": 31.073
+    },
+    "seed_evaluators": {
+      "status": "PASS",
+      "count": 20
+    },
+    "saved_evidence_replays": {
+      "status": "PASS",
+      "count": 6,
+      "replays": [
+        "day100",
+        "day101",
+        "day102",
+        "day103",
+        "day104-l2",
+        "day104-l3-offline"
+      ],
+      "day104_l2_checksum": "sha256:2faf8b4f538de1c5340596eb9b74ec5331fb23ba70a04bbd0fb97569359e7140",
+      "day104_l3_checksum": "sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85"
+    },
+    "saved_day96_day98_day99_evidence_checks": "PASS"
+  },
+  "l3_ci_boundary": {
+    "docker_started": false,
+    "postgresql_pgvector_started": false,
+    "real_l3_integration_tests": "NOT_RUN_SKIPPED_7",
+    "saved_l3_evidence_replay_only": true
+  },
+  "frozen_predecessor_evidence": {
+    "day104_l2_validation": "projects/ai-agent/evidence/day104-validation.json",
+    "day104_l2_report": "projects/ai-agent/evidence/day104-index-lifecycle-report.json",
+    "day104_l3_report": "projects/ai-agent/evidence/day104-l3-integration-report.json",
+    "original_seal_time_ci_status": "NOT_RUN_NO_PUSH_OR_PULL_REQUEST",
+    "predecessor_reports_rewritten": false
+  },
+  "fixture_production_eligible": false,
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "not_proven": [
+    "PostgreSQL or pgvector runtime execution in CI",
+    "PostgreSQL HA, failover or restore",
+    "multi-node network partition behavior",
+    "physical purge across WAL, backups, caches or retained media",
+    "production-size ANN, load or soak behavior",
+    "production IAM, TLS or secret rotation",
+    "production traffic or incident-response observation window"
+  ],
+  "claim_boundary": "This append-only record proves Python 3.12 compatibility for the deterministic and unit suite, all seed evaluators, and saved-evidence replay at the exact PR head. It does not re-execute the local PostgreSQL/pgvector L3 runtime and does not upgrade Level 4 or production readiness."
+}

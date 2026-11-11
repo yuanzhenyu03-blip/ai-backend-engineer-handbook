@@ -48,9 +48,12 @@ seed evaluators and all six saved evidence replays passed. Both saved Day104
 report checksums reproduce exactly. Compileall, mypy, JSON/JSONL, 16-section
 structure, Markdown links, credential-pattern and diff checks for the L2 seal
 remain recorded in `projects/ai-agent/evidence/day104-validation.json`; that
-frozen artifact was not rewritten for L3. Python
-3.12 CI is `NOT_RUN` because no push or pull request was authorized. CI only
-replays saved L3 evidence and does not start Docker. Level 2 evidence is
+frozen artifact was not rewritten for L3. After the seal, PR #16 Python 3.12.16
+CI run `42995652875` passed 1245 tests with 7 skips, all 20 seed evaluators and
+all six saved evidence replays. The append-only record is
+`projects/ai-agent/evidence/day104-pr16-ci-validation.json`; the original L2/L3
+reports were not rewritten. CI only replays saved L3 evidence and does not
+start Docker. Level 2 evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`; Level 3 evidence is
 `EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR`. PostgreSQL HA/failover
 and restore, distributed/multi-node failure recovery, physical purge,

@@ -32,7 +32,9 @@ resurrection, while logical release, serving-index absence and physical purge re
 Frozen L2 baseline: 73/73 focused tests, 10/10 seed and the deterministic
 example PASS. Final repository verification after L3: `Ran 1245 tests` —
 `OK (skipped=7)` on the local Python 3.11.5 fallback; all 20 seed evaluators
-and all six saved evidence replays PASS. Python 3.12 CI is `NOT_RUN`. That L2 evidence is
+and all six saved evidence replays PASS. Subsequent PR #16 Python 3.12.16 CI
+run `42995652875` also passed 1245 tests, all 20 seed evaluators and all six
+saved evidence replays without starting Docker. That L2 evidence is
 `EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE`. The saved L3 report at
 `projects/ai-agent/evidence/day104-l3-integration-report.json` records
 PostgreSQL 16.15, pgvector 0.8.7, 32/32 adapter unit tests, 7/7 real
