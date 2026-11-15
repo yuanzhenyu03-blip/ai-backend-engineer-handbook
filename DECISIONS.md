@@ -1019,3 +1019,56 @@ idempotency, fencing, CAS, ReadView, drain, deletion and evidence-boundary mecha
 PostgreSQL transaction isolation, vector-store alias atomicity, distributed leases, crash recovery, delete
 visibility, ANN behavior, physical erasure, zero downtime, capacity, latency, cost or production safety. Those
 Level 3 and Level 4 gates remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 023 — Keep Retrieved Content Data-only; Release Through Application-owned Security Gates
+
+Status: Accepted for Day105 guided classroom scope
+
+Date: 2026-11-15
+
+### Context
+
+Day104 can prove that an occurrence belongs to the exact sealed Generation, is not tombstoned and is currently
+authorized. It cannot prove that natural-language content is benign or entitled to change task, Tool,
+destination or disclosure policy. Per-document detectors can miss indirect or cross-document attacks, and a
+correct answer may still leak through citations, metadata, cache, logs or external egress.
+
+### Decision
+
+Treat every ordinary retrieved occurrence as untrusted data, regardless of provenance. Trusted instructions
+enter only through an independent application-owned, authenticated and versioned control path. Bind ingestion
+and request decisions to exact content/provenance identities, current authorization and deletion/security state,
+parser/scanner/detector and policy versions. A request uses one Generation, ReadView and security revision.
+
+Filter unauthorized or quarantined occurrences before model context; freeze exact allowed Retrieval Bundles
+and Context Assembly Manifests; analyze bundle-level composition; and serialize retrieved content explicitly as
+data. The application creates the Model Invocation and Disclosure Envelopes. The model emits only an
+AnswerCandidate. An independent Output Release Gate checks grounding, exact citations, current authorization,
+DLP, metadata, audience, destination and disclosure budget.
+
+Normalize evidence as `PASS`, `FAIL`, `INCONCLUSIVE` or `NOT_RUN`; keep operational dispositions separate.
+Any critical observed violation makes the overall result `FAIL`, while missing critical evidence fails closed.
+Normal Q1/Q2/Q3 gates remain non-compensable so reject-all cannot pass.
+
+On poison discovery, revoke/quarantine at serving time before updating durable truth and building a new
+immutable Generation. Preserve append-only incident evidence. Actual disclosure additionally requires rotation,
+impact analysis, notification/remediation where required and observation; rebuilding cannot retract leaked data.
+
+### Consequences
+
+- Provenance authenticity never grants instruction authority.
+- Detector false negatives do not remove authorization, context-isolation or output-release gates.
+- Authorized-but-malicious X and benign-but-unauthorized T are tested independently.
+- Citation, cache, log, telemetry and response are separate egress sinks.
+- Cache and rollback eligibility bind current security and disclosure identities.
+- More versioned records, invalidation and fail-closed availability costs are accepted for auditability.
+- L2 deterministic evidence cannot be generalized to real detector/model/DLP behavior or production safety.
+
+### Validation honesty
+
+The Day105 L2 implementation uses deterministic fixtures and fakes. It may prove contract, identity,
+state-transition, failure and replay mechanics only. Real scanners, DLP, model Providers, policy services,
+PostgreSQL/pgvector retrieval, distributed revocation, production egress, red-team, load/soak, canary traffic and
+incident operations remain `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`.

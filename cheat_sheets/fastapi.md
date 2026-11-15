@@ -2631,3 +2631,38 @@ Evidence: 73 focused tests, 10/10 seed and saved replay with deterministic fakes
 Provider, distributed recovery, physical purge and zero-downtime production migration remain `NOT_RUN`;
 `MORE_EVIDENCE_NEEDED`. Related:
 [Day104 lesson](../docs/fastapi/day104-index-update-delete-rebuild-and-migration.md).
+
+## Day105 — RAG Security Boundaries
+
+```text
+retrieved content = untrusted data
+model output       = AnswerCandidate
+application policy = instruction/release authority
+```
+
+Request-scoped security artifact chain:
+
+```text
+request/principal/tenant/purpose
++ Generation/Manifest/ReadView
++ exact occurrence IDs/digests
++ current auth/provenance/Tombstone/quarantine
++ security/parser/scanner/detector versions
++ retrieval/template/assembler/model/output policy
++ Disclosure Envelope and evidence digests
+```
+
+Release rules:
+
+- filter unauthorized/quarantined occurrences before Prompt;
+- analyze the final Retrieval Bundle, not only individual documents;
+- delimiters/escaping are defense in depth, never authority;
+- validate exact claim/citation support, DLP (Data Loss Prevention), metadata, audience and destination;
+- detector timeout → `INCONCLUSIVE`; confirmed attack → `FAIL`;
+- `WAIT/QUARANTINE/DENY/BLOCKED` are actions, not evidence results;
+- critical attack success and normal Q1/Q2/Q3 quality are both non-compensable;
+- contain first, update durable truth, then rebuild an immutable Generation;
+- rotate and investigate actual leaks—index deletion cannot retract them.
+
+Evidence is deterministic L2 only. Real scanners, models, DLP, Provider/egress and production are `NOT_RUN`.
+Related: [Day105 lesson](../docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md).

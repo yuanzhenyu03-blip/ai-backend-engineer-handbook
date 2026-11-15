@@ -1,0 +1,87 @@
+{
+  "classroom_positive_fixture": {
+    "production_eligible": false,
+    "purpose": "RAG_SECURITY_IDENTITY_AUTHORITY_CONTEXT_AND_RELEASE_MECHANICS_ONLY",
+    "scenario": "fixed A/B/C refund corpus and Q1/Q2/Q3 controls with independent content-safe X/Y/Z/T adversarial fixtures"
+  },
+  "claim_boundary": "Deterministic evidence proves process-local, application-owned Day105 contract, identity, authority, context-isolation, output-release, hard-gate and replay mechanics. It does not prove real detector recall, real model or vector Provider behavior, production tenant isolation, production egress enforcement or readiness.",
+  "date": "2026-11-15",
+  "day": 105,
+  "day105_example_checksum": "sha256:2614b02f653bba859dd8ace18d1035f27389f3578668b8e1ffd3221deea14985",
+  "day105_report_checksum": "sha256:b7cb38a8d7191d1404b162f88aae935c28f12628362e01b600c685299579f477",
+  "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+  "executed": {
+    "all_seed_evaluators": {
+      "evaluators": 21,
+      "status": "PASS"
+    },
+    "all_saved_evidence_replays": {
+      "replays": 7,
+      "status": "PASS"
+    },
+    "black_new_day105_surface": "PASS_10_FILES_UNCHANGED",
+    "compileall_new_day105_python_surface": "PASS_10_FILES",
+    "credential_and_raw_payload_pattern_scan": "PASS_31_CHANGED_FILES_NO_FINDINGS",
+    "current_lesson_status_consistency": "PASS_DAY105_COMPLETE_DAY106_NEXT",
+    "day105_evidence_replay": {
+      "example_checksum": "sha256:2614b02f653bba859dd8ace18d1035f27389f3578668b8e1ffd3221deea14985",
+      "report_checksum": "sha256:b7cb38a8d7191d1404b162f88aae935c28f12628362e01b600c685299579f477",
+      "status": "PASS"
+    },
+    "day105_seed": {
+      "failed": 0,
+      "passed": 16,
+      "status": "PASS"
+    },
+    "deterministic_example": {
+      "checksum": "sha256:2614b02f653bba859dd8ace18d1035f27389f3578668b8e1ffd3221deea14985",
+      "status": "PASS"
+    },
+    "focused_tests": {
+      "failed": 0,
+      "passed": 89,
+      "status": "PASS"
+    },
+    "full_ai_agent_tests": {
+      "failed": 0,
+      "passed": 1334,
+      "skipped": 7,
+      "status": "PASS"
+    },
+    "git_diff_check": "PASS",
+    "historical_saved_evidence_replays": {
+      "replays": 6,
+      "status": "PASS"
+    },
+    "json_and_jsonl_parse": "PASS_499_JSON_37_JSONL_BEFORE_VALIDATION_RECORD",
+    "lesson_template_16_sections": "PASS",
+    "markdown_fences": "PASS_327_FILES",
+    "markdown_relative_links": "PASS_1110_LINKS",
+    "mypy_new_day105_surface": "PASS_10_FILES_IN_4_NAMESPACE_SAFE_INVOCATIONS",
+    "python_line_length_scan": "PASS_10_FILES_NO_LINES_OVER_100",
+    "restricted_full_suite_attempt": "EXPECTED_ENVIRONMENT_FAILURE_LOOPBACK_PERMISSION_DENIED",
+    "workflow_yaml_parse": "PASS"
+  },
+  "learning_assessment": {
+    "level_1_conceptual": "PASS",
+    "level_2_deterministic_mechanics": "PASS_AFTER_GUIDED_REMEDIATION",
+    "score_after_remediation": 86
+  },
+  "not_run": [
+    "real PostgreSQL/pgvector Day105 retrieval and context assembly",
+    "real scanner, detector and DLP integration",
+    "real model and vector Provider security behavior",
+    "production multi-tenant IAM, TLS, secret rotation and egress enforcement",
+    "continuously updated production red-team corpus",
+    "production-size load, capacity, cost and soak",
+    "Python 3.12 pull-request CI for Day105",
+    "canary traffic, incident drill and observation window",
+    "Level 3 and Level 4"
+  ],
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "runtime": {
+    "local_full_suite_python": "3.11.5",
+    "python_3_12_ci": "NOT_RUN_NO_COMMIT_PUSH_OR_PULL_REQUEST",
+    "repository_minimum": "3.12+"
+  }
+}

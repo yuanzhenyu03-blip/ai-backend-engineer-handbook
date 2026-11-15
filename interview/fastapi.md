@@ -3617,3 +3617,37 @@ pointer ownership and request-scoped authorization. The 90/100 score records gui
 database/vector integration or production evidence.
 
 Related: [Day104 lesson](../docs/fastapi/day104-index-update-delete-rebuild-and-migration.md).
+
+## Day105 — RAG Security: Prompt Injection, Poisoning and Leakage
+
+### Beginner: Why is retrieved content not an instruction?
+
+**Strong answer:** Retrieval establishes relevance, not authority. Even authentic official content remains data.
+The application independently owns task scope, authorization, Tool capability, destination and disclosure.
+Structured delimiters reduce ambiguity but do not grant trust.
+
+### Intermediate: How do you stop an authorized malicious document and a benign unauthorized document?
+
+**Strong answer:** They are orthogonal cases. An authorized-but-malicious occurrence is controlled by current
+content-security evidence, bundle analysis, instruction/data isolation and output release. A benign-but-
+unauthorized occurrence is filtered by tenant and current authorization before Prompt construction. Both are
+rechecked at release and across every egress sink.
+
+### Senior: Design the response-release and incident boundary
+
+**Strong answer:** I freeze an exact Retrieval Bundle, Context Assembly Manifest, Model Invocation Envelope and
+Disclosure Envelope beside one Day104 ReadView. The model emits only an AnswerCandidate. An application-owned
+gate validates grounding, exact citations, current authorization/provenance/deletion/security state, DLP
+(Data Loss Prevention),
+metadata, audience, destination and budget. Missing evidence fails closed; observed critical violations fail
+regardless of averages, while normal Q1/Q2/Q3 gates prevent reject-all. On poison discovery I revoke serving
+first, update durable truth, rebuild and CAS a new Generation, drain old readers, and preserve append-only
+incident evidence. A real leak additionally requires rotation and impact analysis.
+
+### Common weak answer and follow-up
+
+“Put the documents in XML and tell the model to ignore instructions.” Ask who owns authority, what happens after
+a detector false negative, whether unauthorized content reached the Provider, which identities invalidate a
+cache decision, how citations/logs differ from response, and why index deletion cannot revoke leaked secrets.
+
+Related: [Day105 lesson](../docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md).

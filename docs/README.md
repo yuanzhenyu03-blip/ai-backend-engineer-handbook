@@ -64,7 +64,8 @@ docs/
 │   ├── day101-query-rewriting-and-re-ranking.md # bounded rewrites + authorized reranking
 │   ├── day102-grounding-citations-and-source-verification.md # Claim/Evidence/Citation release
 │   ├── day103-retrieval-evaluation-and-rag-answer-evaluation.md # independent RAG quality evaluation
-│   └── day104-index-update-delete-rebuild-and-migration.md # immutable index-generation lifecycle
+│   ├── day104-index-update-delete-rebuild-and-migration.md # immutable index-generation lifecycle
+│   └── day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md # RAG security boundaries
 ├── playwright/
 └── n8n/
 ```

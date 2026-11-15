@@ -9,6 +9,22 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C)
+
+Date: 2026-11-15
+
+Added the 16-section Day105 lesson, application design, actual classroom record, Day106 handoff, Decision 023,
+typed deterministic mechanics, failure tests, seed evaluator and content-safe evidence replay. The continuing
+Artifact preserves the Day104 Generation/Manifest/ReadView/Tombstone baseline while making all ordinary retrieved
+content data-only. Exact content/provenance and processing identities govern ingestion; request-scoped retrieval,
+bundle, context, model and disclosure identities prevent cross-version substitution; and an application-owned
+Output Release Gate validates grounding, citations, current authorization, DLP, metadata and egress.
+
+The fixed A/B/C and Q1–Q3 quality fixture remains intact. X/Y/Z/T provide document injection, poisoning,
+cross-document and cross-tenant slices without storing reusable attack payloads or protected text. Critical
+attack success is non-compensable, but reject-all also fails normal quality gates. Level 3 real integration,
+Level 4 and production readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
+
 ## Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — Released to main
 
 Date: 2026-11-11
