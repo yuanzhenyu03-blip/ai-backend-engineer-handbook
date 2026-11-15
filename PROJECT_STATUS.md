@@ -3,9 +3,12 @@
 ## Current Phase
 
 Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day104 are complete.
+guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day105 are complete.
 
-Day59–Day104 are complete at their recorded evidence levels. Day104 adds
+Day59–Day105 are complete at their recorded evidence levels. Day105 adds
+RAG-specific ingestion, retrieval, context-assembly and response-release security boundaries while preserving
+the Day104 immutable-Generation and ReadView handoff. Its deterministic Level 2 scope is complete; Day105 L3,
+L4 and production readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Day104 adds
 immutable index-generation lifecycle, Tombstone propagation, independent
 read-back, Day103-bound release evidence, atomic pointer activation, leased
 ReadViews, drain/retirement and rollback controls on the Day95–Day103 base. Its
@@ -19,8 +22,19 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 
 ## Current Lesson
 
-Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C) — next up.
-Most recent classroom lesson: Day104 — Index Update, Delete, Rebuild and Migration.
+Day106 — Production RAG Capstone and English Interview (Phase 7C) — next up.
+Most recent classroom lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries.
+
+Day105 is COMPLETE at guided classroom Level 2. Lesson:
+`docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md`. The continuing
+Artifact treats retrieved content as data, binds content-security evidence to exact source/digest/processing
+identities, filters unauthorized and quarantined occurrences before Prompt construction, analyzes complete
+Retrieval Bundles, freezes Context Assembly and Model Invocation identities, and lets the model emit only an
+AnswerCandidate. Application-owned Disclosure and Output Release gates enforce grounding, exact citations,
+current authorization, DLP, metadata, audience, destination and disclosure budget. X/Y/Z/T adversarial fixtures
+remain separate from A/B/C history. Saved deterministic evidence and commands are linked from the Day105 design
+and repository update report. Real detector/model/DLP/policy/Provider integration, Day105 L3, L4 and production
+readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
 
 Day104 is COMPLETE at guided classroom Level 2 and local integration Level 3. Lesson:
 `docs/fastapi/day104-index-update-delete-rebuild-and-migration.md`. The continuing Artifact treats durable source,
@@ -441,7 +455,10 @@ None.
 
 ---
 
-## Last Completed Lesson
+## Superseded Historical Snapshot — Day83 Last Completed Lesson (archived)
+
+This block preserves the status text recorded at Day83. The canonical current/last-completed status is at the
+top of this file and now names Day105; this historical snapshot must not override it.
 
 Day83 — Human Approval, Interrupt and Escalation Boundaries (Phase 7B; guided classroom scope)
 

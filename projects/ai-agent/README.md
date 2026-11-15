@@ -190,20 +190,23 @@ ai-agent/
 │   ├── test_day99_*.py           # Day99: index contract/Flat/readback/fence + seed
 │   ├── test_day100_*.py          # Day100: gates/BM25/filter/RRF/release/cursor + seed
 │   ├── test_day101_*.py          # Day101: rewrite/fusion/rerank/release/cache + seed
-│   └── test_day102_*.py          # Day102: grounding/citation/verification/release + seed
-├── evals/                        # Day83–Day102 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day102
-├── evidence/                     # validation records through Day102
+│   ├── test_day102_*.py          # Day102: grounding/citation/verification/release + seed
+│   ├── test_day103_*.py          # Day103: retrieval/answer evaluation + hard gates
+│   ├── test_day104_*.py          # Day104: immutable Generation lifecycle + integration seams
+│   └── test_day105_*.py          # Day105: ingestion/retrieval/context/release security + seed
+├── evals/                        # Day83–Day105 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day105
+├── evidence/                     # validation records through Day105
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day102
+└── docs/                         # designs and classroom records through Day105
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day101
-documented). Day101 adds bounded validated query rewriting and candidate-only reranking while preserving
-the Day100 authorization boundary and `MORE_EVIDENCE_NEEDED`
-production readiness.
+Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day105
+documented). Day105 adds application-owned RAG ingestion, retrieval, context and output-release security gates
+while preserving the Day104 immutable Generation/ReadView boundary. The saved evidence is deterministic Level 2
+only; Day105 Level 3, Level 4 and production readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -1093,9 +1096,36 @@ zero-downtime production migration, real traffic and production remain
 `NOT_RUN` or `MORE_EVIDENCE_NEEDED`; readiness remains
 `MORE_EVIDENCE_NEEDED`.
 
+## Day105 RAG Security Boundaries
+
+Day105 preserves the Day104 application-owned pointer and request ReadView while adding content and disclosure
+security around ordinary retrieval. Retrieved occurrences remain untrusted data even when provenance is valid.
+Application-owned gates bind exact content/provenance/parser/scanner/detector/policy identities, exclude
+unauthorized or quarantined content before Prompt construction, analyze complete Bundles, freeze actual context
+assembly, and let the model emit only an AnswerCandidate. Exact citations, current authorization, DLP (Data Loss
+Prevention), metadata, audience, destination and disclosure budget govern final release.
+
+The deterministic fixture keeps A@v1 and C@v1 as normal Q1–Q3 evidence, B@v1 tombstoned, and adds content-safe
+X/Y/Z/T adversarial identities. See the [lesson](../../docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md),
+[design](docs/DAY105_RAG_SECURITY_BOUNDARIES.md),
+[classroom record](docs/day105-rag-security-boundaries-classroom-draft.md),
+[repository report](docs/DAY105_REPOSITORY_UPDATE_REPORT.md) and
+[Day106 handoff](docs/DAY105_TO_DAY106_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day105_*.py' -q
+PYTHONPATH=src:. python3.12 evals/run_day105_seed_eval.py
+PYTHONPATH=src:. python3.12 evals/run_day105_evidence_replay.py
+PYTHONPATH=src:. python3.12 examples/day105_rag_security.py
+```
+
+Exact local counts and checksums live in the saved Day105 evidence records. Real detector/model/DLP/policy/
+Provider integration, Day105 L3, load/soak, canary traffic, incident drill and production remain `NOT_RUN` or
+`MORE_EVIDENCE_NEEDED`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
 ## Future Milestones
 
-- Begin Day105 RAG security against the frozen, auditable Day104 index-lifecycle baseline.
+- Begin Day106 Production RAG Capstone against the frozen Day103 quality, Day104 lifecycle and Day105 security baselines.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate broader real auth/queue/Worker integration; HA,
   restore and optional external-Provider gates remain NOT RUN.

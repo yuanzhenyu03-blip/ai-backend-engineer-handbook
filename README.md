@@ -31,18 +31,21 @@ Current phase:
   hard gates, explicit regression decisions and content-safe replay evidence. Day104 keeps the same refund case and
   adds immutable index Generations, BuildSnapshot/Manifest/read-back gates, Tombstones, atomic pointer activation,
   leased ReadViews, drain/retirement and safe rollback mechanics, with bounded local PostgreSQL/pgvector L3
-  evidence. Production readiness remains
+  evidence. Day105 preserves that lifecycle while adding application-owned ingestion, retrieval, context,
+  model-invocation and output-release security boundaries for document injection, corpus poisoning,
+  cross-document attacks and data leakage. Its evidence is deterministic Level 2 only; real detector/model/DLP/
+  Provider integration, Day105 Level 3, Level 4 and production readiness remain `NOT_RUN` /
   `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day104 — Index Update, Delete, Rebuild and Migration](docs/fastapi/day104-index-update-delete-rebuild-and-migration.md)
+* [Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries](docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md)
 
-(For the completed classroom history Day01–Day104, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day105, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C; planned)
+* Day106 — Production RAG Capstone and English Interview (Phase 7C; planned)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 
