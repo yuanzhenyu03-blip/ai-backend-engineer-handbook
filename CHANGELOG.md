@@ -9,7 +9,7 @@ This project follows a practical versioning style:
 
 ---
 
-## Unreleased — Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C)
+## Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C) — Released to main
 
 Date: 2026-11-15
 
@@ -24,6 +24,15 @@ The fixed A/B/C and Q1–Q3 quality fixture remains intact. X/Y/Z/T provide docu
 cross-document and cross-tenant slices without storing reusable attack payloads or protected text. Critical
 attack success is non-compensable, but reject-all also fails normal quality gates. Level 3 real integration,
 Level 4 and production readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
+
+PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged to `main` as
+`293075c3021a20a21d2d586098f2b8e857dfd00d` at `2026-11-15T14:40:40Z`. GitHub Actions workflow
+`368931184`, run `43725541551` (#28, attempt 1), job `132846558835` passed on CPython 3.12.16: 1334 tests PASS
+with 7 skipped, all 21 seed evaluators PASS, all seven saved evidence replays PASS and the Day105 replay PASS.
+This post-seal result is recorded append-only in
+`projects/ai-agent/evidence/day105-pr18-ci-validation.json`; the original `day105-validation.json` and
+`day105-rag-security-report.json` remain frozen. CI did not start Docker/PostgreSQL/pgvector or execute Day105
+L3, which remains `NOT_RUN`.
 
 ## Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — Released to main
 

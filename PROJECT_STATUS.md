@@ -36,6 +36,13 @@ remain separate from A/B/C history. Saved deterministic evidence and commands ar
 and repository update report. Real detector/model/DLP/policy/Provider integration, Day105 L3, L4 and production
 readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
 
+Post-seal PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged to `main` as
+`293075c3021a20a21d2d586098f2b8e857dfd00d` at `2026-11-15T14:40:40Z`. GitHub Actions run
+`43725541551` / job `132846558835` (workflow `368931184`, run #28, attempt 1) passed on CPython 3.12.16:
+1334 tests PASS with 7 skipped, all 21 seed evaluators PASS, all seven saved evidence replays PASS and the Day105
+replay PASS. The [append-only CI record](projects/ai-agent/evidence/day105-pr18-ci-validation.json) leaves the
+sealed Day105 validation/report unchanged. CI did not start Docker/PostgreSQL/pgvector or run Day105 L3.
+
 Day104 is COMPLETE at guided classroom Level 2 and local integration Level 3. Lesson:
 `docs/fastapi/day104-index-update-delete-rebuild-and-migration.md`. The continuing Artifact treats durable source,
 authorization and deletion facts as truth and every index Generation as a rebuildable materialized view. A frozen

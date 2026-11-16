@@ -46,5 +46,19 @@ incident response or production traffic.
 
 ## Git boundary
 
-This report does not claim commit, push, pull request, merge or CI execution. Any later CI evidence must be
-append-only and must not rewrite the sealed local runtime reports.
+At seal time, this report did not claim commit, push, pull request, merge or CI execution. That historical
+boundary remains unchanged; later CI evidence is append-only and does not rewrite the sealed local runtime
+reports.
+
+## Post-seal CI evidence
+
+PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged to `main` as
+`293075c3021a20a21d2d586098f2b8e857dfd00d` at `2026-11-15T14:40:40Z`. GitHub Actions workflow
+`368931184`, run `43725541551` (#28, attempt 1), job `132846558835` passed on CPython 3.12.16: 1334 tests PASS
+with 7 skipped, all 21 seed evaluators PASS, all seven saved evidence replays PASS and the Day105 replay PASS.
+
+The result is recorded in
+[`day105-pr18-ci-validation.json`](../evidence/day105-pr18-ci-validation.json). The original
+`day105-validation.json` and `day105-rag-security-report.json` remain frozen. The CI job did not start
+Docker/PostgreSQL/pgvector or execute Day105 L3, so L3 remains `NOT_RUN` and the claim boundary above is not
+upgraded.
