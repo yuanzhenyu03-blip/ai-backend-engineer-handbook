@@ -48,3 +48,8 @@ Day105 L2 is deterministic local evidence only. Real detector/DLP/model/Provider
 pgvector integration for Day105 controls, restart replay, production IAM/TLS, real multi-tenant enforcement,
 red-team, load/soak, canary traffic and incident drill remain `NOT_RUN` until separately authorized and executed.
 Production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+Post-seal PR #18 CI adds an [append-only CPython 3.12 record](../evidence/day105-pr18-ci-validation.json): 1334
+tests PASS with 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105 replay PASS.
+It did not start Docker/PostgreSQL/pgvector or run Day105 L3 and therefore does not upgrade this handoff to
+integration evidence.

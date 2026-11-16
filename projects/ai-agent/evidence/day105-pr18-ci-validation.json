@@ -1,0 +1,93 @@
+{
+  "schema_version": "day105-pr-ci-validation-v1",
+  "record_type": "APPEND_ONLY_POST_SEAL_CI_EVIDENCE",
+  "day": 105,
+  "recorded_at": "2026-11-16T03:48:25Z",
+  "pull_request": {
+    "number": 18,
+    "url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/18",
+    "head_sha": "8f80d3532c9f1fe99918a85b2f0f73e210be0b75",
+    "merge_sha": "293075c3021a20a21d2d586098f2b8e857dfd00d",
+    "merged_at": "2026-11-15T14:40:40Z"
+  },
+  "workflow": {
+    "name": "AI agent classroom quality",
+    "workflow_id": 368931184,
+    "run_id": 43725541551,
+    "run_number": 28,
+    "run_attempt": 1,
+    "event": "pull_request",
+    "run_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/43725541551",
+    "job_name": "Python 3.12 tests and seed evaluations",
+    "job_id": 132846558835,
+    "job_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/43725541551/job/132846558835",
+    "runner": "ubuntu-latest",
+    "python": "CPython 3.12.16",
+    "started_at": "2026-11-15T14:39:28Z",
+    "completed_at": "2026-11-15T14:40:19Z",
+    "github_status": "completed",
+    "github_conclusion": "success",
+    "normalized_result": "PASS"
+  },
+  "executed": {
+    "interpreter_assertion_and_compileall": "PASS",
+    "full_ai_agent_tests": {
+      "status": "PASS",
+      "ran": 1334,
+      "skipped": 7,
+      "duration_seconds": 23.1
+    },
+    "seed_evaluators": {
+      "status": "PASS",
+      "count": 21
+    },
+    "saved_evidence_replays": {
+      "status": "PASS",
+      "count": 7,
+      "replays": [
+        "day100",
+        "day101",
+        "day102",
+        "day103",
+        "day104-l2",
+        "day104-l3-offline",
+        "day105-l2"
+      ],
+      "day104_l2_checksum": "sha256:2faf8b4f538de1c5340596eb9b74ec5331fb23ba70a04bbd0fb97569359e7140",
+      "day104_l3_checksum": "sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85",
+      "day105_l2_checksum": "sha256:b7cb38a8d7191d1404b162f88aae935c28f12628362e01b600c685299579f477",
+      "day105_example_checksum": "sha256:2614b02f653bba859dd8ace18d1035f27389f3578668b8e1ffd3221deea14985"
+    },
+    "day105_l2_replay": {
+      "status": "PASS",
+      "checks": 8,
+      "report_checksum": "sha256:b7cb38a8d7191d1404b162f88aae935c28f12628362e01b600c685299579f477"
+    },
+    "saved_day96_day98_day99_evidence_checks": "PASS"
+  },
+  "l3_ci_boundary": {
+    "docker_started": false,
+    "postgresql_pgvector_started": false,
+    "existing_real_integration_tests": "NOT_RUN_SKIPPED_7",
+    "day105_l3": "NOT_RUN",
+    "saved_l3_evidence_replay_only": true
+  },
+  "frozen_predecessor_evidence": {
+    "day105_l2_validation": "projects/ai-agent/evidence/day105-validation.json",
+    "day105_l2_report": "projects/ai-agent/evidence/day105-rag-security-report.json",
+    "original_seal_time_ci_status": "NOT_RUN_NO_COMMIT_PUSH_OR_PULL_REQUEST",
+    "predecessor_reports_rewritten": false
+  },
+  "fixture_production_eligible": false,
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "not_proven": [
+    "Day105 PostgreSQL or pgvector runtime execution in CI",
+    "real scanner, detector, DLP, model or vector Provider behavior",
+    "production multi-tenant IAM, TLS, secret rotation or egress enforcement",
+    "continuously updated production red-team corpus",
+    "production-size load, capacity, cost or soak behavior",
+    "canary traffic, incident drill or observation window",
+    "Level 3, Level 4 or production readiness"
+  ],
+  "claim_boundary": "This append-only record proves Python 3.12 compatibility for the deterministic and unit suite, all seed evaluators, and saved-evidence replay at the exact PR head. It does not re-execute PostgreSQL/pgvector integration, does not prove real detector/model/DLP/Provider behavior, and does not upgrade Day105 Level 3, Level 4 or production readiness."
+}

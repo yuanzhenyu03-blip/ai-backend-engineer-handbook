@@ -41,6 +41,8 @@ Day105 completion record:
 - [x] Preserve append-only evidence and rebuild immutable Generations after durable revocation/quarantine updates.
 - [x] Enforce zero critical attack success without allowing reject-all to pass normal Q1/Q2/Q3 gates.
 - [x] Release lesson, design, classroom record, Decision 023, deterministic mechanics, evidence and Day106 handoff.
+- [x] Record append-only PR #18 CPython 3.12.16 CI evidence: 1334 tests PASS, 7 skipped, 21 seed evaluators PASS,
+  seven saved evidence replays PASS and Day105 replay PASS; Docker/PostgreSQL/pgvector and Day105 L3 were not run.
 - [ ] Later Level 3: real local retrieval/context path, controlled model, failure injection and restart replay.
 - [ ] Later Level 4: production IAM/TLS, real multi-tenant/Provider/egress controls, red-team, load/soak, canary
   traffic, incident drill and observation window.

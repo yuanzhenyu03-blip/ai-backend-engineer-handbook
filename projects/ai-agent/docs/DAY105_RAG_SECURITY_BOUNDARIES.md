@@ -186,6 +186,8 @@ the overall evaluation.
 - `evals/run_day105_evidence_replay.py` — offline saved-evidence verifier.
 - `evidence/day105-rag-security-report.json` — generated content-safe report.
 - `evidence/day105-validation.json` — executed validation boundary.
+- [`evidence/day105-pr18-ci-validation.json`](../evidence/day105-pr18-ci-validation.json) — append-only post-seal
+  PR #18 CPython 3.12 CI evidence.
 
 ## Evidence boundary
 
@@ -193,3 +195,7 @@ L2 may prove deterministic identity, policy, state, failure and replay mechanics
 real detector recall, real DLP, model robustness, Provider isolation, database durability, production IAM/TLS,
 red-team coverage, load/soak, canary traffic or incident operations. L3 and L4 remain `NOT_RUN` until separately
 authorized, executed and saved.
+
+The post-seal CI record proves that the deterministic suite, 21 seed evaluators, seven saved evidence replays
+and the Day105 replay passed on CPython 3.12.16. It did not start Docker/PostgreSQL/pgvector or run Day105 L3,
+and it does not replace or modify the sealed Day105 validation/report records.

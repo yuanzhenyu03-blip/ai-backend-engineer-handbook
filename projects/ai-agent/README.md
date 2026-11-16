@@ -1110,7 +1110,8 @@ X/Y/Z/T adversarial identities. See the [lesson](../../docs/fastapi/day105-rag-s
 [design](docs/DAY105_RAG_SECURITY_BOUNDARIES.md),
 [classroom record](docs/day105-rag-security-boundaries-classroom-draft.md),
 [repository report](docs/DAY105_REPOSITORY_UPDATE_REPORT.md) and
-[Day106 handoff](docs/DAY105_TO_DAY106_HANDOFF.md).
+[Day106 handoff](docs/DAY105_TO_DAY106_HANDOFF.md). Post-seal PR #18 CI is preserved separately in the
+[append-only CPython 3.12 record](evidence/day105-pr18-ci-validation.json).
 
 ```sh
 PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day105_*.py' -q
@@ -1122,6 +1123,12 @@ PYTHONPATH=src:. python3.12 examples/day105_rag_security.py
 Exact local counts and checksums live in the saved Day105 evidence records. Real detector/model/DLP/policy/
 Provider integration, Day105 L3, load/soak, canary traffic, incident drill and production remain `NOT_RUN` or
 `MORE_EVIDENCE_NEEDED`; readiness remains `MORE_EVIDENCE_NEEDED`.
+
+PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged as
+`293075c3021a20a21d2d586098f2b8e857dfd00d`. GitHub Actions run `43725541551` / job `132846558835` on
+CPython 3.12.16 passed 1334 tests with 7 skips, all 21 seed evaluators, all seven saved evidence replays and the
+Day105 replay. This CI run did not start Docker/PostgreSQL/pgvector or run Day105 L3 and does not upgrade the
+deterministic L2 evidence boundary.
 
 ## Future Milestones
 

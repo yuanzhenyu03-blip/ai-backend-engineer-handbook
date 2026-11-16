@@ -36,6 +36,9 @@ Current phase:
   cross-document attacks and data leakage. Its evidence is deterministic Level 2 only; real detector/model/DLP/
   Provider integration, Day105 Level 3, Level 4 and production readiness remain `NOT_RUN` /
   `MORE_EVIDENCE_NEEDED`.
+  After the seal, PR #18 merged to `main`; its [append-only CPython 3.12 CI evidence](projects/ai-agent/evidence/day105-pr18-ci-validation.json)
+  records 1334 tests PASS with 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the
+  Day105 replay PASS. The CI run did not start Docker/PostgreSQL/pgvector or run Day105 Level 3.
 
 Last completed lesson:
 

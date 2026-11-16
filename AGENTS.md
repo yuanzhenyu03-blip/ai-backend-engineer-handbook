@@ -45,6 +45,9 @@ Current state:
   boundaries; retrieved content remains data-only; X/Y/Z/T adversarial fixtures run beside A/B/C Q1–Q3;
   content-safe deterministic evidence; real detector/model/DLP/Provider integration, L3, L4 and production
   readiness remain NOT RUN / MORE_EVIDENCE_NEEDED).
+- Day105 post-seal CI: PR #18 merged to `main`; append-only evidence records CPython 3.12.16 with 1334 tests
+  PASS, 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105 replay PASS. CI did
+  not start Docker/PostgreSQL/pgvector or run Day105 L3.
 - Day104 integration baseline: Index Update, Delete, Rebuild and Migration (guided classroom Level 2 plus
   bounded local PostgreSQL 16.15/pgvector 0.8.7 Level 3;
   immutable BuildSnapshot-bound Generations; independent Manifest read-back; Day103 quality evidence; READY

@@ -319,3 +319,8 @@ ReadView, authorization or Tombstone gates.
 
 Proceed to Day106 only after the saved Day105 L2 evidence is complete and any requested L3 scope is separately
 authorized and executed.
+
+Post-seal note: PR #18 merged to `main`, and its [append-only CPython 3.12 CI record](../../projects/ai-agent/evidence/day105-pr18-ci-validation.json)
+shows 1334 tests PASS with 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105
+replay PASS. CI did not start Docker/PostgreSQL/pgvector or run Day105 L3; the L3 and production boundaries above
+remain unchanged.

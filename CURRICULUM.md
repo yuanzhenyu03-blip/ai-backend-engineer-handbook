@@ -2207,7 +2207,10 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Context Assembly, Model Invocation and Disclosure identities; makes the model produce AnswerCandidate only;
   and independently gates grounding, exact citations, DLP, metadata, destination and disclosure budget. X/Y/Z/T
   adversarial fixtures run beside normal A/B/C Q1–Q3 gates. Deterministic L2 evidence does not prove real model,
-  scanner, DLP, Provider or production behavior; readiness remains `MORE_EVIDENCE_NEEDED`. Next: Day106.
+  scanner, DLP, Provider or production behavior; readiness remains `MORE_EVIDENCE_NEEDED`. Subsequent PR #18
+  CPython 3.12.16 CI passed 1334 tests with 7 skips, all 21 seed evaluators, all seven saved evidence replays and
+  the Day105 replay. Its [append-only record](projects/ai-agent/evidence/day105-pr18-ci-validation.json) does not
+  rewrite the sealed Day105 reports; CI did not start Docker/PostgreSQL/pgvector or run Day105 L3. Next: Day106.
 - Day106 — Production RAG Capstone and English Interview.
   Scope: integrate the RAG subsystem; runnable checkpoint; phase-level English interview.
   Connection: Day105 secured RAG; Day106 integrates the Production RAG subsystem as a runnable checkpoint and
