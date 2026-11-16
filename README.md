@@ -33,12 +33,15 @@ Current phase:
   leased ReadViews, drain/retirement and safe rollback mechanics, with bounded local PostgreSQL/pgvector L3
   evidence. Day105 preserves that lifecycle while adding application-owned ingestion, retrieval, context,
   model-invocation and output-release security boundaries for document injection, corpus poisoning,
-  cross-document attacks and data leakage. Its evidence is deterministic Level 2 only; real detector/model/DLP/
-  Provider integration, Day105 Level 3, Level 4 and production readiness remain `NOT_RUN` /
-  `MORE_EVIDENCE_NEEDED`.
+  cross-document attacks and data leakage. Its sealed deterministic Level 2 record is now complemented by a
+  bounded local PostgreSQL 16.15/pgvector 0.8.7 Level 3 run: 20/20 repository unit tests, 9/9 real integration
+  tests, 20/20 hard gates, 14 security cases, 18 failure checkpoints, a real database-container restart replay
+  and offline evidence replay. The security adapters remain deterministic; real external detector/model/DLP/
+  Provider integration, Level 4 and production readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
   After the seal, PR #18 merged to `main`; its [append-only CPython 3.12 CI evidence](projects/ai-agent/evidence/day105-pr18-ci-validation.json)
   records 1334 tests PASS with 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the
-  Day105 replay PASS. The CI run did not start Docker/PostgreSQL/pgvector or run Day105 Level 3.
+  Day105 replay PASS. That earlier CI run did not start Docker/PostgreSQL/pgvector or run Day105 Level 3; the
+  later bounded local L3 evidence is recorded separately and does not rewrite the sealed L2 reports.
 
 Last completed lesson:
 

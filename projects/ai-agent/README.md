@@ -205,8 +205,9 @@ ai-agent/
 
 Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day105
 documented). Day105 adds application-owned RAG ingestion, retrieval, context and output-release security gates
-while preserving the Day104 immutable Generation/ReadView boundary. The saved evidence is deterministic Level 2
-only; Day105 Level 3, Level 4 and production readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
+while preserving the Day104 immutable Generation/ReadView boundary. Its sealed deterministic Level 2 evidence
+is complemented by bounded local PostgreSQL 16.15/pgvector 0.8.7 Level 3 evidence; Level 4 and production
+readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -1113,6 +1114,15 @@ X/Y/Z/T adversarial identities. See the [lesson](../../docs/fastapi/day105-rag-s
 [Day106 handoff](docs/DAY105_TO_DAY106_HANDOFF.md). Post-seal PR #18 CI is preserved separately in the
 [append-only CPython 3.12 record](evidence/day105-pr18-ci-validation.json).
 
+The bounded local Level 3 extension is documented in the
+[integration record](docs/DAY105_L3_REAL_PGVECTOR_SECURITY_INTEGRATION.md), with the
+[saved report](evidence/day105-l3-integration-report.json),
+[saved restart evidence](evidence/day105-l3-restart-replay.json) and
+[offline replay](evals/run_day105_l3_evidence_replay.py). It passed 20/20 repository unit tests, 9/9 real
+integration tests, 20/20 hard gates, 14 security cases, 18 failure checkpoints and a real database-container
+restart replay. PostgreSQL/pgvector and the tested transaction path are real; scanner, detector, DLP and model
+adapters remain deterministic and application-owned.
+
 ```sh
 PYTHONPATH=src:. python3.12 -m unittest discover -s tests -p 'test_day105_*.py' -q
 PYTHONPATH=src:. python3.12 evals/run_day105_seed_eval.py
@@ -1120,15 +1130,15 @@ PYTHONPATH=src:. python3.12 evals/run_day105_evidence_replay.py
 PYTHONPATH=src:. python3.12 examples/day105_rag_security.py
 ```
 
-Exact local counts and checksums live in the saved Day105 evidence records. Real detector/model/DLP/policy/
-Provider integration, Day105 L3, load/soak, canary traffic, incident drill and production remain `NOT_RUN` or
-`MORE_EVIDENCE_NEEDED`; readiness remains `MORE_EVIDENCE_NEEDED`.
+Exact local counts and checksums live in the saved Day105 evidence records. Real external detector/model/DLP/
+policy/Provider integration, Level 4, load/soak, canary traffic, incident drill and production remain `NOT_RUN`
+or `MORE_EVIDENCE_NEEDED`; readiness remains `MORE_EVIDENCE_NEEDED`.
 
 PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged as
 `293075c3021a20a21d2d586098f2b8e857dfd00d`. GitHub Actions run `43725541551` / job `132846558835` on
 CPython 3.12.16 passed 1334 tests with 7 skips, all 21 seed evaluators, all seven saved evidence replays and the
-Day105 replay. This CI run did not start Docker/PostgreSQL/pgvector or run Day105 L3 and does not upgrade the
-deterministic L2 evidence boundary.
+Day105 replay. That CI run did not start Docker/PostgreSQL/pgvector or run Day105 L3 and does not upgrade the
+deterministic L2 evidence boundary; the later local L3 record is separate.
 
 ## Future Milestones
 
