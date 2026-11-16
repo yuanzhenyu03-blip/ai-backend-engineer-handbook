@@ -1,0 +1,845 @@
+{
+  "artifacts": {
+    "compose_digest": "sha256:7189a4217d90127da2c939592ca5b1696e1225b0241c0c661e0e9b4d1ad16e75",
+    "evidence_replay_runner_digest": "sha256:e2f48efb5b2b2317269c535e0016246122fb9a470ba005719ba08ca511d5cd3a",
+    "integration_runner_digest": "sha256:a139718819ab1fc6946fd323288e7d7fd4553580ebad70ba90684bef03cb1d3b",
+    "integration_test_digest": "sha256:fc043c9e04ee29a55c5d693c6273c783ef778ac8f2414c3da231badda000dd96",
+    "lifecycle_repository_digest": "sha256:aee0e7a7c8fa45e58d7849996b620ef7cea1f6c1053df371a4b86834f6cf26ec",
+    "lifecycle_schema_digest": "sha256:2b5a853b6b6c2d258a0371b4d260a54ab45739d1366b6486ab3d636eece09f48",
+    "requirements_digest": "sha256:4b38d42685ab285dd5f0f17f0a99d4096c27e8ec334cf11eea981068035626d2",
+    "restart_replay_runner_digest": "sha256:b22f9846238e54ff4597f4b5cea75dc7f4a09a1617f4fd1a95ab6dcfcd1ac033",
+    "saved_restart_report_file_digest": "sha256:3a6482e280d3c926095d2cadec2145b90da8e3b9fce03261e2412a5c3cfb33cd",
+    "schema_migration_digest": "sha256:01e4a02873aeb10b751e62e96a0e9d940ea7de1a3e7b60c8e563b6eac368f6e2",
+    "security_repository_digest": "sha256:f5746c33b29df33a3d6bfcfc6f4e5cc43354cfc18929a6599550b8f24dd7ee38",
+    "test_report_digest": "sha256:4d445edbd1106a664a11292df33cd9a7a8b9c8b08f7ca8c35f0ae6eb0e0d58c5",
+    "unit_test_digest": "sha256:dad244e1da227b80ec59f65bcfd62bfad440dbf2752177fd9cff7b32190acb6c"
+  },
+  "baselines": {
+    "day104_level_3": {
+      "evidence_level": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR",
+      "evidence_path": "projects/ai-agent/evidence/day104-l3-integration-report.json",
+      "report_checksum": "sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85"
+    },
+    "day105_level_2": {
+      "evidence_level": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE",
+      "evidence_path": "projects/ai-agent/evidence/day105-rag-security-report.json",
+      "report_checksum": "sha256:b7cb38a8d7191d1404b162f88aae935c28f12628362e01b600c685299579f477"
+    }
+  },
+  "claim_boundary": "Local Docker evidence for pinned PostgreSQL/pgvector transactions, constraints, CAS, restart, real vector retrieval and deterministic application-owned security adapters only; no real scanner, detector, DLP, model, Provider, production-egress or production-readiness claim.",
+  "cleanup": {
+    "completed_at": "2026-11-16T04:27:03.916900+00:00",
+    "compose_project": "day105-l3",
+    "compose_project_identity_digest": "sha256:eda1299e422748aa6bd6fd2eb90f8228701af309c977015c850257586bc00a31",
+    "removed_resource_identity_digests": [
+      "sha256:eda1299e422748aa6bd6fd2eb90f8228701af309c977015c850257586bc00a31",
+      "sha256:cfdcb77b4ee693a9fd216437bc154e3b3979b18d8c1f4620f8894cdde80ad80f"
+    ],
+    "safe_reason": "EXACT_DAY105_COMPOSE_CONTAINER_NETWORK_VOLUME_ABSENCE_CONFIRMED",
+    "status": "PASS",
+    "volume_identity": "day105_l3_pg_data",
+    "volume_identity_digest": "sha256:cfdcb77b4ee693a9fd216437bc154e3b3979b18d8c1f4620f8894cdde80ad80f"
+  },
+  "completed_at": "2026-11-16T04:27:03.916900+00:00",
+  "database_url_logged": false,
+  "environment": {
+    "database_driver": "psycopg2-binary",
+    "database_driver_version": "2.9.10",
+    "database_identity_digest": "sha256:18c120a4b6528e8da6537dfeb104d06d36f533afef9853976aee03561a52b781",
+    "docker_compose_version": "5.7.0",
+    "docker_engine_version": "29.9.3",
+    "image_digest": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+    "image_reference": "pgvector/pgvector:0.8.7-pg16",
+    "pgvector_extension_version": "0.8.7",
+    "postgresql_server_version": "16.15 (Debian 16.15-1.pgdg12+2)",
+    "postgresql_server_version_num": 160015,
+    "python_version": "3.11.5",
+    "transaction_isolation": [
+      "READ COMMITTED",
+      "REPEATABLE READ"
+    ]
+  },
+  "evidence_level": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_SECURITY_ADAPTERS",
+  "failure_injections": [
+    {
+      "checkpoint_id": "provider-manifest-extra-occurrence",
+      "evidence_digest": "sha256:9a95d6d13b70749fd549c3fb97d4c880cdda1817e937d40364b14c71fafec628",
+      "expected_outcome": "reject generation with an extra occurrence",
+      "observed_outcome": "independent readback marked generation integrity failed",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "manifest-content-or-metadata-substitution",
+      "evidence_digest": "sha256:3c82acb7f98eaa7c1c40a3cf7f94f891999e7e4bac74b1d389604a5a0936d6ca",
+      "expected_outcome": "reject equal-count occurrence or digest substitution",
+      "observed_outcome": "exact manifest identity mismatch rejected",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "detector-timeout",
+      "evidence_digest": "sha256:071d5c4eb59faba1d90a6f4f9e7c5654f816377d51986db88cd59f317bb9a45d",
+      "expected_outcome": "treat unavailable detector evidence as inconclusive quarantine",
+      "observed_outcome": "Y@v1 remained quarantined and absent from prompt",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "document-injection-confirmed",
+      "evidence_digest": "sha256:5fac1a4bf6f747d22da3620ac80ead02f13945130d7695748d0f807250ce9e9b",
+      "expected_outcome": "block confirmed document prompt injection before context assembly",
+      "observed_outcome": "X bundle decision failed and no context manifest was written",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "detector-versioned-rescan",
+      "evidence_digest": "sha256:641a0c15ba776b39b5fcb388aeafcd4898cbadb3192d76d19f89330dce1bdecd",
+      "expected_outcome": "append Y@v2 with new parser scanner detector evidence without overwriting Y@v1",
+      "observed_outcome": "Y@v1 remained immutable; Y@v2 used a new security record and remained outside serving generations",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "cross-tenant-candidate",
+      "evidence_digest": "sha256:483c6358478479b1f154167eeafd353952a7be070490d3b600e770bf40928f5d",
+      "expected_outcome": "reject candidate outside request tenant",
+      "observed_outcome": "T was denied and absent from prompt",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "cross-document-bundle-chain",
+      "evidence_digest": "sha256:bdcc7f47306f290f67da3be872c61870fde044bd73ddf33afdab550c58d32137",
+      "expected_outcome": "analyze the full bundle and block composed attack meaning",
+      "observed_outcome": "Z1/Z2 bundle failed before context assembly",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "security-artifact-exact-replay-conflict",
+      "evidence_digest": "sha256:3539ccffc4449a31f338f4921d120c1e09fb72d08c0c1aa820179c78ce7e2e50",
+      "expected_outcome": "converge identical replay and reject same ID with changed digest",
+      "observed_outcome": "identical replay converged and changed digest was rejected",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "security-snapshot-cas-race",
+      "evidence_digest": "sha256:b1cc4b86ff944ac873487980f436dec4a083d2f374f30b1185728cb153fbb17f",
+      "expected_outcome": "allow exactly one current security snapshot revision winner",
+      "observed_outcome": "one CAS advanced P2 and one stale revision was rejected",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "security-transition-write-fault",
+      "evidence_digest": "sha256:9a977b23f924f9a3498de66a93ba8fcb56dcb25312efd2401644cdc936324b71",
+      "expected_outcome": "roll back current snapshot pointer when transition append fails",
+      "observed_outcome": "no partial snapshot pointer or transition persisted",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "authorization-change-after-candidate",
+      "evidence_digest": "sha256:d582945e2539e8ed643bb2cfa13fdda2439d9ac7d4985f3a68ddb6b39c7e3c5c",
+      "expected_outcome": "keep old candidate bound to G2 and block release after P2",
+      "observed_outcome": "old candidate remained historical and output release failed closed",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "context-projection-digest-tamper",
+      "evidence_digest": "sha256:2223a0e805fe1d197f79a7a05569357c48df9f4da3322af0a6b8ca9239be0bd6",
+      "expected_outcome": "reject context projection or serialization identity change",
+      "observed_outcome": "context assembly digest mismatch was rejected",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "wrong-citation",
+      "evidence_digest": "sha256:26dd327b349698095454be72005bbe994f7786619578c65d5d6c96dc23d6aa23",
+      "expected_outcome": "block citation outside exact supported occurrence",
+      "observed_outcome": "output release failed with no released citations",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "dlp-timeout",
+      "evidence_digest": "sha256:97a83af851c68f148fa84da7fd402547afcd916ebc940f873940486c849e8a23",
+      "expected_outcome": "block when DLP evidence is inconclusive",
+      "observed_outcome": "output release was inconclusive and blocked",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "dlp-sensitive-category",
+      "evidence_digest": "sha256:8db75e23cb7e2efefae350d74317ae0a3816e7a9dbab10f5090fe84b77cf2934",
+      "expected_outcome": "fail when DLP identifies sensitive material",
+      "observed_outcome": "output release failed and returned a content-safe blocked intent",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "orphan-candidate-restart",
+      "evidence_digest": "sha256:97103e9d0f4101cca57254c39e46abc8dfcae85bc87f6d0ef8fe69aa1c15d2fd",
+      "expected_outcome": "default block candidate missing a durable release decision after restart",
+      "observed_outcome": "orphan candidate remained non-releasable",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "incident-overwrite-or-branch",
+      "evidence_digest": "sha256:7cd2bdcaf901230de972ada37522dea2588343ec88e25448906c76c836e5bcd8",
+      "expected_outcome": "reject incident overwrite second root and branch",
+      "observed_outcome": "append-only ledger rejected changed digest and branching correction",
+      "status": "PASS"
+    },
+    {
+      "checkpoint_id": "container-restart-readback",
+      "evidence_digest": "sha256:eca88f65ea11297d7bdd14b64804b5544def7e9bb537e22899b36061cbcc3869",
+      "expected_outcome": "recover durable G3/P2 security and blocked-release state after restart",
+      "observed_outcome": "new process read G3/P2 and did not revive the old candidate",
+      "status": "PASS"
+    }
+  ],
+  "fixture_production_eligible": false,
+  "hard_gates": {
+    "append_only_security_record_immutability": {
+      "evidence_digests": [
+        "sha256:09724701d23e6b40f96450bf9ad27986fb5553ba26db061c4084e1cad1669f07"
+      ],
+      "evidence_ids": [
+        "append-only-trigger-and-replay"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "authorization_snapshot_rebuild_and_activation": {
+      "evidence_digests": [
+        "sha256:a63cbd88e3d5d0a6f96cc559bc477ec27da73abf84eeccc238af85df0c2bcfb6"
+      ],
+      "evidence_ids": [
+        "P1-BS1-G2-r8-to-P2-BS2-G3-r9"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "bundle_prompt_injection_isolation": {
+      "evidence_digests": [
+        "sha256:c4b1aafa1013c8512abf90eab660903e3aba351253b73ddf58b6947218f14fdc"
+      ],
+      "evidence_ids": [
+        "X-Z-bundle-analysis"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "citation_exact_binding": {
+      "evidence_digests": [
+        "sha256:262ce91116a8e52bcd305a207ac00b0e52b22730f7325dbb5c04b17f41b25c59"
+      ],
+      "evidence_ids": [
+        "wrong-citation-blocked"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "content_safe_evidence": {
+      "evidence_digests": [
+        "sha256:913e31421ed02569eef8a28c4b5d211d8c8e4f2d8d9928c0f5ff5c611cd2bcf9"
+      ],
+      "evidence_ids": [
+        "content-safe-report-and-database-value-boundary"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "context_assembly_exact_manifest": {
+      "evidence_digests": [
+        "sha256:edefbcd1c81511d93f7d1a26b79e2cbd51414adc2421d27db2eac671b6186351"
+      ],
+      "evidence_ids": [
+        "context-receipts-and-tamper"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "dlp_metadata_destination_fail_closed": {
+      "evidence_digests": [
+        "sha256:f51ad948950f37549aa96158730b6cf60470db924d02ebbc779cdcccd4991ced"
+      ],
+      "evidence_ids": [
+        "DLP-fail-and-unknown"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "incident_ledger_append_only": {
+      "evidence_digests": [
+        "sha256:8e01b99f8cbc9c226b9f6efe93f2156fd01e8e71b89d0b6eebb3a87c8f4e4d38"
+      ],
+      "evidence_ids": [
+        "incident-root-correction-no-branch"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "ingestion_security_evidence_binding": {
+      "evidence_digests": [
+        "sha256:490cf783375378e4df5a5fcc7c0e27ecd59307db621a1feb56ed30ddffd9f8b5"
+      ],
+      "evidence_ids": [
+        "versioned-Y-security-records"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "normal_quality_preserved": {
+      "evidence_digests": [
+        "sha256:c10c990d2790b78de22152fee0769e9b64962833f6afcfecd1dd55760645682d"
+      ],
+      "evidence_ids": [
+        "Q1-Q2-Q3-exact-HNSW"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "postgresql_pgvector_identity_match": {
+      "evidence_digests": [
+        "sha256:2963708a508b7fe77ffc65d510a4b38ab611e5206077c31fd350f1a78055fbd5"
+      ],
+      "evidence_ids": [
+        "postgresql-pgvector-version-readback"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "provider_poisoning_not_served": {
+      "evidence_digests": [
+        "sha256:b3a91f26ba149715f9d5f85ff6e3f74f8e19abb971f9512e0d9d679df8b4343e"
+      ],
+      "evidence_ids": [
+        "G_BAD-integrity-failed"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "quarantine_and_tombstone_currentness": {
+      "evidence_digests": [
+        "sha256:ad61a15f28d92c18f697d1d56b83243a33022cf3daac67bb3356821bcdf30891"
+      ],
+      "evidence_ids": [
+        "B-tombstone-X-Y-quarantine"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "read_view_single_generation": {
+      "evidence_digests": [
+        "sha256:53fff5632af1bc2e7f236fc1cab29f6ea7b2a2b1c102fe6ac5fc97d5426cae4e"
+      ],
+      "evidence_ids": [
+        "G2-old-G3-new-read-views"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "release_current_authorization_recheck": {
+      "evidence_digests": [
+        "sha256:4258bb197004cc53f844ce49ff41fe0979e3d4d6ad997b9288a3195e2902da60"
+      ],
+      "evidence_ids": [
+        "old-G2-release-blocked"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "restart_durability_and_idempotency": {
+      "evidence_digests": [
+        "sha256:64851a0e0509beaf843fde076a10d7728247a35e5bd3d69b52ae5eb09839d3d9",
+        "sha256:addd67d1697a86556ea655bd921f179e775d20b19715ae1a847e9a9a00db81eb"
+      ],
+      "evidence_ids": [
+        "application-process-restart-readback",
+        "database-container-restart-readback"
+      ],
+      "observed_at": "2026-11-16T04:24:19.727413+00:00",
+      "safe_reason": "APPLICATION_AND_DATABASE_CONTAINER_RESTART_READBACK_CONFORMED",
+      "status": "PASS"
+    },
+    "retrieval_authorization_and_tenant_isolation": {
+      "evidence_digests": [
+        "sha256:de8bb108da64df7e40bada0b9cc3e8b97be677c716c0f5ce72b5b0aa890ebd07"
+      ],
+      "evidence_ids": [
+        "T-and-P2-currentness"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "schema_migration_integrity": {
+      "evidence_digests": [
+        "sha256:89439f321fc394ee570380cb9ce1b8a5ea12a2e7ad21761bf6b65d51ec4b27a6"
+      ],
+      "evidence_ids": [
+        "day104-and-day105-schema-installed"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "sealed_manifest_exact_binding": {
+      "evidence_digests": [
+        "sha256:dbd8b255fe81bc54cdba480214892225e63866ebb4775d0cdeed3244e3f99571"
+      ],
+      "evidence_ids": [
+        "G2-G3-manifest-readback"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    },
+    "security_snapshot_cas_and_transaction_atomicity": {
+      "evidence_digests": [
+        "sha256:aea334ccecc48729d3568c888c69667f426419fbae8b2c11c29638513fdef179"
+      ],
+      "evidence_ids": [
+        "snapshot-CAS-and-fault"
+      ],
+      "observed_at": "2026-11-16T04:23:57.528449+00:00",
+      "safe_reason": "EXECUTED_BOUNDARY_CONFORMED",
+      "status": "PASS"
+    }
+  },
+  "identities": {
+    "blocked_old_release": {
+      "digest": "sha256:459db628f59377d987a11f5360f5eb3287c30496e708664258b40c75835e794b",
+      "identity": "response-intent:release-Q3-pending-after-P2"
+    },
+    "current_build_snapshot": {
+      "digest": "sha256:48b2be1f37533cbdddae5fda7cf6813fe384ce38890360a49d41853219e70fce",
+      "identity": "BS2"
+    },
+    "current_generation": {
+      "digest": "sha256:08af00ff66d39862b9b68ab7457bd9b6f783ce3fbd25b63e2c5f8ec41ae2e60e",
+      "identity": "G3"
+    },
+    "current_security_snapshot": {
+      "digest": "sha256:44a7e196210dd270877ae4105d64ca2de7871ecdbc3e25bb79332fa50e71b94e",
+      "identity": "P2"
+    },
+    "incident_correction": {
+      "digest": "sha256:ee0860e3f7b68aacabe5072c7b975549e26cbd56cc96385d64ca8e11d6a6ff0b",
+      "identity": "incident-day105-l3-contained"
+    },
+    "incident_root": {
+      "digest": "sha256:f2e5d5774347fad802d82832146dc5449b614e3c3e7048507cd29d614e4c6834",
+      "identity": "incident-day105-l3-root"
+    },
+    "initial_build_snapshot": {
+      "digest": "sha256:64f53dec782dbbd30f1d43ef05853c718ccabe26f98ad1a5b45deeb3c90b0f1c",
+      "identity": "BS1"
+    },
+    "initial_generation": {
+      "digest": "sha256:2e56fc2d631983b150f6f1c483ba1a146bd2355f1aa3a0b135530e90a2213f5d",
+      "identity": "G2"
+    },
+    "initial_security_snapshot": {
+      "digest": "sha256:cba05efba6860b7ff66ef00a95584156ca29d90d169b3ef3e3e96a95b92fb738",
+      "identity": "P1"
+    },
+    "new_read_view": {
+      "digest": "sha256:f9141de1883ccff7a7512226401edea3003d895917da15201d107b1ddd70c305",
+      "identity": "read-view:request-Q2-G3"
+    },
+    "old_answer_candidate": {
+      "digest": "sha256:7b90da3b0bdb65bf8d0e6c26165ecee4c4639d7c4c989e299f8c1e3eb9100a57",
+      "identity": "candidate-Q3-pending-G2"
+    },
+    "old_read_view": {
+      "digest": "sha256:61e537543d56388ad773621e2ebb2fdc991c23459e8ab34f51cf2080a168076d",
+      "identity": "read-view:request-Q3-pending-G2"
+    },
+    "released_new_response": {
+      "digest": "sha256:1ae25f5d57ae51bce7a080de08187e997ddae8b891f149805a3f068b5d521baf",
+      "identity": "response-intent:release-Q2-G3"
+    },
+    "security_policy": {
+      "digest": "sha256:c88ae1dd3e68a03f43a85716fa06a4f6a5f867161d46c9c0c1ec3b518770289a",
+      "identity": "SP1"
+    },
+    "y_v1_security_record": {
+      "digest": "sha256:fc6ec87fd126fcd25d0900de3b5a93e917c65685b8f26e58718505af279f2280",
+      "identity": "content-security-record:Y@v1:detector-v1"
+    },
+    "y_v2_security_record": {
+      "digest": "sha256:1b157b4a21f24081c7de0781593bc6d7166a7e81a537a53b0027aaa87ab71312",
+      "identity": "content-security-record:Y@v2:detector-v2"
+    }
+  },
+  "level_4": {
+    "canary_incident_drill_and_observation_window": "NOT_RUN",
+    "external_egress_enforcement": "NOT_RUN",
+    "ha_replica_failover_backup_and_restore": "NOT_RUN",
+    "network_partition_and_split_brain": "NOT_RUN",
+    "physical_purge_across_wal_backups_caches_and_retained_media": "NOT_RUN",
+    "production_iam_rls_tls_and_secret_rotation": "NOT_RUN",
+    "production_scale_recall_latency_load_cost_and_soak": "NOT_RUN",
+    "real_scanner_detector_dlp_model_and_provider": "NOT_RUN"
+  },
+  "overall_status": "PASS",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "raw_answer_candidates_logged": false,
+  "raw_attack_payloads_logged": false,
+  "raw_cross_tenant_content_logged": false,
+  "raw_protected_content_logged": false,
+  "raw_secrets_logged": false,
+  "raw_system_prompts_logged": false,
+  "raw_vectors_logged": false,
+  "replayed_report_checksum": "sha256:44ea64f77e24eaebb83550544eb25eaa4755aad895e0877fcb2198c7045a0557",
+  "report_checksum": "sha256:44ea64f77e24eaebb83550544eb25eaa4755aad895e0877fcb2198c7045a0557",
+  "restart_evidence": {
+    "application_process_restart": {
+      "after_identity_digest": "sha256:12ddec152495a0d5730fdaa965dd630f2d14bf04c57206b9375932f3691ffcf0",
+      "before_identity_digest": "sha256:12ddec152495a0d5730fdaa965dd630f2d14bf04c57206b9375932f3691ffcf0",
+      "evidence_digest": "sha256:64851a0e0509beaf843fde076a10d7728247a35e5bd3d69b52ae5eb09839d3d9",
+      "observed_at": "2026-11-16T04:24:19.727413+00:00",
+      "status": "PASS"
+    },
+    "database_container_restart": {
+      "after_identity_digest": "sha256:12ddec152495a0d5730fdaa965dd630f2d14bf04c57206b9375932f3691ffcf0",
+      "after_postmaster_started_at": "2026-11-16T04:24:05.680409+00:00",
+      "before_identity_digest": "sha256:12ddec152495a0d5730fdaa965dd630f2d14bf04c57206b9375932f3691ffcf0",
+      "before_postmaster_started_at": "2026-11-16T04:17:51.730016+00:00",
+      "evidence_digest": "sha256:addd67d1697a86556ea655bd921f179e775d20b19715ae1a847e9a9a00db81eb",
+      "observed_at": "2026-11-16T04:24:19.727413+00:00",
+      "restart_replay_report_digest": "sha256:06311db1cf0243b660f6f933d2ce4deafd6b038f02f2b2bb35b72a28e31417e7",
+      "status": "PASS"
+    },
+    "saved_restart_report": {
+      "evidence_path": "projects/ai-agent/evidence/day105-l3-restart-replay.json",
+      "file_digest": "sha256:3a6482e280d3c926095d2cadec2145b90da8e3b9fce03261e2412a5c3cfb33cd",
+      "report_checksum": "sha256:06311db1cf0243b660f6f933d2ce4deafd6b038f02f2b2bb35b72a28e31417e7"
+    }
+  },
+  "run_id": "day105-l3-639db42b533fde48",
+  "scenario": {
+    "cross_document_chain_occurrence_ids": [
+      "Z1@v1",
+      "Z2@v1"
+    ],
+    "cross_tenant_occurrence_ids": [
+      "T@v1"
+    ],
+    "current_serving_state": {
+      "authorization_revision": "P2",
+      "build_snapshot_id": "BS2",
+      "generation_id": "G3",
+      "manifest_occurrence_ids": [
+        "C@v1"
+      ],
+      "pointer_revision": 9
+    },
+    "initial_serving_state": {
+      "authorization_revision": "P1",
+      "build_snapshot_id": "BS1",
+      "generation_id": "G2",
+      "manifest_occurrence_ids": [
+        "A@v1",
+        "C@v1"
+      ],
+      "pointer_revision": 8
+    },
+    "quarantined_occurrence_ids": [
+      "X@v1",
+      "Y@v1"
+    ],
+    "queries": {
+      "Q1": [
+        "A@v1"
+      ],
+      "Q2": [
+        "C@v1"
+      ],
+      "Q3": [
+        "A@v1",
+        "C@v1"
+      ]
+    },
+    "tombstoned_occurrence_ids": [
+      "B@v1"
+    ],
+    "versioned_rescan_occurrence_ids": [
+      "Y@v1",
+      "Y@v2"
+    ]
+  },
+  "scenario_id": "day105-refund-rag-security-postgresql-pgvector-l3-v1",
+  "schema_version": "day105-l3-evidence.v1",
+  "security_cases": [
+    {
+      "case_id": "normal-q1-g2",
+      "category": "NORMAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:080c2d2fa9416d9b0bfe9dfd49940e0577ee5462af1f11f5ab80b8298fc20d7f",
+      "expectation_conformant": true,
+      "expected_serving_action": "RELEASE",
+      "expected_stage_result": "PASS",
+      "generation_id": "G2",
+      "observed_stage_result": "PASS",
+      "prompt_occurrence_ids": [
+        "A@v1"
+      ],
+      "released_citation_occurrence_ids": [
+        "A@v1"
+      ],
+      "serving_action": "RELEASE"
+    },
+    {
+      "case_id": "normal-q2-g2",
+      "category": "NORMAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:4dcd6f05fd0631c8797039338d2d86879a3b5ca502d2e871c0863d430fc55a0e",
+      "expectation_conformant": true,
+      "expected_serving_action": "RELEASE",
+      "expected_stage_result": "PASS",
+      "generation_id": "G2",
+      "observed_stage_result": "PASS",
+      "prompt_occurrence_ids": [
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [
+        "C@v1"
+      ],
+      "serving_action": "RELEASE"
+    },
+    {
+      "case_id": "normal-q3-g2",
+      "category": "NORMAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:4a93487a39dac0d267413d5d79ad78204c394b867a770807e2ffab81b37bae29",
+      "expectation_conformant": true,
+      "expected_serving_action": "RELEASE",
+      "expected_stage_result": "PASS",
+      "generation_id": "G2",
+      "observed_stage_result": "PASS",
+      "prompt_occurrence_ids": [
+        "A@v1",
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [
+        "A@v1",
+        "C@v1"
+      ],
+      "serving_action": "RELEASE"
+    },
+    {
+      "case_id": "poisoned-generation-not-served",
+      "category": "ADVERSARIAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:8870971d0c5089f1908f9f5a84d306ea06cbd177734239701f1d3ac3120e0b64",
+      "expectation_conformant": true,
+      "expected_serving_action": "NOT_SERVED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G_BAD",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "NOT_SERVED"
+    },
+    {
+      "case_id": "document-injection-x-blocked",
+      "category": "ADVERSARIAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:3d8091351a76f751ab28f23b7ab27a1fb8e422df3df6f53a7957c47ba876b846",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G_BAD",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    },
+    {
+      "case_id": "detector-timeout-y-quarantined",
+      "category": "ADVERSARIAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:496243dce407592e5d54382bdaf14ccb41202b929c36df8810b84ef927190f4a",
+      "expectation_conformant": true,
+      "expected_serving_action": "QUARANTINE",
+      "expected_stage_result": "INCONCLUSIVE",
+      "generation_id": "G_BAD",
+      "observed_stage_result": "INCONCLUSIVE",
+      "prompt_occurrence_ids": [],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "QUARANTINE"
+    },
+    {
+      "case_id": "detector-rescan-y-v2-append-only",
+      "category": "ADVERSARIAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:6fe31f5cce4eab7aa7f2861b49e6f692d3fb5b6eaede0826cbc5d87b39214ccf",
+      "expectation_conformant": true,
+      "expected_serving_action": "NOT_SERVED",
+      "expected_stage_result": "PASS",
+      "generation_id": "NOT_SERVING",
+      "observed_stage_result": "PASS",
+      "prompt_occurrence_ids": [],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "NOT_SERVED"
+    },
+    {
+      "case_id": "cross-document-z-blocked",
+      "category": "ADVERSARIAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:8474263dc32014cc179f48556914985446e9f4054153d395aea6c7556db52b45",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G_BAD",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    },
+    {
+      "case_id": "cross-tenant-t-blocked",
+      "category": "ADVERSARIAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:3e58194fc683d45e3614160ccf9f107723cb79ca34f451fa803dbc23daa7338f",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G_BAD",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    },
+    {
+      "case_id": "revoked-a-old-candidate-blocked",
+      "category": "REVOCATION",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:7fd2e53c90b3dba3b3a1c26cbd6f01e51c8433a929f9c1505e450a96b9f9df04",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G2",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [
+        "A@v1",
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    },
+    {
+      "case_id": "new-q2-g3-released",
+      "category": "NORMAL",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:0a4c412fd682c24d3672aa29583921fc53c13c4bde02ecae4147c0ce7477b57e",
+      "expectation_conformant": true,
+      "expected_serving_action": "RELEASE",
+      "expected_stage_result": "PASS",
+      "generation_id": "G3",
+      "observed_stage_result": "PASS",
+      "prompt_occurrence_ids": [
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [
+        "C@v1"
+      ],
+      "serving_action": "RELEASE"
+    },
+    {
+      "case_id": "wrong-citation-blocked",
+      "category": "FAILURE",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:969c8692e55aa9f89f7fa31f28000f6309ce397a4513170525f36987b8edb1f1",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G3",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    },
+    {
+      "case_id": "dlp-timeout-blocked",
+      "category": "FAILURE",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:1147781f2cbaa073b2c5cfd08cad164509afe28e39ac0d3d59d8691732b7c61a",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "INCONCLUSIVE",
+      "generation_id": "G3",
+      "observed_stage_result": "INCONCLUSIVE",
+      "prompt_occurrence_ids": [
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    },
+    {
+      "case_id": "dlp-sensitive-blocked",
+      "category": "FAILURE",
+      "defense_outcome": "PASS",
+      "evidence_digest": "sha256:ae5ee30c7ee8f3b1a40602d8f5f524b5fd84497560eca8e00ec0b5c929cf5829",
+      "expectation_conformant": true,
+      "expected_serving_action": "BLOCKED",
+      "expected_stage_result": "FAIL",
+      "generation_id": "G3",
+      "observed_stage_result": "FAIL",
+      "prompt_occurrence_ids": [
+        "C@v1"
+      ],
+      "released_citation_occurrence_ids": [],
+      "serving_action": "BLOCKED"
+    }
+  ],
+  "started_at": "2026-11-16T04:23:55.985136+00:00",
+  "test_runs": [
+    {
+      "command_digest": "sha256:3cd31607441435cf6a2228224674de12201ca1fa5d94b9a6524173a9196980c1",
+      "failed": 0,
+      "passed": 20,
+      "report_digest": "sha256:e1463c73e2fc6f91dc7379573f11dd04de905ffc7105bab041d1927e82c4fe4d",
+      "runner_id": "day105-l3-unit",
+      "skipped": 0,
+      "status": "PASS"
+    },
+    {
+      "command_digest": "sha256:dafacf72afbeaf95fe6febf0241bcb13eed59e2e06aaf38bdc9406d6dddd55a9",
+      "failed": 0,
+      "passed": 9,
+      "report_digest": "sha256:38d0a04f4c6ae0345c9c3e98d7747fd68e20f26df9ddc5b7fc40df767c5e77dd",
+      "runner_id": "day105-l3-integration",
+      "skipped": 0,
+      "status": "PASS"
+    },
+    {
+      "command_digest": "sha256:97d7ef37f009e64530346c2ceab90084a4d5fd3689c900660692544e2a900c16",
+      "failed": 0,
+      "passed": 20,
+      "report_digest": "sha256:d6b49cbf30693018183d82f29e6032629762c530ae4aa3882a1d19d26f08d30d",
+      "runner_id": "day105-l3-runner",
+      "skipped": 0,
+      "status": "PASS"
+    },
+    {
+      "command_digest": "sha256:3d098126982697e813517b0b5343dfd199c99f76587a8002ac1d2e421ee8732b",
+      "failed": 0,
+      "passed": 1,
+      "report_digest": "sha256:06311db1cf0243b660f6f933d2ce4deafd6b038f02f2b2bb35b72a28e31417e7",
+      "runner_id": "day105-l3-restart-replay",
+      "skipped": 0,
+      "status": "PASS"
+    }
+  ]
+}

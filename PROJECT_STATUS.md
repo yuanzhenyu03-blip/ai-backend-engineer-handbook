@@ -7,8 +7,9 @@ guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; 
 
 Day59–Day105 are complete at their recorded evidence levels. Day105 adds
 RAG-specific ingestion, retrieval, context-assembly and response-release security boundaries while preserving
-the Day104 immutable-Generation and ReadView handoff. Its deterministic Level 2 scope is complete; Day105 L3,
-L4 and production readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Day104 adds
+the Day104 immutable-Generation and ReadView handoff. Its deterministic Level 2 scope and bounded local
+PostgreSQL 16.15/pgvector 0.8.7 Level 3 are complete; Day105 L4 and production readiness remain `NOT_RUN` or
+`MORE_EVIDENCE_NEEDED`. Day104 adds
 immutable index-generation lifecycle, Tombstone propagation, independent
 read-back, Day103-bound release evidence, atomic pointer activation, leased
 ReadViews, drain/retirement and rollback controls on the Day95–Day103 base. Its
@@ -25,7 +26,7 @@ Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
 Day106 — Production RAG Capstone and English Interview (Phase 7C) — next up.
 Most recent classroom lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries.
 
-Day105 is COMPLETE at guided classroom Level 2. Lesson:
+Day105 is COMPLETE at guided classroom Level 2 and bounded local integration Level 3. Lesson:
 `docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md`. The continuing
 Artifact treats retrieved content as data, binds content-security evidence to exact source/digest/processing
 identities, filters unauthorized and quarantined occurrences before Prompt construction, analyzes complete
@@ -33,15 +34,18 @@ Retrieval Bundles, freezes Context Assembly and Model Invocation identities, and
 AnswerCandidate. Application-owned Disclosure and Output Release gates enforce grounding, exact citations,
 current authorization, DLP, metadata, audience, destination and disclosure budget. X/Y/Z/T adversarial fixtures
 remain separate from A/B/C history. Saved deterministic evidence and commands are linked from the Day105 design
-and repository update report. Real detector/model/DLP/policy/Provider integration, Day105 L3, L4 and production
-readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
+and repository update report. The bounded local L3 run passed 20/20 repository unit tests, 9/9 real integration
+tests, 20/20 hard gates, 14 security cases, 18 failure checkpoints, a real database-container restart replay and
+offline evidence replay. Scanner/detector/DLP/model behavior remains deterministic; real external Provider/model/
+DLP integration, L4 and production readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
 
 Post-seal PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged to `main` as
 `293075c3021a20a21d2d586098f2b8e857dfd00d` at `2026-11-15T14:40:40Z`. GitHub Actions run
 `43725541551` / job `132846558835` (workflow `368931184`, run #28, attempt 1) passed on CPython 3.12.16:
 1334 tests PASS with 7 skipped, all 21 seed evaluators PASS, all seven saved evidence replays PASS and the Day105
 replay PASS. The [append-only CI record](projects/ai-agent/evidence/day105-pr18-ci-validation.json) leaves the
-sealed Day105 validation/report unchanged. CI did not start Docker/PostgreSQL/pgvector or run Day105 L3.
+sealed Day105 validation/report unchanged. That earlier CI run did not start Docker/PostgreSQL/pgvector or run
+Day105 L3; the later bounded local L3 evidence is separate.
 
 Day104 is COMPLETE at guided classroom Level 2 and local integration Level 3. Lesson:
 `docs/fastapi/day104-index-update-delete-rebuild-and-migration.md`. The continuing Artifact treats durable source,

@@ -2201,16 +2201,22 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   Scope: prompt injection via documents, poisoned documents, data-leakage boundaries.
   Connection: Day104 kept the index correct; Day105 adds RAG security boundaries; Day106 integrates the
   Production RAG subsystem.
-  Status: ✅ Completed at guided classroom Level 2. The application treats retrieved content as untrusted data;
+  Status: ✅ Completed at guided classroom Level 2 plus bounded local integration Level 3. The application
+  treats retrieved content as untrusted data;
   binds ingestion security to exact content/provenance/parser/scanner/detector/policy identities; filters
   tenant/current authorization/Tombstone/quarantine before Prompt construction; freezes Retrieval Bundle,
   Context Assembly, Model Invocation and Disclosure identities; makes the model produce AnswerCandidate only;
   and independently gates grounding, exact citations, DLP, metadata, destination and disclosure budget. X/Y/Z/T
-  adversarial fixtures run beside normal A/B/C Q1–Q3 gates. Deterministic L2 evidence does not prove real model,
-  scanner, DLP, Provider or production behavior; readiness remains `MORE_EVIDENCE_NEEDED`. Subsequent PR #18
+  adversarial fixtures run beside normal A/B/C Q1–Q3 gates. The bounded PostgreSQL 16.15/pgvector 0.8.7 L3
+  run passed 20/20 repository unit tests, 9/9 real integration tests, 20/20 hard gates, 14 security cases, 18
+  failure checkpoints, a real database-container restart replay and offline evidence replay. The scanner,
+  detector, DLP and model adapters remain deterministic, so this does not prove real external model, scanner,
+  DLP, Provider or production behavior; L4 and readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
+  Subsequent PR #18
   CPython 3.12.16 CI passed 1334 tests with 7 skips, all 21 seed evaluators, all seven saved evidence replays and
   the Day105 replay. Its [append-only record](projects/ai-agent/evidence/day105-pr18-ci-validation.json) does not
-  rewrite the sealed Day105 reports; CI did not start Docker/PostgreSQL/pgvector or run Day105 L3. Next: Day106.
+  rewrite the sealed Day105 reports; that CI run did not start Docker/PostgreSQL/pgvector or run Day105 L3. The
+  later local L3 evidence is append-only and separate. Next: Day106.
 - Day106 — Production RAG Capstone and English Interview.
   Scope: integrate the RAG subsystem; runnable checkpoint; phase-level English interview.
   Connection: Day105 secured RAG; Day106 integrates the Production RAG subsystem as a runnable checkpoint and

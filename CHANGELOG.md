@@ -9,6 +9,25 @@ This project follows a practical versioning style:
 
 ---
 
+## Day105 — Bounded local PostgreSQL/pgvector Level 3 evidence
+
+Date: 2026-11-16
+
+Added an opt-in, isolated local PostgreSQL 16.15/pgvector 0.8.7 integration for the sealed Day105 security
+contracts without rewriting the Day105 Level 2 reports. The application-owned repository persists versioned
+security snapshots, append-only security artifacts, response intents and incident corrections beside the Day104
+Generation/ReadView lifecycle. The run passed 20/20 repository unit tests, 9/9 real integration tests, 20/20
+non-compensable hard gates, 14 security cases and 18 failure checkpoints. A real database-container restart
+preserved the pre-restart canonical G3/r9, P2, release, incident and detector-record state; the saved restart and
+main evidence records also pass offline replay. Cleanup removed only the isolated `day105-l3` Compose project and
+`day105_l3_pg_data` volume.
+
+PostgreSQL, pgvector, constraints, transactions, CAS, vector queries and restart are real for this bounded local
+fixture. Parser/scanner/detector/DLP/model behavior remains deterministic and application-owned. Real external
+Provider/model/DLP integration, production IAM/RLS/TLS and egress, HA/restore, physical purge, load/soak, canary
+traffic, Level 4 and production readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`. Ordinary CI replays saved
+content-safe evidence and does not start Docker.
+
 ## Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries (Phase 7C) — Released to main
 
 Date: 2026-11-15
@@ -22,8 +41,9 @@ Output Release Gate validates grounding, citations, current authorization, DLP, 
 
 The fixed A/B/C and Q1–Q3 quality fixture remains intact. X/Y/Z/T provide document injection, poisoning,
 cross-document and cross-tenant slices without storing reusable attack payloads or protected text. Critical
-attack success is non-compensable, but reject-all also fails normal quality gates. Level 3 real integration,
-Level 4 and production readiness remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`.
+attack success is non-compensable, but reject-all also fails normal quality gates. At the lesson seal, Level 3
+real integration, Level 4 and production readiness remained `NOT_RUN` or `MORE_EVIDENCE_NEEDED`; bounded local
+Level 3 evidence was added later in the append-only entry above.
 
 PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged to `main` as
 `293075c3021a20a21d2d586098f2b8e857dfd00d` at `2026-11-15T14:40:40Z`. GitHub Actions workflow
@@ -31,8 +51,8 @@ PR #18 head `8f80d3532c9f1fe99918a85b2f0f73e210be0b75` merged to `main` as
 with 7 skipped, all 21 seed evaluators PASS, all seven saved evidence replays PASS and the Day105 replay PASS.
 This post-seal result is recorded append-only in
 `projects/ai-agent/evidence/day105-pr18-ci-validation.json`; the original `day105-validation.json` and
-`day105-rag-security-report.json` remain frozen. CI did not start Docker/PostgreSQL/pgvector or execute Day105
-L3, which remains `NOT_RUN`.
+`day105-rag-security-report.json` remain frozen. That CI run did not start Docker/PostgreSQL/pgvector or execute
+Day105 L3; the later bounded local L3 record above is separate.
 
 ## Day104 — Index Update, Delete, Rebuild and Migration (Phase 7C) — Released to main
 

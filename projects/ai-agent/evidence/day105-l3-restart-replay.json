@@ -1,0 +1,28 @@
+{
+  "after_postmaster_started_at": "2026-11-16T04:24:05.680409+00:00",
+  "before_postmaster_started_at": "2026-11-16T04:17:51.730016+00:00",
+  "changed_digest_result": "IDENTITY_CONFLICT",
+  "completed_at": "2026-11-16T04:24:19.727413+00:00",
+  "current_authorization_revision": "P2",
+  "current_generation_id": "G3",
+  "database_url_logged": false,
+  "exact_replay_result": "EXACT_REPLAY",
+  "fresh_read_view_closed": true,
+  "new_query_occurrence_ids": [
+    "C@v1"
+  ],
+  "old_candidate_release": "BLOCKED",
+  "old_g2_query_result": "REJECTED_CURRENT_AUTHORIZATION",
+  "orphan_candidate_release": "BLOCKED",
+  "pointer_revision": 9,
+  "raw_content_logged": false,
+  "raw_vectors_logged": false,
+  "report_checksum": "sha256:06311db1cf0243b660f6f933d2ce4deafd6b038f02f2b2bb35b72a28e31417e7",
+  "run_id": "day105-l3-restart-cf66e1d313ea4cb08c96bf275abf9a88",
+  "scenario_id": "day105-refund-rag-security-postgresql-pgvector-l3-v1",
+  "schema_version": "day105-l3-restart-replay.v1",
+  "started_at": "2026-11-16T04:24:19.477899+00:00",
+  "state_identity_digest_after": "sha256:12ddec152495a0d5730fdaa965dd630f2d14bf04c57206b9375932f3691ffcf0",
+  "state_identity_digest_before": "sha256:12ddec152495a0d5730fdaa965dd630f2d14bf04c57206b9375932f3691ffcf0",
+  "status": "PASS"
+}

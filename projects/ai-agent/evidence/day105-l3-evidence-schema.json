@@ -1,0 +1,1160 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-backend-for-codex:day105:l3-evidence:v1",
+  "title": "Day105 real PostgreSQL/pgvector security Level 3 evidence",
+  "description": "Contract only. Its presence is not execution evidence and does not imply PASS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "run_id",
+    "overall_status",
+    "evidence_level",
+    "started_at",
+    "completed_at",
+    "baselines",
+    "environment",
+    "scenario",
+    "identities",
+    "security_cases",
+    "hard_gates",
+    "test_runs",
+    "failure_injections",
+    "restart_evidence",
+    "artifacts",
+    "cleanup",
+    "level_4",
+    "claim_boundary",
+    "fixture_production_eligible",
+    "raw_attack_payloads_logged",
+    "raw_protected_content_logged",
+    "raw_system_prompts_logged",
+    "raw_answer_candidates_logged",
+    "raw_secrets_logged",
+    "raw_cross_tenant_content_logged",
+    "raw_vectors_logged",
+    "database_url_logged",
+    "production_readiness",
+    "report_checksum",
+    "replayed_report_checksum"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "day105-l3-evidence.v1"
+    },
+    "scenario_id": {
+      "const": "day105-refund-rag-security-postgresql-pgvector-l3-v1"
+    },
+    "run_id": {
+      "$ref": "#/$defs/non_empty"
+    },
+    "overall_status": {
+      "$ref": "#/$defs/status"
+    },
+    "evidence_level": {
+      "enum": [
+        "NOT_RUN",
+        "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_SECURITY_ADAPTERS"
+      ]
+    },
+    "started_at": {
+      "$ref": "#/$defs/nullable_datetime"
+    },
+    "completed_at": {
+      "$ref": "#/$defs/nullable_datetime"
+    },
+    "baselines": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "day104_level_3",
+        "day105_level_2"
+      ],
+      "properties": {
+        "day104_level_3": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_path",
+            "report_checksum",
+            "evidence_level"
+          ],
+          "properties": {
+            "evidence_path": {
+              "const": "projects/ai-agent/evidence/day104-l3-integration-report.json"
+            },
+            "report_checksum": {
+              "const": "sha256:41e4b36ca1ccd589ca6ddcd99026bc6b48fc57e5a47c231ca8d32433b479ba85"
+            },
+            "evidence_level": {
+              "const": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR"
+            }
+          }
+        },
+        "day105_level_2": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "evidence_path",
+            "report_checksum",
+            "evidence_level"
+          ],
+          "properties": {
+            "evidence_path": {
+              "const": "projects/ai-agent/evidence/day105-rag-security-report.json"
+            },
+            "report_checksum": {
+              "const": "sha256:b7cb38a8d7191d1404b162f88aae935c28f12628362e01b600c685299579f477"
+            },
+            "evidence_level": {
+              "const": "EXECUTED_LOCAL_RUNTIME_WITH_DETERMINISTIC_FAKE"
+            }
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "docker_engine_version",
+        "docker_compose_version",
+        "image_reference",
+        "image_digest",
+        "python_version",
+        "database_driver",
+        "database_driver_version",
+        "postgresql_server_version",
+        "postgresql_server_version_num",
+        "pgvector_extension_version",
+        "transaction_isolation",
+        "database_identity_digest"
+      ],
+      "properties": {
+        "docker_engine_version": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "docker_compose_version": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "image_reference": {
+          "const": "pgvector/pgvector:0.8.7-pg16"
+        },
+        "image_digest": {
+          "const": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f"
+        },
+        "python_version": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "database_driver": {
+          "const": "psycopg2-binary"
+        },
+        "database_driver_version": {
+          "const": "2.9.10"
+        },
+        "postgresql_server_version": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "postgresql_server_version_num": {
+          "type": "integer",
+          "minimum": 160000,
+          "maximum": 169999
+        },
+        "pgvector_extension_version": {
+          "const": "0.8.7"
+        },
+        "transaction_isolation": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "READ COMMITTED",
+              "REPEATABLE READ",
+              "SERIALIZABLE"
+            ]
+          }
+        },
+        "database_identity_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "initial_serving_state",
+        "current_serving_state",
+        "tombstoned_occurrence_ids",
+        "quarantined_occurrence_ids",
+        "versioned_rescan_occurrence_ids",
+        "cross_tenant_occurrence_ids",
+        "cross_document_chain_occurrence_ids",
+        "queries"
+      ],
+      "properties": {
+        "initial_serving_state": {
+          "const": {
+            "authorization_revision": "P1",
+            "build_snapshot_id": "BS1",
+            "generation_id": "G2",
+            "pointer_revision": 8,
+            "manifest_occurrence_ids": [
+              "A@v1",
+              "C@v1"
+            ]
+          }
+        },
+        "current_serving_state": {
+          "const": {
+            "authorization_revision": "P2",
+            "build_snapshot_id": "BS2",
+            "generation_id": "G3",
+            "pointer_revision": 9,
+            "manifest_occurrence_ids": [
+              "C@v1"
+            ]
+          }
+        },
+        "tombstoned_occurrence_ids": {
+          "const": [
+            "B@v1"
+          ]
+        },
+        "quarantined_occurrence_ids": {
+          "const": [
+            "X@v1",
+            "Y@v1"
+          ]
+        },
+        "versioned_rescan_occurrence_ids": {
+          "const": [
+            "Y@v1",
+            "Y@v2"
+          ]
+        },
+        "cross_tenant_occurrence_ids": {
+          "const": [
+            "T@v1"
+          ]
+        },
+        "cross_document_chain_occurrence_ids": {
+          "const": [
+            "Z1@v1",
+            "Z2@v1"
+          ]
+        },
+        "queries": {
+          "const": {
+            "Q1": [
+              "A@v1"
+            ],
+            "Q2": [
+              "C@v1"
+            ],
+            "Q3": [
+              "A@v1",
+              "C@v1"
+            ]
+          }
+        }
+      }
+    },
+    "identities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "security_policy",
+        "initial_security_snapshot",
+        "current_security_snapshot",
+        "initial_build_snapshot",
+        "current_build_snapshot",
+        "initial_generation",
+        "current_generation",
+        "old_read_view",
+        "new_read_view",
+        "old_answer_candidate",
+        "blocked_old_release",
+        "released_new_response",
+        "incident_root",
+        "incident_correction",
+        "y_v1_security_record",
+        "y_v2_security_record"
+      ],
+      "properties": {
+        "security_policy": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "initial_security_snapshot": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "current_security_snapshot": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "initial_build_snapshot": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "current_build_snapshot": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "initial_generation": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "current_generation": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "old_read_view": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "new_read_view": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "old_answer_candidate": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "blocked_old_release": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "released_new_response": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "incident_root": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "incident_correction": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "y_v1_security_record": {
+          "$ref": "#/$defs/identity_binding"
+        },
+        "y_v2_security_record": {
+          "$ref": "#/$defs/identity_binding"
+        }
+      }
+    },
+    "security_cases": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/security_case"
+      }
+    },
+    "hard_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_migration_integrity",
+        "postgresql_pgvector_identity_match",
+        "append_only_security_record_immutability",
+        "ingestion_security_evidence_binding",
+        "quarantine_and_tombstone_currentness",
+        "sealed_manifest_exact_binding",
+        "provider_poisoning_not_served",
+        "retrieval_authorization_and_tenant_isolation",
+        "bundle_prompt_injection_isolation",
+        "context_assembly_exact_manifest",
+        "read_view_single_generation",
+        "authorization_snapshot_rebuild_and_activation",
+        "release_current_authorization_recheck",
+        "citation_exact_binding",
+        "dlp_metadata_destination_fail_closed",
+        "security_snapshot_cas_and_transaction_atomicity",
+        "incident_ledger_append_only",
+        "normal_quality_preserved",
+        "restart_durability_and_idempotency",
+        "content_safe_evidence"
+      ],
+      "properties": {
+        "schema_migration_integrity": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "postgresql_pgvector_identity_match": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "append_only_security_record_immutability": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "ingestion_security_evidence_binding": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "quarantine_and_tombstone_currentness": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "sealed_manifest_exact_binding": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "provider_poisoning_not_served": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "retrieval_authorization_and_tenant_isolation": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "bundle_prompt_injection_isolation": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "context_assembly_exact_manifest": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "read_view_single_generation": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "authorization_snapshot_rebuild_and_activation": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "release_current_authorization_recheck": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "citation_exact_binding": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "dlp_metadata_destination_fail_closed": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "security_snapshot_cas_and_transaction_atomicity": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "incident_ledger_append_only": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "normal_quality_preserved": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "restart_durability_and_idempotency": {
+          "$ref": "#/$defs/gate_result"
+        },
+        "content_safe_evidence": {
+          "$ref": "#/$defs/gate_result"
+        }
+      }
+    },
+    "test_runs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/test_run"
+      }
+    },
+    "failure_injections": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/failure_injection"
+      }
+    },
+    "restart_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "application_process_restart",
+        "database_container_restart",
+        "saved_restart_report"
+      ],
+      "properties": {
+        "application_process_restart": {
+          "$ref": "#/$defs/restart_proof"
+        },
+        "database_container_restart": {
+          "$ref": "#/$defs/container_restart_proof"
+        },
+        "saved_restart_report": {
+          "$ref": "#/$defs/saved_restart_report_binding"
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_migration_digest",
+        "lifecycle_schema_digest",
+        "security_repository_digest",
+        "lifecycle_repository_digest",
+        "compose_digest",
+        "requirements_digest",
+        "unit_test_digest",
+        "integration_test_digest",
+        "integration_runner_digest",
+        "restart_replay_runner_digest",
+        "evidence_replay_runner_digest",
+        "saved_restart_report_file_digest",
+        "test_report_digest"
+      ],
+      "properties": {
+        "schema_migration_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lifecycle_schema_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "security_repository_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "lifecycle_repository_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "compose_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "requirements_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "unit_test_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "integration_test_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "integration_runner_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "restart_replay_runner_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "evidence_replay_runner_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "saved_restart_report_file_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "test_report_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "safe_reason",
+        "completed_at",
+        "compose_project",
+        "volume_identity",
+        "compose_project_identity_digest",
+        "volume_identity_digest",
+        "removed_resource_identity_digests"
+      ],
+      "properties": {
+        "status": {
+          "const": "PASS"
+        },
+        "safe_reason": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "completed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "compose_project": {
+          "const": "day105-l3"
+        },
+        "volume_identity": {
+          "const": "day105_l3_pg_data"
+        },
+        "compose_project_identity_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "volume_identity_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "removed_resource_identity_digests": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        }
+      }
+    },
+    "level_4": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "real_scanner_detector_dlp_model_and_provider",
+        "external_egress_enforcement",
+        "production_iam_rls_tls_and_secret_rotation",
+        "ha_replica_failover_backup_and_restore",
+        "network_partition_and_split_brain",
+        "physical_purge_across_wal_backups_caches_and_retained_media",
+        "production_scale_recall_latency_load_cost_and_soak",
+        "canary_incident_drill_and_observation_window"
+      ],
+      "properties": {
+        "real_scanner_detector_dlp_model_and_provider": {
+          "const": "NOT_RUN"
+        },
+        "external_egress_enforcement": {
+          "const": "NOT_RUN"
+        },
+        "production_iam_rls_tls_and_secret_rotation": {
+          "const": "NOT_RUN"
+        },
+        "ha_replica_failover_backup_and_restore": {
+          "const": "NOT_RUN"
+        },
+        "network_partition_and_split_brain": {
+          "const": "NOT_RUN"
+        },
+        "physical_purge_across_wal_backups_caches_and_retained_media": {
+          "const": "NOT_RUN"
+        },
+        "production_scale_recall_latency_load_cost_and_soak": {
+          "const": "NOT_RUN"
+        },
+        "canary_incident_drill_and_observation_window": {
+          "const": "NOT_RUN"
+        }
+      }
+    },
+    "claim_boundary": {
+      "const": "Local Docker evidence for pinned PostgreSQL/pgvector transactions, constraints, CAS, restart, real vector retrieval and deterministic application-owned security adapters only; no real scanner, detector, DLP, model, Provider, production-egress or production-readiness claim."
+    },
+    "fixture_production_eligible": {
+      "const": false
+    },
+    "raw_attack_payloads_logged": {
+      "const": false
+    },
+    "raw_protected_content_logged": {
+      "const": false
+    },
+    "raw_system_prompts_logged": {
+      "const": false
+    },
+    "raw_answer_candidates_logged": {
+      "const": false
+    },
+    "raw_secrets_logged": {
+      "const": false
+    },
+    "raw_cross_tenant_content_logged": {
+      "const": false
+    },
+    "raw_vectors_logged": {
+      "const": false
+    },
+    "database_url_logged": {
+      "const": false
+    },
+    "production_readiness": {
+      "const": "MORE_EVIDENCE_NEEDED"
+    },
+    "report_checksum": {
+      "$ref": "#/$defs/digest"
+    },
+    "replayed_report_checksum": {
+      "$ref": "#/$defs/digest"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "overall_status": {
+            "const": "PASS"
+          }
+        },
+        "required": [
+          "overall_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_level": {
+            "const": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_SECURITY_ADAPTERS"
+          },
+          "started_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "hard_gates": {
+            "$ref": "#/$defs/all_pass_hard_gates"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "overall_status": {
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INCONCLUSIVE"
+            ]
+          }
+        },
+        "required": [
+          "overall_status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "evidence_level": {
+            "const": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_SECURITY_ADAPTERS"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "non_empty": {
+      "type": "string",
+      "minLength": 1
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_RUN"
+      ]
+    },
+    "nullable_datetime": {
+      "oneOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "identity_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identity",
+        "digest"
+      ],
+      "properties": {
+        "identity": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "gate_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "safe_reason",
+        "evidence_ids",
+        "evidence_digests",
+        "observed_at"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "safe_reason": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty"
+          }
+        },
+        "evidence_digests": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/digest"
+          }
+        },
+        "observed_at": {
+          "$ref": "#/$defs/nullable_datetime"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "enum": [
+                  "PASS",
+                  "FAIL",
+                  "INCONCLUSIVE"
+                ]
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_ids": {
+                "minItems": 1
+              },
+              "evidence_digests": {
+                "minItems": 1
+              },
+              "observed_at": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "status": {
+                "const": "NOT_RUN"
+              }
+            },
+            "required": [
+              "status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "evidence_ids": {
+                "maxItems": 0
+              },
+              "evidence_digests": {
+                "maxItems": 0
+              },
+              "observed_at": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "security_case": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "case_id",
+        "category",
+        "generation_id",
+        "expected_stage_result",
+        "observed_stage_result",
+        "expected_serving_action",
+        "serving_action",
+        "defense_outcome",
+        "expectation_conformant",
+        "prompt_occurrence_ids",
+        "released_citation_occurrence_ids",
+        "evidence_digest"
+      ],
+      "properties": {
+        "case_id": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "category": {
+          "enum": [
+            "NORMAL",
+            "ADVERSARIAL",
+            "REVOCATION",
+            "FAILURE"
+          ]
+        },
+        "generation_id": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "expected_stage_result": {
+          "$ref": "#/$defs/status"
+        },
+        "observed_stage_result": {
+          "$ref": "#/$defs/status"
+        },
+        "expected_serving_action": {
+          "$ref": "#/$defs/serving_action"
+        },
+        "serving_action": {
+          "$ref": "#/$defs/serving_action"
+        },
+        "defense_outcome": {
+          "$ref": "#/$defs/status"
+        },
+        "expectation_conformant": {
+          "type": "boolean"
+        },
+        "prompt_occurrence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty"
+          }
+        },
+        "released_citation_occurrence_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/non_empty"
+          }
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "serving_action": {
+      "enum": [
+        "NOT_SERVED",
+        "QUARANTINE",
+        "BLOCKED",
+        "RELEASE",
+        "ABSTAIN"
+      ]
+    },
+    "test_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runner_id",
+        "command_digest",
+        "status",
+        "passed",
+        "failed",
+        "skipped",
+        "report_digest"
+      ],
+      "properties": {
+        "runner_id": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "command_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "passed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skipped": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "report_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "failure_injection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_id",
+        "expected_outcome",
+        "observed_outcome",
+        "status",
+        "evidence_digest"
+      ],
+      "properties": {
+        "checkpoint_id": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "expected_outcome": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "observed_outcome": {
+          "$ref": "#/$defs/non_empty"
+        },
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "restart_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "before_identity_digest",
+        "after_identity_digest",
+        "observed_at",
+        "evidence_digest"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "before_identity_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "after_identity_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "container_restart_proof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "before_identity_digest",
+        "after_identity_digest",
+        "before_postmaster_started_at",
+        "after_postmaster_started_at",
+        "restart_replay_report_digest",
+        "observed_at",
+        "evidence_digest"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/status"
+        },
+        "before_identity_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "after_identity_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "before_postmaster_started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "after_postmaster_started_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "restart_replay_report_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "saved_restart_report_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_path",
+        "report_checksum",
+        "file_digest"
+      ],
+      "properties": {
+        "evidence_path": {
+          "const": "projects/ai-agent/evidence/day105-l3-restart-replay.json"
+        },
+        "report_checksum": {
+          "$ref": "#/$defs/digest"
+        },
+        "file_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "all_pass_hard_gates": {
+      "type": "object",
+      "properties": {
+        "schema_migration_integrity": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "postgresql_pgvector_identity_match": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "append_only_security_record_immutability": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "ingestion_security_evidence_binding": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "quarantine_and_tombstone_currentness": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "sealed_manifest_exact_binding": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "provider_poisoning_not_served": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "retrieval_authorization_and_tenant_isolation": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "bundle_prompt_injection_isolation": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "context_assembly_exact_manifest": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "read_view_single_generation": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "authorization_snapshot_rebuild_and_activation": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "release_current_authorization_recheck": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "citation_exact_binding": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "dlp_metadata_destination_fail_closed": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "security_snapshot_cas_and_transaction_atomicity": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "incident_ledger_append_only": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "normal_quality_preserved": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "restart_durability_and_idempotency": {
+          "$ref": "#/$defs/pass_gate"
+        },
+        "content_safe_evidence": {
+          "$ref": "#/$defs/pass_gate"
+        }
+      }
+    },
+    "pass_gate": {
+      "properties": {
+        "status": {
+          "const": "PASS"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    }
+  }
+}
