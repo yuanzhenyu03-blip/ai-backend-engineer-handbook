@@ -1153,3 +1153,267 @@ production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak, canary and
 production readiness remains `MORE_EVIDENCE_NEEDED`. The teacher-provided English response remains
 `TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed. No push, CI, pull request or merge is claimed by
 this local L3 checkpoint.
+
+---
+
+## Decision 025 — Reframe Planned Day107–Day130 Around ProofOps and Ticket-first Delivery
+
+Status: Accepted for Planned curriculum scope
+
+Date: 2026-11-24
+
+### Context
+
+Day01–Day106 have completed their recorded classroom and evidence scopes. Day106 is the latest completed
+lesson, while Day107–Day130 remain Planned. The Day106 teacher-provided final English response remains
+`TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed.
+
+The previous plan separated Day107–Day116 Evaluation/Safety/Operations from a generic Day117–Day130 final
+Capstone. That order risks evaluating disconnected deterministic exercises first and reconnecting the real
+product later. It also risks forcing every previously learned technology into one deployment even when the
+product does not require it.
+
+The employment objective is to maximize credible coverage for mainland-China and overseas AI Backend,
+Applied AI, Agent Platform and AIOps roles. The remaining curriculum therefore needs one bounded product,
+runnable evidence, independent learner ownership, production-style failure reasoning and a portfolio story
+that can be defended in Chinese and English.
+
+Decision 008 permits Planned lessons to be added, split, merged or renumbered according to job requirements,
+ecosystem changes, learner weaknesses and interview feedback. Completed Day01–Day106 lessons, Decisions
+001–024, sealed Artifacts and historical evidence remain unchanged.
+
+### Decision
+
+#### Freeze the flagship product
+
+The only Day107–Day130 flagship product is **ProofOps — Evidence-Grounded Incident Resolution Agent**. It has
+two explicit layers:
+
+- `src/runtime/`: domain-independent Bounded Agent Runtime;
+- `src/domains/incident/`: incident investigation and controlled-remediation domain package.
+
+The Runtime owns bounded Plan → Act → Observe → Replan/Finish control, durable Jobs, checkpoints, resume,
+budgets, Tool eligibility, current authorization, HumanApproval binding, idempotency, UNKNOWN reconciliation,
+OpenTelemetry correlation and trajectory evaluation. The incident package owns incident schemas, synthetic
+fixtures, runbook/telemetry/deployment adapters, hypotheses, remediation candidates, recovery verification and
+postmortems.
+
+The application remains the authority for authentication, authorization, durable business truth, budgets,
+Tool admission, approval validation, action decisions, dispatch, reconciliation and final state. The model,
+Retriever, MCP Server and Provider contribute bounded candidates or observations; they do not own authority.
+
+#### Use a separate future product repository
+
+ProofOps will be implemented in a separate clean repository named `proofops`, using Python 3.12+,
+`pyproject.toml`, `uv`, Ruff, mypy, Async FastAPI, SQLAlchemy 2.0 Async, asyncpg, Alembic,
+PostgreSQL/pgvector, one real Streamable-HTTP MCP Server, root `compose.yaml` and OpenTelemetry.
+
+This planning decision does not create that repository, code, Docker services, credentials or future lesson
+documents. Repository creation requires a later explicit implementation authorization. The handbook remains
+the curriculum, mastery and historical-evidence source of truth. The ProofOps repository will hold daily
+Tickets, PRs, ADRs, executable tests and product evidence.
+
+#### Freeze product scope
+
+ProofOps is limited to five public capabilities:
+
+1. `retrieve_runbook`;
+2. `query_telemetry`;
+3. `get_deployment_diff`;
+4. `execute_approved_remediation`;
+5. `verify_recovery`.
+
+The first, second, third and fifth capabilities are read-only. `execute_approved_remediation` is the only write
+capability and may execute only an allowlisted action in an isolated lab. Human approval is necessary but not
+sufficient: current authorization, exact candidate/action/environment/policy binding, expiry, idempotency,
+durable Decision/Intent, dispatch receipt, UNKNOWN reconciliation and recovery verification remain
+application-owned.
+
+ProofOps is limited to four scenario families:
+
+1. bad deployment causing a P95 latency regression;
+2. Worker crash/Tool timeout plus lost remediation receipt and UNKNOWN reconciliation;
+3. malicious Runbook injection, cross-tenant telemetry and mid-run authorization revocation;
+4. noisy alert with no justified remediation and `false_remediation_rate = 0`.
+
+`query_telemetry` is a typed read capability, not arbitrary SQL. `verify_recovery` verifies an exact,
+application-defined SLO window; it does not accept model self-reporting as recovery evidence.
+
+#### Freeze Provider strategy
+
+Use one replaceable real OpenAI ProviderAdapter and one deterministic ReplayProvider for zero-cost CI and
+failure injection. Do not require a second Provider. Concrete model IDs are selected at execution time and
+bound through versioned light/standard Capability Profiles. Eligibility and compatibility precede
+cost/latency/quality preference.
+
+Any real Provider run requires separate user authorization plus strict call, token, time and cost caps.
+Replay/L2 and external-real results are reported separately. Evidence must not retain API keys, complete
+Prompts or raw responses.
+
+#### Remove forced integrations
+
+The ProofOps mainline does not include Playwright, n8n, multi-agent orchestration, a complex dashboard,
+autonomous production repair, a finance/second-domain package or infrastructure introduced only for résumé
+keywords. A minimal four-area Web approval/view page or CLI is sufficient. Phase 5/6 Playwright and n8n
+evidence remains historical capability evidence and is not forced into ProofOps.
+
+A second domain is moved to a Post-Day130 Optional Backlog. Runtime portability inside Day107–Day130 is shown
+through stable runtime/domain interfaces, contract tests and replaceable adapters, not by building a second
+product.
+
+#### Treat Day numbers as milestone coordinates
+
+Day107–Day130 contains 24 milestone coordinates. The intended eight-week schedule contains approximately 40
+working days: 24 milestone/Ticket coordinates plus approximately 16 implementation-buffer, failure-debugging,
+independent-retest, Python/SQL, English, application and recovery days. A heavy Day may span 1–3 calendar days
+and multiple Tickets. Reaching the next Day number requires its DoD; calendar passage never creates completion.
+
+#### Switch to Ticket-first, Micro-Socratic delivery
+
+From Day107 onward, delivery uses `Ticket + PR + DoD + runnable evidence + independent explanation`.
+
+- Type A covers knowledge not yet independently mastered. Begin with a 20–30 minute micro-Socratic lesson and
+  2–3 critical boundary questions, then implement, review and complete a three-minute English explanation.
+- Type B covers integration of independently mastered knowledge. Begin directly from the Ticket DoD and run a
+  5–10 minute prior-knowledge check during review.
+- A Type B Ticket automatically becomes Type A when the learner cannot explain or debug its critical seam.
+
+Every Ticket contains Goal, Acceptance Criteria/DoD, Non-goals, Learner Ownership, Review & Interview Check and
+Evidence Boundary. The learner must personally implement or debug a named critical portion. AI-generated code
+cannot count as independent mastery until the learner explains the diff, failure path, alternatives and
+observed evidence.
+
+The ProofOps repository keeps concise README, ADR, threat/evaluation matrices, Tickets, PRs, evidence and
+Postmortems. It does not create a 16-section lesson document for every engineering Ticket. The handbook updates
+canonical status at checkpoints rather than duplicating every daily implementation record across large files.
+
+#### Replace the Planned Day107–Day130 sequence
+
+Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution (Day107–Day113):
+
+- Day107 — Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton;
+- Day108 — V0 Part 1: real Streamable-HTTP MCP Server, three read Tools and real embedding/pgvector retrieval;
+- Day109 — V0 Part 2: bounded state machine, real ProviderAdapter plus ReplayProvider, evidence-grounded
+  investigation and noisy-alert abstention;
+- Day110 — V1: Async FastAPI `202` Job API, PostgreSQL `SKIP LOCKED` Worker, Lease/Fence, checkpoints and
+  Worker-crash resume;
+- Day111 — V2: exact HumanApproval, controlled remediation, recovery verification, idempotency, UNKNOWN
+  reconciliation and minimal approval UI;
+- Day112 — async SSE, disconnect/cancellation propagation and bounded Linux/Docker/network troubleshooting;
+- Day113 — no-AI independent coding verification, runnable V0–V2 checkpoint and résumé/JD calibration.
+
+Phase 7E — Evaluation, Safety and Operations on ProofOps (Day114–Day123):
+
+- Day114 — versioned evaluation dataset and Golden-set governance;
+- Day115 — reusable deterministic graders for schema, ACL, Citations, Tool arguments, security and normal
+  quality;
+- Day116 — calibrated model-based graders with frozen judge profile, bias, disagreement, abstention and
+  human/deterministic agreement;
+- Day117 — real-model retrieval and diagnosis evaluation integration checkpoint;
+- Day118 — trajectory and Tool-use evaluation, repeated-run capability versus regression, observed
+  success-at-least-once@k and all-k-pass consistency;
+- Day119 — adversarial/failure-mode harness for malicious Runbooks, cross-tenant access, revocation and Tool
+  timeout;
+- Day120 — Prompt/model/Tool/index regression and machine-enforced GitHub Actions release gates;
+- Day121 — OTel Collector, versioned light/standard routing evidence, TTFT/P95, cost per success and safe
+  telemetry;
+- Day122 — bounded async load testing, backpressure and HTTP security execution;
+- Day123 — executable rollback/data-repair GameDay, append-only Postmortem and phase English interview.
+
+Phase 8 — Cloud Integration, Operations and Employment Readiness (Day124–Day130):
+
+- Day124 — bounded cloud deployment part 1: managed PostgreSQL/pgvector, secret management, container release
+  and HTTPS;
+- Day125 — bounded cloud deployment part 2: production-style configuration, health checks, SLI/SLO validation
+  and public smoke run;
+- Day126 — live observability dashboard, operational Runbook and per-investigation cost/quality checkpoint;
+- Day127 — Runtime/domain interface contract proof, reproducibility audit, English README, architecture diagram,
+  three-minute demo and portfolio repair;
+- Day128 — AI Backend system-design plus timed Python/SQL mock interview;
+- Day129 — English project story, Behavioral STAR bank, résumé and application iteration;
+- Day130 — final mock interview, portfolio audit and 15-point Employment Readiness Gate review.
+
+Runnable checkpoints are Day113, Day117, Day120, Day123, Day126 and Day130.
+
+#### Define evaluation and statistics boundaries
+
+Golden-set evidence records a versioned Manifest, provenance, train/development/blind-test split, critical
+slices, label review/change control and anti-leakage checks. IAA or κ may be claimed only when at least two
+independent human annotators actually participate. A model is not a second human annotator. Without that
+evidence, IAA is `NOT_RUN`; label review may still be reported.
+
+Judge evaluation freezes Prompt, model, configuration and rubric; measures agreement/error slices against
+independent labels; supports abstention/`INCONCLUSIVE`; and never independently approves a security hard gate
+or release.
+
+Repeated-run metrics record every run identity, seed/configuration, attempt count, success definition and
+failure taxonomy. Agent runs are not assumed independent. Security invariants require zero violations across
+all runs and cannot be compensated by `pass@k`.
+
+#### Keep parallel job preparation active
+
+From Week 1, reserve one hour of timed Python/SQL work and thirty minutes of English explanation/interview-bank
+work per working day. Continue system-design and behavioral-story development. Decision 008 already permits
+honest limited applications based on completed evidence, so applications do not have to wait for V2. Day113
+expands ProofOps-targeted applications only if the runnable checkpoint, README, CI and evidence actually pass.
+
+Future notes move into focused topic files such as `interview/system-design.md`, `interview/behavioral.md`,
+`interview/english.md` and `interview/linux.md`. Do not continue appending unrelated material to the oversized
+FastAPI cheat-sheet/interview files.
+
+#### Preserve evidence and history
+
+The evidence taxonomy remains `CONCEPTUAL_STATIC`, `EXECUTED_LOCAL_RUNTIME`, `INTEGRATION_RUNTIME` and
+`PRODUCTION`. Static documents do not prove a runtime. A deterministic ReplayProvider does not prove a real
+Provider. A local Docker run does not prove cloud behavior. A public cloud smoke test does not prove
+production.
+
+The public environment disables or isolates remediation unless its exact safe action boundary is separately
+authorized and verified. Cloud cost and lifetime are bounded. Production IAM, HA/restore, sustained load/soak,
+canary, real operational traffic and incident evidence remain required before any `PRODUCTION` claim.
+
+Day01–Day106, Decisions 001–024, sealed evidence, historical append-only records and Day106
+`TAUGHT_NOT_VERIFIED` remain unchanged. The learner will complete the separate Day106 English verification
+before beginning Day107; until it actually passes, the existing Day106 status remains unchanged.
+
+### Employment Readiness Gate amendment
+
+The future Gate no longer mandates Redis/Celery/Object Storage merely as technology keywords. It requires
+actual evidence for:
+
+1. a runnable ProofOps product;
+2. Async FastAPI and PostgreSQL/pgvector;
+3. bounded Agent state, budgets, checkpoint/resume/cancellation and recovery;
+4. one real Streamable-HTTP MCP integration without transferring authority to MCP;
+5. ACL-aware retrieval and exact evidence;
+6. application-owned security and currentness;
+7. exact HumanApproval plus isolated idempotent remediation;
+8. UNKNOWN reconciliation and recovery verification;
+9. deterministic, trajectory, adversarial and calibrated-Judge evaluation;
+10. machine-enforced release gates;
+11. latency, concurrency, cost and quality measurements;
+12. OpenTelemetry and operational evidence;
+13. reproducible local and bounded cloud execution;
+14. Python/SQL, system-design, English and behavioral interview capability;
+15. portfolio, résumé and real application feedback.
+
+Optional infrastructure may be added only when an observed requirement justifies it.
+
+### Consequences
+
+- Only Planned Day107–Day130 scope is superseded.
+- Phase 7D becomes Day107–Day113, Phase 7E becomes Day114–Day123 and Phase 8 becomes Day124–Day130.
+- Runnable checkpoints become Day113, Day117, Day120, Day123, Day126 and Day130.
+- Day107 remains `Planned / not started`.
+- No Day107+ lesson, code, repository, Docker service or evidence is created by this decision.
+- The handbook remains the historical source of truth; future daily implementation records live in ProofOps.
+- The optional second-domain idea moves beyond Day130.
+- `docs/README.md` navigation cleanup and the Day61 historical wording issue are separate maintenance work and
+  are not part of this decision or its planning change.
+
+### Validation honesty
+
+This Decision is a `CONCEPTUAL_STATIC` curriculum-planning change only. It does not prove Day107 mastery,
+ProofOps repository/code existence, Python 3.12/uv/Async FastAPI/PostgreSQL/MCP execution, a real Provider call,
+Docker/cloud deployment, evaluation, load, security, GameDay, portfolio, employment or production readiness.
+All Day107–Day130 implementation, integration and production results remain `NOT_RUN`.

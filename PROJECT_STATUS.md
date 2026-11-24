@@ -4,6 +4,8 @@
 
 Phase 7A — LLM Application Engineering, Phase 7B — Agent Runtime and MCP Engineering, and Phase 7C —
 Production RAG Engineering are COMPLETE at guided classroom scope through Day106.
+The revised Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution — is next and remains Planned /
+not started.
 
 Day59–Day106 are complete at their recorded classroom/evidence levels. Day106 composes the Day95–Day105
 authority boundaries into one deterministic Level 2 request, release and recovery checkpoint without creating
@@ -32,8 +34,14 @@ Phase 7C — Production RAG Engineering (Complete at guided classroom scope; pro
 
 ## Current Lesson
 
-Day107 — Evaluation Datasets and Golden Sets (Phase 7D) — planned / not started.
+Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+(Phase 7D) — planned / not started.
 Most recent classroom lesson: Day106 — Production RAG Capstone and English Interview.
+
+Decision 025 reorganizes Planned Day107–Day130 only. This is `CONCEPTUAL_STATIC` planning: no `proofops`
+repository, future lesson/code, Provider call, Docker/database/cloud run, evaluation result or production
+evidence exists. All Day107+ execution scopes remain `NOT_RUN`; Day106 evidence and
+`TAUGHT_NOT_VERIFIED` remain unchanged.
 
 Day106 instructional coverage is COMPLETE at guided classroom scope; Day106 overall PASS is not claimed
 because the teacher-provided final English response remains `TAUGHT_NOT_VERIFIED`. Its repository checkpoint composes one exact request
@@ -871,7 +879,8 @@ Completed Work:
 
 ## Next
 
-- Day55 — Celery, Worker Execution and Long-running AI Jobs (Phase 4 — Production AI API Engineering)
+- Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+  (Phase 7D)
 
 Status:
 Planned / Not started
@@ -880,11 +889,11 @@ Planned / Not started
 
 ## Future Roadmap (Day43 onward, planned; competency-gated, current horizon ~Day130)
 
-The Day43-onward curriculum is planned as a single AI Backend product capability chain that is
-competency-gated (completion = passing the Employment Readiness Gate, not reaching a fixed day; current
-planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008 in `DECISIONS.md`). Phase 4 is listed below as
-the **completed foundation/context**; only **Phase 5 onward is Planned / Not started**. No future lesson files
-or new project directories were created, and nothing in Phase 5+ has begun.
+The Day43-onward curriculum is one AI Backend capability chain, competency-gated
+(completion = passing the Employment Readiness Gate, not reaching a fixed day; current
+planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008/025 in
+`DECISIONS.md`). Phases 4–7C are completed foundations at their recorded evidence levels; only Day107–Day130
+below remains Planned. No Day107+ lesson, code or product repository was created by the planning update.
 
 - Phase 4 — Production AI API Engineering (Day43–Day58) — **Completed** as classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME` artifacts (SQLAlchemy/Alembic, Redis/Outbox/Worker, Object Storage, OpenAI-compatible provider, auth/tenant isolation, tests); real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration remains **NOT RUN**. Completed foundation/context, not part of the Planned work below.
 - Phase 5 — Production Runtime Integration and Browser Tool Engineering (Day59–Day66): Day59–61 real local integration gate (FastAPI + PostgreSQL + Redis/Celery + Object Storage + Provider + OpenTelemetry), then an isolated, recoverable, auditable Playwright browser worker exposed as a permissioned AI tool.
@@ -892,8 +901,12 @@ or new project directories were created, and nothing in Phase 5+ has begun.
 - Phase 7A — LLM Application Engineering (Day71–Day78): replaceable Provider adapter + prompt contracts/versioning + structured output/function calling + streaming/caching/batching + model routing/cost + fake-Provider tests.
 - Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94): framework-agnostic agent runtime (loop, tools/permissions, state/budgets, durability, human approval, memory boundary, multi-agent, security); Framework/Job-Market Refresh at Day87; framework chosen Day88 behind a replaceable adapter; MCP client/server + auth + tenant isolation + remote lifecycle.
 - Phase 7C — Production RAG Engineering (Day95–Day106): ingestion/parsing + chunking + metadata/tenant/ACL/provenance + embeddings/index + hybrid retrieval/filtering + query rewriting/re-ranking + grounding/citations + retrieval/answer evaluation + index migration + RAG security.
-- Phase 7D — AI Evaluation, Safety and Operations (Day107–Day116): datasets/golden sets + deterministic and model-based graders + retrieval/answer/trajectory/tool-use evaluation + adversarial/failure-mode evaluation + regression/release gates + AI observability + load/security testing + incident/rollback/repair exercise.
-- Phase 8 — Final Employment Capstone (Day117–Day130): thin vertical integration loop, deployment, observability, drills, portfolio, and English system-design/behavioral/resume readiness, reviewed against the Employment Readiness Gate.
+- Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution (Day107–Day113): two-layer Runtime/domain
+  architecture, real async seams, five typed capabilities, durable recovery and one isolated approved action.
+- Phase 7E — Evaluation, Safety and Operations on ProofOps (Day114–Day123): governed datasets, deterministic
+  and calibrated Judge evaluation, trajectory/adversarial tests, CI gates, OTel, bounded load and GameDay.
+- Phase 8 — Cloud Integration, Operations and Employment Readiness (Day124–Day130): bounded cloud evidence,
+  operational proof, reproducibility, portfolio, coding/system-design/English interviews and readiness review.
 
 Employment-readiness boundary: the curriculum builds core AI Backend capability and portfolio evidence but
 does not guarantee a job; target roles are Junior / Developing AI Backend Engineer, AI Startup Backend

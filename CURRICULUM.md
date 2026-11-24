@@ -1568,10 +1568,38 @@ the **Employment Readiness Gate** (see below), not by reaching a fixed final day
 runs to **Day130**, but Day130 is only the present planning coordinate — NOT a permanent cap. If the
 Employment Readiness Gate is not yet met, Planned lessons may be added, split, merged, or renumbered based on
 real job requirements, AI ecosystem changes, a learner's real weak points, and project/interview feedback.
-Completed lessons (Day01–Day58) stay stable; only `Planned` lessons may be renumbered or adjusted. The AI core
-(LLM Application, Agent Runtime, MCP, Production RAG, Evaluation, AI Safety, AI Operations) must not be
-compressed just to keep a tidy final number. The agent runtime framework is not pre-locked; it is chosen only
-after an explicit Framework / Job-Market Refresh and always lives behind a replaceable adapter boundary.
+Completed Day01–Day106 lessons, Decisions 001–024 and sealed evidence stay fixed; only Planned Day107+ scope
+may change.
+
+Day107–Day130 contains 24 milestone coordinates rather than 24 promised calendar days. The intended
+approximately eight-week cadence reserves additional implementation-buffer, independent-retest, Python/SQL,
+English, application and recovery days. A heavy coordinate may span 1–3 calendar days and multiple Tickets;
+calendar passage never creates completion.
+
+---
+
+## Planned Day107+ Delivery Mode
+
+This section is a future operating rule, not evidence that Day107 has started. Day107 remains
+`Planned / not started` until the learner explicitly begins it.
+
+From Day107 onward, delivery uses `Ticket + PR + DoD + runnable evidence + independent explanation`:
+
+- Type A covers knowledge not yet independently mastered: 20–30 minutes of micro-Socratic teaching, 2–3
+  critical boundary questions, implementation, review and a three-minute English explanation.
+- Type B covers integration of independently mastered knowledge: begin from the Ticket DoD and run a short
+  prior-knowledge check during review.
+- A Type B Ticket becomes Type A when the learner cannot explain or debug its critical seam.
+
+Every Ticket records Goal, Acceptance Criteria/DoD, Non-goals, Learner Ownership, Review & Interview Check and
+Evidence Boundary. Teacher/AI-provided code or prose is not independent mastery until the learner explains the
+diff, failure path, alternatives and observed evidence.
+
+From Week 1, reserve approximately one hour per working day for timed Python/SQL and thirty minutes for English
+explanation/interview-bank work, adjusted for real calendar capacity without lowering mastery gates. The future
+ProofOps repository will keep concise Tickets, PRs, ADRs and evidence; this handbook updates canonical status at
+checkpoints. Do not continue appending non-FastAPI material to the oversized FastAPI cheat-sheet/interview
+files; future notes use focused topic files when their lesson actually begins.
 
 ---
 
@@ -1626,20 +1654,21 @@ Phase 7C (Day95–106):
 - Day103 — retrieval + citation + evaluation checkpoint
 - Day106 — Production RAG capstone checkpoint
 
-Phase 7D (Day107–116):
-- Day110 — dataset + grader + retrieval/answer evaluation checkpoint
-- Day113 — regression + release-gate checkpoint
-- Day116 — incident / rollback / repair capstone checkpoint
+Phase 7D (Day107–113):
+- Day113 — V0–V2 independent runnable checkpoint
 
-Phase 8 (Day117–130):
-- Day120 — backend + Agent/MCP integration checkpoint
-- Day124 — thin vertical path + evaluation-gate checkpoint
-- Day127 — deployed observability / runbook checkpoint
+Phase 7E (Day114–123):
+- Day117 — real-model evaluation integration checkpoint
+- Day120 — machine-enforced CI release-gate checkpoint
+- Day123 — GameDay, Postmortem and phase English checkpoint
+
+Phase 8 (Day124–130):
+- Day126 — bounded-cloud/observability evidence checkpoint
 - Day130 — portfolio and Employment Readiness Gate review
 ```
 
-No new lesson numbers are added for Checkpoints; they run on the listed existing Days. This cadence is
-mirrored in summary form in `ROADMAP.md` so CURRICULUM and ROADMAP agree on execution requirements.
+No new lesson numbers are added for Checkpoints; they run on the listed existing Days. The Planned gaps are
+4/3/3/3/4 coordinates and remain below the maximum of six. This cadence is mirrored in `ROADMAP.md`.
 
 ---
 
@@ -2263,172 +2292,177 @@ production claim without executed evidence.
 
 ---
 
-## Phase 7D — AI Evaluation, Safety and Operations (Day107–Day116)
+## Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution (Day107–Day113)
 
 Status:
 Planned
 
 Objective:
-Turn evaluation, safety, and operations into an executable engineering system: datasets/golden sets,
-deterministic and model-based graders (and their limits), retrieval/answer/trajectory/tool-use evaluation,
-adversarial and failure-mode evaluation, regression and release gates, AI observability with cost/latency/
-quality trade-offs and model-routing evidence, load and security testing, and a production incident/rollback/
-repair exercise.
+Create one bounded **ProofOps — Evidence-Grounded Incident Resolution Agent** with a domain-independent Runtime
+and one incident domain. Build real async seams, durable state, application-owned authority, four read
+capabilities and one exact human-approved remediation path without forcing every earlier technology into the
+deployment.
 
 Knowledge connection:
 
 ```text
-LLM App + Agent + RAG capabilities
-    -> executable Evaluation + Safety + Operations (graders, release gates, observability, incident drills)
-    -> release decisions backed by runtime evidence
+LLM App + Agent/MCP + Production RAG capabilities
+    -> ProofOps Core Runtime + bounded incident-resolution domain
+    -> one runnable, recoverable and permissioned employment Artifact
 ```
 
-Reused project directory: `projects/ai-agent/` (evaluation, safety, operations).
+Future product repository: separate `proofops/` repository. This planning update does not create it. The
+two-layer target is `src/runtime/` plus `src/domains/incident/`.
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day107 — Evaluation Datasets and Golden Sets.
-  Scope: evaluation datasets and golden sets.
-  Connection: Phase 7C could answer but not prove quality at scale; Day107 builds datasets/golden sets; Day108
-  scores them with deterministic graders.
-- Day108 — Deterministic Graders.
-  Scope: deterministic, reproducible graders.
-  Connection: Day107 built datasets; Day108 adds deterministic graders; Day109 adds model-based graders and
-  their limits.
-- Day109 — Model-based Graders and Their Limits.
-  Scope: model-based graders and their failure modes/limits.
-  Connection: Day108 gave exact grading; Day109 adds model-based graders with explicit limits; Day110 applies
-  grading to retrieval and answers.
-- Day110 — Retrieval and Answer-quality Evaluation.
-  Scope: retrieval-quality and answer-quality evaluation. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
-  Connection: Day109 fixed grader trust; Day110 evaluates retrieval/answer quality (reusing Day103); Day111
-  evaluates the agent's process.
-- Day111 — Agent Trajectory and Tool-use Correctness Evaluation.
-  Scope: agent trajectory evaluation and tool-use correctness.
-  Connection: Day110 graded outputs; Day111 evaluates trajectory and tool-use correctness; Day112 probes
-  adversarial and failure modes.
-- Day112 — Adversarial and Failure-mode Evaluation.
-  Scope: adversarial and failure-mode evaluation.
-  Connection: Day111 graded normal behavior; Day112 adds adversarial/failure-mode evaluation; Day113 turns
-  evaluations into regression and release gates.
-- Day113 — Prompt/Model/Tool Regression and Release Gates.
-  Scope: prompt/model/tool regression suites and release gates. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
-  Connection: Day112 stressed the system; Day113 adds regression and release gates; Day114 makes cost/latency/
-  quality observable in production.
-- Day114 — AI Observability: Cost, Latency, Quality Trade-offs and Model-routing Evidence.
-  Scope: AI observability, cost/latency/quality trade-offs, model-routing evidence.
-  Connection: Day113 gated releases; Day114 adds AI observability and routing evidence (reusing the Day61
-  telemetry pipeline); Day115 tests load and security.
-- Day115 — Load Testing and AI Security Testing.
-  Scope: load testing and AI security testing.
-  Connection: Day114 gave live signals; Day115 adds load and AI security testing; Day116 rehearses production
-  incidents and repair.
-- Day116 — Production Incident, Rollback and Repair Exercise, Capstone and English Interview.
-  Scope: production incident/rollback/repair exercise; runnable checkpoint; phase-level English interview.
-  Connection: Day115 found limits; Day116 rehearses incident/rollback/repair and runs the phase interview;
-  Phase 8 assembles everything into the Final Employment Capstone.
+- Day107 — Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton.
+  Scope: freeze the one-product/five-capability/four-scenario boundary, application authority and the async
+  project/database seam. Day107 remains Planned until explicitly started.
+- Day108 — ProofOps V0 Part 1: Streamable-HTTP MCP Server, Three Read Tools and Embedding/pgvector Retrieval.
+  Scope: real MCP transport, typed read contracts, ACL-aware Runbook retrieval, telemetry and deployment reads.
+- Day109 — ProofOps V0 Part 2: Bounded State Machine, ProviderAdapter + ReplayProvider, Investigation and
+  Noisy-alert Abstention.
+  Scope: bounded control, versioned Provider profiles, evidence-grounded hypothesis and safe no-action outcome.
+- Day110 — ProofOps V1: Async Job API, PostgreSQL Worker, Lease/Fence, Checkpoints and Crash Resume.
+  Scope: truthful `202`, durable Job/Step/Attempt state, `SKIP LOCKED`, fenced writes and restart recovery.
+- Day111 — ProofOps V2: Exact HumanApproval, Controlled Remediation, Recovery Verification and UNKNOWN
+  Reconciliation.
+  Scope: one isolated allowlisted write, exact approval binding, idempotent Decision/Intent/dispatch and
+  reconciliation; a minimal four-area approval/view interface is sufficient.
+- Day112 — Async SSE, Cancellation Propagation and Bounded Linux/Docker/Network Troubleshooting.
+  Scope: distinguish HTTP connection, Provider/Tool execution and durable Job cancellation; diagnose the real
+  bounded local stack.
+- Day113 — Independent Coding Verification, Runnable V0–V2 Checkpoint and Résumé/JD Calibration.
+  Scope: no-AI independent implementation/debugging check, cumulative run, reproducible evidence and honest
+  application claims.
 
 Phase deliverable:
 
 ```text
-An executable AI Evaluation/Safety/Operations system: datasets/golden sets + deterministic and model-based
-graders + retrieval/answer/trajectory/tool-use evaluation + adversarial/failure-mode evaluation
-+ regression/release gates + AI observability (cost/latency/quality, routing evidence) + load/security testing
-+ an incident/rollback/repair exercise.
+A runnable bounded incident Agent with Async FastAPI/PostgreSQL/pgvector, one Streamable-HTTP MCP transport,
+five typed capabilities, ReplayProvider plus one replaceable real Provider seam, durable checkpoint/recovery and
+one isolated approved-action path.
 ```
 
 Validation requirement:
-Evaluation is an executable engineering system, not a concept overview; graders/gates must run and save
-evidence. Distinguish `EXECUTED_LOCAL_RUNTIME` grader runs from real `INTEGRATION_RUNTIME`/`PRODUCTION`
-evidence; `pytest passed` is not integration or production evidence. No production claim without executed,
-saved evidence.
+The model, MCP Server and Provider never own authorization, durable state or final action authority. The write
+path requires current authorization and exact HumanApproval but remains blocked until every application-owned
+gate passes. Day113 requires an actual cumulative run; static contracts alone cannot pass it. Replay, local-real
+and external-real evidence remain separate, and all unexecuted scopes remain `NOT_RUN`.
 
 ---
 
-## Phase 8 — Final Employment Capstone (Day117–Day130)
+## Phase 7E — Evaluation, Safety and Operations on ProofOps (Day114–Day123)
 
 Status:
 Planned
 
 Objective:
-Assemble all capabilities into one deployable, demonstrable AI Backend and convert it into employment
-evidence, then review readiness against the Employment Readiness Gate. The capstone is a thin vertical loop
-integrating existing components — not a one-day re-implementation of everything.
+Apply dataset governance, deterministic and calibrated model-based graders, real-model evaluation,
+repeated-run trajectory evaluation, adversarial/failure testing, machine release gates, observability, bounded
+load/security testing and an executable GameDay directly to ProofOps.
 
 Knowledge connection:
 
 ```text
-LLM App + Agent + MCP + Production RAG + Evaluation/Safety/Ops + Phase 4/5/6 backend
-    -> Final Employment Capstone (thin vertical loop, deployed, evaluated, observable)
-    -> Portfolio + interviews + real job applications (Employment Readiness Gate)
+Runnable ProofOps V0–V2
+    -> versioned dataset + graders + trajectory/adversarial evidence
+    -> machine release gates + observability + bounded GameDay
 ```
-
-Reused project directory: `projects/final-capstone/` (the final integrated project).
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day117 — Product Requirements, Architecture Review and Scope Control.
-  Scope: product requirements, architecture review, scope control.
-  Connection: builds on the Phase 7D capstone by defining final-capstone requirements, architecture, and
-  scope; Day118 turns them into a skeleton, contracts, and threat model.
-  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day117) below.
-- Day118 — Final Capstone Skeleton, Contracts and Threat Model.
-  Scope: skeleton, contracts, threat model.
-  Connection: Day117 set scope; Day118 adds the skeleton, contracts, and threat model; Day119 integrates the
-  core backend stack.
-- Day119 — FastAPI + PostgreSQL + Redis/Celery + Object Storage Integration.
-  Scope: integrate the core backend stack.
-  Connection: Day118 defined contracts; Day119 integrates the Phase 4/5 core backend stack; Day120 adds the
-  agent runtime and MCP.
-- Day120 — Agent Runtime and MCP Integration.
-  Scope: integrate the agent runtime and MCP client/server. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
-  Connection: Day119 gave the backend; Day120 integrates the Phase 7B agent runtime and MCP; Day121 grounds it
-  with Production RAG.
-- Day121 — Production RAG Integration (ACL, Citations, Retrieval Evaluation).
-  Scope: integrate the Production RAG subsystem with ACL, citations, and retrieval evaluation.
-  Connection: Day120 added the agent; Day121 integrates Phase 7C RAG with ACL/citations/evaluation; Day122
-  adds the permissioned browser tool and human-approval workflow.
-- Day122 — Playwright Permissioned Tool and n8n Human-approval Integration.
-  Scope: integrate the Phase 5 permissioned browser tool and Phase 6 n8n human-approval workflow.
-  Connection: Day121 grounded the agent; Day122 integrates the browser tool and n8n approval; Day123 runs one
-  thin end-to-end vertical loop.
-- Day123 — Thin Vertical Integration Loop (End-to-end).
-  Scope: one bounded, complete vertical user path across all integrated components.
-  Connection: Day122 wired the components; Day123 runs one thin end-to-end vertical loop with preserved
-  correlation IDs; Day124 gates release on evaluation.
-  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day123) below.
-- Day124 — Evaluation Gate and Release Decision Integration.
-  Scope: integrate the Phase 7D evaluation gate into the release decision. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
-  Connection: Day123 proved one path runs; Day124 integrates the evaluation gate into release decisions;
-  Day125 proves resilience under drills.
-- Day125 — Failure Recovery, Load, Security and Data-repair Drills.
-  Scope: representative failure-recovery, load, security, and data-repair drills.
-  Connection: Day124 gated releases; Day125 runs representative resilience drills; Day126 deploys to the cloud.
-  Implementation boundary: see "Future Lesson Implementation Boundaries" (Day125) below.
-- Day126 — Cloud Deployment, Managed Services, Production Configuration and SLOs.
-  Scope: cloud deployment, managed services, production configuration, SLOs.
-  Connection: Day125 proved resilience; Day126 deploys with production config and SLOs; Day127 adds
-  observability and the operational runbook.
-- Day127 — Observability, Operational Runbook and Cost/Quality Evidence.
-  Scope: observability, operational runbook, cost/quality evidence. Runnable checkpoint: run the evolving Phase Artifact and save evidence (see Mandatory Runnable Checkpoint Cadence).
-  Connection: Day126 deployed the system; Day127 adds observability, a runbook, and cost/quality evidence;
-  Day128 practices system-design and coding interviews on it.
-- Day128 — AI Backend System Design and Python/SQL Coding Interview.
-  Scope: AI backend system-design + Python/SQL coding interview practice.
-  Connection: Day127 finished operations; Day128 turns the system into system-design and Python/SQL interview
-  practice; Day129 builds the English story, behavioral answers, and resume.
-- Day129 — English Project Story, Behavioral Interview, Resume and Open-source Evidence.
-  Scope: project story, behavioral interview, resume, open-source evidence.
-  Connection: Day128 built interview skills; Day129 builds the English story, behavioral answers, resume, and
-  open-source evidence; Day130 reviews overall employment readiness.
-- Day130 — Final Mock Interview, Portfolio Review and Employment Readiness Gate Review.
-  Scope: final mock interview, portfolio review, and an Employment Readiness Gate review.
-  Connection: consolidates everything into a final mock interview, portfolio review, and an Employment
-  Readiness Gate review; if the Gate is not yet met, additional Planned lessons are added rather than declaring
-  completion at a fixed day. (Note: real trial job applications may begin earlier — see the Employment
-  Readiness Gate — once the Agent + MCP evidence in Phase 7B is complete.)
+- Day114 — Evaluation Dataset Engineering and Golden-set Governance.
+  Scope: versioned Manifest/provenance, train/development/blind split, critical slices, leakage checks, label
+  review and change control across the four scenario families.
+- Day115 — Reusable Deterministic Grader Runtime and Security Hard Gates.
+  Scope: schema, ACL, Citations, Tool arguments, normal-quality and non-compensable security graders.
+- Day116 — Calibrated Model-based Graders, Bias and Agreement Limits.
+  Scope: frozen Judge Prompt/model/config/rubric, pairwise/rubric evaluation, disagreement, abstention and
+  comparison against independent deterministic or human labels.
+- Day117 — Real-model Retrieval and Diagnosis Evaluation Integration Checkpoint.
+  Scope: bounded authorized Provider run through the same application seams; save exact execution boundary,
+  dataset/evaluator identities, costs and limitations.
+- Day118 — Agent Trajectory and Tool-use Evaluation: Capability, Regression and Repeated-run Reliability.
+  Scope: record every run identity/config/attempt, observed success-at-least-once@k, all-k-pass consistency,
+  single-run quality and failure taxonomy without assuming run independence.
+- Day119 — Adversarial and Failure-mode Evaluation Harness.
+  Scope: malicious Runbooks, cross-tenant telemetry, mid-run revocation, Tool timeout and normal-case false
+  positive controls.
+- Day120 — Prompt/Model/Tool/Index Regression and CI Release Gates.
+  Scope: machine-readable decisions bound to exact commit, dataset, evaluator and configuration digests;
+  critical `FAIL`, `INCONCLUSIVE` or `NOT_RUN` fails closed.
+- Day121 — AI Observability and Versioned Same-provider Routing Evidence.
+  Scope: OTel AgentRun/Step/Tool/Model correlation, attribute allowlist/cardinality budget, TTFT/P95, cost per
+  success and versioned light/standard Capability Profiles.
+- Day122 — Bounded Async Load, Backpressure and HTTP Security Execution.
+  Scope: workload/concurrency model, cold/warm behavior, queue wait vs service time, DB/Provider saturation,
+  latency/error/timeout measurements and recovery validation; this is not production load/soak evidence.
+- Day123 — Executable Rollback/Data-repair GameDay, Postmortem and Phase English Interview.
+  Scope: run a representative incident, containment, rollback/forward repair, recovery verification,
+  append-only Postmortem and independent English defense.
 
-Final Capstone must include:
+Phase deliverable:
+
+```text
+A versioned evaluation system with honest labels, deterministic graders, a calibrated optional Judge,
+exact trajectory identities, non-compensable security gates, machine CI decisions, OpenTelemetry,
+bounded load/security evidence and an executable incident GameDay.
+```
+
+Validation requirement:
+IAA or κ may be claimed only with at least two independent human annotators; otherwise IAA is `NOT_RUN`.
+A model is not a second human annotator. A Judge may abstain but never independently approves security or
+release. Security requires zero violations across all observed runs and cannot be compensated by `pass@k`.
+Real Provider execution requires separate authorization and strict call/token/time/cost caps.
+
+---
+
+## Phase 8 — Cloud Integration, Operations and Employment Readiness (Day124–Day130)
+
+Status:
+Planned
+
+Objective:
+Turn the bounded ProofOps product into reproducible local and bounded-cloud portfolio evidence, operational
+measurements and independently defensible employment material without claiming that a public URL is
+production.
+
+Knowledge connection:
+
+```text
+ProofOps Runtime + Incident Domain + Evaluation/Safety/Ops
+    -> bounded cloud integration + operational evidence
+    -> portfolio + interviews + real job applications (Employment Readiness Gate)
+```
+
+Future implementation remains in the separate `proofops/` product repository after explicit authorization.
+The existing `projects/final-capstone/` placeholder is not ProofOps implementation evidence.
+
+Per-day topics (Topic + concise scope; each Status: Planned):
+
+- Day124 — Bounded Cloud Deployment Part 1: Managed PostgreSQL/pgvector, Secrets, Container Release and HTTPS.
+  Scope: deploy the exact Artifact with bounded cost/lifetime, protected secrets and recorded local-versus-cloud
+  configuration identities.
+- Day125 — Bounded Cloud Deployment Part 2: Configuration, Health Checks, SLI/SLO and Public Smoke Run.
+  Scope: readiness/liveness, bounded SLI/SLO verification and a safe smoke path; public remediation remains
+  disabled or isolated unless separately authorized.
+- Day126 — Observability Dashboard, Operational Runbook and Per-investigation Cost/Quality Checkpoint.
+  Scope: correlate the same run across traces/metrics/logs, publish safe operational evidence and run the
+  cumulative checkpoint.
+- Day127 — Runtime/Domain Interface Contract Proof, Reproducibility Audit and Portfolio Polish.
+  Scope: prove stable runtime/domain seams without building a second domain; verify clean-room reproduction,
+  English README, architecture diagram and a three-minute demo.
+- Day128 — AI Backend System Design and Timed Python/SQL Mock Interview.
+  Scope: explain the real Product/Runtime/authority/failure design and complete timed coding/SQL exercises.
+- Day129 — English Project Story, Behavioral STAR Bank, Résumé and Application Iteration.
+  Scope: evidence-backed project story, behavioral examples, résumé claims and real application feedback.
+- Day130 — Final Mock Interview, Portfolio Audit and Employment Readiness Gate Review.
+  Scope: independent defense and separate Course Mastery, Artifact, Evidence, Repository and Job-readiness
+  status. Reaching Day130 alone never creates completion.
+
+ProofOps portfolio evidence must include:
 
 ```text
 Problem statement · Architecture diagram · Runnable source code · Tests
@@ -2440,16 +2474,16 @@ English project explanation · System-design discussion · Resume bullets
 Phase deliverable:
 
 ```text
-A deployable, demonstrable Production AI Backend capstone + a complete GitHub portfolio + English
-system-design/behavioral/resume readiness, reviewed against the Employment Readiness Gate for
-Junior/Developing AI Backend Engineer, AI Startup Backend Engineer, and LLM/RAG/Agent-product Backend roles.
+Reproducible local and bounded-cloud ProofOps evidence + an operational Runbook + cost/quality evidence +
+portfolio/demo assets + interview evidence + an honest Employment Readiness review. A second domain remains
+Post-Day130 Optional Backlog.
 ```
 
 Validation requirement:
-Portfolio and capstone completion require real, saved evidence (runnable code, tests, evaluation report,
-failure/recovery drills, deployment and observability evidence). No production-grade claim without executed
-evidence. Reaching Day130 does not by itself mean "complete" — completion is passing the Employment Readiness
-Gate.
+Portfolio completion requires real saved evidence. A public URL proves only its recorded bounded-cloud scope;
+it is not `PRODUCTION` without production IAM, HA/restore, sustained load/soak, canary, real operational traffic
+and incident evidence. Cloud unavailability remains `NOT_RUN`, never a fabricated PASS. Reaching Day130 does
+not itself mean complete.
 
 ---
 
@@ -2459,26 +2493,29 @@ Completion of the AI Backend Employment Track is defined by passing this Gate, N
 day. At minimum the Gate requires:
 
 ```text
-1.  A real, runnable, deployable AI Backend.
-2.  Real FastAPI / PostgreSQL / Redis-Celery / Object Storage integration evidence.
-3.  An Agent Runtime with explicit state, termination, permission, checkpoint and recovery semantics.
-4.  A run MCP Client/Server integration.
-5.  A Production RAG with ACL, citations and retrieval evaluation.
-6.  Tool permissions and prompt-injection defenses.
-7.  Evaluation datasets, graders and a release gate.
-8.  AI latency / cost / quality evidence.
-9.  Observability, failure, rollback and repair evidence.
-10. A reproducible README and run commands.
-11. Python and SQL interview capability.
-12. Backend / AI system-design capability.
-13. English project explanation and behavioral interview stories.
-14. Portfolio and resume evidence.
-15. Real job applications submitted, with Planned lessons added based on feedback.
+1.  A runnable ProofOps product with one bounded incident-resolution path.
+2.  Real Async FastAPI and PostgreSQL/pgvector integration evidence.
+3.  Bounded Agent state, budgets, checkpoint/resume/cancellation and recovery.
+4.  One real Streamable-HTTP MCP integration without transferring authority to MCP.
+5.  ACL-aware retrieval and exact evidence identity.
+6.  Application-owned current authorization, security and release authority.
+7.  Exact HumanApproval plus one isolated idempotent remediation capability.
+8.  UNKNOWN reconciliation and bound recovery verification.
+9.  Deterministic, trajectory, adversarial and calibrated-Judge evaluation.
+10. Machine-enforced release gates.
+11. Latency, concurrency, cost and quality measurements.
+12. OpenTelemetry, failure, rollback and operational evidence.
+13. Reproducible local and bounded-cloud execution with honest execution labels.
+14. Python/SQL, system-design, English and behavioral interview capability.
+15. Portfolio, résumé and real application feedback.
 ```
 
-Trial application checkpoint: once the Agent + MCP evidence in Phase 7B is complete (the first sufficiently
-complete project evidence), the learner MAY begin trial job applications — they need not wait for the Final
-Capstone to touch the market. Feedback then feeds back into Planned lessons.
+Redis/Celery/Object Storage, Playwright, n8n, multi-agent and a second Provider/domain are not mandatory
+keywords. They may be added only when an observed requirement justifies them.
+
+Decision 008 already permits honest limited applications based on completed evidence; applications do not
+have to wait for ProofOps V2. Day113 may expand ProofOps-targeted applications only if its runnable checkpoint,
+README, CI and evidence actually pass. Feedback then feeds back into Planned lessons.
 
 Honesty boundary: the curriculum improves job competitiveness but does not promise an offer; target roles are
 Junior / Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent
@@ -2505,10 +2542,10 @@ Completing the curriculum does not by itself demonstrate Senior or Staff level.
 
 Phases 4–8 carry a continuous employment-readiness thread (integrated, not mechanical per-day inflation):
 Python coding practice, SQL practice, English technical explanation, system-design communication, runtime
-validation evidence, a weekly project README update, and a weekly interview review. A typical week includes
-at least 2–3 Python/SQL coding exercises, one English project explanation, one production failure scenario,
-and one artifact/runtime-evidence review. The goal is accumulated capability evidence, not a "problem-count
-guarantees an offer" model.
+validation evidence, a project README update, and an interview review. From planned Day107 onward, the default
+calendar reserve is approximately one hour of timed Python/SQL plus thirty minutes of English per working day;
+real capacity may adjust the schedule but cannot remove independent mastery or evidence gates. The goal is
+accumulated capability evidence, not a "problem-count guarantees an offer" model.
 
 ---
 
@@ -2544,7 +2581,7 @@ days, not only Phase 4.)
 
 ---
 
-## Future Lesson Implementation Boundaries (Day50, Day54, Day117, Day123, Day125)
+## Future Lesson Implementation Boundaries (Day50, Day54, Planned ProofOps Boundaries)
 
 These are confirmed implementation boundaries recorded ahead of time so a future teaching chat, lacking the
 current context, does not mis-scope, over-implement, or over-claim validation. They constrain scope and
@@ -2618,61 +2655,42 @@ cancel request
 Do not lock a specific implementation, but keep the **durable, auditable, guarded, cooperative** constraints.
 Day54 Topic is unchanged.
 
-### Day123 — a thin end-to-end vertical integration loop
+### Day107 — planning and scope precede implementation
 
-Day123 is an **integration day** for components already built in Phases 5–7D, not a development day that
-re-implements Agent, RAG, MCP, Playwright, or n8n.
+Day107 begins only after explicit learner authorization. The separate `proofops` repository, async skeleton,
+database and MCP Server do not exist merely because Decision 025 planned them. First freeze the target user,
+five capabilities, four scenarios, authority boundaries, threat model and non-goals. A heavy Day107 coordinate
+may use several Tickets and calendar days, but it remains one mastery milestone.
 
-Day123 integrates and validates one bounded but complete vertical user path, e.g.:
+### Day113 — independent runnable checkpoint
 
-```text
-user submits a research task
--> FastAPI persists and accepts the Job
--> Agent retrieves with RAG
--> a permissioned tool is called via MCP
--> a Playwright Worker fetches authorized data
--> n8n triggers human approval
--> result, citations, Artifact, and audit evidence are persisted
-```
+Day113 requires an actual cumulative V0–V2 run plus a no-AI implementation/debugging check. Static contracts,
+teacher-authored code or an architecture diagram cannot pass the checkpoint. Saved evidence must identify the
+exact revision, config, runtime boundary, commands, results and unexecuted limitations.
 
-Acceptance focus: one full path really runs; correlation IDs are preserved; component failures have a clear
-state and recovery path; result / citations / Artifact / audit evidence are traceable; and mock vs static
-validation vs local runtime vs integration runtime vs production validation are clearly distinguished. Do not
-chase five disconnected demos, and do not re-implement previously completed components in Day123. Day123 Topic
-is unchanged.
+### Day116 — Judge and IAA honesty
 
-### Day125 — representative drills, not exhaustive failure enumeration
+IAA or κ requires at least two independent human annotators; an LLM is not the second human. Without that
+boundary, IAA stays `NOT_RUN`. The Judge freezes Prompt/model/config/rubric, supports abstention and cannot
+independently approve a security hard gate or release.
 
-Day125 still covers `failure recovery`, `load`, `security`, and `data repair`, but with a **limited,
-representative** drill set — it does not exhaustively enumerate every production failure in one day. Each
-category picks representative scenarios that prove the core mental model, and preferentially saves:
+### Day118 — repeated-run metrics
 
-```text
-failure-injection condition
-expected behavior
-actual command / test executed
-log / trace / metric / database evidence
-recovery steps
-data-repair steps
-unvalidated limitations
-which class it is: static / local runtime / integration runtime / production validation
-```
+Record every run identity, seed/configuration, attempt count, success definition and failure taxonomy. Do not
+assume Agent runs are independent or cherry-pick successful attempts. `pass@k` capability cannot compensate
+for an observed security violation; hard invariants require zero violations across all observed runs.
 
-A limited scope must not be described as "comprehensive production validation." Day125 Topic is unchanged.
+### Day124–Day125 — bounded cloud is not production
 
-### Day117 — when the Final Capstone README is updated
+Managed infrastructure, HTTPS and a public smoke run prove only their exact bounded cloud/integration scope.
+They do not prove production IAM, HA/restore, sustained load/soak, canary, real traffic or incident response.
+Public remediation remains disabled or isolated unless separately authorized and verified.
 
-`projects/final-capstone/README.md` may remain an early placeholder until Day117. It must **not** be rewritten
-into a fictional completed capstone before then.
+### Day127 — no second domain in the mainline
 
-```text
-When Day117 confirms the formal Product Requirements, Architecture, and Scope,
-it must simultaneously update projects/final-capstone/README.md so the README becomes the entry point to the
-final Capstone's real scope, run instructions, validation evidence, and limitations.
-```
-
-Before Day117, that README is a placeholder and must not be treated as the latest complete implementation
-evidence. Day117 Topic is unchanged.
+Runtime reuse is demonstrated through stable runtime/domain interfaces, replaceable adapters and contract
+tests. A finance or other second Domain Pack remains Post-Day130 Optional Backlog and cannot displace portfolio,
+reproducibility or weak-point repair before the Employment Readiness review.
 
 ---
 

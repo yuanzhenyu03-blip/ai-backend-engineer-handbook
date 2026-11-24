@@ -9,6 +9,33 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Planned Day107–Day130 ProofOps Curriculum Reorganization
+
+Date: 2026-11-24
+
+Added Decision 025 and reorganized only the Planned Day107–Day130 curriculum around **ProofOps —
+Evidence-Grounded Incident Resolution Agent**. The future sequence is now Phase 7D ProofOps Core Runtime
+(Day107–Day113), Phase 7E Evaluation/Safety/Operations on ProofOps (Day114–Day123), and Phase 8 bounded cloud,
+operations and Employment Readiness (Day124–Day130). Planned runnable checkpoints are Day113, Day117, Day120,
+Day123, Day126 and Day130.
+
+The future delivery mode changes to Ticket + PR + DoD with dynamic Micro-Socratic Type A/Type B teaching,
+explicit Learner Ownership and parallel Python/SQL/English practice. Day coordinates are mastery milestones and
+may span multiple calendar days. The future Employment Readiness Gate now requires evidence for the scoped
+ProofOps product rather than mandatory Redis/Celery/Object Storage, Playwright, n8n, multi-agent or a second
+Provider/domain.
+
+This is a `CONCEPTUAL_STATIC` planning change only. Day01–Day106, Decisions 001–024, sealed evidence and Day106
+`TAUGHT_NOT_VERIFIED` were not changed. Day107 remains `Planned / not started`; no `proofops` repository,
+future lesson/code/config, Provider call, Docker/database/load/cloud/production execution or Day107+ evidence
+was created. No commit, push, PR or merge is claimed by this local edit.
+
+Future non-FastAPI notes will use focused topic files after their lessons begin instead of extending the
+oversized FastAPI cheat-sheet/interview files. The `docs/README.md` navigation gap and Day61 historical wording
+issue remain separate maintenance candidates and are not part of this update.
+
+---
+
 ## Unreleased — Day106 — Production RAG Capstone and English Interview (Phase 7C)
 
 Added the 16-section Day106 lesson, Capstone design, actual classroom/mastery record, Day107 handoff,
