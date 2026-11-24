@@ -76,3 +76,34 @@ an append-only replay `PASS` without rewriting the runtime seal-time fact.
 The later explicit instruction “更新仓库” authorized an isolated Day106 branch/worktree, frozen L2 code, tests,
 docs and append-only evidence. It did not authorize commit, push, PR, merge, Docker/L3, dependency installation
 or external/paid Provider use.
+
+## Later independent English verification — 2026-11-24
+
+This section appends a later mastery assessment without rewriting the classroom-time
+`TAUGHT_NOT_VERIFIED` fact above. The learner independently delivered one complete typed English architecture
+response and one changed-condition recovery follow-up. The assessment covered:
+
+- the normal request path and application-owned authority;
+- exact request, Generation/Manifest/ReadView, retrieval, context, model and candidate identity binding;
+- immediate revocation, immutable rebuild and expected-pointer CAS;
+- pre-Prompt security plus release-time authorization, DLP, disclosure, destination and egress checks;
+- durable Decision/Intent separation, `UNKNOWN` reconciliation and append-only delivery evidence;
+- deterministic L2, local-real L3, CI replay and production-readiness boundaries.
+
+The follow-up correctly classified a lost receipt after destination acceptance as `UNKNOWN`, rejected blind
+resend, retained the same `KD21` reconciliation identity, blocked any post-revocation operation capable of a
+first-time disclosure and preserved `D21` as immutable historical evidence. Precision corrections retained the
+canonical pre-dispatch state `response_dispatch = NOT_ATTEMPTED`, the fact that Day106 L3B already executed five
+real model calls, and the requirement to append reconciliation/destination status, timestamps and an
+authoritative provider message ID or receipt when available.
+
+```text
+Critical architecture/security invariants: VERIFIED_PASS
+Chinese final synthesis:                  VERIFIED_PASS
+Independent English interview:            VERIFIED_PASS
+Day106 course/mastery checkpoint:          PASS at recorded scope
+Production readiness:                      MORE_EVIDENCE_NEEDED
+```
+
+The complete English response is not retained in the repository. This assessment executed no code, Provider,
+Docker, database or test and does not upgrade any L2/L3/CI or production evidence tier.

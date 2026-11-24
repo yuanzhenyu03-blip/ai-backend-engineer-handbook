@@ -1210,9 +1210,15 @@ Docker/PostgreSQL/pgvector or call an external model Provider, detector or DLP, 
 upgrade the historical L3A/L3B evidence. Production
 readiness and the English-mastery boundary remain unchanged.
 
+On 2026-11-24, a later independent typed English architecture response plus one changed-condition
+`UNKNOWN`/revocation recovery follow-up passed as `VERIFIED_PASS`. The original teacher-provided answer remains
+historical `TAUGHT_NOT_VERIFIED` evidence. Day106 course/mastery is now `PASS` at its recorded scope; no full
+response transcript is committed, and this assessment does not change runtime or production evidence.
+
 ## Future Milestones
 
-- Begin Day107 Evaluation Datasets and Golden Sets without upgrading the bounded Day106 evidence scope.
+- Begin Day107 ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+  without upgrading the bounded Day106 evidence scope.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate broader real auth/queue/Worker integration; HA,
   restore and optional external-Provider gates remain NOT RUN.

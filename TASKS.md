@@ -32,7 +32,8 @@ Most recent classroom lesson: Day106 — Production RAG Capstone and English Int
 
 Planning boundary: Decision 025 reorganizes only Planned Day107–Day130. No `proofops` repository, future
 lesson/code, Provider call, Docker/database/cloud run or evaluation evidence was created. All Day107+
-execution scopes remain `NOT_RUN`; Day106 evidence and `TAUGHT_NOT_VERIFIED` are unchanged.
+execution scopes remain `NOT_RUN`. The original Day106 teacher-provided answer remains historical
+`TAUGHT_NOT_VERIFIED` evidence; the later independent English verification is `VERIFIED_PASS`.
 
 Day106 completion record:
 
@@ -46,6 +47,8 @@ Day106 completion record:
 - [x] Preserve immediate P2 revocation, immutable G3 rebuild and application-owned forward pointer CAS.
 - [x] Preserve append-only history and content-safe evidence; never persist protected Prompt/chunk/candidate text.
 - [x] Record the final teacher-provided English response as `TAUGHT_NOT_VERIFIED`.
+- [x] Append the 2026-11-24 independent English verification as `VERIFIED_PASS`; do not overwrite the earlier
+  teacher-provided history or retain the full response transcript.
 - [x] Run bounded deterministic mechanics on local CPython 3.11.5 fallback.
 - [x] Run the current deterministic/unit and saved-evidence replay workflow on canonical CPython 3.12.16.
 - [x] Run bounded Day106 L3A with real local Docker/PostgreSQL/pgvector, transaction/CAS and container restart.
@@ -433,7 +436,7 @@ The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 
 ## Today's Tasks
 
-- [ ] Complete the independent Day106 English verification; keep `TAUGHT_NOT_VERIFIED` until it actually passes.
+- [x] Complete the independent Day106 English verification; result `VERIFIED_PASS` on 2026-11-24.
 - [x] Review and accept Decision 025 planning boundaries.
 - [ ] Prepare the Day107 Micro-Socratic lesson and first Ticket only after the learner says to begin Day107.
 - [ ] Do not create ProofOps code/repository or execute Provider/infrastructure before explicit authorization.

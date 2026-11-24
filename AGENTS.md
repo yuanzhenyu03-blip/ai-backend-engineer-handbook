@@ -48,8 +48,10 @@ Current state:
   PASS; later post-merge CI passed the current deterministic/unit suite and saved L3A/L3B replay on CPython
   3.12.16 without re-executing Docker/database/Provider L3; external detector/DLP, production
   IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain NOT RUN; readiness
-  MORE_EVIDENCE_NEEDED; the final teacher-provided English response remains TAUGHT_NOT_VERIFIED, so Day106
-  overall PASS is not claimed; the local L3 seal itself remains the earlier no-push/no-CI checkpoint).
+  MORE_EVIDENCE_NEEDED; the original teacher-provided English response remains historical
+  TAUGHT_NOT_VERIFIED evidence, followed by a 2026-11-24 independent English verification VERIFIED_PASS;
+  Day106 course/mastery is PASS at the recorded scope, while the local L3 seal itself remains the earlier
+  no-push/no-CI checkpoint).
 - Day106 post-seal CI: PR #21 merged to `main` as `3b96fe6f4eda7a5c07834ad12870a406d73297c1`;
   append-only evidence records the exact sealed L2 replay on CPython 3.11.5. The CPython 3.12.16 current-tree
   job passed 1444 unittest cases (20 skipped), Day106 pytest with 129 passed and 5 skipped, 22 seed evaluators and 10

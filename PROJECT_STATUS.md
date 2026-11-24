@@ -40,12 +40,13 @@ Most recent classroom lesson: Day106 — Production RAG Capstone and English Int
 
 Decision 025 reorganizes Planned Day107–Day130 only. This is `CONCEPTUAL_STATIC` planning: no `proofops`
 repository, future lesson/code, Provider call, Docker/database/cloud run, evaluation result or production
-evidence exists. All Day107+ execution scopes remain `NOT_RUN`; Day106 evidence and
-`TAUGHT_NOT_VERIFIED` remain unchanged.
+evidence exists. All Day107+ execution scopes remain `NOT_RUN`. The original Day106 teacher-provided English
+answer remains historical `TAUGHT_NOT_VERIFIED` evidence; a later independent verification passed on
+2026-11-24.
 
-Day106 instructional coverage is COMPLETE at guided classroom scope; Day106 overall PASS is not claimed
-because the teacher-provided final English response remains `TAUGHT_NOT_VERIFIED`. Its repository checkpoint composes one exact request
-identity through the selected Generation/ReadView, RetrievalBundle, ContextAssemblyManifest,
+Day106 instructional coverage and course/mastery checkpoint are `PASS` at the recorded scope after the later
+independent English verification. Its repository checkpoint composes one exact request identity through the
+selected Generation/ReadView, RetrievalBundle, ContextAssemblyManifest,
 ModelInvocationEnvelope, AnswerCandidate, current release evidence, durable OutputReleaseDecision, Response
 Intent and DeliveryReceipt. It preserves immediate revocation, immutable rebuild, forward pointer CAS,
 Prompt-before-security exclusion, release-time currentness/DLP/disclosure checks, UNKNOWN reconciliation,
@@ -58,8 +59,8 @@ offline replay PASS. PR #21 later merged to `main` as `3b96fe6`; the
 configured saved-evidence replays PASS across their recorded CPython 3.11.5/3.12.16 jobs. CI did not re-execute
 database/Provider L3. Real Day95–Day99 authority-store reruns, external detector/DLP, production
 IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`; readiness is
-`MORE_EVIDENCE_NEEDED`. The teacher-provided final English answer is `TAUGHT_NOT_VERIFIED`, so Day106 overall
-PASS is not claimed.
+`MORE_EVIDENCE_NEEDED`. The English mastery result does not upgrade any runtime, integration or production
+evidence tier.
 
 Lesson: `docs/fastapi/day106-production-rag-capstone-and-english-interview.md`. Design:
 `projects/ai-agent/docs/DAY106_PRODUCTION_RAG_CAPSTONE.md`. Classroom record:

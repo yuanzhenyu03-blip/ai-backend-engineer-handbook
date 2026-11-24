@@ -54,8 +54,9 @@ Current phase:
   checkpoint replay on CPython 3.11.5 and, separately, the current deterministic/unit suite plus saved L3A/L3B
   replay on CPython 3.12.16. CI did not re-execute Docker/database/Provider L3. External detector/DLP, production
   IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`; readiness remains
-  `MORE_EVIDENCE_NEEDED`. The final teacher-provided English response remains `TAUGHT_NOT_VERIFIED`, so Day106
-  overall PASS is not claimed.
+  `MORE_EVIDENCE_NEEDED`. The original teacher-provided English response remains historical
+  `TAUGHT_NOT_VERIFIED` evidence; a later independent English architecture response and changed-condition
+  recovery follow-up passed on 2026-11-24. Day106 course/mastery is therefore `PASS` at the recorded scope.
 
 Last completed lesson:
 

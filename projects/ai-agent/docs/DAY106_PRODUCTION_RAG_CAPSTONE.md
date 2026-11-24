@@ -183,3 +183,13 @@ Docker/PostgreSQL/pgvector and did not call an external model Provider, detector
 current-tree CPython 3.12 compatibility and saved-evidence replay, not CPython 3.12 L3 re-execution. External
 DLP and production boundaries remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The exact record is
 [`day106-pr21-ci-validation.json`](../evidence/day106-pr21-ci-validation.json).
+
+## Later independent English verification — 2026-11-24
+
+After the sealed runtime and CI events above, the learner independently passed a typed English architecture
+response plus one changed-condition recovery follow-up. The result is `VERIFIED_PASS`, making the Day106
+course/mastery checkpoint `PASS` at its recorded scope. The earlier teacher-provided answer remains historical
+`TAUGHT_NOT_VERIFIED` evidence and is not rewritten.
+
+No full response transcript is stored. The assessment ran no code or infrastructure and does not change any
+runtime evidence or production-readiness claim.
