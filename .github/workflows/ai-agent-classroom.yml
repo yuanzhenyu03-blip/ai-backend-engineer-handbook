@@ -21,6 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -68,8 +69,26 @@ jobs:
         run: python evals/run_day105_evidence_replay.py
       - name: Verify saved Day105 L3 security evidence offline
         run: python evals/run_day105_l3_evidence_replay.py
-      - name: Verify saved Day106 Production RAG capstone evidence
-        run: python evals/run_day106_evidence_replay.py
+      - name: Parse current structured evidence
+        run: >-
+          python -c 'import json; from pathlib import Path;
+          root=Path(".");
+          [json.loads(path.read_text()) for path in root.rglob("*.json")];
+          [json.loads(line) for path in root.rglob("*.jsonl")
+          for line in path.read_text().splitlines() if line.strip()]'
+      - name: Verify saved Day106 L2 evidence at its exact checkpoint
+        run: |
+          l2_root="$RUNNER_TEMP/day106-l2-replay"
+          l2_archive="$RUNNER_TEMP/day106-l2-replay.tar"
+          mkdir -p "$l2_root"
+          git -C "$GITHUB_WORKSPACE" archive \
+            --format=tar \
+            --output="$l2_archive" \
+            91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c \
+            projects/ai-agent
+          tar -xf "$l2_archive" -C "$l2_root"
+          cd "$l2_root/projects/ai-agent"
+          PYTHONPATH=src:. python evals/run_day106_evidence_replay.py
       - name: Verify saved Day106 L3A evidence offline
         run: |
           python evals/run_day106_l3_evidence_replay.py \
