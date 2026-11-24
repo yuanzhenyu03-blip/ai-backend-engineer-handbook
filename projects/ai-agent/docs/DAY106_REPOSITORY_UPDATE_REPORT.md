@@ -79,3 +79,19 @@ the Day106 `RequestAttempt`, `ReadView`, `RetrievalBundle`, `ContextAssemblyMani
 Accordingly, this later observation is append-only, scope-limited connectivity evidence. It does not change the
 sealed report checksum, does not upgrade `external_real_boundary`, and does not establish Day106 L3 or
 production readiness. No API key or model response body is stored in the repository.
+
+## Post-seal L3A/L3B checkpoint — 2026-11-24
+
+Later append-only execution now establishes a bounded Day106 Level 3 checkpoint on local CPython 3.11.5. L3A
+ran the exact capstone path over real local PostgreSQL 16.15/pgvector 0.8.7, including transactions/CAS,
+database-container restart read-back and offline evidence replay. L3B then executed exactly five bounded real
+model calls with `max_output_tokens=64`; observed output was `89/320`. The same bound execution produced four
+`RELEASE` decisions and one P2-revoked `BLOCKED / NOT_ATTEMPTED` decision, kept unauthorized occurrences out of
+Prompt, and created no dispatch or delivery record. Restart replay preserved the exact durable-state digest and
+the independent content-safe replay passed.
+
+The original L2 report and its `NOT_RUN` fields remain unchanged historical evidence. The L3 checkpoint is
+recorded in separate L3A/L3B reports and does not inherit or claim canonical CPython 3.12, external DLP,
+production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak/canary or production validation. Those
+boundaries remain `NOT_RUN`, and production readiness remains `MORE_EVIDENCE_NEEDED`. No push, CI, pull request
+or merge is claimed here.

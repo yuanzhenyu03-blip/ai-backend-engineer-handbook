@@ -41,11 +41,14 @@ Current state:
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
 - Last Completed Lesson: Day106 — Production RAG Capstone and English Interview (guided classroom coverage plus
-  bounded deterministic Level 2 composition on the local CPython 3.11.5 fallback; exact request/Generation/
-  retrieval/context/candidate/decision/intent/receipt binding; revocation/rebuild/CAS; fail-closed security and
-  UNKNOWN reconciliation; canonical CPython 3.12, real process restart, Docker/L3, external model/detector/DLP/
-  Provider and production NOT RUN; readiness MORE_EVIDENCE_NEEDED; final teacher-provided English response
-  remains TAUGHT_NOT_VERIFIED; Day106 overall PASS is not claimed).
+  deterministic Level 2 composition and append-only bounded Level 3 evidence on local CPython 3.11.5; L3A ran
+  real local PostgreSQL 16.15/pgvector 0.8.7 with transaction/CAS and container-restart replay; L3B ran exactly
+  five bounded real model calls with 89/320 observed output tokens, four RELEASE decisions, one P2-revoked
+  BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/offline replay
+  PASS; canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak,
+  canary and production remain NOT RUN; readiness MORE_EVIDENCE_NEEDED; the final teacher-provided English
+  response remains TAUGHT_NOT_VERIFIED, so Day106 overall PASS is not claimed; no push, PR, CI or merge is
+  claimed for this L3 checkpoint).
 - Day105 post-seal CI: PR #18 merged to `main`; append-only evidence records CPython 3.12.16 with 1334 tests
   PASS, 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105 replay PASS. CI did
   not start Docker/PostgreSQL/pgvector or run Day105 L3; the later local L3 record is separate and does not

@@ -11,9 +11,9 @@ from rag_authorized_retriever import (
 )
 from rag_chunking_contracts import stable_hash
 from rag_grounding_adapters import (
-    DeterministicAnswerProvider,
+    AnswerProvider,
     DeterministicClaimExtractor,
-    DeterministicEvidenceVerifier,
+    EvidenceVerifier,
     GroundingProviderError,
     GroundingVerificationError,
 )
@@ -74,11 +74,11 @@ class AuthorizedGroundingOrchestrator:
         verifier_egress: VerifierEgressPolicy,
         currentness: GroundingCurrentnessOracle,
         planner: GroundingContextPlanner,
-        generator: DeterministicAnswerProvider,
-        fallback_generator: DeterministicAnswerProvider | None,
+        generator: AnswerProvider,
+        fallback_generator: AnswerProvider | None,
         extractor: DeterministicClaimExtractor,
-        verifier: DeterministicEvidenceVerifier,
-        fallback_verifier: DeterministicEvidenceVerifier | None,
+        verifier: EvidenceVerifier,
+        fallback_verifier: EvidenceVerifier | None,
         validator: GroundingValidator,
         audit: ContentSafeGroundingAuditSink,
         query_digest_secret: bytes,

@@ -14,6 +14,9 @@ from examples.day106_capstone_support import (
 )
 from examples.day101_query_rewriting_reranking import QUERY_DIGEST_SECRET
 from examples.day106_production_rag_capstone import (
+    ExternalGroundingRuntime,
+    GroundingProviderBuildContext,
+    ProviderInvocationReservation,
     POINTER_NAME,
     _bind_attempt,
     _build_generation,
@@ -36,6 +39,18 @@ from rag_capstone_orchestrator import (
 from rag_chunking_contracts import stable_hash
 from rag_grounding_adapters import DeterministicAnswerProvider
 from rag_grounding_contracts import Day102Outcome
+from rag_openai_responses_adapter import (
+    MAX_OUTPUT_TOKENS,
+    OPENAI_RESPONSES_MODEL,
+    OpenAIInvocationBinding,
+    OpenAIResponsesAnswerProvider,
+    OpenAIResponsesHTTPResponse,
+    OpenAIResponsesRequest,
+    ProviderCallBudget,
+    day106_openai_grounding_contract,
+    openai_model_config_digest,
+    provider_request_idempotency_digest,
+)
 from rag_grounding_planner import GroundingCurrentnessOracle
 from rag_index_lifecycle_committer import (
     IndexLifecycleCommitter,
@@ -50,6 +65,47 @@ from rag_index_read_views import IndexReadViewManager
 from rag_security_contracts import context_assembly_digest
 from rag_security_pipeline import RagSecurityPipeline, SecurityGateRejected
 from rag_query_rewrite_contracts import protected_query_digest
+
+
+class CapturingOpenAITransport:
+    """One-shot fake used to prove the full Day106 provider seam."""
+
+    def __init__(
+        self,
+        answer_text: str,
+        events: list[str] | None = None,
+    ) -> None:
+        self.answer_text = answer_text
+        self.events = events
+        self.calls = 0
+
+    def send(
+        self,
+        request: OpenAIResponsesRequest,
+    ) -> OpenAIResponsesHTTPResponse:
+        if self.events is not None:
+            self.events.append("transport")
+        self.calls += 1
+        return OpenAIResponsesHTTPResponse(
+            200,
+            json.dumps({
+                "id": "raw-provider-id-never-evidence",
+                "status": "completed",
+                "model": OPENAI_RESPONSES_MODEL,
+                "output": [{
+                    "type": "message",
+                    "content": [{
+                        "type": "output_text",
+                        "text": self.answer_text,
+                    }],
+                }],
+                "usage": {
+                    "input_tokens": 20,
+                    "output_tokens": 8,
+                    "total_tokens": 28,
+                },
+            }).encode("utf-8"),
+        )
 
 
 def build_binding_fixture():
@@ -123,6 +179,228 @@ class Day106CapstonePipelineTests(unittest.TestCase):
             if key != "report_checksum"
         }
         self.assertEqual(self.report["report_checksum"], stable_hash(unsigned))
+
+    def test_external_provider_factory_binds_exact_rb_cam_and_mi(self) -> None:
+        generation, pointer, lineages, serving, views, _ = (
+            build_binding_fixture()
+        )
+        policy = _policy()
+        bound = _bind_attempt(
+            attempt_id="R-external-provider",
+            pointer=pointer,
+            generation=generation,
+            serving_fixture=serving,
+            lineages=lineages,
+            policy=policy,
+            views=views,
+            observed_at="2026-11-23T09:01:00+08:00",
+        )
+        claim = refund_window_claim()
+        retrieval = execute_day101_query(
+            serving,
+            query_id="external-provider-Q1",
+            query_text=claim.question,
+            request_attempt_id="R-external-provider",
+        )
+        currentness = InMemoryReleaseCurrentnessAuthority()
+        currentness.put(_release_currentness_snapshot(
+            snapshot_id="release-currentness-external-provider",
+            revision=1,
+            generation=generation,
+            eligible_occurrence_ids=("A@v1", "C@v1"),
+            policy=policy,
+        ))
+        contract = day106_openai_grounding_contract()
+        config_digest = openai_model_config_digest(MAX_OUTPUT_TOKENS)
+        events: list[str] = []
+        transport = CapturingOpenAITransport(claim.answer_text, events)
+        providers: list[OpenAIResponsesAnswerProvider] = []
+
+        def reserve_provider_invocation(
+            context: GroundingProviderBuildContext,
+        ) -> ProviderInvocationReservation:
+            events.append("reservation")
+            self.assertEqual(context.request_binding, bound.capstone)
+            self.assertEqual(
+                context.retrieval_and_context_receipt.request_binding_digest,
+                bound.capstone.digest,
+            )
+            return ProviderInvocationReservation(
+                reservation_id="provider-reservation-external-Q1",
+                provider_invocation_attempt_id=(
+                    context.provider_invocation_attempt_id
+                ),
+                request_binding_digest=context.request_binding.digest,
+                retrieval_and_context_receipt_digest=(
+                    context.retrieval_and_context_receipt.digest
+                ),
+                invocation_envelope_digest=(
+                    context.invocation_envelope.digest
+                ),
+            )
+
+        def build_provider(
+            context: GroundingProviderBuildContext,
+            reservation: ProviderInvocationReservation,
+        ) -> OpenAIResponsesAnswerProvider:
+            events.append("factory")
+            provider = OpenAIResponsesAnswerProvider(
+                transport=transport,
+                budget=ProviderCallBudget(1),
+                binding=OpenAIInvocationBinding(
+                    invocation_envelope_digest=(
+                        context.invocation_envelope.digest
+                    ),
+                    provider_invocation_attempt_id=(
+                        reservation.provider_invocation_attempt_id
+                    ),
+                    provider_invocation_reservation_digest=(
+                        reservation.digest
+                    ),
+                    provider_request_idempotency_digest=(
+                        provider_request_idempotency_digest(
+                            reservation.provider_invocation_attempt_id
+                        )
+                    ),
+                    context_manifest_digest=context.context_manifest.digest,
+                    retrieval_bundle_digest=context.retrieval_bundle.digest,
+                    model_config_digest=(
+                        context.invocation_envelope.model_config_digest
+                    ),
+                    expected_operation_id=(
+                        "grounding-"
+                        + context.retrieval_run.retrieval_request.operation_id
+                    ),
+                    expected_day101_handoff_digest=(
+                        context.retrieval_run.day101_response.handoff_digest
+                        or "MISSING"
+                    ),
+                    expected_contract_fingerprint=(
+                        context.grounding_contract.fingerprint
+                    ),
+                ),
+            )
+            providers.append(provider)
+            return provider
+
+        prepared = _prepare_query(
+            query_id="external-provider-Q1",
+            bound=bound,
+            serving_fixture=serving,
+            release_currentness_authority=currentness,
+            retrieval_run=retrieval,
+            claims=(claim,),
+            lineages={item.occurrence_id: item for item in lineages},
+            policy=policy,
+            observed_at="2026-11-23T09:02:00+08:00",
+            external_grounding=ExternalGroundingRuntime(
+                grounding_contract=contract,
+                model_id=OPENAI_RESPONSES_MODEL,
+                model_config_digest=config_digest,
+                reserve_provider_invocation=reserve_provider_invocation,
+                answer_provider_factory=build_provider,
+            ),
+        )
+
+        self.assertEqual(prepared.invocation.model_id, OPENAI_RESPONSES_MODEL)
+        self.assertEqual(
+            prepared.invocation.model_config_digest,
+            config_digest,
+        )
+        self.assertEqual(transport.calls, 1)
+        self.assertEqual(events, ["reservation", "factory", "transport"])
+        observation = providers[0].observations()[0]
+        self.assertEqual(
+            observation.retrieval_bundle_digest,
+            prepared.receipt.retrieval_bundle_digest,
+        )
+        self.assertEqual(
+            observation.context_manifest_digest,
+            prepared.receipt.context_manifest_digest,
+        )
+        self.assertEqual(
+            observation.invocation_envelope_digest,
+            prepared.invocation.digest,
+        )
+        self.assertEqual(
+            observation.provider_invocation_reservation_digest,
+            prepared.provider_invocation_reservation.digest,
+        )
+
+    def test_reservation_failure_prevents_provider_and_transport(self) -> None:
+        generation, pointer, lineages, serving, views, _ = (
+            build_binding_fixture()
+        )
+        policy = _policy()
+        bound = _bind_attempt(
+            attempt_id="R-reservation-failure",
+            pointer=pointer,
+            generation=generation,
+            serving_fixture=serving,
+            lineages=lineages,
+            policy=policy,
+            views=views,
+            observed_at="2026-11-23T09:01:00+08:00",
+        )
+        claim = refund_window_claim()
+        retrieval = execute_day101_query(
+            serving,
+            query_id="reservation-failure-Q1",
+            query_text=claim.question,
+            request_attempt_id="R-reservation-failure",
+        )
+        currentness = InMemoryReleaseCurrentnessAuthority()
+        currentness.put(_release_currentness_snapshot(
+            snapshot_id="release-currentness-reservation-failure",
+            revision=1,
+            generation=generation,
+            eligible_occurrence_ids=("A@v1", "C@v1"),
+            policy=policy,
+        ))
+        events: list[str] = []
+        transport = CapturingOpenAITransport(claim.answer_text, events)
+
+        def fail_reservation(
+            context: GroundingProviderBuildContext,
+        ) -> ProviderInvocationReservation:
+            events.append("reservation")
+            self.assertEqual(context.request_binding, bound.capstone)
+            raise RuntimeError("DURABLE_RESERVATION_FAILED")
+
+        def forbidden_factory(
+            context: GroundingProviderBuildContext,
+            reservation: ProviderInvocationReservation,
+        ) -> OpenAIResponsesAnswerProvider:
+            events.append("factory")
+            raise AssertionError("factory must not run after reservation failure")
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "DURABLE_RESERVATION_FAILED",
+        ):
+            _prepare_query(
+                query_id="reservation-failure-Q1",
+                bound=bound,
+                serving_fixture=serving,
+                release_currentness_authority=currentness,
+                retrieval_run=retrieval,
+                claims=(claim,),
+                lineages={item.occurrence_id: item for item in lineages},
+                policy=policy,
+                observed_at="2026-11-23T09:02:00+08:00",
+                external_grounding=ExternalGroundingRuntime(
+                    grounding_contract=day106_openai_grounding_contract(),
+                    model_id=OPENAI_RESPONSES_MODEL,
+                    model_config_digest=openai_model_config_digest(
+                        MAX_OUTPUT_TOKENS
+                    ),
+                    reserve_provider_invocation=fail_reservation,
+                    answer_provider_factory=forbidden_factory,
+                ),
+            )
+
+        self.assertEqual(events, ["reservation"])
+        self.assertEqual(transport.calls, 0)
 
     def test_normal_q1_q2_q3_release_with_exact_context(self) -> None:
         queries = cast(dict[str, dict[str, Any]], self.report["normal_queries"])

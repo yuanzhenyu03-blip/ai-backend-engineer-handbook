@@ -45,10 +45,14 @@ Current phase:
   Day106 closes the guided Phase 7C classroom sequence by composing those existing owners into one exact
   request-to-delivery evidence chain. It binds the selected Generation/ReadView, security-filtered retrieval,
   context, grounded AnswerCandidate, current release checks, durable decision, response intent and receipt;
-  it also exercises revocation/rebuild/CAS and UNKNOWN reconciliation with content-safe deterministic fixtures.
-  This checkpoint ran only on the local CPython 3.11.5 fallback. Canonical CPython 3.12, real upstream-store
-  reruns, real process restart, Docker/L3, external model/detector/DLP/Provider and production are `NOT_RUN`;
-  readiness remains `MORE_EVIDENCE_NEEDED`.
+  it also exercises revocation/rebuild/CAS and UNKNOWN reconciliation. Append-only bounded Level 3 evidence on
+  local CPython 3.11.5 now includes L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus container-restart replay,
+  and L3B exactly five bounded real model calls: 89/320 observed output tokens, four RELEASE decisions, one
+  P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
+  offline replay PASS. Canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore,
+  load/soak, canary and production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The final
+  teacher-provided English response remains `TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed. No
+  push, PR, CI or merge is claimed for this L3 checkpoint.
 
 Last completed lesson:
 

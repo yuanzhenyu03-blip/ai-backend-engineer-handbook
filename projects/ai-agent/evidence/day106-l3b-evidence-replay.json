@@ -1,0 +1,23 @@
+{
+  "checks": {
+    "append_only_separate_reports": true,
+    "artifact_file_digests": true,
+    "content_safe": true,
+    "database_container_restart_observed": true,
+    "delivery_not_overclaimed": true,
+    "durable_state_identity_preserved": true,
+    "output_token_budget_at_most_320": true,
+    "production_readiness_not_overclaimed": true,
+    "provider_call_budget_exactly_five": true,
+    "same_execution_cross_binding": true,
+    "unauthorized_occurrence_entering_prompt_zero": true
+  },
+  "integration_report_checksum": "sha256:f85f049c205e05891227a8d82f53a8729845b06d3a6f6c8d6adc5ad1a13a981d",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "replay_checksum": "sha256:c5a9df7d52a2e13abb834d5c06ac6be9ad41eb3db480b92c2df3ec58c673d9db",
+  "report_checksum": "sha256:f6514e74e61576974c7c7ed5d3f69698d2d20cbd85b8e5576e9ff2edf19aa900",
+  "restart_report_checksum": "sha256:98709fd0194827057c7fcef4ac7290f63d88a70eef88064b5611f45711864256",
+  "scenario_id": "day106-production-rag-db-external-provider-l3b-v1",
+  "schema_version": "day106-l3b-evidence-replay.v1",
+  "status": "PASS"
+}

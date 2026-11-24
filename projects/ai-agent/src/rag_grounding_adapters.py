@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Protocol, runtime_checkable
 
 from rag_grounding_contracts import (
     ClaimExtractionResult,
@@ -34,6 +35,39 @@ class GroundingVerificationError(RuntimeError):
     def __init__(self, reason: Day102FailureReason) -> None:
         super().__init__(reason.value)
         self.reason = reason
+
+
+@runtime_checkable
+class AnswerProvider(Protocol):
+    """Generator seam shared by deterministic and external providers."""
+
+    calls: int
+
+    def generate(
+        self,
+        *,
+        attempt_id: str,
+        bundle: GroundingBundle,
+        contract: GroundingContract,
+    ) -> GeneratedAnswer:
+        """Return one answer bound to the exact frozen grounding bundle."""
+
+
+@runtime_checkable
+class EvidenceVerifier(Protocol):
+    """Verifier seam shared by deterministic and external verifiers."""
+
+    revision: str
+    calls: int
+
+    def verify(
+        self,
+        *,
+        claims: tuple[ValidatedClaim, ...],
+        bundle: GroundingBundle,
+        contract: GroundingContract,
+    ) -> tuple[RawVerificationResult, ...]:
+        """Return content-safe relation results for the supplied claims."""
 
 
 class DeterministicAnswerProvider:

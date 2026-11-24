@@ -36,15 +36,18 @@ from rag_capstone_orchestrator import Day101ExecutionReceiptAuthority
 from rag_chunking_contracts import stable_hash
 from rag_dense_retrieval import DenseMode, ExactDenseRetrievalAdapter
 from rag_grounding_adapters import (
+    AnswerProvider,
     ClaimTemplate,
     DeterministicAnswerProvider,
     DeterministicClaimExtractor,
     DeterministicEvidenceVerifier,
+    EvidenceVerifier,
 )
 from rag_grounding_contracts import (
     Day102Response,
     GeneratorEgressPolicy,
     GroundingDegradationPolicy,
+    GroundingContract,
     GroundingRequest,
     RequestItem,
     SemanticRelation,
@@ -635,6 +638,9 @@ def execute_grounding_from_day101(
     *,
     retrieval: CanonicalRetrievalRun,
     claims: tuple[CanonicalClaim, ...],
+    grounding_contract: GroundingContract | None = None,
+    answer_provider: AnswerProvider | None = None,
+    evidence_verifier: EvidenceVerifier | None = None,
 ) -> CanonicalGroundingRun:
     """Invoke Day102 only after the caller's Prompt-before-security gate passes."""
 
@@ -642,10 +648,10 @@ def execute_grounding_from_day101(
         raise ValueError("a grounded query requires at least one claim")
     request = retrieval.retrieval_request
     day101_response = retrieval.day101_response
-    contract = classroom_grounding_contract()
+    contract = grounding_contract or classroom_grounding_contract()
     audit = ContentSafeGroundingAuditSink()
     answer_text = " ".join(claim.answer_text for claim in claims)
-    verifier = DeterministicEvidenceVerifier(
+    verifier = evidence_verifier or DeterministicEvidenceVerifier(
         revision=contract.verifier_revision,
         relations_by_claim_id={
             claim.claim_id: SemanticRelation.SUPPORTED for claim in claims
@@ -685,7 +691,10 @@ def execute_grounding_from_day101(
                 for occurrence_id in claim.occurrence_ids
             )),
         ),
-        generator=DeterministicAnswerProvider(answer_text=answer_text),
+        generator=(
+            answer_provider
+            or DeterministicAnswerProvider(answer_text=answer_text)
+        ),
         fallback_generator=None,
         extractor=DeterministicClaimExtractor(
             revision=contract.claim_extractor_revision,

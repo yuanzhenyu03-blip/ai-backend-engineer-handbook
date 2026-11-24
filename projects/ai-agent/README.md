@@ -208,9 +208,12 @@ ai-agent/
 
 Status: Phase 7A, Phase 7B and Phase 7C are complete at guided classroom scope through Day106. Day106 composes
 the existing Day95–Day105 owners into one deterministic request-to-delivery evidence chain while preserving
-Day104 immutable Generation/ReadView and Day105 Prompt-before-security/release boundaries. The local fallback
-is CPython 3.11.5; canonical CPython 3.12, real process restart, Docker/L3, external-real and production
-validation remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
+Day104 immutable Generation/ReadView and Day105 Prompt-before-security/release boundaries. Append-only bounded
+Level 3 evidence on local CPython 3.11.5 now includes L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus
+container-restart replay and L3B exactly five bounded real model calls: 89/320 observed output tokens, four
+RELEASE decisions, one revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no
+dispatch, and restart/offline replay PASS. Canonical CPython 3.12, external detector/DLP and production controls
+remain `NOT_RUN`; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -1184,12 +1187,15 @@ PYTHONPATH=src:. python examples/day106_production_rag_capstone.py
 PYTHONPATH=src:. python evals/run_day106_evidence_replay.py
 ```
 
-The bounded local fallback uses CPython 3.11.5. The repository's canonical CPython 3.12 validation is
-`NOT_RUN`. Day95–Day99 authoritative stores are represented by aligned fixture lineage rather than rerun;
-recovery is deterministic same-process rehydration rather than a real restart. Docker/PostgreSQL/pgvector,
-external model/detector/DLP/Provider behavior, production IAM/egress, HA/restore, load/soak, canary and
-production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The final teacher-provided English
-answer remains `TAUGHT_NOT_VERIFIED`. No commit, PR or merge is included in this worktree update.
+The bounded local checkpoint uses CPython 3.11.5. L3A executed real local PostgreSQL 16.15/pgvector 0.8.7,
+transaction/CAS and container-restart replay. L3B executed exactly five bounded real model calls with 89/320
+observed output tokens, four RELEASE decisions, one P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero
+unauthorized Prompt occurrences, no dispatch, and restart/offline replay PASS. The repository's canonical
+CPython 3.12 validation is `NOT_RUN`; Day95–Day99 authoritative stores are represented by aligned fixture
+lineage rather than rerun. External detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak,
+canary and production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The final teacher-provided
+English answer remains `TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed. No push, PR, CI or merge
+is claimed for this L3 checkpoint.
 
 ## Future Milestones
 

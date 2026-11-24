@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ai-backend-for-codex:day106:l3a-evidence:v2",
+  "title": "Day106 L3A local PostgreSQL/pgvector evidence v2",
+  "description": "Contract only. Its presence is not execution evidence and never implies PASS.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scenario_id",
+    "run_id",
+    "overall_status",
+    "evidence_level",
+    "started_at",
+    "completed_at",
+    "environment",
+    "artifacts",
+    "cross_binding",
+    "hard_gates",
+    "restart_evidence",
+    "cleanup",
+    "raw_prompt_logged",
+    "protected_chunk_logged",
+    "answer_candidate_text_logged",
+    "raw_provider_response_logged",
+    "raw_provider_response_id_logged",
+    "raw_secret_logged",
+    "raw_vector_logged",
+    "database_url_logged",
+    "external_real_boundary",
+    "production_readiness",
+    "claim_boundary",
+    "report_checksum"
+  ],
+  "properties": {
+    "schema_version": {"const": "day106-l3a-evidence.v2"},
+    "scenario_id": {"const": "day106-production-rag-postgresql-pgvector-l3a-v1"},
+    "run_id": {"$ref": "#/$defs/non_empty"},
+    "overall_status": {"enum": ["PASS", "FAIL", "INCONCLUSIVE", "NOT_RUN"]},
+    "evidence_level": {
+      "enum": [
+        "NOT_RUN",
+        "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_MODEL_DLP_ADAPTERS"
+      ]
+    },
+    "started_at": {"$ref": "#/$defs/datetime"},
+    "completed_at": {"$ref": "#/$defs/datetime"},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compose_project",
+        "database_identity_digest",
+        "image_reference",
+        "image_digest",
+        "postgresql_version",
+        "pgvector_version",
+        "driver_version",
+        "python_version"
+      ],
+      "properties": {
+        "compose_project": {"const": "day106-l3"},
+        "database_identity_digest": {"$ref": "#/$defs/digest"},
+        "image_reference": {"const": "pgvector/pgvector:0.8.7-pg16"},
+        "image_digest": {"const": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f"},
+        "postgresql_version": {"$ref": "#/$defs/non_empty"},
+        "pgvector_version": {"const": "0.8.7"},
+        "driver_version": {"const": "2.9.10"},
+        "python_version": {"$ref": "#/$defs/non_empty"}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_commit", "files"],
+      "properties": {
+        "base_commit": {
+          "const": "91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c"
+        },
+        "files": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "integration_runner",
+            "evidence_schema",
+            "database_schema",
+            "capstone_repository",
+            "compose",
+            "day105_integration_runner",
+            "restart_runner",
+            "evidence_replay_runner"
+          ],
+          "properties": {
+            "integration_runner": {"$ref": "#/$defs/artifact_file"},
+            "evidence_schema": {"$ref": "#/$defs/artifact_file"},
+            "database_schema": {"$ref": "#/$defs/artifact_file"},
+            "capstone_repository": {"$ref": "#/$defs/artifact_file"},
+            "compose": {"$ref": "#/$defs/artifact_file"},
+            "day105_integration_runner": {"$ref": "#/$defs/artifact_file"},
+            "restart_runner": {"$ref": "#/$defs/artifact_file"},
+            "evidence_replay_runner": {"$ref": "#/$defs/artifact_file"}
+          }
+        }
+      }
+    },
+    "cross_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "day105_same_execution_report_checksum",
+        "request_binding_digest",
+        "read_view_digest",
+        "generation_manifest_digest",
+        "retrieval_context_receipt_digest",
+        "model_invocation_record_digest",
+        "answer_release_record_digest",
+        "response_intent_digest",
+        "exact_occurrence_ids_digest",
+        "exact_content_digests_digest",
+        "unauthorized_prompt_count"
+      ],
+      "properties": {
+        "day105_same_execution_report_checksum": {"$ref": "#/$defs/digest"},
+        "request_binding_digest": {"$ref": "#/$defs/digest"},
+        "read_view_digest": {"$ref": "#/$defs/digest"},
+        "generation_manifest_digest": {"$ref": "#/$defs/digest"},
+        "retrieval_context_receipt_digest": {"$ref": "#/$defs/digest"},
+        "model_invocation_record_digest": {"$ref": "#/$defs/digest"},
+        "answer_release_record_digest": {"$ref": "#/$defs/digest"},
+        "response_intent_digest": {"$ref": "#/$defs/digest"},
+        "exact_occurrence_ids_digest": {"$ref": "#/$defs/digest"},
+        "exact_content_digests_digest": {"$ref": "#/$defs/digest"},
+        "unauthorized_prompt_count": {"const": 0}
+      }
+    },
+    "hard_gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "same_execution_real_database_cross_binding",
+        "same_execution_day105_prerequisite",
+        "real_pgvector_exact_occurrence_binding",
+        "unauthorized_occurrence_entering_prompt_zero",
+        "decision_intent_atomicity",
+        "model_invocation_persisted_before_release",
+        "external_pre_send_reservation",
+        "unknown_reconciliation_bounded_retry",
+        "winner_fence_and_duplicate_deduplication",
+        "append_only_delivery_chain",
+        "external_provider_boundary",
+        "canonical_python_3_12"
+      ],
+      "properties": {
+        "same_execution_real_database_cross_binding": {"const": "PASS"},
+        "same_execution_day105_prerequisite": {"const": "PASS"},
+        "real_pgvector_exact_occurrence_binding": {"const": "PASS"},
+        "unauthorized_occurrence_entering_prompt_zero": {"const": "PASS"},
+        "decision_intent_atomicity": {"const": "PASS"},
+        "model_invocation_persisted_before_release": {"const": "PASS"},
+        "external_pre_send_reservation": {"const": "NOT_RUN"},
+        "unknown_reconciliation_bounded_retry": {"const": "PASS"},
+        "winner_fence_and_duplicate_deduplication": {"const": "PASS"},
+        "append_only_delivery_chain": {"const": "PASS"},
+        "external_provider_boundary": {"const": "NOT_RUN"},
+        "canonical_python_3_12": {"const": "NOT_RUN"}
+      }
+    },
+    "restart_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "pre_restart_state_digest",
+        "post_restart_state_digest",
+        "pre_restart_postmaster_started_at",
+        "post_restart_postmaster_started_at"
+      ],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL", "INCONCLUSIVE", "NOT_RUN"]},
+        "pre_restart_state_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "post_restart_state_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "pre_restart_postmaster_started_at": {"anyOf": [{"$ref": "#/$defs/datetime"}, {"type": "null"}]},
+        "post_restart_postmaster_started_at": {"anyOf": [{"$ref": "#/$defs/datetime"}, {"type": "null"}]}
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "compose_project_digest", "volume_identity_digest"],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL", "INCONCLUSIVE", "NOT_RUN"]},
+        "compose_project_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]},
+        "volume_identity_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+      }
+    },
+    "raw_prompt_logged": {"const": false},
+    "protected_chunk_logged": {"const": false},
+    "answer_candidate_text_logged": {"const": false},
+    "raw_provider_response_logged": {"const": false},
+    "raw_provider_response_id_logged": {"const": false},
+    "raw_secret_logged": {"const": false},
+    "raw_vector_logged": {"const": false},
+    "database_url_logged": {"const": false},
+    "external_real_boundary": {"const": "NOT_RUN"},
+    "production_readiness": {"const": "MORE_EVIDENCE_NEEDED"},
+    "claim_boundary": {"$ref": "#/$defs/non_empty"},
+    "report_checksum": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "non_empty": {"type": "string", "minLength": 1},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "datetime": {"type": "string", "format": "date-time"},
+    "artifact_file": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "digest"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^projects/ai-agent/"},
+        "digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

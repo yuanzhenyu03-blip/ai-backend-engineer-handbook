@@ -1,0 +1,69 @@
+{
+  "answer_candidate_text_logged": false,
+  "claim_boundary": "One-process Day106 L3A execution over real local Docker PostgreSQL/pgvector transactions, Day104 lifecycle rows, Day105 security rows, and Day106 durable cross-binding/recovery records; model, verifier, and DLP adapters remained deterministic. The actual Python runtime is recorded; canonical Python 3.12 remains NOT_RUN.",
+  "cleanup": {
+    "compose_project_digest": null,
+    "status": "NOT_RUN",
+    "volume_identity_digest": null
+  },
+  "completed_at": "2026-11-24T02:23:22.067417+00:00",
+  "cross_binding": {
+    "answer_release_record_digest": "sha256:c8228280359c4e73fee2b5aca770f9d9d9f534944885c0bed45c5efa72663354",
+    "day105_same_execution_report_checksum": "sha256:9b1fd00c98b7e84b561460757bbf10cb9dbd4ca7c3224d9b720575a62108bc6d",
+    "exact_content_digests_digest": "sha256:f0a492133cc33797537b2202a6033f8a47e990f455146135e33a88c80b72e92f",
+    "exact_occurrence_ids_digest": "sha256:756e92011939760985690c7151327e3a11930bb59e5b70f5c304ed8dab121321",
+    "generation_manifest_digest": "sha256:25cf668ca75f68eacfd1cfcfff7f1faa2dd736501ad98f731f6be48cac09f492",
+    "model_invocation_record_digest": "sha256:8418d4910678075ff98932f23f89743a1dd13d9c1f133d4d23cbbd2b53c94db0",
+    "read_view_digest": "sha256:3770b1466cd8d0146af053cff88b9e6837d07812e8df15e1633852835bb7e9a1",
+    "request_binding_digest": "sha256:e73c15668fc586065271c707796407d0ef78b679a7364cb9de5909c882c5d80a",
+    "response_intent_digest": "sha256:22bb8bbde59fa68e6be259050fccb72fa532ff44fed2a22630464a4c9243086e",
+    "retrieval_context_receipt_digest": "sha256:35f433492b8f629ee35106cacbbd4db0f4791032deb078f950f21561ec2c5111",
+    "unauthorized_prompt_count": 0
+  },
+  "database_url_logged": false,
+  "environment": {
+    "compose_project": "day106-l3",
+    "database_identity_digest": "sha256:a67f9a5009d301cde0a37113fef8e1c965943efa05776bc8d95c583fbc9b2eae",
+    "driver_version": "2.9.10",
+    "image_digest": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+    "image_reference": "pgvector/pgvector:0.8.7-pg16",
+    "pgvector_version": "0.8.7",
+    "postgresql_version": "16.15 (Debian 16.15-1.pgdg12+2)",
+    "python_version": "3.11.5"
+  },
+  "evidence_level": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_MODEL_DLP_ADAPTERS",
+  "external_real_boundary": "NOT_RUN",
+  "hard_gates": {
+    "append_only_delivery_chain": "PASS",
+    "canonical_python_3_12": "NOT_RUN",
+    "decision_intent_atomicity": "PASS",
+    "external_provider_boundary": "NOT_RUN",
+    "model_invocation_pre_send_persisted": "PASS",
+    "real_pgvector_exact_occurrence_binding": "PASS",
+    "same_execution_day105_prerequisite": "PASS",
+    "same_execution_real_database_cross_binding": "PASS",
+    "unauthorized_occurrence_entering_prompt_zero": "PASS",
+    "unknown_reconciliation_bounded_retry": "PASS",
+    "winner_fence_and_duplicate_deduplication": "PASS"
+  },
+  "overall_status": "PASS",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "protected_chunk_logged": false,
+  "raw_prompt_logged": false,
+  "raw_provider_response_id_logged": false,
+  "raw_provider_response_logged": false,
+  "raw_secret_logged": false,
+  "raw_vector_logged": false,
+  "report_checksum": "sha256:cb307938d85c506167f1b76271d5e3da1401f107a9899942f3254e6213990fe8",
+  "restart_evidence": {
+    "post_restart_postmaster_started_at": null,
+    "post_restart_state_digest": null,
+    "pre_restart_postmaster_started_at": "2026-11-24T02:03:20.344757+00:00",
+    "pre_restart_state_digest": "sha256:8da55945a0cc4927ba420c370ae7fef3ef479131466bf9619e6e245b68ee0880",
+    "status": "NOT_RUN"
+  },
+  "run_id": "day106-l3a-f272c89991d8eefd",
+  "scenario_id": "day106-production-rag-postgresql-pgvector-l3a-v1",
+  "schema_version": "day106-l3a-evidence.v1",
+  "started_at": "2026-11-24T02:23:20.059813+00:00"
+}

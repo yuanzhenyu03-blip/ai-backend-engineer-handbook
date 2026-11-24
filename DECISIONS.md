@@ -1133,3 +1133,23 @@ deterministic same-process state rehydration, not a real process restart. Docker
 external model/detector/DLP/Provider calls, distributed storage, production IAM/egress, load/soak, canary and
 production are `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`, and no commit, PR or merge is
 part of this decision record.
+
+### Append-only L3 validation amendment — 2026-11-24
+
+The preceding Level 2 boundary remains the historical truth for the original decision. A later, separately
+sealed Day106 checkpoint now adds bounded local Level 3 evidence on CPython 3.11.5:
+
+- L3A executed real local PostgreSQL 16.15/pgvector 0.8.7 transactions, CAS and restart read-back with
+  deterministic model/security adapters, followed by content-safe offline replay.
+- L3B executed exactly five bounded real model calls (`max_output_tokens=64`; observed output `89/320`) through
+  the attested external transport. The same database execution produced four `RELEASE` decisions and one
+  P2-revoked `BLOCKED / NOT_ATTEMPTED` decision; unauthorized occurrences entering Prompt remained zero and no
+  response was dispatched or delivered.
+- A real database-container restart preserved the exact durable state, and independent offline replay verified
+  artifact digests, cross-bindings, call/token budgets and the append-only report chain.
+
+This amendment does not upgrade the unexecuted boundaries. Canonical CPython 3.12, external DLP,
+production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak, canary and production remain `NOT_RUN`;
+production readiness remains `MORE_EVIDENCE_NEEDED`. The teacher-provided English response remains
+`TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed. No push, CI, pull request or merge is claimed by
+this local L3 checkpoint.

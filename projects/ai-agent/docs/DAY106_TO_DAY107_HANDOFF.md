@@ -70,3 +70,18 @@ local L3 `PASS`. Both are prerequisites only and neither upgrades Day106.
 
 The Day106 worktree is uncommitted. Commit, push, PR, CI and merge remain outside this handoff until separately
 authorized and actually executed.
+
+## Later Day106 L3 evidence — 2026-11-24
+
+This section appends evidence without rewriting the L2 handoff above. L3A executed the Day106 path over real
+local PostgreSQL 16.15/pgvector 0.8.7 and passed container-restart read-back plus offline replay while its
+model/security adapters remained deterministic. L3B executed exactly five real model calls with a 64-output-
+token per-call cap and `89/320` observed output tokens. It produced four `RELEASE` decisions and one old-G2/P1
+candidate blocked after P2 with dispatch `NOT_ATTEMPTED`; unauthorized occurrences entering Prompt remained
+zero. No response dispatch or delivery occurred. The restart and offline replay reports preserve exact durable
+identity and artifact bindings.
+
+Day107 may cite these later reports only at their recorded scope. Canonical CPython 3.12, external DLP,
+production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak/canary and production remain `NOT_RUN`;
+readiness remains `MORE_EVIDENCE_NEEDED`. The final English response remains `TAUGHT_NOT_VERIFIED`, so Day106
+overall PASS is not claimed. This local checkpoint does not claim push, CI, pull request or merge.

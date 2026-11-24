@@ -153,3 +153,18 @@ real process/container restart, canary traffic or an incident drill. Those bound
 The Day105 L2 handoff truthfully records its seal-time L3 state as `NOT_RUN`. A later append-only Day105 bounded
 PostgreSQL/pgvector L3 report is also `PASS`. They are different points on the evidence timeline. Neither upgrades
 Day106 to L3.
+
+## Later append-only L3 checkpoint — 2026-11-24
+
+The original deterministic L2 boundary above remains unchanged. A separately sealed L3A run subsequently
+executed real local PostgreSQL 16.15/pgvector 0.8.7, transaction/CAS behavior, container-restart read-back and
+offline replay with deterministic model/security adapters. L3B then executed exactly five bounded real model
+calls (`max_output_tokens=64`, observed output `89/320`) in one identity-bound database execution: four
+decisions released, the old G2/P1 candidate was blocked after P2 with dispatch `NOT_ATTEMPTED`, unauthorized
+occurrences entering Prompt remained zero, and no dispatch or delivery record was created. Restart and offline
+replay both passed against the sealed artifact digests and durable-state identity.
+
+This evidence upgrades only the explicitly executed local database and external-model boundaries. Canonical
+CPython 3.12, external DLP, production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak/canary and
+production remain `NOT_RUN`; production readiness remains `MORE_EVIDENCE_NEEDED`. It also does not change the
+`TAUGHT_NOT_VERIFIED` English-interview status or claim Day106 overall PASS.

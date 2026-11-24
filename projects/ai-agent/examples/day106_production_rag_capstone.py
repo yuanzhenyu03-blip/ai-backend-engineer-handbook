@@ -12,7 +12,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, fields, replace
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from examples.day106_capstone_support import (
     DAY101_EXECUTION_RECEIPT_AUTHORITY,
@@ -51,7 +51,8 @@ from rag_authorized_retriever import (
     classroom_authorization_revisions,
 )
 from rag_chunking_contracts import stable_hash
-from rag_grounding_contracts import Day102Outcome
+from rag_grounding_adapters import AnswerProvider, EvidenceVerifier
+from rag_grounding_contracts import Day102Outcome, GroundingContract
 from rag_index_lifecycle_committer import (
     IndexLifecycleCommitter,
     InMemoryIndexLifecycleStore,
@@ -82,6 +83,7 @@ from rag_security_contracts import (
     ProposedCitation,
     ReleaseEvidence,
     RequestSecurityBinding,
+    RetrievalBundle as SecurityRetrievalBundle,
     RetrievedOccurrence,
     SecurityDisposition,
     SecurityPolicyIdentity,
@@ -117,6 +119,123 @@ class BoundAttempt:
 
 
 @dataclass(frozen=True)
+class GroundingProviderBuildContext:
+    """Exact application-owned spine available to a provider factory."""
+
+    query_id: str
+    request_binding: CapstoneRequestBinding
+    retrieval_bundle: SecurityRetrievalBundle
+    context_manifest: ContextAssemblyManifest
+    invocation_envelope: ModelInvocationEnvelope
+    retrieval_and_context_receipt: RetrievalAndContextReceipt
+    retrieval_run: CanonicalRetrievalRun
+    grounding_contract: GroundingContract
+
+    def __post_init__(self) -> None:
+        if (
+            self.context_manifest.retrieval_bundle_digest
+            != self.retrieval_bundle.digest
+        ):
+            raise ValueError("provider context RetrievalBundle identity drift")
+        if (
+            self.invocation_envelope.context_manifest_digest
+            != self.context_manifest.digest
+        ):
+            raise ValueError("provider context manifest identity drift")
+        if self.retrieval_run.day101_response.handoff_digest is None:
+            raise ValueError("provider context requires a Day101 handoff")
+        if (
+            self.context_manifest.request_binding_fingerprint
+            != self.request_binding.security_binding_fingerprint
+            or self.invocation_envelope.request_binding_fingerprint
+            != self.request_binding.security_binding_fingerprint
+        ):
+            raise ValueError("provider context request binding drift")
+        if (
+            self.retrieval_and_context_receipt.request_binding_digest
+            != self.request_binding.digest
+            or self.retrieval_and_context_receipt.retrieval_bundle_digest
+            != self.retrieval_bundle.digest
+            or self.retrieval_and_context_receipt.context_manifest_digest
+            != self.context_manifest.digest
+        ):
+            raise ValueError("provider context durable receipt drift")
+
+    @property
+    def provider_invocation_attempt_id(self) -> str:
+        return stable_hash((
+            "DAY106_PROVIDER_INVOCATION_ATTEMPT_V1",
+            self.request_binding.request_attempt_id,
+            self.retrieval_and_context_receipt.digest,
+            self.invocation_envelope.digest,
+        ))
+
+
+@dataclass(frozen=True)
+class ProviderInvocationReservation:
+    """Content-safe proof that MI + provider attempt were durably reserved."""
+
+    reservation_id: str
+    provider_invocation_attempt_id: str
+    request_binding_digest: str
+    retrieval_and_context_receipt_digest: str
+    invocation_envelope_digest: str
+
+    def __post_init__(self) -> None:
+        if not all((
+            self.reservation_id,
+            self.provider_invocation_attempt_id,
+            self.request_binding_digest,
+            self.retrieval_and_context_receipt_digest,
+            self.invocation_envelope_digest,
+        )):
+            raise ValueError("complete provider reservation binding is required")
+
+    @property
+    def digest(self) -> str:
+        return stable_hash(asdict(self))
+
+
+class ProviderInvocationReserver(Protocol):
+    """Application callback that must durably reserve before any send."""
+
+    def __call__(
+        self,
+        context: GroundingProviderBuildContext,
+    ) -> ProviderInvocationReservation:
+        """Persist the MI and attempt, then return their exact reservation."""
+
+
+class ExternalAnswerProviderFactory(Protocol):
+    """Build a provider only after a valid durable reservation exists."""
+
+    def __call__(
+        self,
+        context: GroundingProviderBuildContext,
+        reservation: ProviderInvocationReservation,
+    ) -> AnswerProvider:
+        """Return a provider bound to the reserved exact identity spine."""
+
+
+@dataclass(frozen=True)
+class ExternalGroundingRuntime:
+    """Optional factory seam; omission preserves the deterministic L2 path."""
+
+    grounding_contract: GroundingContract
+    model_id: str
+    model_config_digest: str
+    reserve_provider_invocation: ProviderInvocationReserver
+    answer_provider_factory: ExternalAnswerProviderFactory
+    evidence_verifier: EvidenceVerifier | None = None
+
+    def __post_init__(self) -> None:
+        if not self.model_id or not self.model_config_digest:
+            raise ValueError("external model identity and config are required")
+        if self.grounding_contract.immutable_generator_revision != self.model_id:
+            raise ValueError("external model and grounding contract must agree")
+
+
+@dataclass(frozen=True)
 class PreparedQuery:
     bound: BoundAttempt
     authorization_authority: InMemoryRetrievalAuthorization
@@ -126,6 +245,7 @@ class PreparedQuery:
     context: ContextAssemblyManifest
     disclosure: DisclosureEnvelope
     invocation: ModelInvocationEnvelope
+    provider_invocation_reservation: ProviderInvocationReservation | None
     candidate: AnswerCandidate
     claim_ids: tuple[str, ...]
     occurrence_ids: tuple[str, ...]
@@ -559,6 +679,7 @@ def _prepare_query(
     lineages: dict[str, SourceToOccurrenceLineage],
     policy: SecurityPolicyIdentity,
     observed_at: str,
+    external_grounding: ExternalGroundingRuntime | None = None,
 ) -> PreparedQuery:
     def read_current_authorization():
         try:
@@ -678,8 +799,16 @@ def _prepare_query(
         context_manifest=context,
         disclosure=disclosure,
         system_policy_digest=stable_hash("day106-system-policy-no-secrets"),
-        model_id="day102-deterministic-answer-provider",
-        model_config_digest=stable_hash("day102-grounding-contract-v1"),
+        model_id=(
+            external_grounding.model_id
+            if external_grounding
+            else "day102-deterministic-answer-provider"
+        ),
+        model_config_digest=(
+            external_grounding.model_config_digest
+            if external_grounding
+            else stable_hash("day102-grounding-contract-v1")
+        ),
     )
     authorization_before_model = read_current_authorization()
     if (
@@ -706,10 +835,48 @@ def _prepare_query(
     )
     # Only now, after the Day105 retrieval and context gates have passed, may
     # the deterministic Day102 generator/verifier execute.
+    answer_provider = None
+    grounding_contract = None
+    evidence_verifier = None
+    provider_reservation = None
+    if external_grounding is not None:
+        grounding_contract = external_grounding.grounding_contract
+        evidence_verifier = external_grounding.evidence_verifier
+        provider_context = GroundingProviderBuildContext(
+            query_id=query_id,
+            request_binding=bound.capstone,
+            retrieval_bundle=bundle,
+            context_manifest=context,
+            invocation_envelope=invocation,
+            retrieval_and_context_receipt=receipt,
+            retrieval_run=retrieval_run,
+            grounding_contract=grounding_contract,
+        )
+        provider_reservation = (
+            external_grounding.reserve_provider_invocation(provider_context)
+        )
+        expected_reservation = ProviderInvocationReservation(
+            reservation_id=provider_reservation.reservation_id,
+            provider_invocation_attempt_id=(
+                provider_context.provider_invocation_attempt_id
+            ),
+            request_binding_digest=bound.capstone.digest,
+            retrieval_and_context_receipt_digest=receipt.digest,
+            invocation_envelope_digest=invocation.digest,
+        )
+        if provider_reservation != expected_reservation:
+            raise ValueError("provider invocation reservation identity drift")
+        answer_provider = external_grounding.answer_provider_factory(
+            provider_context,
+            provider_reservation,
+        )
     grounding = execute_grounding_from_day101(
         serving_fixture,
         retrieval=retrieval_run,
         claims=claims,
+        grounding_contract=grounding_contract,
+        answer_provider=answer_provider,
+        evidence_verifier=evidence_verifier,
     )
     if grounding.day102_response.outcome is not Day102Outcome.FULL:
         raise RuntimeError(
@@ -750,6 +917,7 @@ def _prepare_query(
         sorted(
             {
                 grounding.grounding_audit_checksum,
+                *((provider_reservation.digest,) if provider_reservation else ()),
                 *(
                     claim.verification_digest
                     for claim in grounding.day102_response.released_claims
@@ -782,6 +950,7 @@ def _prepare_query(
         context=context,
         disclosure=disclosure,
         invocation=invocation,
+        provider_invocation_reservation=provider_reservation,
         candidate=candidate,
         claim_ids=claim_ids,
         occurrence_ids=occurrence_ids,

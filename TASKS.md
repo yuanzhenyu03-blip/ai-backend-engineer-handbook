@@ -43,11 +43,15 @@ Day106 completion record:
 - [x] Record the final teacher-provided English response as `TAUGHT_NOT_VERIFIED`.
 - [x] Run bounded deterministic mechanics on local CPython 3.11.5 fallback.
 - [ ] Run canonical CPython 3.12 validation.
-- [ ] Run real Day106 process restart, Docker/PostgreSQL/pgvector L3 and external model/detector/DLP/Provider paths.
+- [x] Run bounded Day106 L3A with real local Docker/PostgreSQL/pgvector, transaction/CAS and container restart.
+- [x] Run bounded Day106 L3B with exactly five real model/Provider calls, 89/320 observed output tokens,
+  4 RELEASE + 1 revoked BLOCKED/NOT_ATTEMPTED, unauthorized Prompt count 0, no dispatch, and restart/replay PASS.
+- [ ] Run external detector/DLP paths.
 - [ ] Obtain production IAM/egress, HA/restore, load/soak, canary and operating evidence.
 
-Evidence boundary: the local fallback does not prove the canonical runtime, external behavior or production.
-Production readiness remains `MORE_EVIDENCE_NEEDED`; no commit, PR or merge has been authorized.
+Evidence boundary: the bounded local L3A/L3B checkpoint proves its recorded PostgreSQL/pgvector, restart and
+five-call real model boundary only; it does not prove canonical CPython 3.12, external detector/DLP or production.
+Production readiness remains `MORE_EVIDENCE_NEEDED`; no push, PR, CI or merge is claimed for this L3 checkpoint.
 
 Day105 completion record:
 

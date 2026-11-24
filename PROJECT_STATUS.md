@@ -7,9 +7,12 @@ Production RAG Engineering are COMPLETE at guided classroom scope through Day106
 
 Day59–Day106 are complete at their recorded classroom/evidence levels. Day106 composes the Day95–Day105
 authority boundaries into one deterministic Level 2 request, release and recovery checkpoint without creating
-a second source, ChunkSet, EmbeddingSet or serving-pointer authority. Local fallback execution uses CPython
-3.11.5; canonical CPython 3.12, Docker/L3, external-real and production validation remain `NOT_RUN` or
-`MORE_EVIDENCE_NEEDED`. Day105 adds
+a second source, ChunkSet, EmbeddingSet or serving-pointer authority. Append-only bounded Level 3 evidence on
+local CPython 3.11.5 now covers L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus container-restart replay and
+L3B exactly five bounded real model calls, 89/320 observed output tokens, four RELEASE decisions, one
+P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
+offline replay PASS. Canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore,
+load/soak, canary and production remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Day105 adds
 RAG-specific ingestion, retrieval, context-assembly and response-release security boundaries while preserving
 the Day104 immutable-Generation and ReadView handoff. Its deterministic Level 2 scope and bounded local
 PostgreSQL 16.15/pgvector 0.8.7 Level 3 are complete; Day105 L4 and production readiness remain `NOT_RUN` or
@@ -36,11 +39,13 @@ identity through the selected Generation/ReadView, RetrievalBundle, ContextAssem
 ModelInvocationEnvelope, AnswerCandidate, current release evidence, durable OutputReleaseDecision, Response
 Intent and DeliveryReceipt. It preserves immediate revocation, immutable rebuild, forward pointer CAS,
 Prompt-before-security exclusion, release-time currentness/DLP/disclosure checks, UNKNOWN reconciliation,
-idempotent duplicate convergence and append-only evidence. The local deterministic mechanics use CPython
-3.11.5 as a fallback only. Canonical CPython 3.12 local validation, real Day95–Day99 authority-store reruns,
-real process restart, Docker/PostgreSQL/pgvector Day106 L3, external model/detector/DLP/Provider behavior and
-production are `NOT_RUN`; readiness is `MORE_EVIDENCE_NEEDED`. The teacher-provided final English answer is
-`TAUGHT_NOT_VERIFIED`. No commit, PR or merge is part of this worktree update.
+idempotent duplicate convergence and append-only evidence. Local CPython 3.11.5 also carries bounded L3A real
+PostgreSQL/pgvector plus restart evidence and L3B five-call real model evidence with four RELEASE decisions,
+one revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
+offline replay PASS. Canonical CPython 3.12 local validation, real Day95–Day99 authority-store reruns, external
+detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`;
+readiness is `MORE_EVIDENCE_NEEDED`. The teacher-provided final English answer is `TAUGHT_NOT_VERIFIED`, so
+Day106 overall PASS is not claimed. No push, PR, CI or merge is claimed for this L3 checkpoint.
 
 Lesson: `docs/fastapi/day106-production-rag-capstone-and-english-interview.md`. Design:
 `projects/ai-agent/docs/DAY106_PRODUCTION_RAG_CAPSTONE.md`. Classroom record:
