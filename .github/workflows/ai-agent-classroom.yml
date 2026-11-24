@@ -26,13 +26,15 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install pinned classroom integration dependencies
-        run: python -m pip install -r requirements-day88.txt -r requirements-day90.txt
+        run: python -m pip install -r requirements-day88.txt -r requirements-day90.txt -r requirements-day106-l3.txt
       - name: Check interpreter and compile Python sources
         run: |
           python -c 'import sys; assert sys.version_info >= (3, 12), sys.version'
           python -m compileall -q src tests evals examples
       - name: Run full AI agent regression suite
         run: python -m unittest discover -s tests -q
+      - name: Run Day106 pytest contract suite
+        run: python -m pytest -q tests/test_day106_*.py
       - name: Run every available seed evaluator
         run: |
           for evaluator in evals/run_day*_seed_eval.py; do
@@ -68,3 +70,14 @@ jobs:
         run: python evals/run_day105_l3_evidence_replay.py
       - name: Verify saved Day106 Production RAG capstone evidence
         run: python evals/run_day106_evidence_replay.py
+      - name: Verify saved Day106 L3A evidence offline
+        run: |
+          python evals/run_day106_l3_evidence_replay.py \
+            --integration-report evidence/day106-l3a-integration-report-v2.json \
+            --restart-report evidence/day106-l3a-restart-replay-v2.json \
+            --schema evidence/day106-l3a-evidence-schema.json \
+            --correction evidence/day106-l3a-integration-report-v1-correction.json \
+            --artifact-root .
+      - name: Verify saved Day106 L3B evidence offline
+        run: |
+          python -c 'import json; from pathlib import Path; from evals.run_day106_l3b_evidence_replay import validate_reports; expected = json.loads(Path("evidence/day106-l3b-evidence-replay.json").read_text()); actual = validate_reports(Path("evidence/day106-l3b-external-integration-report.json"), Path("evidence/day106-l3b-restart-replay.json"), schema_path=Path("evidence/day106-l3b-evidence-schema.json"), artifact_root=Path(".")); assert actual == expected'
