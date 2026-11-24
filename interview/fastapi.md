@@ -3691,3 +3691,12 @@ at the learner's request, so it is `TAUGHT_NOT_VERIFIED`, not independent Englis
 earlier English spelling and grammar corrections did not change the technical results.
 
 Related: [Day106 lesson](../docs/fastapi/day106-production-rag-capstone-and-english-interview.md).
+
+### Later independent verification — 2026-11-24
+
+The historical classroom status above is unchanged. The learner later independently delivered a complete
+typed English architecture response and one changed-condition `UNKNOWN`/revocation recovery follow-up. The
+technical result is `VERIFIED_PASS`; Day106 course/mastery is `PASS` at the recorded scope. Minor precision
+corrections used the canonical pre-dispatch state `NOT_ATTEMPTED`, distinguished the already executed five-call
+L3B model boundary from still-unexecuted external DLP/production controls, and required append-only
+reconciliation/destination evidence. The full response transcript is not retained.

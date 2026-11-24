@@ -99,3 +99,15 @@ Day107 may cite this as compatibility and offline-replay evidence through
 call the external Provider/DLP and therefore did not re-execute L3A/L3B. It does not change the
 `TAUGHT_NOT_VERIFIED` English result, does not establish Day106 overall PASS and does not upgrade production
 readiness.
+
+## Later independent English verification — 2026-11-24
+
+The original teacher-provided answer and its `TAUGHT_NOT_VERIFIED` status remain true at their recorded point
+in the timeline. A later independent typed English architecture response plus one changed-condition
+`UNKNOWN`/revocation recovery follow-up is now `VERIFIED_PASS`. Day106 course/mastery is therefore `PASS` at
+the recorded scope, and Day107 may consume that mastery result without treating it as runtime evidence.
+
+No full response transcript is committed. This assessment ran no code, Provider, Docker, database or tests;
+it does not alter the sealed L2/L3/CI facts. External DLP and production IAM/RLS/TLS/egress, HA/restore,
+load/soak, canary and production remain `NOT_RUN`, and production readiness remains
+`MORE_EVIDENCE_NEEDED`.

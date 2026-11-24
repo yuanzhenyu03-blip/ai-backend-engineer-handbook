@@ -9,6 +9,23 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day106 Independent English Verification
+
+Date: 2026-11-24
+
+Appended a content-safe record of the learner's independent Day106 English architecture response and one
+changed-condition recovery follow-up. The assessment covered the normal request path, exact identity/version
+binding, immediate revocation plus immutable rebuild and pointer CAS, Prompt security/disclosure/egress,
+durable Decision/Intent with `UNKNOWN` reconciliation, and L2/L3/CI/production evidence boundaries. The final
+result is `VERIFIED_PASS`; Day106 course/mastery is `PASS` at its recorded scope.
+
+The original teacher-provided response remains historical `TAUGHT_NOT_VERIFIED` evidence. No full response
+transcript is committed, and no code, Provider, Docker, database or test execution occurred. External DLP and
+production IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`; production
+readiness remains `MORE_EVIDENCE_NEEDED`. Day107 remains `Planned / not started`.
+
+---
+
 ## Unreleased — Planned Day107–Day130 ProofOps Curriculum Reorganization
 
 Date: 2026-11-24

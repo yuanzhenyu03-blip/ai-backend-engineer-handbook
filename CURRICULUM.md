@@ -2272,9 +2272,10 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   [CI record](projects/ai-agent/evidence/day106-pr21-ci-validation.json) proves the current deterministic/unit
   suite and saved L3A/L3B replay on CPython 3.12.16, without re-running the real L3 boundaries. Real Day95–Day99
   authority-store reruns, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak, canary
-  and production are `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`. The final English answer
-  supplied by the teacher is `TAUGHT_NOT_VERIFIED`, not independent mastery; Day106 overall PASS is therefore
-  not claimed.
+  and production are `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`. The English answer
+  originally supplied by the teacher remains historical `TAUGHT_NOT_VERIFIED` evidence. On 2026-11-24 the
+  learner independently passed a complete English architecture response plus one changed-condition recovery
+  follow-up, so Day106 course/mastery is `PASS` at the recorded scope without upgrading runtime readiness.
 
 Phase deliverable:
 
