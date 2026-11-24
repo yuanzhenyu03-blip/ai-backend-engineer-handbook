@@ -71,14 +71,16 @@ Current state:
   recovery, physical purge,
   production-size load, zero-downtime production migration, operations and production traffic remain NOT RUN;
   production readiness MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day107 — Evaluation Datasets and Golden Sets (Phase 7D; Planned / not started).
+- Current / Next Lesson: Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async
+  DB/pgvector Skeleton (Phase 7D; Planned / not started).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /
   MORE_EVIDENCE_NEEDED.
-- Current phase: Phase 7C — Production RAG Engineering is COMPLETE at guided classroom scope; Phase 7D is next.
+- Current phase: Phase 7C — Production RAG Engineering is COMPLETE at guided classroom scope; the revised
+  ProofOps Phase 7D is next and remains Planned / not started.
 
 Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
-permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008 in DECISIONS.md):
+permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008/025 in DECISIONS.md):
 
 ```text
 Day59–61 Production Integration Gate
@@ -87,8 +89,9 @@ Day59–61 Production Integration Gate
 -> Day71–78 LLM Application Engineering
 -> Day79–94 Agent Runtime + MCP
 -> Day95–106 Production RAG
--> Day107–116 AI Evaluation / Safety / Operations
--> Day117–130 Final Employment Capstone
+-> Day107–113 ProofOps Core Runtime and Bounded Incident Resolution
+-> Day114–123 Evaluation, Safety and Operations on ProofOps
+-> Day124–130 Cloud Integration, Operations and Employment Readiness
 -> Employment Readiness Gate
 ```
 
@@ -97,8 +100,12 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day106 are complete at their recorded evidence/classroom levels. Day107 is current/next; do not skip
-  ahead.
+- Day59–Day106 are complete at their recorded evidence/classroom levels. Decision 025 is a
+  `CONCEPTUAL_STATIC` planning change only: `proofops` does not yet exist and every Day107+ runtime/integration/
+  production scope is `NOT_RUN`. Day107 is current/next but Planned / not started; do not skip ahead.
+- After Day107 explicitly begins, use Ticket + PR + DoD with dynamic Type A/Type B teaching. Day coordinates
+  are mastery milestones and may span multiple calendar days. Planning documents never create runnable
+  evidence, and teacher/AI-provided work never counts as independent mastery without learner verification.
 - Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries, and Day86 added security admission, Egress, Sandbox and incident-containment boundaries outside the model.
 
 Do not skip ahead unless explicitly instructed.
