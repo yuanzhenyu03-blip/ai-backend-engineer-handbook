@@ -1,0 +1,112 @@
+{
+  "schema_version": "day106-validation.v1",
+  "day": 106,
+  "scenario_id": "day106-refund-capstone-l2-v1",
+  "status": "ENVIRONMENT_LIMITED",
+  "report_sha256": "sha256:06b7cdb4b5b89ce55d7ba6d6bd01ec62a97c7aae01731d7342923c3feeec39dd",
+  "git": {
+    "base_revision": "8c1056cbc6d1805b2a8c3d1c19e3191cf6ce576a",
+    "branch": "day106-production-rag-capstone",
+    "worktree": "UNCOMMITTED",
+    "commit": "NOT_CREATED",
+    "push": "NOT_RUN",
+    "pull_request": "NOT_RUN",
+    "merge": "NOT_RUN"
+  },
+  "runtime": {
+    "implementation": "CPython",
+    "local_interpreter": "3.11.5",
+    "repository_minimum": "3.12+",
+    "canonical_python_3_12_local_validation": "NOT_RUN"
+  },
+  "executed": {
+    "focused_tests": {
+      "command": "PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_day106_*.py' -v",
+      "status": "PASS",
+      "tests_run": 44,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0
+    },
+    "dependency_free_regression": {
+      "command": "find tests -maxdepth 1 -name 'test_*.py' ! -name 'test_day90_mcp_sdk_integration.py' ! -name 'test_day91_mcp_server_sdk_integration.py' ! -name 'test_day93_mcp_remote_integration.py' ! -name 'test_day94_agent_mcp_sdk_integration.py' ! -name 'test_day94_restart_recovery_integration.py' -exec basename {} .py \\; | sort | xargs env PYTHONPATH=src:tests:. python -m unittest",
+      "status": "PASS",
+      "tests_run": 1376,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 16,
+      "excluded_files": [
+        "tests/test_day90_mcp_sdk_integration.py",
+        "tests/test_day91_mcp_server_sdk_integration.py",
+        "tests/test_day93_mcp_remote_integration.py",
+        "tests/test_day94_agent_mcp_sdk_integration.py",
+        "tests/test_day94_restart_recovery_integration.py"
+      ]
+    },
+    "full_ai_agent_tests": {
+      "command": "PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_*.py' -v",
+      "status": "ENVIRONMENT_LIMITED",
+      "tests_run": 1380,
+      "failures": 0,
+      "errors": 5,
+      "skipped": 16,
+      "error_codes": [
+        "test_day90_mcp_sdk_integration:MCP_2_2_0_NOT_INSTALLED",
+        "test_day91_mcp_server_sdk_integration:MCP_2_2_0_NOT_INSTALLED",
+        "test_day93_mcp_remote_integration:HTTPX2_NOT_INSTALLED",
+        "test_day94_agent_mcp_sdk_integration:HTTPX2_NOT_INSTALLED",
+        "test_day94_restart_recovery_integration:LOOPBACK_BIND_PERMISSION_DENIED"
+      ]
+    },
+    "day106_seed": {
+      "command": "PYTHONPATH=src:. python evals/run_day106_seed_eval.py",
+      "status": "PASS",
+      "cases": 13,
+      "passed": 13,
+      "failed": 0
+    },
+    "all_seed_evaluators": {
+      "command": "for eval_file in evals/run_day*_seed_eval.py; do PYTHONPATH=src:. python \"$eval_file\" || exit 1; done",
+      "status": "PASS",
+      "evaluators": 22,
+      "passed": 22,
+      "failed": 0
+    },
+    "historical_saved_evidence_replays": {
+      "command": "for eval_file in evals/run_day*_evidence_replay.py; do [ \"$eval_file\" = evals/run_day106_evidence_replay.py ] || PYTHONPATH=src:. python \"$eval_file\" || exit 1; done",
+      "status": "PASS",
+      "replays": 8,
+      "passed": 8,
+      "failed": 0
+    },
+    "compileall": {
+      "command": "PYTHONPATH=src:. python -m compileall -q src tests evals examples",
+      "status": "PASS"
+    },
+    "git_diff_check": {
+      "command": "git diff --check",
+      "status": "PASS"
+    },
+    "json_and_jsonl_parse": {
+      "command": "PYTHONPATH=src:. python -c \"import json; from pathlib import Path; root=Path('.'); [json.loads(path.read_text()) for path in root.rglob('*.json')]; [json.loads(line) for path in root.rglob('*.jsonl') for line in path.read_text().splitlines() if line.strip()]\"",
+      "status": "PASS",
+      "json_files": 64,
+      "jsonl_files": 38,
+      "failed": 0
+    },
+    "deterministic_example": {
+      "command": "PYTHONPATH=src:. python examples/day106_production_rag_capstone.py",
+      "status": "PASS",
+      "report_sha256": "sha256:06b7cdb4b5b89ce55d7ba6d6bd01ec62a97c7aae01731d7342923c3feeec39dd"
+    },
+    "day106_evidence_replay": {
+      "command": "PYTHONPATH=src:. python evals/run_day106_evidence_replay.py",
+      "status": "PASS",
+      "checks": 8,
+      "passed": 8,
+      "failed": 0,
+      "saved_report_sha256": "sha256:06b7cdb4b5b89ce55d7ba6d6bd01ec62a97c7aae01731d7342923c3feeec39dd",
+      "replayed_report_sha256": "sha256:06b7cdb4b5b89ce55d7ba6d6bd01ec62a97c7aae01731d7342923c3feeec39dd"
+    }
+  }
+}

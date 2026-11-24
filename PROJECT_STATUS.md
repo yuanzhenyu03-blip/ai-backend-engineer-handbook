@@ -2,10 +2,17 @@
 
 ## Current Phase
 
-Phase 7A — LLM Application Engineering and Phase 7B — Agent Runtime and MCP Engineering are COMPLETE at
-guided classroom scope. Phase 7C — Production RAG Engineering is IN PROGRESS; Day95–Day105 are complete.
+Phase 7A — LLM Application Engineering, Phase 7B — Agent Runtime and MCP Engineering, and Phase 7C —
+Production RAG Engineering are COMPLETE at guided classroom scope through Day106.
 
-Day59–Day105 are complete at their recorded evidence levels. Day105 adds
+Day59–Day106 are complete at their recorded classroom/evidence levels. Day106 composes the Day95–Day105
+authority boundaries into one deterministic Level 2 request, release and recovery checkpoint without creating
+a second source, ChunkSet, EmbeddingSet or serving-pointer authority. Append-only bounded Level 3 evidence on
+local CPython 3.11.5 now covers L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus container-restart replay and
+L3B exactly five bounded real model calls, 89/320 observed output tokens, four RELEASE decisions, one
+P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
+offline replay PASS. Canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore,
+load/soak, canary and production remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Day105 adds
 RAG-specific ingestion, retrieval, context-assembly and response-release security boundaries while preserving
 the Day104 immutable-Generation and ReadView handoff. Its deterministic Level 2 scope and bounded local
 PostgreSQL 16.15/pgvector 0.8.7 Level 3 are complete; Day105 L4 and production readiness remain `NOT_RUN` or
@@ -17,14 +24,32 @@ policy mechanics passed Level 2 and its pinned local PostgreSQL/pgvector lab
 passed Level 3. Earlier evidence and NOT RUN boundaries remain recorded below.
 
 Phase record:
-Phase 7C — Production RAG Engineering (In progress at guided classroom scope)
+Phase 7C — Production RAG Engineering (Complete at guided classroom scope; production readiness open)
 
 ---
 
 ## Current Lesson
 
-Day106 — Production RAG Capstone and English Interview (Phase 7C) — next up.
-Most recent classroom lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries.
+Day107 — Evaluation Datasets and Golden Sets (Phase 7D) — planned / not started.
+Most recent classroom lesson: Day106 — Production RAG Capstone and English Interview.
+
+Day106 instructional coverage is COMPLETE at guided classroom scope; Day106 overall PASS is not claimed
+because the teacher-provided final English response remains `TAUGHT_NOT_VERIFIED`. Its repository checkpoint composes one exact request
+identity through the selected Generation/ReadView, RetrievalBundle, ContextAssemblyManifest,
+ModelInvocationEnvelope, AnswerCandidate, current release evidence, durable OutputReleaseDecision, Response
+Intent and DeliveryReceipt. It preserves immediate revocation, immutable rebuild, forward pointer CAS,
+Prompt-before-security exclusion, release-time currentness/DLP/disclosure checks, UNKNOWN reconciliation,
+idempotent duplicate convergence and append-only evidence. Local CPython 3.11.5 also carries bounded L3A real
+PostgreSQL/pgvector plus restart evidence and L3B five-call real model evidence with four RELEASE decisions,
+one revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
+offline replay PASS. Canonical CPython 3.12 local validation, real Day95–Day99 authority-store reruns, external
+detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`;
+readiness is `MORE_EVIDENCE_NEEDED`. The teacher-provided final English answer is `TAUGHT_NOT_VERIFIED`, so
+Day106 overall PASS is not claimed. No push, PR, CI or merge is claimed for this L3 checkpoint.
+
+Lesson: `docs/fastapi/day106-production-rag-capstone-and-english-interview.md`. Design:
+`projects/ai-agent/docs/DAY106_PRODUCTION_RAG_CAPSTONE.md`. Classroom record:
+`projects/ai-agent/docs/day106-production-rag-capstone-classroom-draft.md`.
 
 Day105 is COMPLETE at guided classroom Level 2 and bounded local integration Level 3. Lesson:
 `docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md`. The continuing
@@ -391,7 +416,8 @@ Day65 turns Day64's trusted-Artifact browser flow into a recoverable, security-b
 
 (Day59-Day78 are complete; Day78 is the most recently released Phase 7A lesson (CONCEPTUAL + STATIC + EXECUTED_LOCAL_RUNTIME 22 Day78 tests / 243 total; Python 3.11.5; INTEGRATION/PRODUCTION NOT RUN). The Production Integration Gate (Day59–61) is COMPLETE. Phase 4 is COMPLETE as classroom scope + deterministic EXECUTED_LOCAL_RUNTIME artifacts (real FastAPI/OpenTelemetry/PostgreSQL/Redis/Celery integration + Provider production NOT RUN).
 "Current Lesson" here and in TASKS.md both mean the lesson currently being worked on / next up;
-"Last Completed Lesson" is the most recent finished lesson. See CURRICULUM.md and ROADMAP.md.)
+Day107 is planned/not started and Day106 is the most recent completed classroom lesson. See CURRICULUM.md and
+ROADMAP.md.)
 
 ---
 

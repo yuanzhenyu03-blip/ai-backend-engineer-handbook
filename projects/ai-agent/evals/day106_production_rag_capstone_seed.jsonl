@@ -1,0 +1,13 @@
+{"case_id":"normal-q1-release","path":["normal_queries","Q1","release_disposition"],"expected":"RELEASE"}
+{"case_id":"normal-q2-release","path":["normal_queries","Q2","release_disposition"],"expected":"RELEASE"}
+{"case_id":"normal-q3-release","path":["normal_queries","Q3","release_disposition"],"expected":"RELEASE"}
+{"case_id":"old-g2-candidate-blocked","path":["revocation_behavior","old_G2_candidate","release_disposition"],"expected":"BLOCKED"}
+{"case_id":"old-g2-retrieval-rechecks","path":["evaluation","hard_gates","old_G2_retrieval_rechecks_current_authorization"],"expected":"PASS"}
+{"case_id":"new-g3-q2-release","path":["revocation_behavior","new_G3_Q2","release_disposition"],"expected":"RELEASE"}
+{"case_id":"new-g3-q1-no-revoked-a","path":["revocation_behavior","new_G3_blocks","Q1","revoked_A_used"],"expected":false}
+{"case_id":"new-g3-q3-no-revoked-a","path":["revocation_behavior","new_G3_blocks","Q3","revoked_A_used"],"expected":false}
+{"case_id":"security-negatives-prompt-zero","path":["evaluation","hard_gates","security_X_Y_Z_T_B_fail_closed"],"expected":"PASS"}
+{"case_id":"unauthorized-prompt-zero","path":["evaluation","hard_gates","unauthorized_occurrence_entering_prompt_zero"],"expected":"PASS"}
+{"case_id":"unknown-recovery-delivered","path":["recovery","final_state"],"expected":"DELIVERED"}
+{"case_id":"external-real-not-run","path":["evaluation","external_real_boundary"],"expected":"NOT_RUN"}
+{"case_id":"l2-overall-pass","path":["overall_status"],"expected":"PASS"}

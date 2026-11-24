@@ -2666,3 +2666,42 @@ Release rules:
 
 Evidence is deterministic L2 only. Real scanners, models, DLP, Provider/egress and production are `NOT_RUN`.
 Related: [Day105 lesson](../docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md).
+
+## Day106 — Production RAG Capstone
+
+Four flows describe the same execution:
+
+```text
+data:      source → chunk → embedding → Generation → retrieval → context → Candidate → response
+authority: admission → authorization → security → grounding/DLP/disclosure → release → dispatch
+identity:  request → ReadView → RB → CM → MI → AC → Decision → Intent → Receipt
+evidence:  append-only receipts + safe reason codes + checksums → content-safe offline replay
+```
+
+The exact runtime order is:
+
+```text
+Day101 retrieval
+→ Day105 Retrieval Security Gate / RetrievalBundle / context assembly
+→ ModelInvocationEnvelope
+→ Day102 generation / grounding / exact-Citation verification
+→ Day105 currentness / DLP / destination / disclosure release gates
+→ durable OutputReleaseDecision + ResponseIntent
+→ dispatch / reconciliation / DeliveryReceipt
+```
+
+Rules to retain:
+
+- historical identity remains evidence, but current authorization can revoke permission immediately;
+- never splice a pinned G2 request with G3 artifacts—start a new attempt for the new ReadView;
+- a changed Candidate requires a new ID/digest and fresh grounding, Citation, DLP, disclosure and release gates;
+- decision, dispatch and delivery are separate facts; a timestamp written before external evidence proves none;
+- `UNKNOWN` enters reconciliation; exact replay uses the same key, while identity conflict blocks release;
+- rollback is a new forward CAS after current eligibility checks, never a pointer rewind;
+- offline replay proves saved bytes/bindings, not policy legality, original external behavior or readiness;
+- normal quality and non-compensable security both gate release—reject-all cannot pass quality.
+
+Evidence boundary: bounded deterministic Level 2 on local CPython 3.11.5 fallback. Canonical CPython 3.12,
+real process restart, Docker/L3, external model/detector/DLP/Provider and production are `NOT_RUN`;
+`MORE_EVIDENCE_NEEDED`. Related:
+[Day106 lesson](../docs/fastapi/day106-production-rag-capstone-and-english-interview.md).

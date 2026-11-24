@@ -1,0 +1,18 @@
+{
+  "append_only": true,
+  "correction_id": "day106-l3a-v1-pre-send-claim-correction",
+  "other_historical_facts": "PRESERVED_APPEND_ONLY_NOT_OVERRIDDEN",
+  "reason_code": "PRE_SEND_PERSISTENCE_CLAIM_OVERSTATED",
+  "record_type": "EVIDENCE_CORRECTION",
+  "recorded_at": "2026-11-24T02:32:21+00:00",
+  "replacement_claims": [
+    "hard_gates.model_invocation_persisted_before_release=PASS",
+    "hard_gates.external_pre_send_reservation=NOT_RUN"
+  ],
+  "report_checksum": "sha256:cd715dbc2b5a077b011f21f361e4624302dd2d7a004c58d2d7427dea22159a3c",
+  "schema_version": "day106-l3a-evidence-correction.v1",
+  "status": "SUPERSEDED",
+  "superseded_claim_only": "hard_gates.model_invocation_pre_send_persisted=PASS",
+  "superseded_report_checksum": "sha256:cb307938d85c506167f1b76271d5e3da1401f107a9899942f3254e6213990fe8",
+  "superseded_report_path": "projects/ai-agent/evidence/day106-l3a-integration-report.json"
+}

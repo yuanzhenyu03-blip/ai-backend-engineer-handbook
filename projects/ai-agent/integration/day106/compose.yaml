@@ -1,0 +1,28 @@
+name: day106-l3
+
+services:
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg16@sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f
+    environment:
+      POSTGRES_DB: day106_l3
+      POSTGRES_USER: day106_l3
+      POSTGRES_PASSWORD: ${DAY106_L3_PG_PASSWORD:?set a disposable local password}
+    ports:
+      - "127.0.0.1:55434:5432"
+    volumes:
+      - day106_l3_pg_data:/var/lib/postgresql/data
+      - ../day104/schema.sql:/docker-entrypoint-initdb.d/10-day104-lifecycle.sql:ro
+      - ../day105/schema.sql:/docker-entrypoint-initdb.d/20-day105-security.sql:ro
+      - ./schema.sql:/docker-entrypoint-initdb.d/30-day106-capstone.sql:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 2s
+      timeout: 3s
+      start_period: 5s
+      retries: 30
+    stop_grace_period: 15s
+
+volumes:
+  day106_l3_pg_data:

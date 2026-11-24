@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 import threading
+from typing import Iterator
 
 from rag_acl_contracts import AuthorizationRevisionVector
 from rag_retrieval_contracts import (
@@ -18,6 +20,10 @@ class RetrievalAuthorizationUnavailable(RuntimeError):
     pass
 
 
+class RetrievalAuthorizationGuardConflict(RuntimeError):
+    """A same-thread mutation tried to cross an active guarded read."""
+
+
 class InMemoryRetrievalAuthorization:
     """Deterministic current-state authority, not production policy storage."""
 
@@ -25,9 +31,17 @@ class InMemoryRetrievalAuthorization:
         self._lock = threading.RLock()
         self._scopes: dict[tuple[str, str, str, str], RetrievalAuthorizationScope] = {}
         self._available = True
+        self._guarded_threads: dict[int, int] = {}
+
+    def _reject_same_thread_guarded_mutation(self) -> None:
+        if self._guarded_threads.get(threading.get_ident(), 0):
+            raise RetrievalAuthorizationGuardConflict(
+                "AUTHORIZATION_MUTATION_DURING_GUARDED_READ"
+            )
 
     def put(self, scope: RetrievalAuthorizationScope) -> None:
         with self._lock:
+            self._reject_same_thread_guarded_mutation()
             self._scopes[self._key(scope)] = scope
 
     def read(
@@ -45,8 +59,40 @@ class InMemoryRetrievalAuthorization:
                 )
             return self._scopes.get((tenant_id, principal_subject, action, purpose))
 
+    @contextmanager
+    def guarded_read(
+        self,
+        *,
+        tenant_id: str,
+        principal_subject: str,
+        action: str,
+        purpose: str,
+    ) -> Iterator[RetrievalAuthorizationScope | None]:
+        """Hold the deterministic authority revision stable for one local commit."""
+
+        with self._lock:
+            if not self._available:
+                raise RetrievalAuthorizationUnavailable(
+                    "RETRIEVAL_AUTHORIZATION_STATE_UNAVAILABLE"
+                )
+            thread_id = threading.get_ident()
+            self._guarded_threads[thread_id] = (
+                self._guarded_threads.get(thread_id, 0) + 1
+            )
+            try:
+                yield self._scopes.get(
+                    (tenant_id, principal_subject, action, purpose)
+                )
+            finally:
+                remaining = self._guarded_threads[thread_id] - 1
+                if remaining:
+                    self._guarded_threads[thread_id] = remaining
+                else:
+                    del self._guarded_threads[thread_id]
+
     def set_available(self, available: bool) -> None:
         with self._lock:
+            self._reject_same_thread_guarded_mutation()
             self._available = available
 
     def revoke_occurrence(
@@ -59,6 +105,7 @@ class InMemoryRetrievalAuthorization:
         occurrence_id: str,
     ) -> RetrievalAuthorizationScope:
         with self._lock:
+            self._reject_same_thread_guarded_mutation()
             key = (tenant_id, principal_subject, action, purpose)
             current = self._scopes[key]
             revisions = replace(

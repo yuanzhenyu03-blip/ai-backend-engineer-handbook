@@ -1,0 +1,107 @@
+{
+  "answer_candidate_text_logged": false,
+  "artifacts": {
+    "base_commit": "91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c",
+    "files": {
+      "capstone_repository": {
+        "digest": "sha256:d516830868da402353425887812605622103b2580ec0e9091a52becd9147e843",
+        "path": "projects/ai-agent/src/rag_capstone_postgres.py"
+      },
+      "compose": {
+        "digest": "sha256:84d0edae6feac0f115812fedb49e8235439f242774266898cc2735c18d3e4b79",
+        "path": "projects/ai-agent/integration/day106/compose.yaml"
+      },
+      "database_schema": {
+        "digest": "sha256:61b46e0f64591db6a68de50535ceb0db9c705f83fb391e7643cea07439a9a99f",
+        "path": "projects/ai-agent/integration/day106/schema.sql"
+      },
+      "day105_integration_runner": {
+        "digest": "sha256:a139718819ab1fc6946fd323288e7d7fd4553580ebad70ba90684bef03cb1d3b",
+        "path": "projects/ai-agent/evals/run_day105_l3_integration.py"
+      },
+      "evidence_replay_runner": {
+        "digest": "sha256:c89bc6fd306b6cc9418c89af8ae95ddb0dba09a6437d8b8f03ae627a673d0bed",
+        "path": "projects/ai-agent/evals/run_day106_l3_evidence_replay.py"
+      },
+      "evidence_schema": {
+        "digest": "sha256:a71e8f0b242dae47fa80505494d6ad39968799a5926c9d09dcae1ddc747e9ff1",
+        "path": "projects/ai-agent/evidence/day106-l3a-evidence-schema.json"
+      },
+      "integration_runner": {
+        "digest": "sha256:88ec7cf710f52e2cc475877dbca1bfe99af5aaa3df2e07793ec489a5b2bc2e12",
+        "path": "projects/ai-agent/evals/run_day106_l3a_integration.py"
+      },
+      "restart_runner": {
+        "digest": "sha256:247e833265d71e5e9cc1a85dc71d6fe9f6a57c0f1e2a0f14a41867103b44c4fb",
+        "path": "projects/ai-agent/evals/run_day106_l3_restart_replay.py"
+      }
+    }
+  },
+  "claim_boundary": "One-process Day106 L3A execution over real local Docker PostgreSQL/pgvector transactions, Day104 lifecycle rows, Day105 security rows, and Day106 durable cross-binding/recovery records; the model-invocation record was persisted before release, but no external pre-send reservation or Provider send was executed. Model, verifier, and DLP adapters remained deterministic. The actual Python runtime is recorded; canonical Python 3.12 remains NOT_RUN.",
+  "cleanup": {
+    "compose_project_digest": null,
+    "status": "NOT_RUN",
+    "volume_identity_digest": null
+  },
+  "completed_at": "2026-11-24T02:37:54.334208+00:00",
+  "cross_binding": {
+    "answer_release_record_digest": "sha256:1861965d748d7538c7a9e2a3da7b79040b428bcf0bec6d4518cf78315202d464",
+    "day105_same_execution_report_checksum": "sha256:6addc81ba476b3e74fb414b535c7e53b9c30dc8ac917e3e934a118093b0f63f6",
+    "exact_content_digests_digest": "sha256:f0a492133cc33797537b2202a6033f8a47e990f455146135e33a88c80b72e92f",
+    "exact_occurrence_ids_digest": "sha256:756e92011939760985690c7151327e3a11930bb59e5b70f5c304ed8dab121321",
+    "generation_manifest_digest": "sha256:25cf668ca75f68eacfd1cfcfff7f1faa2dd736501ad98f731f6be48cac09f492",
+    "model_invocation_record_digest": "sha256:0ac6855ff211001c1652b5551c2c502731eaafe7945039b1fb03d958bf4b9477",
+    "read_view_digest": "sha256:c85c35cbba51d90f6fbbf576b8e66e6736fa3cd57d1e46c419c1fa18aa679295",
+    "request_binding_digest": "sha256:e8f2fc56f5f0fb770cd709ff556592a2c3795c5da746a97935f9e884e508c565",
+    "response_intent_digest": "sha256:afd6e080737ad50143996716052891616774b5c8f76685bd8970ea6cfe7e9068",
+    "retrieval_context_receipt_digest": "sha256:b425617d7f6632de5c33cc8df3eea0cc86526259162497d13bd1a308545ffd9c",
+    "unauthorized_prompt_count": 0
+  },
+  "database_url_logged": false,
+  "environment": {
+    "compose_project": "day106-l3",
+    "database_identity_digest": "sha256:a67f9a5009d301cde0a37113fef8e1c965943efa05776bc8d95c583fbc9b2eae",
+    "driver_version": "2.9.10",
+    "image_digest": "sha256:0dd3149a06e4579a0d70d8fef9945636cd514005e7237deb27f9b67886f8dc4f",
+    "image_reference": "pgvector/pgvector:0.8.7-pg16",
+    "pgvector_version": "0.8.7",
+    "postgresql_version": "16.15 (Debian 16.15-1.pgdg12+2)",
+    "python_version": "3.11.5"
+  },
+  "evidence_level": "EXECUTED_LOCAL_DOCKER_INTEGRATION_POSTGRESQL_PGVECTOR_WITH_DETERMINISTIC_MODEL_DLP_ADAPTERS",
+  "external_real_boundary": "NOT_RUN",
+  "hard_gates": {
+    "append_only_delivery_chain": "PASS",
+    "canonical_python_3_12": "NOT_RUN",
+    "decision_intent_atomicity": "PASS",
+    "external_pre_send_reservation": "NOT_RUN",
+    "external_provider_boundary": "NOT_RUN",
+    "model_invocation_persisted_before_release": "PASS",
+    "real_pgvector_exact_occurrence_binding": "PASS",
+    "same_execution_day105_prerequisite": "PASS",
+    "same_execution_real_database_cross_binding": "PASS",
+    "unauthorized_occurrence_entering_prompt_zero": "PASS",
+    "unknown_reconciliation_bounded_retry": "PASS",
+    "winner_fence_and_duplicate_deduplication": "PASS"
+  },
+  "overall_status": "PASS",
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "protected_chunk_logged": false,
+  "raw_prompt_logged": false,
+  "raw_provider_response_id_logged": false,
+  "raw_provider_response_logged": false,
+  "raw_secret_logged": false,
+  "raw_vector_logged": false,
+  "report_checksum": "sha256:3c724ddde2f67d29ffab9a62865d35baadff7868eb06cbc7110e339386240b98",
+  "restart_evidence": {
+    "post_restart_postmaster_started_at": null,
+    "post_restart_state_digest": null,
+    "pre_restart_postmaster_started_at": "2026-11-24T02:24:05.721520+00:00",
+    "pre_restart_state_digest": "sha256:f4635523877fa1db74b026ab7b2e37c28edd8f3196a54d67530b11d11f3b03ce",
+    "status": "NOT_RUN"
+  },
+  "run_id": "day106-l3a-8298459ec2e54212",
+  "scenario_id": "day106-production-rag-postgresql-pgvector-l3a-v1",
+  "schema_version": "day106-l3a-evidence.v2",
+  "started_at": "2026-11-24T02:37:52.362392+00:00"
+}

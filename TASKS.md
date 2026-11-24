@@ -10,10 +10,12 @@ GitHub is the single source of truth.
 
 ## Current Phase
 
-Phase 7A and Phase 7B are COMPLETE at guided classroom scope. Phase 7C is IN PROGRESS: Day95–Day105 are
-complete and Day106 is planned.
+Phase 7A, Phase 7B and Phase 7C are COMPLETE at guided classroom scope through Day106. Phase 7D is next but
+Day107 has not started.
 
-Day59–Day105 are complete at their recorded evidence levels. Day105 added application-owned RAG security gates,
+Day59–Day106 are complete at their recorded classroom/evidence levels. Day106 added exact capstone composition,
+durable decision/intent/receipt separation and bounded recovery mechanics without weakening Day105 security.
+Day105 added application-owned RAG security gates,
 content-safe evidence and incident/revocation mechanics without weakening the Day104 lifecycle. Day104 added
 immutable index Generations, BuildSnapshot/Manifest/read-back gates,
 Tombstones, pointer CAS, leased ReadViews, drain/retirement and safe rollback
@@ -24,8 +26,32 @@ evidence and NOT RUN boundaries remain recorded below.
 
 ## Current Lesson
 
-Day106 — Production RAG Capstone and English Interview (Phase 7C) — next up.
-Most recent classroom lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries.
+Day107 — Evaluation Datasets and Golden Sets (Phase 7D) — planned / not started.
+Most recent classroom lesson: Day106 — Production RAG Capstone and English Interview.
+
+Day106 completion record:
+
+- [x] Compose existing Day95–Day105 owners; do not create replacement source/ChunkSet/EmbeddingSet/pointer truth.
+- [x] Bind request/principal/tenant/purpose to one Generation, Manifest, pointer revision and fenced ReadView.
+- [x] Bind exact retrieval occurrences/digests to the RetrievalBundle and ContextAssemblyManifest before Prompt.
+- [x] Keep the model limited to AnswerCandidate production; preserve grounding and exact-Citation evidence.
+- [x] Recheck current authorization, provenance, Tombstone/quarantine, DLP, destination and disclosure at release.
+- [x] Separate durable OutputReleaseDecision, Response Intent, dispatch state and DeliveryReceipt.
+- [x] Handle UNKNOWN through reconciliation; fence late/duplicate results and fail closed on idempotency conflict.
+- [x] Preserve immediate P2 revocation, immutable G3 rebuild and application-owned forward pointer CAS.
+- [x] Preserve append-only history and content-safe evidence; never persist protected Prompt/chunk/candidate text.
+- [x] Record the final teacher-provided English response as `TAUGHT_NOT_VERIFIED`.
+- [x] Run bounded deterministic mechanics on local CPython 3.11.5 fallback.
+- [ ] Run canonical CPython 3.12 validation.
+- [x] Run bounded Day106 L3A with real local Docker/PostgreSQL/pgvector, transaction/CAS and container restart.
+- [x] Run bounded Day106 L3B with exactly five real model/Provider calls, 89/320 observed output tokens,
+  4 RELEASE + 1 revoked BLOCKED/NOT_ATTEMPTED, unauthorized Prompt count 0, no dispatch, and restart/replay PASS.
+- [ ] Run external detector/DLP paths.
+- [ ] Obtain production IAM/egress, HA/restore, load/soak, canary and operating evidence.
+
+Evidence boundary: the bounded local L3A/L3B checkpoint proves its recorded PostgreSQL/pgvector, restart and
+five-call real model boundary only; it does not prove canonical CPython 3.12, external detector/DLP or production.
+Production readiness remains `MORE_EVIDENCE_NEEDED`; no push, PR, CI or merge is claimed for this L3 checkpoint.
 
 Day105 completion record:
 
@@ -386,11 +412,11 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-Day95–Day105 are documented at guided classroom scope and Phase 7C is in progress. Day106 is next; production
-readiness remains `MORE_EVIDENCE_NEEDED`.
+Day95–Day106 are documented at guided classroom scope and Phase 7C is complete at that scope. Day107 is planned
+but not started; production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
-(Day106); Day105 is finished at guided classroom Level 2; Day104 remains complete at guided classroom Level 2
+(Day107); Day106 is the latest completed classroom lesson; Day104 remains complete at guided classroom Level 2
 and local integration Level 3; Day59–70 are complete.
 Phase 6 (Day67–70) is COMPLETE.
 The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
