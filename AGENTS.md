@@ -45,10 +45,15 @@ Current state:
   real local PostgreSQL 16.15/pgvector 0.8.7 with transaction/CAS and container-restart replay; L3B ran exactly
   five bounded real model calls with 89/320 observed output tokens, four RELEASE decisions, one P2-revoked
   BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/offline replay
-  PASS; canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak,
-  canary and production remain NOT RUN; readiness MORE_EVIDENCE_NEEDED; the final teacher-provided English
-  response remains TAUGHT_NOT_VERIFIED, so Day106 overall PASS is not claimed; no push, PR, CI or merge is
-  claimed for this L3 checkpoint).
+  PASS; later post-merge CI passed the current deterministic/unit suite and saved L3A/L3B replay on CPython
+  3.12.16 without re-executing Docker/database/Provider L3; external detector/DLP, production
+  IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain NOT RUN; readiness
+  MORE_EVIDENCE_NEEDED; the final teacher-provided English response remains TAUGHT_NOT_VERIFIED, so Day106
+  overall PASS is not claimed; the local L3 seal itself remains the earlier no-push/no-CI checkpoint).
+- Day106 post-seal CI: PR #21 merged to `main` as `3b96fe6f4eda7a5c07834ad12870a406d73297c1`;
+  append-only evidence records the exact sealed L2 replay on CPython 3.11.5 plus 1444 unittest cases (20
+  skipped), 129 Day106 pytest cases (5 skipped), 22 seed evaluators and all configured saved-evidence replays
+  PASS on CPython 3.12.16. CI did not start Docker/PostgreSQL/pgvector or call an external Provider/DLP.
 - Day105 post-seal CI: PR #18 merged to `main`; append-only evidence records CPython 3.12.16 with 1334 tests
   PASS, 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105 replay PASS. CI did
   not start Docker/PostgreSQL/pgvector or run Day105 L3; the later local L3 record is separate and does not

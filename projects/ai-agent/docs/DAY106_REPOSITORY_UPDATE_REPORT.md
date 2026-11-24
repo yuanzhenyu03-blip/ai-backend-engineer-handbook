@@ -95,3 +95,20 @@ recorded in separate L3A/L3B reports and does not inherit or claim canonical CPy
 production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak/canary or production validation. Those
 boundaries remain `NOT_RUN`, and production readiness remains `MORE_EVIDENCE_NEEDED`. No push, CI, pull request
 or merge is claimed here.
+
+## Post-merge CI evidence — 2026-11-24
+
+The preceding repository/Git statements remain accurate for their seal-time entries. Subsequently, PR #21 head
+`2f98d056dc94c5f7ca63b05f300964fac8879d13` passed workflow run `45322559117`, merged to `main` as
+`3b96fe6f4eda7a5c07834ad12870a406d73297c1`, and the merge commit passed push workflow run `45322950796`.
+
+The post-merge workflow replayed the exact L2 checkpoint on CPython 3.11.5. Its current-tree CPython 3.12.16
+job passed 1444 unittest cases with 20 skipped, 129 Day106 pytest cases with 5 skipped, all 22 seed evaluators,
+current structured-evidence parsing and all 11 configured saved-evidence replays. The replay set includes the
+Day106 L3A and L3B saved reports and their exact checksum bindings.
+
+CI did not start Docker/PostgreSQL/pgvector and did not call an external model Provider, detector or DLP. It
+therefore did not re-execute the historical real L3A/L3B boundaries on CPython 3.12. Production readiness and
+all unexecuted external/production boundaries remain unchanged. The append-only source of truth is
+[`day106-pr21-ci-validation.json`](../evidence/day106-pr21-ci-validation.json); the original L2/L3 reports were
+not rewritten.

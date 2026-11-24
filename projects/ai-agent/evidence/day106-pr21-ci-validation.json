@@ -1,0 +1,162 @@
+{
+  "schema_version": "day106-pr-ci-validation-v1",
+  "record_type": "APPEND_ONLY_POST_SEAL_CI_EVIDENCE",
+  "day": 106,
+  "recorded_at": "2026-11-24T04:02:12Z",
+  "pull_request": {
+    "number": 21,
+    "url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/pull/21",
+    "head_sha": "2f98d056dc94c5f7ca63b05f300964fac8879d13",
+    "merge_sha": "3b96fe6f4eda7a5c07834ad12870a406d73297c1",
+    "merged_at": "2026-11-24T03:56:44Z"
+  },
+  "pre_merge_workflow": {
+    "name": "AI agent classroom quality",
+    "workflow_id": 368931184,
+    "run_id": 45322559117,
+    "run_number": 38,
+    "run_attempt": 1,
+    "event": "pull_request",
+    "head_sha": "2f98d056dc94c5f7ca63b05f300964fac8879d13",
+    "run_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/45322559117",
+    "created_at": "2026-11-24T03:53:17Z",
+    "updated_at": "2026-11-24T03:54:16Z",
+    "github_status": "completed",
+    "github_conclusion": "success",
+    "normalized_result": "PASS"
+  },
+  "post_merge_workflow": {
+    "name": "AI agent classroom quality",
+    "workflow_id": 368931184,
+    "run_id": 45322950796,
+    "run_number": 39,
+    "run_attempt": 1,
+    "event": "push",
+    "branch": "main",
+    "head_sha": "3b96fe6f4eda7a5c07834ad12870a406d73297c1",
+    "run_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/45322950796",
+    "created_at": "2026-11-24T03:56:47Z",
+    "updated_at": "2026-11-24T03:57:36Z",
+    "github_status": "completed",
+    "github_conclusion": "success",
+    "normalized_result": "PASS",
+    "jobs": {
+      "sealed_l2_replay": {
+        "job_name": "Python 3.11.5 sealed Day106 L2 replay",
+        "job_id": 138205574340,
+        "job_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/45322950796/job/138205574340",
+        "runner_label": "ubuntu-22.04",
+        "resolved_os": "Ubuntu 22.04.5 LTS",
+        "runner_image": "ubuntu-22.04@20261116.365.1",
+        "python": "CPython 3.11.5",
+        "status": "PASS"
+      },
+      "current_tree_validation": {
+        "job_name": "Python 3.12 tests and seed evaluations",
+        "job_id": 138205574619,
+        "job_url": "https://github.com/yuanzhenyu03-blip/ai-backend-engineer-handbook/actions/runs/45322950796/job/138205574619",
+        "runner_label": "ubuntu-latest",
+        "resolved_os": "Ubuntu 26.04.1 LTS",
+        "runner_image": "ubuntu-26.04@20261116.202.1",
+        "python": "CPython 3.12.16",
+        "status": "PASS"
+      }
+    }
+  },
+  "executed": {
+    "interpreter_assertion_and_compileall": "PASS",
+    "full_ai_agent_unittest": {
+      "status": "PASS",
+      "ran": 1444,
+      "skipped": 20,
+      "duration_seconds": 21.149
+    },
+    "day106_pytest_contract_suite": {
+      "status": "PASS",
+      "passed": 129,
+      "skipped": 5,
+      "duration_seconds": 0.73
+    },
+    "seed_evaluators": {
+      "status": "PASS",
+      "count": 22
+    },
+    "day96_day98_day99_saved_evidence_checks": {
+      "status": "PASS",
+      "artifact_count": 6
+    },
+    "current_structured_evidence_parse": "PASS",
+    "saved_evidence_replays": {
+      "status": "PASS",
+      "count": 11,
+      "replays": [
+        "day100-l2",
+        "day101-l2",
+        "day102-l2",
+        "day103-l2",
+        "day104-l2",
+        "day104-l3-offline",
+        "day105-l2",
+        "day105-l3-offline",
+        "day106-l2-exact-checkpoint",
+        "day106-l3a-offline",
+        "day106-l3b-offline"
+      ]
+    },
+    "day106_l2_exact_checkpoint_replay": {
+      "status": "PASS",
+      "checkpoint_sha": "91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c",
+      "python": "CPython 3.11.5",
+      "checks": 8,
+      "saved_report_checksum": "sha256:06b7cdb4b5b89ce55d7ba6d6bd01ec62a97c7aae01731d7342923c3feeec39dd",
+      "replayed_report_checksum": "sha256:06b7cdb4b5b89ce55d7ba6d6bd01ec62a97c7aae01731d7342923c3feeec39dd"
+    },
+    "day106_l3a_offline_replay": {
+      "status": "PASS",
+      "checks": 9,
+      "correction_report_checksum": "sha256:cd715dbc2b5a077b011f21f361e4624302dd2d7a004c58d2d7427dea22159a3c",
+      "integration_report_checksum": "sha256:3c724ddde2f67d29ffab9a62865d35baadff7868eb06cbc7110e339386240b98",
+      "restart_report_checksum": "sha256:79672cb8d810b9ea6265df6bd288f27224574348a5d305237645a7fd49111c7a",
+      "replay_checksum": "sha256:87e13466632dbf4ffa88d99013d323f4262b1ac003fc635076aed85a1c3a91a5"
+    },
+    "day106_l3b_offline_replay": {
+      "status": "PASS",
+      "checks": 11,
+      "integration_report_checksum": "sha256:f85f049c205e05891227a8d82f53a8729845b06d3a6f6c8d6adc5ad1a13a981d",
+      "restart_report_checksum": "sha256:98709fd0194827057c7fcef4ac7290f63d88a70eef88064b5611f45711864256",
+      "saved_replay_report_checksum": "sha256:f6514e74e61576974c7c7ed5d3f69698d2d20cbd85b8e5576e9ff2edf19aa900",
+      "replay_binding_checksum": "sha256:c5a9df7d52a2e13abb834d5c06ac6be9ad41eb3db480b92c2df3ec58c673d9db"
+    }
+  },
+  "ci_runtime_boundary": {
+    "docker_started": false,
+    "postgresql_pgvector_started": false,
+    "external_model_provider_called": false,
+    "external_detector_dlp_called": false,
+    "saved_l3_evidence_replay_only": true,
+    "historical_l3_execution_reexecuted": false
+  },
+  "frozen_predecessor_evidence": {
+    "day106_l2_validation": "projects/ai-agent/evidence/day106-validation.json",
+    "day106_l2_report": "projects/ai-agent/evidence/day106-production-rag-capstone-report.json",
+    "day106_l3a_integration_report": "projects/ai-agent/evidence/day106-l3a-integration-report-v2.json",
+    "day106_l3a_restart_report": "projects/ai-agent/evidence/day106-l3a-restart-replay-v2.json",
+    "day106_l3b_integration_report": "projects/ai-agent/evidence/day106-l3b-external-integration-report.json",
+    "day106_l3b_restart_report": "projects/ai-agent/evidence/day106-l3b-restart-replay.json",
+    "original_l2_seal_time_ci_status": "NOT_RUN_NO_COMMIT_PUSH_OR_PULL_REQUEST",
+    "predecessor_reports_rewritten": false
+  },
+  "fixture_production_eligible": false,
+  "production_readiness": "MORE_EVIDENCE_NEEDED",
+  "not_proven": [
+    "Day106 Docker/PostgreSQL/pgvector L3 re-execution on CPython 3.12",
+    "Day106 external model Provider L3 re-execution on CPython 3.12",
+    "real external detector or DLP behavior",
+    "production multi-tenant IAM, RLS, TLS, secret rotation or egress enforcement",
+    "HA, restore, physical purge, production-size load, capacity, cost or soak behavior",
+    "canary traffic, incident drill or production observation window",
+    "independent English interview mastery",
+    "Day106 overall PASS or production readiness"
+  ],
+  "claim_boundary": "This append-only record proves that PR #21 and its merge commit passed the configured workflow. It proves the exact sealed Day106 L2 checkpoint replay on CPython 3.11.5 and current-tree deterministic/unit tests plus saved L3A/L3B evidence replay on CPython 3.12.16. CI did not start Docker/PostgreSQL/pgvector, did not call an external model Provider or DLP, and did not re-execute the historical L3A/L3B boundaries. It therefore does not upgrade those executions to CPython 3.12 L3 evidence, does not establish independent English mastery or Day106 overall PASS, and does not establish production readiness."
+}

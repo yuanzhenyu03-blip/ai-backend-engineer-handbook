@@ -120,6 +120,13 @@ validation is `NOT_RUN`. Day104/105 local PostgreSQL/pgvector evidence is prereq
 Day106 integration evidence. Day95–99 are represented by manually aligned, content-safe lineage receipts in this
 fixture; their authoritative stores are not rerun by the Day106 checkpoint.
 
+Later append-only repository evidence records PR #21 and its merge commit passing the configured workflow. The
+workflow replayed the exact sealed L2 checkpoint on CPython 3.11.5 and ran the current deterministic/unit suite,
+structured-evidence parsing and saved L3A/L3B replay on CPython 3.12.16. It did not start
+Docker/PostgreSQL/pgvector or call an external model Provider, detector or DLP, so it is compatibility and
+offline-replay evidence—not a CPython 3.12 re-execution of L3. See
+[`day106-pr21-ci-validation.json`](../../projects/ai-agent/evidence/day106-pr21-ci-validation.json).
+
 ## 8. Common Misconceptions
 
 - “Every component passed, so the answer can release.” Results may belong to different executions.
