@@ -2020,8 +2020,10 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 Status:
 Complete at guided classroom scope through Day106. The Day106 repository checkpoint includes deterministic
 Level 2 mechanics plus append-only bounded L3A real local PostgreSQL/pgvector and L3B five-call real model
-evidence on local CPython 3.11.5. Canonical CPython 3.12, external detector/DLP and production validation remain
-open; production readiness is `MORE_EVIDENCE_NEEDED`.
+evidence on local CPython 3.11.5. Later append-only PR #21/post-merge CI replayed the exact sealed L2 checkpoint
+on CPython 3.11.5 and separately passed the current deterministic/unit suite plus saved L3A/L3B replay on
+CPython 3.12.16; it did not re-execute real database/Provider L3. External detector/DLP and production
+validation remain open; production readiness is `MORE_EVIDENCE_NEEDED`.
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
@@ -2237,11 +2239,13 @@ Per-day topics (Topic + concise scope; completed days carry an explicit release 
   fencing. On local CPython 3.11.5, L3A executed real local PostgreSQL 16.15/pgvector 0.8.7, transaction/CAS and
   container-restart replay; L3B executed exactly five bounded real model calls with 89/320 observed output
   tokens, four RELEASE decisions, one P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt
-  occurrences, no dispatch, and restart/offline replay PASS. Canonical CPython 3.12 validation, real Day95–
-  Day99 authority-store reruns, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak,
-  canary and production are `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`. The final English
-  answer supplied by the teacher is recorded as `TAUGHT_NOT_VERIFIED`, not independent mastery; Day106 overall
-  PASS is therefore not claimed. No push, PR, CI or merge is claimed for this L3 checkpoint.
+  occurrences, no dispatch, and restart/offline replay PASS. PR #21 later merged as `3b96fe6`; its append-only
+  [CI record](projects/ai-agent/evidence/day106-pr21-ci-validation.json) proves the current deterministic/unit
+  suite and saved L3A/L3B replay on CPython 3.12.16, without re-running the real L3 boundaries. Real Day95–Day99
+  authority-store reruns, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak, canary
+  and production are `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`. The final English answer
+  supplied by the teacher is `TAUGHT_NOT_VERIFIED`, not independent mastery; Day106 overall PASS is therefore
+  not claimed.
 
 Phase deliverable:
 

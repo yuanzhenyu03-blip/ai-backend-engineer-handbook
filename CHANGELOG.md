@@ -34,6 +34,22 @@ production IAM/egress, HA/restore, load/soak, canary and production are `NOT_RUN
 `MORE_EVIDENCE_NEEDED`. The teacher-provided final English response is `TAUGHT_NOT_VERIFIED`. This update is an
 uncommitted isolated-worktree change: no commit, push, PR or merge is claimed.
 
+### Append-only post-merge CI evidence — 2026-11-24
+
+PR #21 head `2f98d056dc94c5f7ca63b05f300964fac8879d13` merged to `main` as
+`3b96fe6f4eda7a5c07834ad12870a406d73297c1`. The final PR-head run `45322559117` and post-merge push run
+`45322950796` both passed. The post-merge workflow replayed the exact sealed L2 checkpoint on CPython 3.11.5;
+its current-tree CPython 3.12.16 job passed 1444 unittest cases with 20 skipped, Day106 pytest with 129 passed and
+5 skipped, all 22 seed evaluators, current structured-evidence parsing and 10 current-tree saved-evidence replays,
+including Day106 L3A/L3B offline replay. Across both jobs, all 11 configured replays passed.
+
+The append-only record is
+`projects/ai-agent/evidence/day106-pr21-ci-validation.json`. The workflow did not start
+Docker/PostgreSQL/pgvector and did not call an external model Provider, detector or DLP, so it does not
+re-execute or upgrade the historical L3A/L3B boundaries. Production readiness remains
+`MORE_EVIDENCE_NEEDED`; the English response remains `TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is still not
+claimed.
+
 ---
 
 ## Day105 — Bounded local PostgreSQL/pgvector Level 3 evidence

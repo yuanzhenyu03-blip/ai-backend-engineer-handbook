@@ -85,3 +85,17 @@ Day107 may cite these later reports only at their recorded scope. Canonical CPyt
 production IAM/RLS/TLS/egress, HA/restore, physical purge, load/soak/canary and production remain `NOT_RUN`;
 readiness remains `MORE_EVIDENCE_NEEDED`. The final English response remains `TAUGHT_NOT_VERIFIED`, so Day106
 overall PASS is not claimed. This local checkpoint does not claim push, CI, pull request or merge.
+
+## Later post-merge CI evidence — 2026-11-24
+
+This section appends a later repository event without rewriting the handoff-authoring state above. PR #21
+merged to `main` as `3b96fe6f4eda7a5c07834ad12870a406d73297c1`; both its final head workflow and the
+post-merge push workflow passed. The exact L2 checkpoint replay passed on CPython 3.11.5. The current-tree
+deterministic/unit suite plus 10 current-tree saved-evidence replays passed on CPython 3.12.16; across both
+jobs, all 11 configured replays passed.
+
+Day107 may cite this as compatibility and offline-replay evidence through
+[`day106-pr21-ci-validation.json`](../evidence/day106-pr21-ci-validation.json). CI did not start the database or
+call the external Provider/DLP and therefore did not re-execute L3A/L3B. It does not change the
+`TAUGHT_NOT_VERIFIED` English result, does not establish Day106 overall PASS and does not upgrade production
+readiness.

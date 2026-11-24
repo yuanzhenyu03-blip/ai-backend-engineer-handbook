@@ -212,8 +212,11 @@ Day104 immutable Generation/ReadView and Day105 Prompt-before-security/release b
 Level 3 evidence on local CPython 3.11.5 now includes L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus
 container-restart replay and L3B exactly five bounded real model calls: 89/320 observed output tokens, four
 RELEASE decisions, one revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no
-dispatch, and restart/offline replay PASS. Canonical CPython 3.12, external detector/DLP and production controls
-remain `NOT_RUN`; production readiness remains `MORE_EVIDENCE_NEEDED`.
+dispatch, and restart/offline replay PASS. Later append-only PR #21/post-merge CI replayed the exact L2
+checkpoint on CPython 3.11.5 and separately passed the current deterministic/unit plus saved L3A/L3B replay on
+CPython 3.12.16 without re-executing real L3.
+External detector/DLP and production controls remain `NOT_RUN`; production readiness remains
+`MORE_EVIDENCE_NEEDED`.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -1196,6 +1199,16 @@ lineage rather than rerun. External detector/DLP, production IAM/RLS/TLS/egress,
 canary and production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The final teacher-provided
 English answer remains `TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed. No push, PR, CI or merge
 is claimed for this L3 checkpoint.
+
+After that seal, PR #21 head `2f98d056dc94c5f7ca63b05f300964fac8879d13` merged to `main` as
+`3b96fe6f4eda7a5c07834ad12870a406d73297c1`. The final PR-head and post-merge workflows both passed. The
+[append-only CI record](evidence/day106-pr21-ci-validation.json) binds the exact sealed L2 replay on CPython
+3.11.5 and the current CPython 3.12.16 deterministic/unit suite: 1444 unittest cases with 20 skipped, Day106
+pytest with 129 passed and 5 skipped, 22 seed evaluators, structured-evidence parsing and 10 current-tree saved
+replays including L3A/L3B offline replay. Across both jobs, all 11 configured replays passed. CI did not start
+Docker/PostgreSQL/pgvector or call an external model Provider, detector or DLP, so it does not re-execute or
+upgrade the historical L3A/L3B evidence. Production
+readiness and the English-mastery boundary remain unchanged.
 
 ## Future Milestones
 

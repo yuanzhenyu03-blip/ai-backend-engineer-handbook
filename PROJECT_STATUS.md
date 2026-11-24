@@ -11,8 +11,10 @@ a second source, ChunkSet, EmbeddingSet or serving-pointer authority. Append-onl
 local CPython 3.11.5 now covers L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus container-restart replay and
 L3B exactly five bounded real model calls, 89/320 observed output tokens, four RELEASE decisions, one
 P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
-offline replay PASS. Canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore,
-load/soak, canary and production remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Day105 adds
+offline replay PASS. Later PR #21/post-merge CI replayed the exact sealed L2 checkpoint on CPython 3.11.5 and
+separately passed the current deterministic/unit plus saved L3A/L3B replay on CPython 3.12.16 without
+re-executing database/Provider L3. External detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak,
+canary and production remain `NOT_RUN` or `MORE_EVIDENCE_NEEDED`. Day105 adds
 RAG-specific ingestion, retrieval, context-assembly and response-release security boundaries while preserving
 the Day104 immutable-Generation and ReadView handoff. Its deterministic Level 2 scope and bounded local
 PostgreSQL 16.15/pgvector 0.8.7 Level 3 are complete; Day105 L4 and production readiness remain `NOT_RUN` or
@@ -42,10 +44,14 @@ Prompt-before-security exclusion, release-time currentness/DLP/disclosure checks
 idempotent duplicate convergence and append-only evidence. Local CPython 3.11.5 also carries bounded L3A real
 PostgreSQL/pgvector plus restart evidence and L3B five-call real model evidence with four RELEASE decisions,
 one revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
-offline replay PASS. Canonical CPython 3.12 local validation, real Day95–Day99 authority-store reruns, external
-detector/DLP, production IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`;
-readiness is `MORE_EVIDENCE_NEEDED`. The teacher-provided final English answer is `TAUGHT_NOT_VERIFIED`, so
-Day106 overall PASS is not claimed. No push, PR, CI or merge is claimed for this L3 checkpoint.
+offline replay PASS. PR #21 later merged to `main` as `3b96fe6`; the
+[append-only CI record](projects/ai-agent/evidence/day106-pr21-ci-validation.json) proves 1444 unittest cases
+(20 skipped), Day106 pytest with 129 passed and 5 skipped, 22 seed evaluators, the exact L2 checkpoint replay and all
+configured saved-evidence replays PASS across their recorded CPython 3.11.5/3.12.16 jobs. CI did not re-execute
+database/Provider L3. Real Day95–Day99 authority-store reruns, external detector/DLP, production
+IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`; readiness is
+`MORE_EVIDENCE_NEEDED`. The teacher-provided final English answer is `TAUGHT_NOT_VERIFIED`, so Day106 overall
+PASS is not claimed.
 
 Lesson: `docs/fastapi/day106-production-rag-capstone-and-english-interview.md`. Design:
 `projects/ai-agent/docs/DAY106_PRODUCTION_RAG_CAPSTONE.md`. Classroom record:

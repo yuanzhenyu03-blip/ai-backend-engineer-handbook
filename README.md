@@ -49,10 +49,13 @@ Current phase:
   local CPython 3.11.5 now includes L3A real local PostgreSQL 16.15/pgvector 0.8.7 plus container-restart replay,
   and L3B exactly five bounded real model calls: 89/320 observed output tokens, four RELEASE decisions, one
   P2-revoked BLOCKED/NOT_ATTEMPTED decision, zero unauthorized Prompt occurrences, no dispatch, and restart/
-  offline replay PASS. Canonical CPython 3.12, external detector/DLP, production IAM/RLS/TLS/egress, HA/restore,
-  load/soak, canary and production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The final
-  teacher-provided English response remains `TAUGHT_NOT_VERIFIED`, so Day106 overall PASS is not claimed. No
-  push, PR, CI or merge is claimed for this L3 checkpoint.
+  offline replay PASS. After that local seal, PR #21 merged to `main`; its
+  [append-only CI evidence](projects/ai-agent/evidence/day106-pr21-ci-validation.json) records the exact L2
+  checkpoint replay on CPython 3.11.5 and, separately, the current deterministic/unit suite plus saved L3A/L3B
+  replay on CPython 3.12.16. CI did not re-execute Docker/database/Provider L3. External detector/DLP, production
+  IAM/RLS/TLS/egress, HA/restore, load/soak, canary and production remain `NOT_RUN`; readiness remains
+  `MORE_EVIDENCE_NEEDED`. The final teacher-provided English response remains `TAUGHT_NOT_VERIFIED`, so Day106
+  overall PASS is not claimed.
 
 Last completed lesson:
 

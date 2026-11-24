@@ -42,7 +42,7 @@ Day106 completion record:
 - [x] Preserve append-only history and content-safe evidence; never persist protected Prompt/chunk/candidate text.
 - [x] Record the final teacher-provided English response as `TAUGHT_NOT_VERIFIED`.
 - [x] Run bounded deterministic mechanics on local CPython 3.11.5 fallback.
-- [ ] Run canonical CPython 3.12 validation.
+- [x] Run the current deterministic/unit and saved-evidence replay workflow on canonical CPython 3.12.16.
 - [x] Run bounded Day106 L3A with real local Docker/PostgreSQL/pgvector, transaction/CAS and container restart.
 - [x] Run bounded Day106 L3B with exactly five real model/Provider calls, 89/320 observed output tokens,
   4 RELEASE + 1 revoked BLOCKED/NOT_ATTEMPTED, unauthorized Prompt count 0, no dispatch, and restart/replay PASS.
@@ -50,8 +50,10 @@ Day106 completion record:
 - [ ] Obtain production IAM/egress, HA/restore, load/soak, canary and operating evidence.
 
 Evidence boundary: the bounded local L3A/L3B checkpoint proves its recorded PostgreSQL/pgvector, restart and
-five-call real model boundary only; it does not prove canonical CPython 3.12, external detector/DLP or production.
-Production readiness remains `MORE_EVIDENCE_NEEDED`; no push, PR, CI or merge is claimed for this L3 checkpoint.
+five-call real model boundary only. Later append-only PR #21/post-merge CI proves current deterministic/unit and
+offline replay compatibility on CPython 3.12.16, but did not re-execute Docker/database/Provider L3 and does not
+prove external detector/DLP or production. Production readiness remains `MORE_EVIDENCE_NEEDED`; see
+[`day106-pr21-ci-validation.json`](projects/ai-agent/evidence/day106-pr21-ci-validation.json).
 
 Day105 completion record:
 
