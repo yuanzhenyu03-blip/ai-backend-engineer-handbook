@@ -11,7 +11,7 @@ permissions:
 jobs:
   day106-l2-sealed-replay:
     name: Python 3.11.5 sealed Day106 L2 replay
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     timeout-minutes: 10
     env:
       DAY106_L2_CHECKPOINT: 91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c
