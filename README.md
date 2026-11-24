@@ -16,7 +16,7 @@ The official learning order lives in `ROADMAP.md`.
 
 Current phase:
 
-* Phase 7C — Production RAG Engineering — in progress. Day95 establishes active immutable parsed content,
+* Phase 7C — Production RAG Engineering — complete at guided classroom scope through Day106. Day95 establishes active immutable parsed content,
   Day96 adds provenance-bound ChunkSets, and Day97 adds metadata/tenant/ACL/provenance enforcement with narrow
   signed permits and guarded reads. Day98 adds eligibility-first embedding selection, a frozen vector-space
   contract and atomic immutable EmbeddingSets. Day99 adds official three-store research, narrow index-build
@@ -42,16 +42,23 @@ Current phase:
   records 1334 tests PASS with 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the
   Day105 replay PASS. That earlier CI run did not start Docker/PostgreSQL/pgvector or run Day105 Level 3; the
   later bounded local L3 evidence is recorded separately and does not rewrite the sealed L2 reports.
+  Day106 closes the guided Phase 7C classroom sequence by composing those existing owners into one exact
+  request-to-delivery evidence chain. It binds the selected Generation/ReadView, security-filtered retrieval,
+  context, grounded AnswerCandidate, current release checks, durable decision, response intent and receipt;
+  it also exercises revocation/rebuild/CAS and UNKNOWN reconciliation with content-safe deterministic fixtures.
+  This checkpoint ran only on the local CPython 3.11.5 fallback. Canonical CPython 3.12, real upstream-store
+  reruns, real process restart, Docker/L3, external model/detector/DLP/Provider and production are `NOT_RUN`;
+  readiness remains `MORE_EVIDENCE_NEEDED`.
 
 Last completed lesson:
 
-* [Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries](docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md)
+* [Day106 — Production RAG Capstone and English Interview](docs/fastapi/day106-production-rag-capstone-and-english-interview.md)
 
-(For the completed classroom history Day01–Day105, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
+(For the completed classroom history Day01–Day106, see `ROADMAP.md` and `PROJECT_STATUS.md`.)
 
 Current / next lesson:
 
-* Day106 — Production RAG Capstone and English Interview (Phase 7C; planned)
+* Day107 — Evaluation Datasets and Golden Sets (Phase 7D; planned / not started)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
 

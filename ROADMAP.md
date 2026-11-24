@@ -351,9 +351,10 @@ Deliverables:
 
 # Phase 7C — Production RAG Engineering (Day95–Day106)
 
-Status: In progress. Day95 has bounded `INTEGRATION_RUNTIME` parser-process evidence; Day96–Day105 are
-complete at guided classroom scope with deterministic chunking, authorization/provenance, embedding and exact
-vector-generation, hybrid-retrieval, rewrite/reranking, evaluation and index-lifecycle control-flow evidence.
+Status: Complete at guided classroom scope through Day106. Day95 has bounded `INTEGRATION_RUNTIME`
+parser-process evidence; Day96–Day106 have deterministic chunking, authorization/provenance, embedding and
+exact vector-generation, hybrid-retrieval, rewrite/reranking, evaluation, lifecycle, security and capstone
+composition evidence.
 Day104 and Day105 additionally have bounded local PostgreSQL/pgvector Level 3 evidence. Real production-scale
 embedding/vector/query/reranker Provider quality, real scanner/detector/DLP/model behavior, HA/restore, durable
 distributed storage, independently labeled real-model evaluation, real migration behavior and production remain
@@ -378,7 +379,7 @@ not a chunk-and-search demo.
 | Day103 | Retrieval Evaluation and RAG Answer Evaluation | ✅ Completed (guided classroom scope; 27 focused tests; 10/10 seed; 1133/1133 local full regressions on Python 3.11.5 fallback; all 19 seed evaluators and four saved replays; Python 3.12 CI NOT RUN; fixed independent refund labels, Precision/Recall/MRR/nDCG, answer/Citation/Abstention metrics, slices, hard gates and replayable evidence; deterministic fake only; production readiness MORE_EVIDENCE_NEEDED) |
 | Day104 | Index Update, Delete, Rebuild and Migration | ✅ Completed (guided classroom L2 + local PostgreSQL 16.15/pgvector 0.8.7 L3; frozen L2 baseline 73/73 focused tests + 10/10 seed; final repository `Ran 1245 tests`, `OK (skipped=7)` on Python 3.11.5 fallback; all 20 seed evaluators and six saved replays; L3 32/32 adapter unit + 7/7 real integration + 17/17 runner gates + container restart replay; PR #16 Python 3.12.16 CI run `42995652875` passed the 1245-test deterministic/unit suite, all seed evaluators and saved replays without Docker; L4/HA/restore/physical purge/load/production traffic MORE_EVIDENCE_NEEDED) |
 | Day105 | RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries | ✅ Completed (guided classroom L2 + bounded local PostgreSQL 16.15/pgvector 0.8.7 L3; retrieved-content data-only authority, identity-bound ingestion/retrieval/context/output gates, X/Y/Z/T adversarial fixtures, exact citations/DLP/disclosure controls, cache/revocation/incident mechanics and content-safe replay; L3 20/20 repository unit + 9/9 real integration + 20/20 hard gates + 14 cases + 18 failure checkpoints + real container restart and offline replay; deterministic security adapters only; earlier append-only PR #18 CPython 3.12.16 CI passed without Docker/L3; real external detector/model/DLP/Provider integration, L4 and production readiness MORE_EVIDENCE_NEEDED) |
-| Day106 | Production RAG Capstone and English Interview | Planned |
+| Day106 | Production RAG Capstone and English Interview | ✅ Instructional coverage completed (guided classroom scope plus bounded deterministic L2 composition on local CPython 3.11.5 fallback; Day106 overall PASS not claimed because the teacher-provided final English answer is TAUGHT_NOT_VERIFIED; canonical CPython 3.12, Docker/L3, external-real Provider/model/detector/DLP, real process restart and production NOT RUN; production readiness MORE_EVIDENCE_NEEDED) |
 
 Deliverables:
 

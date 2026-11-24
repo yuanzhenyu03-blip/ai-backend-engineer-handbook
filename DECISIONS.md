@@ -1072,3 +1072,64 @@ The Day105 L2 implementation uses deterministic fixtures and fakes. It may prove
 state-transition, failure and replay mechanics only. Real scanners, DLP, model Providers, policy services,
 PostgreSQL/pgvector retrieval, distributed revocation, production egress, red-team, load/soak, canary traffic and
 incident operations remain `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`.
+
+---
+
+## Decision 024 — Compose the RAG Capstone Through Exact Identity and Application-owned Release Authority
+
+Status: Accepted for Day106 guided classroom scope
+
+Date: 2026-11-23
+
+### Context
+
+Day95–Day105 already own ingestion, ChunkSet and EmbeddingSet selection, immutable Generation lifecycle,
+retrieval, context security, grounding, citations and release gates. A capstone that copies those stores or
+reconstructs their identities creates a second authority and permits results from different executions to be
+mixed. A model, Retriever, vector database or Provider cannot decide serving authority, disclosure or delivery
+truth because none owns the complete durable business state.
+
+### Decision
+
+Day106 adds a thin application-owned composition layer. One request attempt binds its principal, tenant,
+purpose, selected Generation/Manifest, pointer revision, fenced ReadView, exact occurrence identities and
+content-safe digests. It then binds the Day101 retrieval result to the Day105 Retrieval Security Decision,
+Retrieval Bundle and Context Assembly Manifest before any occurrence enters a Prompt. The Day102 generation,
+grounding and exact-Citation results produce an `AnswerCandidate`, never release authority.
+
+Current authorization, source/provenance eligibility, Tombstone/quarantine state, grounding/Citations, DLP,
+destination and disclosure scope are rechecked before an append-only `OutputReleaseDecision`. The application
+keeps authorization and release-currentness revisions stable across the local decision/intent commit and checks
+them again before a new send. One decision owns at most one separately bound durable Response Intent. Delivery
+receipts extend downstream outcome without rewriting
+the Candidate or release decision. `UNKNOWN` transport outcomes enter reconciliation; idempotency conflicts
+fail closed; a retry either preserves the exact logical invocation and key with a new transport attempt or
+creates a new request attempt when upstream identity changes.
+
+Historical ReadViews and evidence remain valid descriptions of what ran, but never freeze permission. A
+revocation takes effect immediately. Rebuild creates a new immutable Generation, and activation or rollback is
+a new forward compare-and-set transition after validation against current facts. Offline replay verifies saved
+artifact integrity and internal binding only; it cannot prove that the original policy was lawful, that an
+external side effect occurred, or that production is ready.
+
+### Consequences
+
+- Day106 composes Day95–Day105 artifacts; it does not create replacement source, ChunkSet, EmbeddingSet or
+  serving-pointer authorities.
+- Request, retrieval, context, model, candidate, decision, intent and delivery identities remain explicit and
+  append-only.
+- Unauthorized occurrences entering the Prompt must remain zero; post-generation filtering cannot compensate.
+- Candidate changes require a new identity/digest and fresh candidate-bound receipts and release gates.
+- Durable decision, dispatch and delivery evidence remain separate so crash recovery cannot infer an external
+  outcome from memory or a prewritten timestamp.
+- Normal quality and non-compensable security gates both matter; reject-all is not a quality PASS.
+
+### Validation honesty
+
+The bounded Day106 implementation is deterministic Level 2 composition. Local fallback execution uses CPython
+3.11.5; the repository's canonical CPython 3.12 validation is `NOT_RUN`. Day95–Day99 authority stores are
+represented by aligned fixture lineage rather than rerun in this checkpoint. Recovery evidence proves
+deterministic same-process state rehydration, not a real process restart. Docker/PostgreSQL/pgvector, real
+external model/detector/DLP/Provider calls, distributed storage, production IAM/egress, load/soak, canary and
+production are `NOT_RUN`. Production readiness remains `MORE_EVIDENCE_NEEDED`, and no commit, PR or merge is
+part of this decision record.

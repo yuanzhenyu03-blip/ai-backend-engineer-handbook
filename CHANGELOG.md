@@ -9,6 +9,33 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Day106 — Production RAG Capstone and English Interview (Phase 7C)
+
+Added the 16-section Day106 lesson, Capstone design, actual classroom/mastery record, Day107 handoff,
+Decision 024, deterministic composition contracts/orchestrator, runnable scenario, seed evaluator, focused
+tests and content-safe offline replay contract. The Capstone reuses the Day95–Day105 owners rather than
+creating new source, ChunkSet, EmbeddingSet or serving-pointer authorities.
+
+The execution chain binds one request/principal/tenant/purpose to an exact Generation/Manifest, pointer
+revision, fenced ReadView, security-filtered RetrievalBundle, ContextAssemblyManifest,
+ModelInvocationEnvelope, AnswerCandidate, current release evidence, durable OutputReleaseDecision, Response
+Intent and downstream receipt. It preserves immediate revocation, immutable rebuild and forward CAS; excludes
+unauthorized occurrences before Prompt construction; reruns candidate-bound grounding/Citation/DLP/disclosure
+gates; and separates decision, dispatch and delivery facts for UNKNOWN reconciliation and crash recovery.
+The selected Day101 handoff is authenticated by an application-owned receipt authority, authorization remains
+guarded through the deterministic model invocation, and recovery record IDs are globally unique across live
+append, restore and sealing.
+
+Evidence boundary: bounded deterministic Level 2 mechanics run on the local CPython 3.11.5 fallback.
+Canonical CPython 3.12 validation is `NOT_RUN`. Day95–Day99 authority stores are represented by aligned fixture
+lineage rather than rerun, and recovery proves same-process deterministic state rehydration rather than a real
+process restart. Docker/PostgreSQL/pgvector Day106 L3, external model/detector/DLP/Provider behavior,
+production IAM/egress, HA/restore, load/soak, canary and production are `NOT_RUN`; production readiness is
+`MORE_EVIDENCE_NEEDED`. The teacher-provided final English response is `TAUGHT_NOT_VERIFIED`. This update is an
+uncommitted isolated-worktree change: no commit, push, PR or merge is claimed.
+
+---
+
 ## Day105 — Bounded local PostgreSQL/pgvector Level 3 evidence
 
 Date: 2026-11-16

@@ -66,3 +66,5 @@ jobs:
         run: python evals/run_day105_evidence_replay.py
       - name: Verify saved Day105 L3 security evidence offline
         run: python evals/run_day105_l3_evidence_replay.py
+      - name: Verify saved Day106 Production RAG capstone evidence
+        run: python evals/run_day106_evidence_replay.py

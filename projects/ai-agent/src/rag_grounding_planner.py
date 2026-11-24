@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Iterator
 
 from rag_authorized_retriever import (
     InMemoryRetrievalAuthorization,
@@ -17,7 +19,11 @@ from rag_grounding_contracts import (
     SourceWindow,
 )
 from rag_reranker_contracts import Day101Response, FinalRerankedHit
-from rag_retrieval_contracts import CandidateIdentity, RetrievalRecord
+from rag_retrieval_contracts import (
+    CandidateIdentity,
+    RetrievalAuthorizationScope,
+    RetrievalRecord,
+)
 
 
 class GroundingPlanError(RuntimeError):
@@ -74,6 +80,38 @@ class GroundingCurrentnessOracle:
             raise RetrievalAuthorizationUnavailable(
                 "CURRENT_GROUNDING_AUTHORIZATION_NOT_FOUND"
             )
+        return self._evaluate_scope(
+            scope=scope,
+            identities=identities,
+        )
+
+    @contextmanager
+    def guarded_recheck_identities(
+        self,
+        *,
+        identities: tuple[CandidateIdentity, ...],
+        request: GroundingRequest,
+    ) -> Iterator[CurrentGroundingSources]:
+        """Keep current authorization stable across one model invocation."""
+
+        with self._authorization.guarded_read(
+            tenant_id=request.tenant_id,
+            principal_subject=request.principal_subject,
+            action=request.action,
+            purpose=request.purpose,
+        ) as scope:
+            if scope is None:
+                raise RetrievalAuthorizationUnavailable(
+                    "CURRENT_GROUNDING_AUTHORIZATION_NOT_FOUND"
+                )
+            yield self._evaluate_scope(scope=scope, identities=identities)
+
+    def _evaluate_scope(
+        self,
+        *,
+        scope: RetrievalAuthorizationScope,
+        identities: tuple[CandidateIdentity, ...],
+    ) -> CurrentGroundingSources:
         allowed = frozenset(scope.allowed_occurrence_ids)
         accepted: list[str] = []
         rejected: list[tuple[str, str]] = []

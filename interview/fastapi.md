@@ -3651,3 +3651,43 @@ a detector false negative, whether unauthorized content reached the Provider, wh
 cache decision, how citations/logs differ from response, and why index deletion cannot revoke leaked secrets.
 
 Related: [Day105 lesson](../docs/fastapi/day105-rag-security-prompt-injection-poisoned-documents-data-leakage-boundaries.md).
+
+## Day106 — Production RAG Capstone and English Interview (Phase 7C)
+
+### Senior: Explain the normal request and release path
+
+**Strong answer:** The application first acquires one fenced ReadView bound to the selected immutable
+Generation, Manifest and pointer revision. Day101 retrieves candidates, then the Day105 Retrieval Security Gate
+removes anything unauthorized, stale, tombstoned or quarantined before freezing the RetrievalBundle and actual
+ContextAssemblyManifest. A bound ModelInvocationEnvelope may call the model, but the model produces only an
+AnswerCandidate. Day102 grounding and exact-Citation verification plus Day105 current authorization,
+provenance, deletion, DLP, destination and disclosure checks determine an append-only OutputReleaseDecision.
+Only an allowed durable decision creates a bound ResponseIntent; dispatch and DeliveryReceipt remain separate
+downstream facts.
+
+### Senior: What happens when authorization changes during an old request?
+
+**Strong answer:** ReadView pinning preserves historical identity, not permission. The old G2/r8 attempt remains
+auditable, but current P2 revocation blocks further retrieval or release of A. The system must not replace G2
+with G3 inside that attempt. It builds and validates immutable G3 from current facts, activates it with an
+expected-pointer CAS, and a new request attempt acquires G3/r9 and reruns the downstream chain. Rollback is also
+a new forward CAS and requires new current-eligibility evidence.
+
+### Senior: Explain failure, recovery and evidence honesty
+
+**Strong answer:** A Provider timeout with an unknown outcome is not safe-to-retry evidence. I preserve the
+logical invocation and idempotency key, append a transport-attempt record, reconcile first and permit only a
+bounded retry when authoritative evidence says the operation was not accepted. A crash after a durable allowed
+decision resumes from the exact Decision/Intent binding rather than regenerating either. Late duplicates are
+recorded and fenced; DeliveryReceipts extend downstream outcome without rewriting the Candidate or decision.
+Deterministic L2, local PostgreSQL/pgvector and external-real L3 are different evidence scopes. A PASS at one
+scope never upgrades another, and production remains `MORE_EVIDENCE_NEEDED` until its own gates run.
+
+### Classroom interview status
+
+The learner demonstrated the Capstone's authority, identity, revocation, security, recovery and readiness
+models across the Chinese scenario work. The final consolidated English response was supplied by the teacher
+at the learner's request, so it is `TAUGHT_NOT_VERIFIED`, not independent English-interview evidence. Minor
+earlier English spelling and grammar corrections did not change the technical results.
+
+Related: [Day106 lesson](../docs/fastapi/day106-production-rag-capstone-and-english-interview.md).

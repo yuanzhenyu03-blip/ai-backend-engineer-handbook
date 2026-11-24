@@ -5,7 +5,10 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import replace
 
-from rag_authorized_retriever import RetrievalAuthorizationUnavailable
+from rag_authorized_retriever import (
+    RetrievalAuthorizationGuardConflict,
+    RetrievalAuthorizationUnavailable,
+)
 from rag_chunking_contracts import stable_hash
 from rag_grounding_adapters import (
     DeterministicAnswerProvider,
@@ -370,14 +373,55 @@ class AuthorizedGroundingOrchestrator:
             bundle.digest,
         ))
         try:
-            answer, generator_mode, generator_reason = self._run_generator(
-                attempt_id=attempt_id, bundle=bundle
-            )
+            with self.currentness.guarded_recheck_identities(
+                identities=tuple(window.identity for window in bundle.windows),
+                request=request,
+            ) as generation_check:
+                required_generation_ids = frozenset(
+                    window.identity.occurrence_id for window in bundle.windows
+                )
+                generation_ids = frozenset(
+                    generation_check.accepted_occurrence_ids
+                )
+                if (
+                    generation_check.authorization_scope_fingerprint
+                    != bundle.authorization_scope_fingerprint
+                    or generation_ids != required_generation_ids
+                ):
+                    reason = (
+                        generation_check.rejected[0][1]
+                        if generation_check.rejected
+                        else Day102FailureReason.STALE_AUTHORIZATION.value
+                    )
+                    return self._empty_response(
+                        request=request,
+                        outcome=Day102Outcome.ABSTAINED,
+                        reason=reason,
+                        bundle=bundle,
+                        source_rejections=tuple(
+                            (*precheck.rejected, *generation_check.rejected)
+                        ),
+                    )
+                answer, generator_mode, generator_reason = self._run_generator(
+                    attempt_id=attempt_id,
+                    bundle=bundle,
+                )
         except GroundingProviderError as exc:
             return self._empty_response(
                 request=request,
                 outcome=Day102Outcome.UNAVAILABLE,
                 reason=exc.reason.value,
+                bundle=bundle,
+                source_rejections=precheck.rejected,
+            )
+        except (
+            RetrievalAuthorizationGuardConflict,
+            RetrievalAuthorizationUnavailable,
+        ):
+            return self._empty_response(
+                request=request,
+                outcome=Day102Outcome.UNAVAILABLE,
+                reason=Day102FailureReason.STALE_AUTHORIZATION.value,
                 bundle=bundle,
                 source_rejections=precheck.rejected,
             )

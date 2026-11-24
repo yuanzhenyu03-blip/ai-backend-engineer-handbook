@@ -73,6 +73,8 @@ ai-agent/
 │   ├── agent_mcp_capstone.py      # Day94: identity/access/claim/candidate/Committer core
 │   ├── agent_mcp_orchestrator.py  # Day94: thin end-to-end typed-decision router
 │   ├── agent_mcp_recovery.py      # Day94: restart-aware dispatch journal
+│   ├── rag_capstone_contracts.py  # Day106: immutable composition/evidence contracts
+│   ├── rag_capstone_orchestrator.py # Day106: request, release and recovery authority
 │   ├── pydantic_ai_capstone_adapter.py # Day94: Framework-private proposal translation
 │   ├── rag_ingestion_contracts.py # Day95: document/source/attempt/candidate contracts
 │   ├── rag_source_admission.py    # Day95: untrusted upload admission boundary
@@ -193,21 +195,22 @@ ai-agent/
 │   ├── test_day102_*.py          # Day102: grounding/citation/verification/release + seed
 │   ├── test_day103_*.py          # Day103: retrieval/answer evaluation + hard gates
 │   ├── test_day104_*.py          # Day104: immutable Generation lifecycle + integration seams
-│   └── test_day105_*.py          # Day105: ingestion/retrieval/context/release security + seed
-├── evals/                        # Day83–Day105 available seed cases + runners
-├── examples/                     # deterministic course scenarios through Day105
-├── evidence/                     # validation records through Day105
+│   ├── test_day105_*.py          # Day105: ingestion/retrieval/context/release security + seed
+│   └── test_day106_*.py          # Day106: composition, release, recovery and seed
+├── evals/                        # Day83–Day106 available seed cases + runners
+├── examples/                     # deterministic course scenarios through Day106
+├── evidence/                     # validation records through Day106
 ├── research/                     # official framework, MCP and SDK evidence
-└── docs/                         # designs and classroom records through Day105
+└── docs/                         # designs and classroom records through Day106
 ```
 
 ## Progress
 
-Status: Phase 7A and Phase 7B complete at guided classroom scope; Phase 7C is in progress (Day71–Day105
-documented). Day105 adds application-owned RAG ingestion, retrieval, context and output-release security gates
-while preserving the Day104 immutable Generation/ReadView boundary. Its sealed deterministic Level 2 evidence
-is complemented by bounded local PostgreSQL 16.15/pgvector 0.8.7 Level 3 evidence; Level 4 and production
-readiness remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
+Status: Phase 7A, Phase 7B and Phase 7C are complete at guided classroom scope through Day106. Day106 composes
+the existing Day95–Day105 owners into one deterministic request-to-delivery evidence chain while preserving
+Day104 immutable Generation/ReadView and Day105 Prompt-before-security/release boundaries. The local fallback
+is CPython 3.11.5; canonical CPython 3.12, real process restart, Docker/L3, external-real and production
+validation remain `NOT_RUN` / `MORE_EVIDENCE_NEEDED`.
 
 Day71 — LLM Application Architecture, Tokens, Context, Sampling and Model Failure Modes — added the
 provider-independent LLM Application Runtime foundations for Phase 7A:
@@ -1140,9 +1143,57 @@ CPython 3.12.16 passed 1334 tests with 7 skips, all 21 seed evaluators, all seve
 Day105 replay. That CI run did not start Docker/PostgreSQL/pgvector or run Day105 L3 and does not upgrade the
 deterministic L2 evidence boundary; the later local L3 record is separate.
 
+## Day106 Production RAG Capstone
+
+Day106 adds composition contracts rather than replacement domain stores. `rag_capstone_contracts.py` defines
+append-only request, retrieval/context, release, intent, recovery, evaluation and execution-manifest identities;
+`rag_capstone_orchestrator.py` validates their exact cross-links and owns durable release/dispatch recovery.
+The deterministic scenario composes the established Day101 retrieval, Day105 pre-Prompt security/context,
+Day102 grounding/Citation and Day105 release boundaries in that order.
+
+```text
+request + principal + tenant + purpose
+→ selected Generation / Manifest + pointer revision + fenced ReadView
+→ Day101 retrieval
+→ Day105 Retrieval Security Gate + RetrievalBundle + ContextAssemblyManifest
+→ ModelInvocationEnvelope
+→ Day102 AnswerCandidate + grounding / exact-Citation evidence
+→ current authorization / provenance / deletion / DLP / destination / disclosure checks
+→ durable OutputReleaseDecision + ResponseIntent
+→ dispatch / reconciliation
+→ append-only DeliveryReceipt
+```
+
+The fixture covers normal Q1/Q2/Q3, immediate P2 revocation, immutable G3 rebuild and pointer CAS, old-G2
+release refusal, exact B/T/ACL/provenance negative controls, X/Y/Z security cases, UNKNOWN reconciliation,
+winner fencing, duplicate receipt convergence and content-safe artifact replay. Historical ReadViews remain
+valid evidence but never preserve permission. Candidate changes require new candidate identity and fresh
+candidate-bound gates. Delivery receipts extend downstream outcome without rewriting the Candidate or release
+decision.
+
+See the [lesson](../../docs/fastapi/day106-production-rag-capstone-and-english-interview.md),
+[design](docs/DAY106_PRODUCTION_RAG_CAPSTONE.md),
+[classroom record](docs/day106-production-rag-capstone-classroom-draft.md),
+[repository report](docs/DAY106_REPOSITORY_UPDATE_REPORT.md) and
+[Day107 handoff](docs/DAY106_TO_DAY107_HANDOFF.md).
+
+```sh
+PYTHONPATH=src:. python -m unittest discover -s tests -p 'test_day106_*.py' -q
+PYTHONPATH=src:. python evals/run_day106_seed_eval.py
+PYTHONPATH=src:. python examples/day106_production_rag_capstone.py
+PYTHONPATH=src:. python evals/run_day106_evidence_replay.py
+```
+
+The bounded local fallback uses CPython 3.11.5. The repository's canonical CPython 3.12 validation is
+`NOT_RUN`. Day95–Day99 authoritative stores are represented by aligned fixture lineage rather than rerun;
+recovery is deterministic same-process rehydration rather than a real restart. Docker/PostgreSQL/pgvector,
+external model/detector/DLP/Provider behavior, production IAM/egress, HA/restore, load/soak, canary and
+production remain `NOT_RUN`; readiness remains `MORE_EVIDENCE_NEEDED`. The final teacher-provided English
+answer remains `TAUGHT_NOT_VERIFIED`. No commit, PR or merge is included in this worktree update.
+
 ## Future Milestones
 
-- Begin Day106 Production RAG Capstone against the frozen Day103 quality, Day104 lifecycle and Day105 security baselines.
+- Begin Day107 Evaluation Datasets and Golden Sets without upgrading the bounded Day106 evidence scope.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate broader real auth/queue/Worker integration; HA,
   restore and optional external-Provider gates remain NOT RUN.

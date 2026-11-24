@@ -40,14 +40,12 @@ Current state:
 - Phase 4 — Production AI API Engineering: classroom scope + deterministic in-process `EXECUTED_LOCAL_RUNTIME`
   artifacts Complete. Real FastAPI/PostgreSQL/Redis-Celery/Object Storage/OpenTelemetry/Provider integration
   is NOT RUN.
-- Last Completed Lesson: Day105 — RAG Security: Prompt Injection, Poisoned Documents and Data-leakage Boundaries
-  (guided classroom Level 2 plus bounded local PostgreSQL 16.15/pgvector 0.8.7 Level 3; application-owned
-  ingestion, retrieval, context and output-release security
-  boundaries; retrieved content remains data-only; X/Y/Z/T adversarial fixtures run beside A/B/C Q1–Q3;
-  content-safe evidence; L3 passed 20/20 repository unit tests, 9/9 real integration tests, 20/20 hard gates,
-  14 security cases, 18 failure checkpoints, real container restart replay and offline replay; security adapters
-  remain deterministic; real external detector/model/DLP/Provider integration, L4 and production readiness
-  remain NOT RUN / MORE_EVIDENCE_NEEDED).
+- Last Completed Lesson: Day106 — Production RAG Capstone and English Interview (guided classroom coverage plus
+  bounded deterministic Level 2 composition on the local CPython 3.11.5 fallback; exact request/Generation/
+  retrieval/context/candidate/decision/intent/receipt binding; revocation/rebuild/CAS; fail-closed security and
+  UNKNOWN reconciliation; canonical CPython 3.12, real process restart, Docker/L3, external model/detector/DLP/
+  Provider and production NOT RUN; readiness MORE_EVIDENCE_NEEDED; final teacher-provided English response
+  remains TAUGHT_NOT_VERIFIED; Day106 overall PASS is not claimed).
 - Day105 post-seal CI: PR #18 merged to `main`; append-only evidence records CPython 3.12.16 with 1334 tests
   PASS, 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105 replay PASS. CI did
   not start Docker/PostgreSQL/pgvector or run Day105 L3; the later local L3 record is separate and does not
@@ -64,11 +62,11 @@ Current state:
   recovery, physical purge,
   production-size load, zero-downtime production migration, operations and production traffic remain NOT RUN;
   production readiness MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day106 — Production RAG Capstone and English Interview (Phase 7C; Planned).
+- Current / Next Lesson: Day107 — Evaluation Datasets and Golden Sets (Phase 7D; Planned / not started).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /
   MORE_EVIDENCE_NEEDED.
-- Current phase: Phase 7C — Production RAG Engineering is IN PROGRESS at guided classroom scope.
+- Current phase: Phase 7C — Production RAG Engineering is COMPLETE at guided classroom scope; Phase 7D is next.
 
 Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
 permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008 in DECISIONS.md):
@@ -90,8 +88,8 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day105 are complete at their recorded evidence levels and assessment scope. Day106 is current/next; do
-  not skip ahead.
+- Day59–Day106 are complete at their recorded evidence/classroom levels. Day107 is current/next; do not skip
+  ahead.
 - Day70 closed Phase 6. Day71 began Phase 7A on the Day53–Day61 runtime foundations. Day72–Day77 built and tested the Provider, Prompt, Output/Tool, stream/cache/batch, routing/cost and Fake/regression seams. Day78 integrated them behind one application-owned Runtime lifecycle and closed Phase 7A. Day79 added the application-owned Controller loop above that Runtime. Day80 added governed Tool visibility/schema/permission without bypassing Day74/Day66/Day78. Day81 added explicit state, termination, loop detection, fencing and budgets. Day82 added durable Checkpoint validation, classified resume/recovery, transactional Outbox intent modeling, lease takeover, late-result fencing and reservation reconciliation. Day83 added human control, Day84 bounded context, Day85 added application-owned handoff, delegation, worker ownership, reconciliation and fan-in boundaries, and Day86 added security admission, Egress, Sandbox and incident-containment boundaries outside the model.
 
 Do not skip ahead unless explicitly instructed.
