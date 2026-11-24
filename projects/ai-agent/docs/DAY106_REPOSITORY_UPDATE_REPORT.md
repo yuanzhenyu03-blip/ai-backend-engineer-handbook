@@ -103,9 +103,10 @@ The preceding repository/Git statements remain accurate for their seal-time entr
 `3b96fe6f4eda7a5c07834ad12870a406d73297c1`, and the merge commit passed push workflow run `45322950796`.
 
 The post-merge workflow replayed the exact L2 checkpoint on CPython 3.11.5. Its current-tree CPython 3.12.16
-job passed 1444 unittest cases with 20 skipped, 129 Day106 pytest cases with 5 skipped, all 22 seed evaluators,
-current structured-evidence parsing and all 11 configured saved-evidence replays. The replay set includes the
-Day106 L3A and L3B saved reports and their exact checksum bindings.
+job passed 1444 unittest cases with 20 skipped, Day106 pytest with 129 passed and 5 skipped, all 22 seed evaluators,
+current structured-evidence parsing and 10 current-tree saved-evidence replays. Across both jobs, all 11
+configured replays passed. The current-tree replay set includes the Day106 L3A and L3B saved reports and their
+exact checksum bindings.
 
 CI did not start Docker/PostgreSQL/pgvector and did not call an external model Provider, detector or DLP. It
 therefore did not re-execute the historical real L3A/L3B boundaries on CPython 3.12. Production readiness and

@@ -51,9 +51,10 @@ Current state:
   MORE_EVIDENCE_NEEDED; the final teacher-provided English response remains TAUGHT_NOT_VERIFIED, so Day106
   overall PASS is not claimed; the local L3 seal itself remains the earlier no-push/no-CI checkpoint).
 - Day106 post-seal CI: PR #21 merged to `main` as `3b96fe6f4eda7a5c07834ad12870a406d73297c1`;
-  append-only evidence records the exact sealed L2 replay on CPython 3.11.5 plus 1444 unittest cases (20
-  skipped), 129 Day106 pytest cases (5 skipped), 22 seed evaluators and all configured saved-evidence replays
-  PASS on CPython 3.12.16. CI did not start Docker/PostgreSQL/pgvector or call an external Provider/DLP.
+  append-only evidence records the exact sealed L2 replay on CPython 3.11.5. The CPython 3.12.16 current-tree
+  job passed 1444 unittest cases (20 skipped), Day106 pytest with 129 passed and 5 skipped, 22 seed evaluators and 10
+  current-tree saved-evidence replays; across both jobs, all 11 configured replays passed. CI did not start
+  Docker/PostgreSQL/pgvector or call an external Provider/DLP.
 - Day105 post-seal CI: PR #18 merged to `main`; append-only evidence records CPython 3.12.16 with 1334 tests
   PASS, 7 skipped, 21 seed evaluators PASS, seven saved evidence replays PASS and the Day105 replay PASS. CI did
   not start Docker/PostgreSQL/pgvector or run Day105 L3; the later local L3 record is separate and does not

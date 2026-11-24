@@ -88,7 +88,12 @@
     "current_structured_evidence_parse": "PASS",
     "saved_evidence_replays": {
       "status": "PASS",
+      "scope": "AGGREGATE_ACROSS_CI_JOBS",
       "count": 11,
+      "by_job": {
+        "sealed_l2_replay_cpython_3_11_5": 1,
+        "current_tree_validation_cpython_3_12_16": 10
+      },
       "replays": [
         "day100-l2",
         "day101-l2",

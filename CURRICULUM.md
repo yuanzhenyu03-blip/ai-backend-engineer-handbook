@@ -2020,10 +2020,10 @@ validated without executed, saved evidence; an in-process fake/mock/double is ne
 Status:
 Complete at guided classroom scope through Day106. The Day106 repository checkpoint includes deterministic
 Level 2 mechanics plus append-only bounded L3A real local PostgreSQL/pgvector and L3B five-call real model
-evidence on local CPython 3.11.5. Later append-only PR #21/post-merge CI passed the exact sealed L2 replay and
-the current deterministic/unit suite plus saved L3A/L3B replay on CPython 3.12.16; it did not re-execute real
-database/Provider L3. External detector/DLP and production validation remain open; production readiness is
-`MORE_EVIDENCE_NEEDED`.
+evidence on local CPython 3.11.5. Later append-only PR #21/post-merge CI replayed the exact sealed L2 checkpoint
+on CPython 3.11.5 and separately passed the current deterministic/unit suite plus saved L3A/L3B replay on
+CPython 3.12.16; it did not re-execute real database/Provider L3. External detector/DLP and production
+validation remain open; production readiness is `MORE_EVIDENCE_NEEDED`.
 
 Objective:
 Build a runnable, evaluable Production RAG subsystem with permissions and citations — ingestion/parsing,
