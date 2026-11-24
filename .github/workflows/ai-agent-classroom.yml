@@ -9,6 +9,35 @@ permissions:
   contents: read
 
 jobs:
+  day106-l2-sealed-replay:
+    name: Python 3.11.5 sealed Day106 L2 replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DAY106_L2_CHECKPOINT: 91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11.5'
+      - name: Replay sealed evidence at its exact identity and runtime
+        run: |
+          python -c 'import sys; assert sys.version_info[:3] == (3, 11, 5), sys.version'
+          l2_root="$RUNNER_TEMP/day106-l2-replay"
+          l2_archive="$RUNNER_TEMP/day106-l2-replay.tar"
+          mkdir -p "$l2_root"
+          git archive \
+            --format=tar \
+            --output="$l2_archive" \
+            "$DAY106_L2_CHECKPOINT" \
+            projects/ai-agent
+          tar -xf "$l2_archive" -C "$l2_root"
+          cd "$l2_root/projects/ai-agent"
+          PYTHONPATH=src:. python evals/run_day106_evidence_replay.py
+
   ai-agent-classroom:
     name: Python 3.12 tests and seed evaluations
     runs-on: ubuntu-latest
@@ -21,7 +50,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-python@v7
         with:
@@ -76,19 +104,6 @@ jobs:
           [json.loads(path.read_text()) for path in root.rglob("*.json")];
           [json.loads(line) for path in root.rglob("*.jsonl")
           for line in path.read_text().splitlines() if line.strip()]'
-      - name: Verify saved Day106 L2 evidence at its exact checkpoint
-        run: |
-          l2_root="$RUNNER_TEMP/day106-l2-replay"
-          l2_archive="$RUNNER_TEMP/day106-l2-replay.tar"
-          mkdir -p "$l2_root"
-          git -C "$GITHUB_WORKSPACE" archive \
-            --format=tar \
-            --output="$l2_archive" \
-            91c2eddf3b10fbe1d6b0e381ee84ebb009039a5c \
-            projects/ai-agent
-          tar -xf "$l2_archive" -C "$l2_root"
-          cd "$l2_root/projects/ai-agent"
-          PYTHONPATH=src:. python evals/run_day106_evidence_replay.py
       - name: Verify saved Day106 L3A evidence offline
         run: |
           python evals/run_day106_l3_evidence_replay.py \
