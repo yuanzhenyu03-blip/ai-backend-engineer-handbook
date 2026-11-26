@@ -1417,3 +1417,271 @@ This Decision is a `CONCEPTUAL_STATIC` curriculum-planning change only. It does 
 ProofOps repository/code existence, Python 3.12/uv/Async FastAPI/PostgreSQL/MCP execution, a real Provider call,
 Docker/cloud deployment, evaluation, load, security, GameDay, portfolio, employment or production readiness.
 All Day107–Day130 implementation, integration and production results remain `NOT_RUN`.
+
+---
+
+## Decision 026 — Reframe Planned Day107–Day130 Around Cross-Border Commerce Intelligence and FDE Delivery
+
+Status: Accepted for Planned curriculum scope
+
+Date: 2026-11-26
+
+### Context
+
+Day01–Day106 remain complete at their recorded classroom, runtime and evidence scopes. The later independent
+Day106 English verification is `VERIFIED_PASS`, so Day106 course/mastery is `PASS` at the recorded scope.
+Day107–Day130 have not started: no future product repository, lesson implementation, Provider execution,
+Docker/database environment, evaluation run, cloud deployment or production evidence exists.
+
+Decision 025 correctly introduced Ticket-first delivery, Micro-Socratic teaching, independent learner
+ownership, evidence honesty and a separate portfolio repository. Its planned ProofOps incident domain,
+however, is not the best match for the learner's sustained interest, available cross-border-commerce domain
+feedback or the broadest Forward Deployed Engineer / Applied AI / AI Backend employment story.
+
+Decision 008 permits Planned lessons to be changed before execution. This decision therefore supersedes only
+the still-unexecuted Day107–Day130 product and lesson scope from Decision 025. Decision 025 remains immutable
+historical planning evidence. Day01–Day106, Decisions 001–025, sealed Artifacts and append-only evidence are
+not rewritten.
+
+### Decision
+
+#### Freeze the flagship and customer problem
+
+The only Day107–Day130 flagship is **Cross-Border Commerce Intelligence Agent**, with the portfolio subtitle
+**Evidence-Grounded Contribution-Margin & Anomaly Investigator**.
+
+The product answers one bounded customer problem:
+
+```text
+orders / settlements / refunds / advertising / marketplace fees / logistics / COGS / FX
+-> versioned RawSnapshot
+-> schema mapping + validation + reconciliation
+-> application-owned Canonical Commerce Ledger
+-> deterministic contribution-margin metrics
+-> anomaly candidates
+-> bounded Agent investigation through typed Tools
+-> EvidenceBundle + cited explanation and recommendation
+-> customer review / export / feedback
+```
+
+This is not a general commerce chatbot, autonomous ERP, generic BI replacement or automatic optimization
+system. The first useful path imports a bounded dataset, computes trustworthy SKU/channel/country/period
+metrics, investigates a material change and produces an evidence-bound report.
+
+#### Freeze authority and calculation boundaries
+
+- A versioned immutable RawSnapshot is imported source evidence. An accepted CanonicalLedgerEntry is an
+  application-owned normalized commerce fact. This analytical ledger is not the merchant's legal accounting,
+  tax or marketplace system of record.
+- A versioned MetricContract is application-owned calculation policy. MetricResult and AnomalyCandidate are
+  derived Artifacts; an InvestigationReport and release/action decision are application-owned decisions;
+  export/delivery/feedback are external outcomes.
+- Formula, allocation, timezone, period-close, FX-source/date or late-data changes create a new revision and
+  MetricRun. Old ledger/metric/report evidence remains append-only and is never edited to match the new run.
+- The Agent may plan an investigation, choose eligible typed Tools and organize an explanation. It cannot
+  invent, recompute or overwrite authoritative revenue, cost, FX, fee or margin values.
+- The application owns tenant isolation, authorization, data admission, metric versions, Tool eligibility,
+  disclosure, report release, action decisions and durable state.
+- The model, Provider, MCP Server and optional Retriever contribute bounded candidates or observations; none
+  owns business truth or release authority.
+- Raw input, transformed rows, metric results, anomaly evidence and generated explanations retain exact
+  dataset/schema/metric/policy/model/Tool identities so that reports can be reproduced or invalidated.
+- Retrieved documents remain untrusted data. Optional RAG/pgvector may retrieve metric definitions, platform
+  rules or operating guidance, but never replaces SQL/ledger calculations.
+
+#### Use a separate future product repository
+
+The product will be implemented in a separate clean repository named `commerce-intelligence-agent`. The
+handbook remains the source of truth for curriculum, mastery, checkpoints and evidence boundaries. The product
+repository will hold Tickets, PRs, ADRs, code, migrations, tests, datasets, evaluation evidence, deployment
+assets and portfolio material.
+
+The intended product stack is Python 3.12+, `pyproject.toml`, `uv`, Ruff, mypy, Async FastAPI, Pydantic,
+SQLAlchemy 2 Async, asyncpg, Alembic, PostgreSQL, a PostgreSQL-backed Worker, one Streamable-HTTP MCP Server,
+ProviderAdapter plus ReplayProvider, a bounded React/TypeScript/ECharts workbench, OpenTelemetry, pytest,
+Docker Compose and GitHub Actions. pgvector is optional and justified only by a real knowledge-retrieval
+requirement.
+
+This planning decision does not create that repository or any runtime. Repository creation requires the
+learner to explicitly begin Day107.
+
+#### Freeze the bounded V0 product scope
+
+V0 includes:
+
+1. one versioned deterministic marketplace import bundle containing logical order, settlement, refund,
+   ad-spend, fee, logistics, COGS and FX tables; this is one fixture/adapter, not eight production connectors;
+2. schema mapping, row-level validation, duplicate handling, reconciliation and content-safe import evidence;
+3. a canonical ledger plus deterministic contribution-margin calculations by SKU, channel, country and time;
+4. one primary margin-deterioration scenario, one versioned contribution-margin contract and one deterministic
+   anomaly rule; later evaluation fixtures may add refund, fee and advertising-efficiency variations;
+5. four bounded read capabilities: `query_contribution_margin`, `compare_commerce_periods`,
+   `inspect_anomaly_evidence` and `trace_metric_lineage`;
+6. one bounded investigation Agent that produces an EvidenceBundle, cited explanation, uncertainty and
+   recommended next checks;
+7. a workbench limited to four areas: import status, metrics/anomalies, investigation evidence and feedback.
+
+Day119 requires an approval-gated sandbox-action contract and deterministic side-effect simulation, such as a
+simulated campaign pause, to demonstrate Decision/Intent/idempotency/UNKNOWN reconciliation. Calling any
+external sandbox target is optional, separately authorized and isolated from real customer systems. The
+real-customer path remains read-only unless a later separately authorized scope proves otherwise.
+
+#### Make synthetic data first-class and real data optional
+
+Development must not depend on a friend or prospective domain user releasing private data. A versioned,
+deterministic synthetic dataset with documented generation rules, edge cases and expected metrics is the
+baseline for tests and CI.
+
+Domain-user participation is separate evidence:
+
+- a discovery interview may validate workflow, fields, metric definitions and success criteria;
+- sanitized or aggregated data may be added only with explicit permission and a documented privacy boundary;
+- a domain user may review synthetic fixtures and outputs without sharing source data;
+- V1 feedback and the resulting V2 change are recorded as Forward Deployment evidence;
+- synthetic, sanitized-real, external-real and production evidence are never relabeled as one another.
+
+#### Preserve Ticket-first, Micro-Socratic delivery
+
+Decision 025's delivery model remains active:
+
+- every milestone uses `Ticket + PR + DoD + runnable evidence + independent explanation`;
+- Type A begins with a 20–30 minute Micro-Socratic lesson for genuinely new knowledge;
+- Type B begins with implementation and a short prior-knowledge check for previously mastered integration;
+- every Ticket records Goal, Acceptance Criteria, Non-goals, Learner Ownership, Review/Interview Check and
+  Evidence Boundary;
+- AI-provided code or prose does not prove independent mastery until the learner explains, modifies or debugs
+  the critical seam and interprets observed evidence.
+
+#### Replace the Planned Day107–Day130 sequence
+
+Phase 7D — Commerce Data Foundation and Evidence-Grounded Investigation (Day107–Day113):
+
+- Day107 — customer discovery, scope freeze, success criteria, metric contracts, threat model and clean product
+  repository skeleton;
+- Day108 — Async FastAPI/PostgreSQL foundation, tenant/dataset/import-job identities and Alembic;
+- Day109 — canonical commerce ledger, schema mapping, data quality and reconciliation;
+- Day110 — deterministic contribution-margin service, SQL/numeric correctness and first runnable checkpoint;
+- Day111 — typed investigation Tools, one Streamable-HTTP MCP Server, ReplayProvider and real ProviderAdapter;
+- Day112 — bounded investigation Agent, exact EvidenceBundle and minimal React/TypeScript/ECharts workbench;
+- Day113 — end-to-end V0 checkpoint, explicitly labeled simulated stakeholder review (or real independent
+  domain review when actually obtained), field/metric review and first feedback iteration; absent real review
+  remains `NOT_RUN` without blocking the technical V0 checkpoint.
+
+Phase 7E — Evaluation, Safety and Forward Deployment on Commerce Intelligence (Day114–Day123):
+
+- Day114 — versioned Golden Dataset, anomaly scenarios, provenance and split/change governance;
+- Day115 — deterministic and calibrated model-based graders for numeric correctness, reconciliation, evidence
+  coverage, grounding, citations, disagreement and abstention;
+- Day116 — durable ImportJob/Worker, `SKIP LOCKED`, lease/fence, checkpoint/resume and duplicate-import
+  idempotency;
+- Day117 — bounded real-model and trajectory evaluation checkpoint with ReplayProvider comparison and
+  repeated-run capability/consistency evidence;
+- Day118 — tenant/data/Agent adversarial security evaluation: isolation, revocation, Prompt injection,
+  PII/disclosure, destination/egress and release hard gates;
+- Day119 — approval-gated sandbox action contract, deterministic UNKNOWN reconciliation and optional external
+  sandbox execution;
+- Day120 — dataset/metric/Prompt/model/Tool regression and machine-enforced CI release gate checkpoint;
+- Day121 — OpenTelemetry, safe traces, latency, token/cost and quality evidence;
+- Day122 — bounded batch import/query concurrency, backpressure, indexing and load diagnosis;
+- Day123 — schema-drift/Worker-crash/Provider-timeout GameDay, rollback/data repair, Postmortem and English
+  interview.
+
+Phase 8 — Cloud Integration, FDE Delivery and Employment Readiness (Day124–Day130):
+
+- Day124 — container release, secret management, managed PostgreSQL and bounded cloud deployment;
+- Day125 — onboard a second synthetic customer schema through the stable Adapter/configuration boundary;
+- Day126 — cloud smoke, health/SLI/SLO checks, observability dashboard and Runbook checkpoint;
+- Day127 — simulated Forward Deployment drill: discovery change -> schema/metric change -> V1/V2 iteration ->
+  handoff rehearsal and reusable pattern extraction; actual domain review is recorded when obtained, while
+  customer deployment/adoption remains `NOT_RUN` unless independently proven;
+- Day128 — AI Backend/FDE system design plus timed Python/SQL/English mock interview;
+- Day129 — Chinese/English demo, README, architecture diagram, STAR stories, résumé and application iteration;
+- Day130 — final portfolio audit, mock interview and Employment Readiness Gate review.
+
+Runnable checkpoints are Day110, Day113, Day117, Day120, Day123, Day126 and Day130. A heavy milestone may span
+multiple calendar days or Tickets; calendar passage never establishes completion.
+
+#### Define evaluation and Forward Deployment evidence
+
+The product must measure more than whether tests pass. Evidence should include:
+
+- dataset onboarding time and schema-mapping changes;
+- reconciliation coverage and unresolved-record counts;
+- metric correctness against independently specified expected values;
+- anomaly precision/recall or explicitly bounded review metrics;
+- evidence/citation coverage, unsupported-claim rate and safe abstention;
+- investigation latency, cost and domain-user usefulness feedback;
+- V1 feedback, V2 change and the reusable pattern extracted from the engagement;
+- restart/retry/idempotency/reconciliation, tenant isolation and security-hard-gate results.
+
+Golden-set governance, Judge calibration, trajectory evaluation, security invariants and execution-level
+honesty from Decision 025 remain required. A model-based Judge cannot approve numeric truth or a
+non-compensable security gate.
+
+Before any Day117 real Provider call, Provider egress allowlisting, authorization, Prompt/data minimization and
+disclosure preflight must pass. The bounded run uses deterministic synthetic/test-tenant data only and excludes
+customer PII, Secrets, raw order payloads and unnecessary identifiers. Day118 expands adversarial coverage; it
+is not the first time security boundaries are established. Day108 ingestion rejects or removes names, street
+addresses, phone numbers, email addresses and other fields that are unnecessary for the frozen metric contract;
+sanitized-real data requires separate authorization and a recorded privacy boundary.
+
+#### Keep scope intentionally narrow
+
+Day107–Day130 does not require Kafka, Spark, Kubernetes, multi-Agent orchestration, multiple real Providers,
+three production marketplace connectors, real-time streaming, a full ERP/BI platform, autonomous pricing,
+autonomous replenishment, real advertising writes or a complex frontend. Existing Playwright, n8n, RAG,
+browser, Redis/Celery and Kubernetes evidence remains historical capability evidence and is reused only when a
+measured product requirement justifies it.
+
+#### Keep parallel employment preparation active
+
+Reserve approximately one hour per working day for timed Python/SQL and thirty minutes for English explanation,
+system-design or behavioral practice. Applications may begin from honest completed evidence under Decision 008;
+they do not wait for Day130. Day113 expands Commerce/FDE-targeted applications only if the runnable V0,
+README, CI and evidence actually pass.
+
+### Employment Readiness Gate amendment
+
+Completion is competency-gated. The future Gate requires observed evidence for:
+
+1. a runnable Cross-Border Commerce Intelligence product with one import-to-investigation path;
+2. a versioned import pipeline, schema mapping, validation and reconciliation;
+3. an application-owned canonical ledger, MetricContract, independently verified contribution-margin
+   calculations and deterministic anomaly/abstention behavior;
+4. Async FastAPI, PostgreSQL, Alembic and durable Job/Worker integration;
+5. bounded Agent state, typed Tools, budgets, checkpoint/resume/cancellation and failure recovery;
+6. one real Streamable-HTTP MCP integration without transferring authority to MCP or the model;
+7. ProviderAdapter plus deterministic replay and bounded real-model evidence;
+8. exact dataset/ledger/metric/anomaly/Tool/EvidenceBundle/report identities and current authorization;
+9. tenant isolation, Prompt/data security, disclosure and non-compensable release gates;
+10. retry/idempotency/UNKNOWN reconciliation plus a deterministic sandbox-action contract; an actual external
+    write remains optional and separately authorized;
+11. deterministic, trajectory, adversarial and calibrated-Judge evaluation with numeric-truth separation;
+12. machine CI gates, OpenTelemetry, latency/concurrency/cost/quality and GameDay evidence;
+13. reproducible local and bounded-cloud execution with honest execution labels;
+14. discovery, feedback, V1-to-V2 iteration, handoff rehearsal and a reusable second-schema Adapter proof;
+15. Python/SQL, system-design, Chinese/English demo, behavioral stories, portfolio, résumé and application
+    feedback.
+
+Optional infrastructure may be added only when an observed requirement justifies it.
+
+### Consequences
+
+- Decision 025 remains immutable history; only its unexecuted ProofOps Day107–Day130 product plan is
+  superseded.
+- Ticket-first teaching, learner ownership, evidence honesty and the separate-repository boundary remain.
+- Phase spans remain Day107–Day113, Day114–Day123 and Day124–Day130.
+- Runnable checkpoints become Day110, Day113, Day117, Day120, Day123, Day126 and Day130.
+- Day107 remains `Planned / not started`.
+- No Commerce repository, lesson, code, Docker service, Provider execution or runtime evidence is created by
+  this decision.
+- The handbook remains the curriculum/mastery source of truth; future product implementation belongs in
+  `commerce-intelligence-agent`.
+- Day106 and earlier evidence is reusable only at its exact recorded scope.
+
+### Validation honesty
+
+This Decision is `CONCEPTUAL_STATIC` planning only. It does not prove product existence, customer adoption,
+data accuracy, Python 3.12/Async FastAPI/PostgreSQL/MCP execution, a Provider call, evaluation, Docker/cloud,
+load/security/GameDay, portfolio quality, employment readiness or production readiness. All Day107–Day130
+implementation, integration, bounded-cloud and production outcomes remain `NOT_RUN`.

@@ -11,7 +11,7 @@ GitHub is the single source of truth.
 ## Current Phase
 
 Phase 7A, Phase 7B and Phase 7C are COMPLETE at guided classroom scope through Day106. The revised Phase 7D —
-ProofOps Core Runtime and Bounded Incident Resolution — is next; Day107 has not started.
+Commerce Data Foundation and Evidence-Grounded Investigation — is next; Day107 has not started.
 
 Day59–Day106 are complete at their recorded classroom/evidence levels. Day106 added exact capstone composition,
 durable decision/intent/receipt separation and bounded recovery mechanics without weakening Day105 security.
@@ -26,14 +26,18 @@ evidence and NOT RUN boundaries remain recorded below.
 
 ## Current Lesson
 
-Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+Day107 — Customer Discovery, Scope Freeze, Metric Contracts, Threat Model and Product Repository Skeleton
 (Phase 7D) — planned / not started.
 Most recent classroom lesson: Day106 — Production RAG Capstone and English Interview.
 
-Planning boundary: Decision 025 reorganizes only Planned Day107–Day130. No `proofops` repository, future
-lesson/code, Provider call, Docker/database/cloud run or evaluation evidence was created. All Day107+
-execution scopes remain `NOT_RUN`. The original Day106 teacher-provided answer remains historical
-`TAUGHT_NOT_VERIFIED` evidence; the later independent English verification is `VERIFIED_PASS`.
+Planning boundary: Decision 026 supersedes only the Planned Day107+ product direction. The future independent
+`commerce-intelligence-agent` repository has not been created; no future lesson/code, Provider call,
+Docker/database/cloud run or evaluation evidence was created. All Day107+ runtime, integration, cloud and
+production scopes remain `NOT_RUN`. Until the learner explicitly starts Day107, do not create the product
+repository or run Provider/Docker infrastructure. The handbook remains the curriculum, mastery and historical-
+evidence source of truth, and completed Day01–Day106 records remain unchanged. The original Day106 teacher-
+provided answer remains historical `TAUGHT_NOT_VERIFIED` evidence; the later independent English verification
+is `VERIFIED_PASS`.
 
 Day106 completion record:
 
@@ -422,9 +426,10 @@ Released — Day64 Dynamic-Extraction / Artifact-Evidence decision core under `p
 Released — Day63 Browser-Session authorization gate under `projects/fastapi-playwright/`: `src/day63_session_gate.py` (pure authorization/claim decision core: Job-binding validation, atomic-claim classifier with `UPDATE ... RETURNING` semantics, credential-load gating, positive-identity verification, Origin/security check, final fence, storage-state Origin/Cookie-domain allowlist filtering, and an orchestrator that proves the NEGATIVE effects) and `src/day63_controlled_login_page.py` (a synthetic loopback account page: account/login_redirect/unapproved_origin modes), plus tests and the design/runbook. `python3 -m pytest -q tests/test_day63_session_gate.py tests/test_day63_controlled_login_page_http.py tests/test_day63_playwright_isolation.py` = 36 passed, 1 skipped (real-Chromium isolation gated on `playwright`), EXECUTED_LOCAL_RUNTIME. The LIVE classroom artifact was CONCEPTUAL_STATIC (nothing executed in class). Core model: Tenant = business scope; BrowserContext = runtime isolation; BrowserSession = revocable authorization capability; storage_state = protected credential material; every non-AUTHORIZED outcome (AUTHENTICATION_PRECONDITION_FAILED / AUTHORIZATION_SESSION_FAILURE / UNKNOWN_AUTHORIZATION_STATE / SECURITY_FAILURE) blocks publication and is never `no result` or a blind retry. Day62 is COMPLETE. NOT RUN by the updating agent: real Chromium BrowserContext isolation / redirect-popup observation; real PostgreSQL atomic claim; credential encryption/KMS/Object Storage; a real Worker; queue integration (Day66); production. Async fix (v0.1.157): the real-Chromium tests now use one async event loop (run_task_authorization_async + AsyncTaskDeps) with no nested run_until_complete; 8 async-path pure tests added (28->36 passed). The real-browser suite was ATTEMPTED but Chromium could not be downloaded in the sandbox, so it remains NOT RUN. Review fixes (v0.1.156): the final fence now requires lease_owner==attempt_id + lease_expires_at>now (an old/expired-lease Attempt can never publish); the Cookie allowlist default is the Origin's host-only hostname (not the full Origin string); a published result whose Context cleanup failed is reported INCOMPLETE (TaskCompletion), never SUCCESS; classify_login_persist treats only state-saved+metadata-failed as ORPHAN_INACTIVE and state-not-saved as PERSIST_CONSISTENCY_FAILED; and the gated real-Chromium suite adds popup/unapproved-origin and login-redirect-no-auto-login tests (still NOT RUN). Day62's `13 passed, 1 skipped` is NOT reused as Day63 evidence. No secrets, real credentials, real URLs, tenant data, cookies, tokens, or storage-state exports committed.
 
 Target lesson:
-First complete the independent Day106 English verification. Then, after explicit learner authorization, begin
-Day107 scope/threat/two-layer-architecture teaching and prepare the first Ticket. Do not create the `proofops`
-repository or implementation before that authorization. Production readiness remains `MORE_EVIDENCE_NEEDED`.
+The independent Day106 English verification is complete. After explicit learner authorization, begin Day107
+customer discovery, scope freeze, metric-contract and threat-model teaching, then prepare the first Ticket.
+Do not create the future independent `commerce-intelligence-agent` repository or implementation before that
+authorization. Production readiness remains `MORE_EVIDENCE_NEEDED`.
 
 (Semantics, shared with PROJECT_STATUS.md: "Current Lesson" = the lesson currently being worked on / next up
 (Day107); Day106 is the latest completed classroom lesson; Day104 remains complete at guided classroom Level 2
@@ -437,9 +442,11 @@ The Phase 5 Production Integration Gate (Day59–61) is COMPLETE.)
 ## Today's Tasks
 
 - [x] Complete the independent Day106 English verification; result `VERIFIED_PASS` on 2026-11-24.
-- [x] Review and accept Decision 025 planning boundaries.
+- [x] Historical: review and accept Decision 025 planning boundaries.
+- [x] Review and accept Decision 026 planning boundaries.
 - [ ] Prepare the Day107 Micro-Socratic lesson and first Ticket only after the learner says to begin Day107.
-- [ ] Do not create ProofOps code/repository or execute Provider/infrastructure before explicit authorization.
+- [ ] Do not create Commerce product code/repository or execute Provider/Docker infrastructure before explicit
+      authorization.
 
 ### Historical Day83–Day88 carry-over snapshot (not current Day107 work)
 

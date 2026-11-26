@@ -1568,7 +1568,7 @@ the **Employment Readiness Gate** (see below), not by reaching a fixed final day
 runs to **Day130**, but Day130 is only the present planning coordinate — NOT a permanent cap. If the
 Employment Readiness Gate is not yet met, Planned lessons may be added, split, merged, or renumbered based on
 real job requirements, AI ecosystem changes, a learner's real weak points, and project/interview feedback.
-Completed Day01–Day106 lessons, Decisions 001–024 and sealed evidence stay fixed; only Planned Day107+ scope
+Completed Day01–Day106 lessons, Decisions 001–025 and sealed evidence stay fixed; only Planned Day107+ scope
 may change.
 
 Day107–Day130 contains 24 milestone coordinates rather than 24 promised calendar days. The intended
@@ -1597,9 +1597,10 @@ diff, failure path, alternatives and observed evidence.
 
 From Week 1, reserve approximately one hour per working day for timed Python/SQL and thirty minutes for English
 explanation/interview-bank work, adjusted for real calendar capacity without lowering mastery gates. The future
-ProofOps repository will keep concise Tickets, PRs, ADRs and evidence; this handbook updates canonical status at
-checkpoints. Do not continue appending non-FastAPI material to the oversized FastAPI cheat-sheet/interview
-files; future notes use focused topic files when their lesson actually begins.
+`commerce-intelligence-agent` repository will keep concise Tickets, PRs, ADRs, discovery/metric contracts and
+executable evidence; this handbook updates canonical status at checkpoints. Do not continue appending non-
+FastAPI material to the oversized FastAPI cheat-sheet/interview files; future notes use focused topic files when
+their lesson actually begins.
 
 ---
 
@@ -1655,20 +1656,22 @@ Phase 7C (Day95–106):
 - Day106 — Production RAG capstone checkpoint
 
 Phase 7D (Day107–113):
-- Day113 — V0–V2 independent runnable checkpoint
+- Day110 — deterministic canonical-ledger/contribution-margin checkpoint
+- Day113 — Commerce V0, labeled stakeholder review and independent runnable checkpoint
 
 Phase 7E (Day114–123):
-- Day117 — real-model evaluation integration checkpoint
+- Day117 — real-model and trajectory evaluation integration checkpoint
 - Day120 — machine-enforced CI release-gate checkpoint
 - Day123 — GameDay, Postmortem and phase English checkpoint
 
 Phase 8 (Day124–130):
-- Day126 — bounded-cloud/observability evidence checkpoint
+- Day126 — bounded-cloud smoke/operations evidence checkpoint
 - Day130 — portfolio and Employment Readiness Gate review
 ```
 
-No new lesson numbers are added for Checkpoints; they run on the listed existing Days. The Planned gaps are
-4/3/3/3/4 coordinates and remain below the maximum of six. This cadence is mirrored in `ROADMAP.md`.
+No new lesson numbers are added for Checkpoints; they run on the listed existing Days. From Day106, the Planned
+checkpoint gaps are 4/3/4/3/3/3/4 coordinates and remain below the maximum of six. This cadence is mirrored in
+`ROADMAP.md`.
 
 ---
 
@@ -2293,198 +2296,236 @@ production claim without executed evidence.
 
 ---
 
-## Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution (Day107–Day113)
+## Phase 7D — Commerce Data Foundation and Evidence-Grounded Investigation (Day107–Day113)
 
 Status:
 Planned
 
 Objective:
-Create one bounded **ProofOps — Evidence-Grounded Incident Resolution Agent** with a domain-independent Runtime
-and one incident domain. Build real async seams, durable state, application-owned authority, four read
-capabilities and one exact human-approved remediation path without forcing every earlier technology into the
-deployment.
+Create one focused **Cross-Border Commerce Intelligence Agent — Evidence-Grounded Contribution-Margin &
+Anomaly Investigator**. Treat the work as a small forward deployment: discover a real commerce workflow,
+freeze metric and data contracts, ingest imperfect operational data, make a deterministic canonical ledger the
+authority for numbers, and add a bounded Agent that investigates rather than invents business facts. Build only
+the async product seams and minimal React/TypeScript interface needed for a usable V0.
 
 Knowledge connection:
 
 ```text
 LLM App + Agent/MCP + Production RAG capabilities
-    -> ProofOps Core Runtime + bounded incident-resolution domain
-    -> one runnable, recoverable and permissioned employment Artifact
+    -> versioned commerce imports + canonical ledger + deterministic metrics
+    -> bounded evidence-grounded investigation Agent
+    -> one runnable customer-workflow and employment Artifact
 ```
 
-Future product repository: separate `proofops/` repository. This planning update does not create it. The
-two-layer target is `src/runtime/` plus `src/domains/incident/`.
+Future product repository: separate `commerce-intelligence-agent/` repository. This planning update does not
+create it. The product separates deterministic commerce/domain truth, application workflows, infrastructure
+adapters and the bounded Agent; the model never owns ledger arithmetic, authorization or release authority.
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day107 — Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton.
-  Scope: freeze the one-product/five-capability/four-scenario boundary, application authority and the async
-  project/database seam. Day107 remains Planned until explicitly started.
-- Day108 — ProofOps V0 Part 1: Streamable-HTTP MCP Server, Three Read Tools and Embedding/pgvector Retrieval.
-  Scope: real MCP transport, typed read contracts, ACL-aware Runbook retrieval, telemetry and deployment reads.
-- Day109 — ProofOps V0 Part 2: Bounded State Machine, ProviderAdapter + ReplayProvider, Investigation and
-  Noisy-alert Abstention.
-  Scope: bounded control, versioned Provider profiles, evidence-grounded hypothesis and safe no-action outcome.
-- Day110 — ProofOps V1: Async Job API, PostgreSQL Worker, Lease/Fence, Checkpoints and Crash Resume.
-  Scope: truthful `202`, durable Job/Step/Attempt state, `SKIP LOCKED`, fenced writes and restart recovery.
-- Day111 — ProofOps V2: Exact HumanApproval, Controlled Remediation, Recovery Verification and UNKNOWN
-  Reconciliation.
-  Scope: one isolated allowlisted write, exact approval binding, idempotent Decision/Intent/dispatch and
-  reconciliation; a minimal four-area approval/view interface is sufficient.
-- Day112 — Async SSE, Cancellation Propagation and Bounded Linux/Docker/Network Troubleshooting.
-  Scope: distinguish HTTP connection, Provider/Tool execution and durable Job cancellation; diagnose the real
-  bounded local stack.
-- Day113 — Independent Coding Verification, Runnable V0–V2 Checkpoint and Résumé/JD Calibration.
-  Scope: no-AI independent implementation/debugging check, cumulative run, reproducible evidence and honest
-  application claims.
+- Day107 — Customer Discovery, Scope Freeze, Metric Contracts, Threat Model and Repository Skeleton.
+  Scope: identify the target user and decision workflow; freeze contribution-margin definitions, success
+  measures, synthetic-data boundary, authority/non-goals and a clean Python 3.12 + React/TypeScript product
+  skeleton. Day107 remains Planned until explicitly started.
+- Day108 — Async FastAPI/PostgreSQL Import Foundation.
+  Scope: tenant-scoped upload/import Job contracts, raw-file identity and digest, schema validation, staging,
+  idempotent acceptance, Alembic and real local PostgreSQL integration. Reject or remove names, street
+  addresses, phone numbers, email addresses and any other fields unnecessary for the frozen metric contract;
+  sanitized-real inputs require separate authorization and a recorded privacy boundary.
+- Day109 — Canonical Commerce Ledger, Lineage and Reconciliation.
+  Scope: normalize orders, settlements, advertising, refunds, platform fees, logistics, COGS and FX into
+  application-owned facts; record source-to-ledger lineage, balancing rules, rejected rows and reconciliation.
+- Day110 — Deterministic Contribution-Margin and Anomaly Checkpoint.
+  Scope: compute versioned SKU/channel/country contribution margin and deterministic anomaly candidates from
+  the canonical ledger; independently verify arithmetic, slices, data-quality gates, duplicate-import
+  invariance, source-total conservation, FX rounding, refund/fee allocation, late-data restatement and exact
+  evidence. This is the first runnable checkpoint.
+- Day111 — Typed Commerce Tools, MCP Boundary and Provider Adapters.
+  Scope: expose read-only typed investigation tools through one bounded MCP seam; add ProviderAdapter and
+  ReplayProvider without transferring metric, authorization, Tool or release authority to MCP or the model.
+- Day112 — Bounded Investigation Agent, Evidence Binding and Minimal React/TypeScript Workbench.
+  Scope: plan bounded investigations over approved tools, bind every claim to metric/query evidence, abstain on
+  insufficient/conflicting data and display import status, anomaly, investigation and evidence in a small UI.
+- Day113 — Runnable V0, Stakeholder Review and Independent Verification Checkpoint.
+  Scope: run the exact import-to-investigation path, conduct an explicitly labeled
+  `SIMULATED_STAKEHOLDER_REVIEW` when no independent commerce reviewer is available, record accepted/rejected
+  V1 changes, complete a no-AI implementation/debugging check and calibrate honest résumé/JD claims. Record
+  `DOMAIN_USER_REVIEW` only when a real independent domain user actually participates.
 
 Phase deliverable:
 
 ```text
-A runnable bounded incident Agent with Async FastAPI/PostgreSQL/pgvector, one Streamable-HTTP MCP transport,
-five typed capabilities, ReplayProvider plus one replaceable real Provider seam, durable checkpoint/recovery and
-one isolated approved-action path.
+A runnable Commerce V0 with Async FastAPI/PostgreSQL, versioned imports, a reconciled canonical ledger,
+deterministic contribution-margin/anomaly results, typed read Tools/MCP, ReplayProvider plus one replaceable
+real-Provider seam, a bounded evidence-grounded Agent and a minimal React/TypeScript workbench.
 ```
 
 Validation requirement:
-The model, MCP Server and Provider never own authorization, durable state or final action authority. The write
-path requires current authorization and exact HumanApproval but remains blocked until every application-owned
-gate passes. Day113 requires an actual cumulative run; static contracts alone cannot pass it. Replay, local-real
-and external-real evidence remain separate, and all unexecuted scopes remain `NOT_RUN`.
+An immutable RawSnapshot is imported source evidence; an accepted CanonicalLedgerEntry is an application-owned
+normalized analytical fact; a MetricContract is calculation policy; MetricResult and AnomalyCandidate are
+derived Artifacts; InvestigationReport/release records are application decisions; export and feedback are
+external outcomes. This analytical ledger is not a legal accounting or tax system. Formula, allocation,
+timezone, period-close, FX or late-data changes create new revisions/runs while old evidence remains append-
+only. The canonical ledger and versioned metric contract, not the model, govern all reported numbers.
+Raw-source, normalized-row, ledger-entry, metric, anomaly, Tool-result and explanation identities must remain
+traceable.
+The model, MCP Server and Provider never own authorization, durable truth or final release/action authority.
+Day110 and Day113 require actual cumulative runs; static contracts alone cannot pass them. The Day113 V0 is one
+deterministic marketplace bundle, one contribution-margin contract, one primary margin-deterioration scenario,
+one anomaly rule, four read Tools and a four-area workbench—not multiple production connectors. Synthetic data
+may start the product, but it cannot be described as customer production data. Replay, local-real,
+domain-reviewed and external-real evidence remain separate. At planning time every Day107+ execution scope is
+`NOT_RUN`.
 
 ---
 
-## Phase 7E — Evaluation, Safety and Operations on ProofOps (Day114–Day123)
+## Phase 7E — Evaluation, Safety and Forward Deployment on Commerce Intelligence (Day114–Day123)
 
 Status:
 Planned
 
 Objective:
-Apply dataset governance, deterministic and calibrated model-based graders, real-model evaluation,
-repeated-run trajectory evaluation, adversarial/failure testing, machine release gates, observability, bounded
-load/security testing and an executable GameDay directly to ProofOps.
+Apply dataset governance, deterministic and calibrated model-based graders, durable Worker/recovery mechanics,
+real-model/trajectory evaluation, adversarial/security testing, one approval-gated sandbox-action contract,
+machine release gates, observability, bounded load testing and an executable GameDay directly to the Commerce
+product. External sandbox execution is optional and separately authorized.
 
 Knowledge connection:
 
 ```text
-Runnable ProofOps V0–V2
-    -> versioned dataset + graders + trajectory/adversarial evidence
-    -> machine release gates + observability + bounded GameDay
+Runnable Commerce V0
+    -> governed commerce cases + graders + real-model/adversarial evidence
+    -> durable recovery + machine gates + observability + bounded GameDay
 ```
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
 - Day114 — Evaluation Dataset Engineering and Golden-set Governance.
-  Scope: versioned Manifest/provenance, train/development/blind split, critical slices, leakage checks, label
-  review and change control across the four scenario families.
-- Day115 — Reusable Deterministic Grader Runtime and Security Hard Gates.
-  Scope: schema, ACL, Citations, Tool arguments, normal-quality and non-compensable security graders.
-- Day116 — Calibrated Model-based Graders, Bias and Agreement Limits.
-  Scope: frozen Judge Prompt/model/config/rubric, pairwise/rubric evaluation, disagreement, abstention and
-  comparison against independent deterministic or human labels.
-- Day117 — Real-model Retrieval and Diagnosis Evaluation Integration Checkpoint.
-  Scope: bounded authorized Provider run through the same application seams; save exact execution boundary,
-  dataset/evaluator identities, costs and limitations.
-- Day118 — Agent Trajectory and Tool-use Evaluation: Capability, Regression and Repeated-run Reliability.
-  Scope: record every run identity/config/attempt, observed success-at-least-once@k, all-k-pass consistency,
-  single-run quality and failure taxonomy without assuming run independence.
-- Day119 — Adversarial and Failure-mode Evaluation Harness.
-  Scope: malicious Runbooks, cross-tenant telemetry, mid-run revocation, Tool timeout and normal-case false
-  positive controls.
-- Day120 — Prompt/Model/Tool/Index Regression and CI Release Gates.
-  Scope: machine-readable decisions bound to exact commit, dataset, evaluator and configuration digests;
-  critical `FAIL`, `INCONCLUSIVE` or `NOT_RUN` fails closed.
-- Day121 — AI Observability and Versioned Same-provider Routing Evidence.
-  Scope: OTel AgentRun/Step/Tool/Model correlation, attribute allowlist/cardinality budget, TTFT/P95, cost per
-  success and versioned light/standard Capability Profiles.
-- Day122 — Bounded Async Load, Backpressure and HTTP Security Execution.
-  Scope: workload/concurrency model, cold/warm behavior, queue wait vs service time, DB/Provider saturation,
-  latency/error/timeout measurements and recovery validation; this is not production load/soak evidence.
-- Day123 — Executable Rollback/Data-repair GameDay, Postmortem and Phase English Interview.
-  Scope: run a representative incident, containment, rollback/forward repair, recovery verification,
-  append-only Postmortem and independent English defense.
+  Scope: versioned raw-input and expected-ledger Manifests, independent labels, critical business/security
+  slices, leakage checks, blind cases, provenance, review and change control.
+- Day115 — Deterministic and Calibrated Model-based Graders.
+  Scope: exact ledger arithmetic, reconciliation, anomaly, evidence/citation and abstention graders; freeze any
+  Judge Prompt/model/config/rubric, measure disagreement and prevent a Judge from approving security or release.
+- Day116 — Durable Import/Investigation Worker, Checkpoint, Resume and Recovery.
+  Scope: truthful `202`, Job/Step/Attempt identity, PostgreSQL claim/lease/fence, checkpoints, Outbox intent,
+  crash/restart, cancellation, idempotent redelivery and late-result retention.
+- Day117 — Bounded Real-model and Trajectory Evaluation Checkpoint.
+  Scope: run an authorized real Provider through the same typed application seams; save exact commit, dataset,
+  metric/evaluator, prompt/model/config, call/token/cost and limitation identities without storing secrets,
+  protected inputs, full Prompts or raw responses. Record every repeated-run identity, success definition and
+  failure taxonomy; compare capability-at-least-once with all-runs consistency without treating runs as
+  independent or letting aggregate quality compensate for a security violation.
+- Day118 — Tenant, Data and Agent Adversarial Security Evaluation.
+  Scope: tenant/current authorization, source eligibility, prompt injection, cross-tenant Tool results,
+  mid-run revocation, destination/egress, logs/telemetry minimization and non-compensable security hard gates.
+- Day119 — Approval-gated Sandbox Action Contract and UNKNOWN Reconciliation.
+  Scope: implement one allowlisted action contract and deterministic side-effect simulation such as
+  `PAUSE_CAMPAIGN`; bind exact HumanApproval, current authority, decision, intent, idempotency key, dispatch
+  result and reconciliation. Calling an external sandbox target is optional and separately authorized. Real
+  customer paths remain read-only unless separately authorized.
+- Day120 — Regression Matrix and CI Release-gate Checkpoint.
+  Scope: run ledger, API, Worker, Agent, security, migration and evidence-replay suites; bind a machine-readable
+  gate to exact commit/dataset/evaluator/configuration digests, with critical `FAIL`, `INCONCLUSIVE` or
+  `NOT_RUN` failing closed.
+- Day121 — OpenTelemetry and Cost/Quality Observability.
+  Scope: correlate ImportJob/Investigation/Step/Tool/Model/Action identities across safe logs, metrics and
+  traces; enforce attribute allowlists/cardinality budgets and measure latency, cost and quality together.
+- Day122 — Bounded Async Load, Backpressure and Capacity Diagnosis.
+  Scope: define workload/concurrency, distinguish queue wait from service time, measure PostgreSQL/Worker/
+  Provider saturation, validate admission/backpressure/recovery and avoid claiming production load/soak.
+- Day123 — Executable Commerce GameDay, Postmortem and Independent Defense Checkpoint.
+  Scope: inject a representative import, Provider or action-receipt failure; contain it, reconcile or forward
+  repair, verify recovery, retain append-only evidence and independently defend the failure path in English.
 
 Phase deliverable:
 
 ```text
-A versioned evaluation system with honest labels, deterministic graders, a calibrated optional Judge,
-exact trajectory identities, non-compensable security gates, machine CI decisions, OpenTelemetry,
-bounded load/security evidence and an executable incident GameDay.
+A versioned commerce evaluation system with honest labels, deterministic and calibrated optional graders,
+durable Worker/recovery evidence, bounded real-model/trajectory evaluation, non-compensable security gates, a
+deterministic lab-action contract, machine CI decisions, OpenTelemetry, bounded load evidence and an executable
+GameDay. Actual external sandbox execution remains optional and separately authorized.
 ```
 
 Validation requirement:
-IAA or κ may be claimed only with at least two independent human annotators; otherwise IAA is `NOT_RUN`.
-A model is not a second human annotator. A Judge may abstain but never independently approves security or
-release. Security requires zero violations across all observed runs and cannot be compensated by `pass@k`.
-Real Provider execution requires separate authorization and strict call/token/time/cost caps.
+IAA or κ may be claimed only with at least two independent human annotators; otherwise IAA is `NOT_RUN`. A
+model is not a second human annotator. A Judge may abstain but never independently approves ledger truth,
+security, release or action dispatch. Security requires zero violations across all observed runs and cannot be
+compensated by aggregate quality. Real Provider and any external sandbox-action execution each require separate
+authorization and strict call/token/time/cost or target/side-effect caps. Every Phase 7E execution remains
+`NOT_RUN` until its recorded command and evidence actually run.
 
 ---
 
-## Phase 8 — Cloud Integration, Operations and Employment Readiness (Day124–Day130)
+## Phase 8 — Cloud Integration, FDE Delivery and Employment Readiness (Day124–Day130)
 
 Status:
 Planned
 
 Objective:
-Turn the bounded ProofOps product into reproducible local and bounded-cloud portfolio evidence, operational
-measurements and independently defensible employment material without claiming that a public URL is
-production.
+Turn the bounded Commerce product into reproducible local and bounded-cloud evidence, a second-schema onboarding
+proof, an end-to-end forward-deployment drill and independently defensible employment material without claiming
+that a public URL or one reviewer equals production adoption.
 
 Knowledge connection:
 
 ```text
-ProofOps Runtime + Incident Domain + Evaluation/Safety/Ops
-    -> bounded cloud integration + operational evidence
+Commerce Ledger + Investigation Agent + Evaluation/Reliability/Safety/Ops
+    -> bounded cloud integration + reusable schema adapter + forward-deployment evidence
     -> portfolio + interviews + real job applications (Employment Readiness Gate)
 ```
 
-Future implementation remains in the separate `proofops/` product repository after explicit authorization.
-The existing `projects/final-capstone/` placeholder is not ProofOps implementation evidence.
+Future implementation remains in the separate `commerce-intelligence-agent/` product repository after explicit
+authorization. The existing `projects/final-capstone/` placeholder is not Commerce implementation evidence.
 
 Per-day topics (Topic + concise scope; each Status: Planned):
 
-- Day124 — Bounded Cloud Deployment Part 1: Managed PostgreSQL/pgvector, Secrets, Container Release and HTTPS.
-  Scope: deploy the exact Artifact with bounded cost/lifetime, protected secrets and recorded local-versus-cloud
-  configuration identities.
-- Day125 — Bounded Cloud Deployment Part 2: Configuration, Health Checks, SLI/SLO and Public Smoke Run.
-  Scope: readiness/liveness, bounded SLI/SLO verification and a safe smoke path; public remediation remains
-  disabled or isolated unless separately authorized.
-- Day126 — Observability Dashboard, Operational Runbook and Per-investigation Cost/Quality Checkpoint.
-  Scope: correlate the same run across traces/metrics/logs, publish safe operational evidence and run the
-  cumulative checkpoint.
-- Day127 — Runtime/Domain Interface Contract Proof, Reproducibility Audit and Portfolio Polish.
-  Scope: prove stable runtime/domain seams without building a second domain; verify clean-room reproduction,
-  English README, architecture diagram and a three-minute demo.
-- Day128 — AI Backend System Design and Timed Python/SQL Mock Interview.
-  Scope: explain the real Product/Runtime/authority/failure design and complete timed coding/SQL exercises.
-- Day129 — English Project Story, Behavioral STAR Bank, Résumé and Application Iteration.
-  Scope: evidence-backed project story, behavioral examples, résumé claims and real application feedback.
+- Day124 — Bounded Cloud Deployment: Managed Data, Secrets, Container Release and HTTPS.
+  Scope: deploy the exact Artifact with bounded cost/lifetime, protected secrets, migrations, health checks and
+  recorded local-versus-cloud configuration identities; the sandbox write action stays disabled by default.
+- Day125 — Second Commerce Schema Adapter and Onboarding Proof.
+  Scope: onboard one independently structured synthetic or safely authorized dataset through a new mapping
+  adapter without forking ledger logic; measure mapping/reconciliation effort and record unsupported fields.
+- Day126 — Public Smoke, Operational Runbook and Cumulative Operations Checkpoint.
+  Scope: run safe import/read/investigation smoke paths, verify readiness/liveness and bounded SLI/SLOs,
+  correlate operations evidence, exercise rollback/restore instructions and record exact limitations.
+- Day127 — Simulated Forward Deployment Drill: Discovery to Handoff.
+  Scope: rehearse stakeholder discovery, measurable success criteria, schema mapping, V1 demo, feedback-driven
+  revision, deployment, training, support and handoff; record real domain review only when obtained and keep
+  customer deployment/adoption `NOT_RUN` unless independently proven.
+- Day128 — FDE/AI Backend System Design and Timed Python/SQL/English Interview.
+  Scope: explain product, authority, metric, integration, failure and customer trade-offs and complete timed
+  coding, SQL and spoken system-design exercises.
+- Day129 — Portfolio, Demo, Behavioral STAR Bank, Résumé and Application Iteration.
+  Scope: package an evidence-backed case study, architecture, short Chinese/English demo, résumé claims and
+  application variants; use actual recruiter/interview feedback when available.
 - Day130 — Final Mock Interview, Portfolio Audit and Employment Readiness Gate Review.
   Scope: independent defense and separate Course Mastery, Artifact, Evidence, Repository and Job-readiness
   status. Reaching Day130 alone never creates completion.
 
-ProofOps portfolio evidence must include:
+Commerce portfolio evidence must include:
 
 ```text
-Problem statement · Architecture diagram · Runnable source code · Tests
-Evaluation dataset and report · Failure/recovery evidence · Security threat model
-Deployment evidence · Monitoring/observability · README and demo instructions
-English project explanation · System-design discussion · Resume bullets
+Discovery memo and measurable workflow · Metric contract · Data dictionary/schema mapping
+Source-to-ledger lineage and reconciliation report · Deterministic calculation evidence
+Architecture diagram · Runnable source code · Tests · Evaluation dataset/report
+Failure/recovery and security evidence · Reviewer feedback and V1→V2 change record
+Deployment/operations evidence · Monitoring · README/demo · English explanation · Résumé bullets
 ```
 
 Phase deliverable:
 
 ```text
-Reproducible local and bounded-cloud ProofOps evidence + an operational Runbook + cost/quality evidence +
-portfolio/demo assets + interview evidence + an honest Employment Readiness review. A second domain remains
-Post-Day130 Optional Backlog.
+Reproducible local and bounded-cloud Commerce evidence + two schema adapters + an operational Runbook +
+cost/quality evidence + a forward-deployment case study + portfolio/demo/interview assets + an honest
+Employment Readiness review.
 ```
 
 Validation requirement:
 Portfolio completion requires real saved evidence. A public URL proves only its recorded bounded-cloud scope;
-it is not `PRODUCTION` without production IAM, HA/restore, sustained load/soak, canary, real operational traffic
-and incident evidence. Cloud unavailability remains `NOT_RUN`, never a fabricated PASS. Reaching Day130 does
-not itself mean complete.
+domain-review feedback is not the same as customer adoption, and synthetic data is not customer production
+data. The Artifact is not `PRODUCTION` without production IAM, HA/restore, sustained load/soak, canary, real
+operational traffic and incident evidence. Cloud unavailability remains `NOT_RUN`, never a fabricated PASS.
+Reaching Day130 does not itself mean complete. At planning time every Phase 8 execution is `NOT_RUN`.
 
 ---
 
@@ -2494,33 +2535,38 @@ Completion of the AI Backend Employment Track is defined by passing this Gate, N
 day. At minimum the Gate requires:
 
 ```text
-1.  A runnable ProofOps product with one bounded incident-resolution path.
-2.  Real Async FastAPI and PostgreSQL/pgvector integration evidence.
-3.  Bounded Agent state, budgets, checkpoint/resume/cancellation and recovery.
-4.  One real Streamable-HTTP MCP integration without transferring authority to MCP.
-5.  ACL-aware retrieval and exact evidence identity.
-6.  Application-owned current authorization, security and release authority.
-7.  Exact HumanApproval plus one isolated idempotent remediation capability.
-8.  UNKNOWN reconciliation and bound recovery verification.
-9.  Deterministic, trajectory, adversarial and calibrated-Judge evaluation.
-10. Machine-enforced release gates.
-11. Latency, concurrency, cost and quality measurements.
-12. OpenTelemetry, failure, rollback and operational evidence.
+1.  A runnable Cross-Border Commerce Intelligence product with one import-to-investigation path.
+2.  A versioned import pipeline, schema mapping, validation and reconciliation.
+3.  An application-owned canonical ledger, MetricContract, independently verified contribution-margin
+    calculations and deterministic anomaly/abstention behavior.
+4.  Async FastAPI, PostgreSQL, Alembic and durable Job/Worker integration.
+5.  Bounded Agent state, typed Tools, budgets, checkpoint/resume/cancellation and failure recovery.
+6.  One real Streamable-HTTP MCP integration without transferring authority to MCP or the model.
+7.  ProviderAdapter plus deterministic replay and bounded real-model evidence.
+8.  Exact dataset/ledger/metric/anomaly/Tool/EvidenceBundle/report identities and current authorization.
+9.  Tenant isolation, Prompt/data security, disclosure and non-compensable release gates.
+10. Retry/idempotency/UNKNOWN reconciliation plus a deterministic sandbox-action contract; an actual external
+    write remains optional and separately authorized.
+11. Deterministic, trajectory, adversarial and calibrated-Judge evaluation with numeric-truth separation.
+12. Machine CI gates, OpenTelemetry, latency/concurrency/cost/quality and GameDay evidence.
 13. Reproducible local and bounded-cloud execution with honest execution labels.
-14. Python/SQL, system-design, English and behavioral interview capability.
-15. Portfolio, résumé and real application feedback.
+14. Discovery, feedback, V1-to-V2 iteration, handoff rehearsal and a reusable second-schema Adapter proof.
+15. Python/SQL, system-design, Chinese/English demo, behavioral stories, portfolio, résumé and application
+    feedback.
 ```
 
-Redis/Celery/Object Storage, Playwright, n8n, multi-agent and a second Provider/domain are not mandatory
-keywords. They may be added only when an observed requirement justifies them.
+Redis/Celery/Object Storage, Playwright, n8n, pgvector/RAG, multi-agent and a second Provider are not mandatory
+keywords. They may be added only when an observed Commerce requirement justifies them. A second schema adapter
+proves onboarding reuse; it is not a second product/domain.
 
 Decision 008 already permits honest limited applications based on completed evidence; applications do not
-have to wait for ProofOps V2. Day113 may expand ProofOps-targeted applications only if its runnable checkpoint,
-README, CI and evidence actually pass. Feedback then feeds back into Planned lessons.
+have to wait for the Commerce V0. Day113 may expand Commerce/FDE-targeted applications only if its runnable
+checkpoint, README, CI and evidence actually pass. Feedback then feeds back into Planned lessons.
 
 Honesty boundary: the curriculum improves job competitiveness but does not promise an offer; target roles are
-Junior / Developing AI Backend Engineer, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent
-products; completing the curriculum is not fabricated as Senior/Staff production experience.
+Junior / Developing AI Backend Engineer, Applied AI / Forward Deployed Engineer where experience requirements
+fit, AI Startup Backend Engineer, and Backend Engineer on LLM/RAG/Agent or data-intensive products. Completing
+the curriculum is not fabricated as customer production adoption or Senior/Staff experience.
 
 ---
 
@@ -2582,7 +2628,7 @@ days, not only Phase 4.)
 
 ---
 
-## Future Lesson Implementation Boundaries (Day50, Day54, Planned ProofOps Boundaries)
+## Future Lesson Implementation Boundaries (Day50, Day54, Planned Commerce Boundaries)
 
 These are confirmed implementation boundaries recorded ahead of time so a future teaching chat, lacking the
 current context, does not mis-scope, over-implement, or over-claim validation. They constrain scope and
@@ -2658,40 +2704,96 @@ Day54 Topic is unchanged.
 
 ### Day107 — planning and scope precede implementation
 
-Day107 begins only after explicit learner authorization. The separate `proofops` repository, async skeleton,
-database and MCP Server do not exist merely because Decision 025 planned them. First freeze the target user,
-five capabilities, four scenarios, authority boundaries, threat model and non-goals. A heavy Day107 coordinate
-may use several Tickets and calendar days, but it remains one mastery milestone.
+Day107 begins only after explicit learner authorization. The separate `commerce-intelligence-agent` repository,
+async skeleton, database, web application and MCP Server do not exist merely because the curriculum planned
+them. First freeze the target user/workflow, contribution-margin and anomaly contracts, success measures,
+source/metric/application authority, threat model, synthetic-data boundary and non-goals. A heavy Day107
+coordinate may use several Tickets and calendar days, but it remains one mastery milestone.
 
-### Day113 — independent runnable checkpoint
+### Day110 — deterministic business-truth checkpoint
 
-Day113 requires an actual cumulative V0–V2 run plus a no-AI implementation/debugging check. Static contracts,
-teacher-authored code or an architecture diagram cannot pass the checkpoint. Saved evidence must identify the
-exact revision, config, runtime boundary, commands, results and unexecuted limitations.
+Day110 requires an actual source-to-ledger-to-metric execution with independently checked arithmetic,
+reconciliation totals, lineage and anomaly inputs. A model explanation, SQL query alone or hand-written report
+cannot pass. The canonical ledger remains the authority for numbers; the model may not fill missing business
+facts or silently choose a more favorable metric definition.
 
-### Day116 — Judge and IAA honesty
+### Day113 — V0, reviewer feedback and independent runnable checkpoint
+
+Day113 requires an actual cumulative import-to-investigation V0 plus a no-AI implementation/debugging check.
+It must preserve an explicitly labeled simulated stakeholder review and the resulting accepted/rejected change
+decisions. A real `DOMAIN_USER_REVIEW` is additional evidence only when an independent commerce reviewer
+actually participates; otherwise it remains `NOT_RUN` and does not block the technical V0 checkpoint.
+Synthetic or reviewed data must not be relabeled as real customer data, deployment or adoption. Static
+contracts, teacher-authored code or an architecture diagram cannot pass. Saved evidence must identify the exact
+revision, config, runtime boundary, commands, results and unexecuted limitations.
+
+### Day115 — grader, Judge and IAA honesty
 
 IAA or κ requires at least two independent human annotators; an LLM is not the second human. Without that
 boundary, IAA stays `NOT_RUN`. The Judge freezes Prompt/model/config/rubric, supports abstention and cannot
-independently approve a security hard gate or release.
+independently approve ledger truth, a security hard gate, release or action dispatch.
 
-### Day118 — repeated-run metrics
+### Day117 — bounded real-model checkpoint
 
-Record every run identity, seed/configuration, attempt count, success definition and failure taxonomy. Do not
-assume Agent runs are independent or cherry-pick successful attempts. `pass@k` capability cannot compensate
-for an observed security violation; hard invariants require zero violations across all observed runs.
+A real-model run requires separate authorization plus strict call, token, time and cost caps. The same typed
+application and evidence gates used by replay must run; a Provider-specific side path is not acceptable. Saved
+evidence excludes credentials, full Prompts, protected commerce rows and raw model responses, and it never
+upgrades unexecuted customer, security, load, cloud or production scope.
 
-### Day124–Day125 — bounded cloud is not production
+Before the call, Provider egress allowlisting, current authorization, Prompt/data minimization and disclosure
+preflight must pass. Use deterministic synthetic/test-tenant data only; customer PII, Secrets, raw order
+payloads and unnecessary identifiers are forbidden. Day118 expands adversarial coverage—it is not the first
+time security boundaries are established.
+
+### Day119 — sandbox action remains separate from customer release
+
+The required learning Artifact is one allowlisted action contract with deterministic side-effect simulation.
+Any external sandbox call is optional and requires exact current authorization, HumanApproval,
+candidate/action/environment/policy binding, expiry, idempotency, durable Decision/Intent, dispatch evidence,
+UNKNOWN reconciliation and recovery verification. A timeout or missing receipt never proves non-execution.
+Customer-facing paths remain read-only by default; real account action needs separate authority.
+
+### Day120 — CI checkpoint does not rerun every real boundary
+
+CI must bind its gate to the exact commit, datasets, migrations, graders and configuration it ran. Content-safe
+replay of saved real-model or database evidence proves artifact integrity and internal consistency, not that CI
+re-executed the external Provider, local Docker stack, reviewer feedback, cloud, load or production boundary.
+
+### Day123 — GameDay checkpoint preserves business truth
+
+Failure injection, rollback and forward repair append new evidence; they never rewrite source imports, canonical
+ledger entries, earlier metric results, model candidates or decisions. A recovery PASS requires a verified
+post-recovery state bound to the exact failed Job/Attempt/action identity and does not erase the incident.
+
+### Day124 — bounded cloud is not production
 
 Managed infrastructure, HTTPS and a public smoke run prove only their exact bounded cloud/integration scope.
 They do not prove production IAM, HA/restore, sustained load/soak, canary, real traffic or incident response.
-Public remediation remains disabled or isolated unless separately authorized and verified.
+The sandbox action remains disabled by default unless separately authorized and verified.
 
-### Day127 — no second domain in the mainline
+### Day125 — a second schema adapter is reuse evidence, not a second domain
 
-Runtime reuse is demonstrated through stable runtime/domain interfaces, replaceable adapters and contract
-tests. A finance or other second Domain Pack remains Post-Day130 Optional Backlog and cannot displace portfolio,
-reproducibility or weak-point repair before the Employment Readiness review.
+The second adapter must translate a genuinely different commerce input schema into the same versioned canonical
+contracts without forking ledger arithmetic. It must record mapping gaps, rejected rows and reconciliation.
+Synthetic or anonymized inputs remain labeled as such; adapter success does not prove a production connector.
+
+### Day126 — smoke and operations checkpoint
+
+The checkpoint must reproduce the deployed revision from documented commands, run bounded import/read/
+investigation smoke paths, verify safe observability and exercise the recorded rollback/restore procedure.
+Public reachability alone is not availability, adoption, production readiness or a checkpoint PASS.
+
+### Day127 — forward deployment evidence requires feedback and handoff
+
+The drill must cover discovery, measurable success criteria, integration/schema decisions, a V1 demonstration,
+feedback-driven revision, deployment, user training, support and handoff. Simulated stakeholder dialogue must be
+marked simulated; a real domain review is useful evidence but not automatically customer adoption or revenue.
+
+### Day130 — the Gate is evidence-based
+
+Day130 reviews the exact Day110/Day113/Day117/Day120/Day123/Day126 checkpoint chain plus independent interview
+evidence. Reaching the day number, merging planning documentation or presenting a polished demo cannot turn any
+`FAIL`, `INCONCLUSIVE` or `NOT_RUN` hard requirement into PASS.
 
 ---
 
