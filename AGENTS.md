@@ -73,16 +73,16 @@ Current state:
   recovery, physical purge,
   production-size load, zero-downtime production migration, operations and production traffic remain NOT RUN;
   production readiness MORE_EVIDENCE_NEEDED).
-- Current / Next Lesson: Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async
-  DB/pgvector Skeleton (Phase 7D; Planned / not started).
+- Current / Next Lesson: Day107 — Customer Discovery, Scope Freeze, Metric Contracts, Threat Model and
+  Product Repository Skeleton (Phase 7D; Planned / not started).
 - Day88 used guided evidence review. Production Provider/Tool/parser/PostgreSQL/Broker/Worker/Object Storage,
   container/bundled distribution and production integration gates remain NOT EVALUATED /
   MORE_EVIDENCE_NEEDED.
 - Current phase: Phase 7C — Production RAG Engineering is COMPLETE at guided classroom scope; the revised
-  ProofOps Phase 7D is next and remains Planned / not started.
+  Cross-Border Commerce Intelligence Phase 7D is next and remains Planned / not started.
 
 Future direction (competency-gated, NOT day-count-gated; Day130 is the current planning horizon, not a
-permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008/025 in DECISIONS.md):
+permanent cap; see ROADMAP.md, CURRICULUM.md, and Decisions 006/007/008/025/026 in DECISIONS.md):
 
 ```text
 Day59–61 Production Integration Gate
@@ -91,9 +91,9 @@ Day59–61 Production Integration Gate
 -> Day71–78 LLM Application Engineering
 -> Day79–94 Agent Runtime + MCP
 -> Day95–106 Production RAG
--> Day107–113 ProofOps Core Runtime and Bounded Incident Resolution
--> Day114–123 Evaluation, Safety and Operations on ProofOps
--> Day124–130 Cloud Integration, Operations and Employment Readiness
+-> Day107–113 Commerce Data Foundation and Evidence-Grounded Investigation
+-> Day114–123 Evaluation, Safety and Forward Deployment on Commerce Intelligence
+-> Day124–130 Cloud Integration, FDE Delivery and Employment Readiness
 -> Employment Readiness Gate
 ```
 
@@ -102,9 +102,13 @@ Notes:
 - Completion is competency-gated (the Employment Readiness Gate), not reaching a fixed day.
 - Day87 runs the Agent Framework / Job-Market Refresh; Day88 selects the framework, behind a replaceable
   adapter (not pre-locked; LangGraph is a candidate only).
-- Day59–Day106 are complete at their recorded evidence/classroom levels. Decision 025 is a
-  `CONCEPTUAL_STATIC` planning change only: `proofops` does not yet exist and every Day107+ runtime/integration/
-  production scope is `NOT_RUN`. Day107 is current/next but Planned / not started; do not skip ahead.
+- Day59–Day106 are complete at their recorded evidence/classroom levels. Decision 026 supersedes only the
+  Planned Day107+ product direction and is a `CONCEPTUAL_STATIC` planning change: the future independent
+  `commerce-intelligence-agent` repository does not yet exist, and every Day107+ runtime, integration, cloud
+  and production scope is `NOT_RUN`. Day107 is current/next but Planned / not started; do not skip ahead.
+- Before the learner explicitly starts Day107, do not create the product repository, run a Provider, start
+  Docker/infrastructure or claim any Commerce execution evidence. This handbook remains the curriculum,
+  mastery and historical-evidence source of truth; completed Day01–Day106 records are unchanged.
 - After Day107 explicitly begins, use Ticket + PR + DoD with dynamic Type A/Type B teaching. Day coordinates
   are mastery milestones and may span multiple calendar days. Planning documents never create runnable
   evidence, and teacher/AI-provided work never counts as independent mastery without learner verification.

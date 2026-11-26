@@ -9,6 +9,30 @@ This project follows a practical versioning style:
 
 ---
 
+## Unreleased — Planned Day107–Day130 Commerce/FDE Curriculum Reorganization
+
+Date: 2026-11-26
+
+Added Decision 026 to supersede only the unexecuted ProofOps product scope from Decision 025. The
+Day107–Day130 flagship is **Cross-Border Commerce Intelligence Agent — Evidence-Grounded
+Contribution-Margin
+& Anomaly Investigator**. The future sequence now covers a versioned commerce import pipeline, application-
+owned canonical ledger, deterministic contribution-margin metrics, bounded Agent investigation, evaluation
+and security, durable Worker/recovery, bounded cloud delivery and a complete Forward Deployment exercise.
+
+Decision 025 remains immutable historical planning evidence. Its Ticket + PR + DoD delivery model,
+Micro-Socratic Type A/Type B teaching, learner ownership, evidence honesty and separate product-repository
+boundary remain active. Planned runnable checkpoints are Day110, Day113, Day117, Day120, Day123, Day126 and
+Day130.
+
+This is a `CONCEPTUAL_STATIC` planning change only. Day01–Day106, Decisions 001–025 and all sealed evidence
+remain unchanged. Day107 is still `Planned / not started`; the future `commerce-intelligence-agent`
+repository does not exist, and no lesson implementation, Provider call, Docker/database execution, evaluation,
+cloud deployment, customer adoption or production evidence was created. All Day107+ execution scopes remain
+`NOT_RUN`.
+
+---
+
 ## Unreleased — Day106 Independent English Verification
 
 Date: 2026-11-24

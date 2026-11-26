@@ -66,7 +66,7 @@ Last completed lesson:
 
 Current / next lesson:
 
-* Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+* Day107 — Customer Discovery, Scope Freeze, Metric Contracts, Threat Model and Product Repository Skeleton
   (Phase 7D; planned / not started)
 
 Future direction (Day43 onward, competency-gated, current planning horizon ~Day130 — see `ROADMAP.md` and `CURRICULUM.md`):
@@ -77,16 +77,20 @@ Future direction (Day43 onward, competency-gated, current planning horizon ~Day1
 * Phase 7A — LLM Application Engineering (Day71–Day78)
 * Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94; Framework/Job-Market Refresh at Day87, framework chosen Day88 behind a replaceable adapter)
 * Phase 7C — Production RAG Engineering (Day95–Day106)
-* Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution (Day107–Day113)
-* Phase 7E — Evaluation, Safety and Operations on ProofOps (Day114–Day123)
-* Phase 8 — Cloud Integration, Operations and Employment Readiness (Day124–Day130)
+* Phase 7D — Commerce Data Foundation and Evidence-Grounded Investigation (Day107–Day113)
+* Phase 7E — Evaluation, Safety and Forward Deployment on Commerce Intelligence (Day114–Day123)
+* Phase 8 — Cloud Integration, FDE Delivery and Employment Readiness (Day124–Day130)
 
 The roadmap is competency-gated, not day-count-gated: the lesson numbers are planning coordinates, and
 completion is defined by passing the Employment Readiness Gate, not by reaching a fixed final day.
 
-Decision 025 is a planning-only change: ProofOps has not been created or run, and Day107 remains planned. Once
-Day107 explicitly begins, delivery switches to Ticket + PR + DoD with dynamic Micro-Socratic Type A/Type B
-teaching. A heavy Day coordinate may span multiple calendar days; calendar passage never creates mastery.
+Decision 026 is a planning-only change that supersedes only the Planned Day107+ product direction. The future
+independent `commerce-intelligence-agent` repository has not been created or run, Day107 remains planned, and
+all Day107+ runtime, integration, cloud and production scopes remain `NOT_RUN`. Until the learner explicitly
+starts Day107, do not create that repository or run Provider/Docker infrastructure. Once Day107 explicitly
+begins, delivery switches to Ticket + PR + DoD with dynamic Micro-Socratic Type A/Type B teaching. A heavy Day
+coordinate may span multiple calendar days; calendar passage never creates mastery. This handbook remains the
+curriculum, mastery and historical-evidence source of truth; completed Day01–Day106 records are unchanged.
 
 The final goal remains becoming an overseas AI Backend Engineer with a runnable, deployable, verifiable
 portfolio. This builds capability and evidence; it does not guarantee a job.

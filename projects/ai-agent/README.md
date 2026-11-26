@@ -1217,8 +1217,12 @@ response transcript is committed, and this assessment does not change runtime or
 
 ## Future Milestones
 
-- Begin Day107 ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
-  without upgrading the bounded Day106 evidence scope.
+- After explicit learner authorization, begin Day107 Customer Discovery, Scope Freeze, Metric Contracts,
+  Threat Model and Product Repository Skeleton without upgrading the bounded Day106 evidence scope.
+- Decision 026 is planning-only: the future independent `commerce-intelligence-agent` repository has not been
+  created, and all Day107+ runtime, integration, cloud and production scopes remain `NOT_RUN`. Until Day107 is
+  explicitly started, do not create that repository or run Provider/Docker infrastructure. This handbook
+  remains the curriculum, mastery and historical-evidence source of truth.
 - Independently assess Day83–Day86 final synthesis and review seed expectations before a release gate.
 - Validate broader real auth/queue/Worker integration; HA,
   restore and optional external-Provider gates remain NOT RUN.

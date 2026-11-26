@@ -4,8 +4,8 @@
 
 Phase 7A — LLM Application Engineering, Phase 7B — Agent Runtime and MCP Engineering, and Phase 7C —
 Production RAG Engineering are COMPLETE at guided classroom scope through Day106.
-The revised Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution — is next and remains Planned /
-not started.
+The revised Phase 7D — Commerce Data Foundation and Evidence-Grounded Investigation — is next and remains
+Planned / not started.
 
 Day59–Day106 are complete at their recorded classroom/evidence levels. Day106 composes the Day95–Day105
 authority boundaries into one deterministic Level 2 request, release and recovery checkpoint without creating
@@ -34,15 +34,18 @@ Phase 7C — Production RAG Engineering (Complete at guided classroom scope; pro
 
 ## Current Lesson
 
-Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+Day107 — Customer Discovery, Scope Freeze, Metric Contracts, Threat Model and Product Repository Skeleton
 (Phase 7D) — planned / not started.
 Most recent classroom lesson: Day106 — Production RAG Capstone and English Interview.
 
-Decision 025 reorganizes Planned Day107–Day130 only. This is `CONCEPTUAL_STATIC` planning: no `proofops`
-repository, future lesson/code, Provider call, Docker/database/cloud run, evaluation result or production
-evidence exists. All Day107+ execution scopes remain `NOT_RUN`. The original Day106 teacher-provided English
+Decision 026 supersedes only the Planned Day107+ product direction. This is `CONCEPTUAL_STATIC` planning: the
+future independent `commerce-intelligence-agent` repository has not been created, and no future lesson/code,
+Provider call, Docker/database/cloud run, evaluation result or production evidence exists. All Day107+
+runtime, integration, cloud and production scopes remain `NOT_RUN`. Until the learner explicitly starts
+Day107, do not create the product repository or run Provider/Docker infrastructure. The handbook remains the
+curriculum, mastery and historical-evidence source of truth. The original Day106 teacher-provided English
 answer remains historical `TAUGHT_NOT_VERIFIED` evidence; a later independent verification passed on
-2026-11-24.
+2026-11-24, and all completed Day01–Day106 records remain unchanged.
 
 Day106 instructional coverage and course/mastery checkpoint are `PASS` at the recorded scope after the later
 independent English verification. Its repository checkpoint composes one exact request identity through the
@@ -880,7 +883,7 @@ Completed Work:
 
 ## Next
 
-- Day107 — ProofOps Scope Freeze, Threat Model, Two-layer Architecture and Async DB/pgvector Skeleton
+- Day107 — Customer Discovery, Scope Freeze, Metric Contracts, Threat Model and Product Repository Skeleton
   (Phase 7D)
 
 Status:
@@ -892,7 +895,7 @@ Planned / Not started
 
 The Day43-onward curriculum is one AI Backend capability chain, competency-gated
 (completion = passing the Employment Readiness Gate, not reaching a fixed day; current
-planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008/025 in
+planning horizon ~Day130) (see `CURRICULUM.md`, `ROADMAP.md`, and Decisions 006/007/008/025/026 in
 `DECISIONS.md`). Phases 4–7C are completed foundations at their recorded evidence levels; only Day107–Day130
 below remains Planned. No Day107+ lesson, code or product repository was created by the planning update.
 
@@ -902,12 +905,16 @@ below remains Planned. No Day107+ lesson, code or product repository was created
 - Phase 7A — LLM Application Engineering (Day71–Day78): replaceable Provider adapter + prompt contracts/versioning + structured output/function calling + streaming/caching/batching + model routing/cost + fake-Provider tests.
 - Phase 7B — Agent Runtime and MCP Engineering (Day79–Day94): framework-agnostic agent runtime (loop, tools/permissions, state/budgets, durability, human approval, memory boundary, multi-agent, security); Framework/Job-Market Refresh at Day87; framework chosen Day88 behind a replaceable adapter; MCP client/server + auth + tenant isolation + remote lifecycle.
 - Phase 7C — Production RAG Engineering (Day95–Day106): ingestion/parsing + chunking + metadata/tenant/ACL/provenance + embeddings/index + hybrid retrieval/filtering + query rewriting/re-ranking + grounding/citations + retrieval/answer evaluation + index migration + RAG security.
-- Phase 7D — ProofOps Core Runtime and Bounded Incident Resolution (Day107–Day113): two-layer Runtime/domain
-  architecture, real async seams, five typed capabilities, durable recovery and one isolated approved action.
-- Phase 7E — Evaluation, Safety and Operations on ProofOps (Day114–Day123): governed datasets, deterministic
-  and calibrated Judge evaluation, trajectory/adversarial tests, CI gates, OTel, bounded load and GameDay.
-- Phase 8 — Cloud Integration, Operations and Employment Readiness (Day124–Day130): bounded cloud evidence,
-  operational proof, reproducibility, portfolio, coding/system-design/English interviews and readiness review.
+- Phase 7D — Commerce Data Foundation and Evidence-Grounded Investigation (Day107–Day113): customer discovery,
+  metric contracts, versioned imports, an application-owned canonical commerce ledger, deterministic margin
+  calculations and a bounded evidence-grounded investigation Agent.
+- Phase 7E — Evaluation, Safety and Forward Deployment on Commerce Intelligence (Day114–Day123): governed
+  synthetic datasets, metric/grounding/trajectory evaluation, tenant and disclosure controls, durable recovery,
+  CI gates, OTel, bounded load, a deterministic sandbox-action contract with optional external execution and a
+  schema-drift GameDay.
+- Phase 8 — Cloud Integration, FDE Delivery and Employment Readiness (Day124–Day130): bounded cloud evidence,
+  reusable customer-schema onboarding, operational proof, reproducibility, portfolio,
+  coding/system-design/English interviews and readiness review.
 
 Employment-readiness boundary: the curriculum builds core AI Backend capability and portfolio evidence but
 does not guarantee a job; target roles are Junior / Developing AI Backend Engineer, AI Startup Backend
